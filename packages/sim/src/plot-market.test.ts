@@ -182,6 +182,15 @@ describe("a listed plot is frozen", () => {
     ["ada", { type: "set_gallery", px: 0, py: 0, open: true }],
     ["ada", { type: "name_plot", px: 0, py: 0, name: "Ada's Corner" }],
     ["ada", { type: "display", item: "i_1", x: 2, y: 2 }],
+    ["ada", { type: "put_on", x: 2, y: 2, item: "candle" }],
+    ["ada", { type: "take_off", x: 2, y: 2 }],
+    ["ada", { type: "hang", x: 2, y: 2, side: "n", item: "mirror" }],
+    ["ada", { type: "unhang", x: 2, y: 2, side: "n" }],
+    // Walls between tiles (RFC 0050).
+    ["ada", { type: "place", x: 2, y: 2, side: "n", block: "wood" }],
+    ["ada", { type: "remove", x: 2, y: 2, side: "n" }],
+    ["ada", { type: "build", px: 0, py: 0, edges: [{ x: 2, y: 2, side: "n", block: "wood" }] }],
+    ["ada", { type: "slim_walls", px: 0, py: 0, remove: [{ x: 1, y: 1 }], edges: [] }],
     [
       "ada",
       {
@@ -195,6 +204,7 @@ describe("a listed plot is frozen", () => {
       },
     ],
     [TOWN_ACTOR, { type: "clear_block", x: 1, y: 1 }],
+    [TOWN_ACTOR, { type: "clear_block", x: 2, y: 2, side: "n" }],
     [TOWN_ACTOR, { type: "open_way", tiles: [[0, 7]] }],
     [
       TOWN_ACTOR,

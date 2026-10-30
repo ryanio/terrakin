@@ -98,6 +98,30 @@ function inputs(id: string, day: number): [string, Command][] {
     ada({ type: "lay", x: 1, y: 1, floor: id, ground: "dirt" } as unknown as Command),
     ada({ type: "lift", x: 1, y: 1, floor: id } as unknown as Command),
     ada({ type: "add_floor", px: id, py: 0 } as unknown as Command),
+    // Things on surfaces and walls (RFC 0050): an item, a side, and a floor are input.
+    ada({ type: "put_on", x: 1, y: 1, item: id }),
+    ada({ type: "put_on", x: 1, y: 1, floor: id, item: "candle" } as unknown as Command),
+    ada({ type: "take_off", x: 1, y: 1, floor: id } as unknown as Command),
+    ada({ type: "hang", x: 2, y: 2, side: "n", item: id }),
+    ada({ type: "hang", x: 2, y: 2, side: id, item: "mirror" } as unknown as Command),
+    ada({ type: "unhang", x: 2, y: 2, side: id } as unknown as Command),
+    // A wall between tiles (RFC 0050): its side and its block are input.
+    ada({ type: "place", x: 2, y: 2, side: id, block: "wood" } as unknown as Command),
+    ada({ type: "remove", x: 2, y: 2, side: id } as unknown as Command),
+    ada({ type: "place", x: 2, y: 2, side: "n", block: id } as Command),
+    ada({
+      type: "build",
+      px: 0,
+      py: 0,
+      edges: [{ x: 1, y: 1, side: id, block: "wood" }],
+    } as unknown as Command),
+    ada({
+      type: "slim_walls",
+      px: 0,
+      py: 0,
+      remove: [],
+      edges: [{ x: 1, y: 1, side: "n", block: id }],
+    } as unknown as Command),
     // A roof's style and covering come from input too (RFC 0041), and neither is ever a key.
     ada({ type: "set_roof", px: 0, py: 0, style: id, material: "wood" } as unknown as Command),
     ada({ type: "set_roof", px: 0, py: 0, style: "gable", material: id } as unknown as Command),

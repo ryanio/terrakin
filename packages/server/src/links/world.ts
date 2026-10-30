@@ -1,6 +1,5 @@
 import {
   type ErrorCode,
-  MOVE_MAX_STEPS,
   ROUTINE_RULES,
   type RoutineChoice,
   residentLinks,
@@ -56,6 +55,7 @@ import { gardenOf } from "../items";
 import { plural } from "../markdown";
 import { shownPlotName } from "../plots";
 import { awayLine } from "../routines";
+import { planWalkTo, walkLegs } from "../walk-to";
 import {
   gatherable,
   homeStep,
@@ -137,8 +137,17 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
     ...(map.floors.length > 1 ? [f.floor === 0 ? "ground floor" : `floor ${f.floor}`] : []),
     `${"blocks".padEnd(f.blocks[0]?.length ?? 0)}    ground`,
     ...f.blocks.map((row, y) => `${row}    ${f.ground[y] ?? ""}`),
+    // Walls between tiles (RFC 0050), drawn on the lines of a grid twice as fine.
+    ...(f.edges ? ["", "walls between tiles", ...f.edges] : []),
   ]);
-  const used = new Set(map.floors.flatMap((f) => [...f.blocks.join(""), ...f.ground.join("")]));
+  const lined = map.floors.some((f) => f.edges);
+  const used = new Set(
+    map.floors.flatMap((f) => [
+      ...f.blocks.join(""),
+      ...f.ground.join(""),
+      ...(f.edges ?? []).join("").replace(/[+D ]/g, ""),
+    ]),
+  );
   const key = [...used]
     .filter((c) => MAP_WORDS[c])
     .map((c) => `\`${c}\` ${MAP_WORDS[c]}`)
@@ -150,6 +159,12 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
     `## ${title}`,
     "",
     `Each row is a row of tiles, north at the top, \`.\` open${key.length > 0 ? `: ${key.join(", ")}` : ""}.`,
+    ...(lined
+      ? [
+          "",
+          "Under walls between tiles, each tile is the character between two lines and `+` marks a corner: a letter on a line is a wall there, `D` a door, and a space no wall.",
+        ]
+      : []),
     "",
     "```text",
     ...rows,
@@ -190,18 +205,11 @@ function freePlotsNear(state: WorldState, x: number, y: number, count: number) {
 }
 
 /**
- * The move links that bring `to` within reach of `from`, around whatever is in the way: the sim's
- * `walkLegsTo`, the walk its refusals name, each link at most `MOVE_MAX_STEPS` steps. Empty when
- * no walk gets there.
+ * The walk-to link that brings `to` within reach of `from`, around whatever is in the way (decision
+ * 0405), or undefined when no walk gets there: the sim's `walkLegsTo`, the walk its refusals name.
  */
-function walkLinks(state: WorldState, l: Links, from: Tile, to: Tile, reach: number): string[] {
-  const links: string[] = [];
-  for (const [dir, steps] of walkLegsTo(state, from, to, reach) ?? []) {
-    for (let left = steps; left > 0; left -= MOVE_MAX_STEPS) {
-      links.push(l.move(dir, Math.min(left, MOVE_MAX_STEPS)));
-    }
-  }
-  return links;
+function walkLink(state: WorldState, l: Links, from: Tile, to: Tile, reach: number) {
+  return walkLegsTo(state, from, to, reach) === undefined ? undefined : l.walkTo(to.x, to.y, reach);
 }
 
 /**
@@ -223,9 +231,9 @@ function nothingToGather(state: WorldState, r: Resident, l: Links): { why: strin
       next: `Look around: ${l.world}`,
     };
   }
-  const walk = walkLinks(state, l, r, near, config.reach);
+  const walk = walkLink(state, l, r, near, config.reach);
   const what = `${why} The nearest one you may take is ${kind === RECIPE_PAGE ? "a recipe page" : countOf(kind, 1)} at ${at(near)}.`;
-  if (walk.length === 0) {
+  if (!walk) {
     return {
       why: `${what} There's no walk from where you stand to it: walls close you in. Take a wall away to open a way.`,
       next: `Look around: ${l.world}`,
@@ -234,9 +242,9 @@ function nothingToGather(state: WorldState, r: Resident, l: Links): { why: strin
   return {
     why: what,
     next: list([
-      `Walk there with ${walk.length === 1 ? "this link" : "these links, in order"}, then open the gather link again:`,
+      "Walk there with this link, then open the gather link again. A long walk may take it more than once:",
       "",
-      ...walk.map((link) => `- ${link}`),
+      `- ${walk}`,
       "",
       `Gather: ${l.gather}`,
     ]),
@@ -292,6 +300,7 @@ export function worldLinks(
   | "linkBuildHome"
   | "linkHome"
   | "linkMove"
+  | "linkWalkTo"
   | "linkPutter"
   | "linkGather"
   | "linkThings"
@@ -388,6 +397,7 @@ export function worldLinks(
           "## Things to do here",
           "",
           `- Walk: ${l.moveAny}`,
+          `- Walk to a tile, round whatever is in the way: ${l.walkToAny}`,
           `- Say something to residents nearby: ${l.say}`,
         ]),
       );
@@ -506,6 +516,31 @@ export function worldLinks(
         `You walked ${moved} of ${steps} ${steps === 1 ? "step" : "steps"} ${way}. You're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         stop && `Stopped early: ${stop.message} (code \`${stop.code}\`)`,
         `Keep going: ${l.move(dir, steps)}`,
+      );
+    },
+
+    linkWalkTo: ({ viewer, params, query, origin }) => {
+      const l = linksFor(origin, params.key);
+      const near = query.near ?? 0;
+      const to = { x: query.x, y: query.y };
+      // The walk `walk_to` takes (decision 0405), each step one more action after the first.
+      const planned = planWalkTo(state, viewer, to, near);
+      if ("code" in planned) {
+        return turnedDown({ ok: false, error: planned }, `Look around: ${l.world}`);
+      }
+      service.arrive(viewer, "move");
+      const step = paidSteps(viewer);
+      const walk = walkLegs(planned.legs, (dir) => step({ type: "move", dir }));
+      if ("refused" in walk) return turnedDown(walk.refused, `Look around: ${l.world}`);
+      const r = resident(viewer);
+      if ("error" in r) return r;
+      return answer(
+        r,
+        l,
+        walk.arrived ? "# Walked there" : "# Walked",
+        `You walked ${plural(walk.walked, "step")} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+        walk.stopped && `Stopped early: ${walk.stopped.message} (code \`${walk.stopped.code}\`)`,
+        !walk.arrived && `Keep going: ${l.walkTo(to.x, to.y, near)}`,
       );
     },
 

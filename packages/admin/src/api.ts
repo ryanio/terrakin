@@ -30,6 +30,7 @@ import {
   StaffSigninLinkResponse,
   TownsfolkActivityResponse,
 } from "@terrakin/protocol";
+import type { Side } from "@terrakin/sim";
 import { makeRequest, query, type Result } from "@terrakin/ui/http";
 
 export type { Result };
@@ -142,8 +143,19 @@ export const api = {
       dry,
     }),
   shutHomes: () => request("GET", "/v1/admin/shut-homes", ShutHomesResponse),
-  clearBlock: (x: number, y: number, reason: string, dry: boolean) =>
-    request("POST", "/v1/admin/clear-block", StaffClearBlockResponse, { x, y, reason, dry }),
+  /** Clear the block at (x, y), or with `side` the wall between tiles on that line (RFC 0050). */
+  clearBlock: (
+    at: { x: number; y: number; side?: Side | undefined },
+    reason: string,
+    dry: boolean,
+  ) =>
+    request("POST", "/v1/admin/clear-block", StaffClearBlockResponse, {
+      x: at.x,
+      y: at.y,
+      ...(at.side ? { side: at.side } : {}),
+      reason,
+      dry,
+    }),
   confirmBounty: (id: string, to: string) =>
     request("POST", path("/v1/admin/bounties/{id}/confirm", id), StaffBountyResponse, { to }),
   reopenBounty: (id: string, reason: string) =>

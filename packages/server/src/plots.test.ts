@@ -297,9 +297,14 @@ describe("walking onto a plot (decision 0092)", () => {
 });
 
 describe("plots to visit over HTTP", () => {
-  async function start() {
+  async function start(options: { days?: boolean; items?: boolean } = {}) {
     let now = NOON;
-    const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
+    const service = new WorldService({
+      store: new MemoryStore(),
+      config: CONFIG,
+      now: () => now,
+      ...options,
+    });
     const sql = nodeSql();
     const media = new MemoryMediaStore();
     const social = new SocialService({
@@ -517,6 +522,33 @@ describe("plots to visit over HTTP", () => {
     expect(await listed()).toMatchObject({ visitors: 1, admirers: 0 });
     expect((await t.call("POST", "/v1/plots/0/0/admire", undefined, wren.token)).status).toBe(201);
     expect(await listed()).toMatchObject({ visitors: 1, admirers: 1 });
+  });
+
+  it("counts how furnished a home is, in the list and one plot's read, and says nothing for a bare hut", async () => {
+    const t = await start({ days: true, items: true });
+    const ivy = t.join("Ivy");
+    await t.act(ivy.token, { type: "settle", px: 0, py: 0 });
+    await t.act(ivy.token, { type: "build_starter_home" });
+    const one = async () => (await t.call("GET", "/v1/plots/0/0")).body.plot as Json;
+    expect(await one()).not.toHaveProperty("furnished");
+    expect((await t.plots())[0]).not.toHaveProperty("furnished");
+
+    // Inside the hut (walls (1, 1) to (5, 5), Ivy at her hearth at (3, 3)): a table with a candle
+    // on it, two chairs, and a clock on the east wall.
+    t.service.testGrant(ivy.id, undefined, { table: 1, chair: 2, candle: 1, wall_clock: 1 });
+    for (const action of [
+      { type: "place", x: 2, y: 2, block: "table" },
+      { type: "put_on", x: 2, y: 2, item: "candle" },
+      { type: "place", x: 4, y: 2, block: "chair" },
+      { type: "place", x: 4, y: 3, block: "chair" },
+      { type: "hang", x: 4, y: 4, side: "e", item: "wall_clock" },
+    ]) {
+      expect(await t.act(ivy.token, action), JSON.stringify(action)).toMatchObject({ ok: true });
+    }
+    const furnished = { pieces: 3, onShow: 2, kinds: 4 };
+    expect(await one()).toMatchObject({ furnished });
+    t.advance(PLOT_LIST_MS);
+    expect((await t.plots())[0]).toMatchObject({ furnished });
   });
 
   it("says what is new on a plot in one line, from a day's changes, for a week", async () => {

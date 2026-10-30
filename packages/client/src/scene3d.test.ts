@@ -419,7 +419,12 @@ describe("homes with an upstairs in 3D (RFC 0028)", () => {
       animate: () => () => {},
       reducedMotion: true,
     } as unknown as Stage;
-    const shared = { plank: new Texture(), stone: new Texture(), pool: new Texture() };
+    const shared = {
+      plank: new Texture(),
+      stone: new Texture(),
+      pool: new Texture(),
+      wall: () => new Texture(),
+    };
     const down: LayoutBlock[] = (
       ["wood", "stone", "glass", "leaf", "chair", "fence", "stairs"] as const
     ).map((block, i) => ({ x: i * 2, y: 0, block, own: true, fade: 0 }));
@@ -499,7 +504,12 @@ describe("homes with an upstairs in 3D (RFC 0028)", () => {
       fade: 0,
       ...(floor ? { floor } : {}),
     }));
-    const shared = { plank: new Texture(), stone: new Texture(), pool: new Texture() };
+    const shared = {
+      plank: new Texture(),
+      stone: new Texture(),
+      pool: new Texture(),
+      wall: () => new Texture(),
+    };
     const pools = blockMeshes(stage, { x: 0, y: 0 }, lights, new Texture(), shared).find(
       (o) => o.name === "glow pools",
     ) as InstancedMesh | undefined;
@@ -1006,6 +1016,10 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/roofs.ts",
     "scene3d/fireworks.ts",
     "scene3d/marks.ts",
+    "scene3d/materials.ts",
+    "scene3d/sea.ts",
+    // Walls between tiles (RFC 0050).
+    "scene3d/edges.ts",
     "scene3d/world.ts",
     // The scene photo page (RFC 0049), reached only through import() from photo.ts.
     "photo-page.ts",

@@ -172,8 +172,8 @@ export interface Sides {
 
 /**
  * A tile of open water between lands (RFC 0038), flat in the ground like a pond but with no rim:
- * the sea, foam along each side that meets land or a bridge, and a glint that drifts, still under
- * reduced motion. A tile with water on all four sides is drawn deeper, so a channel darkens away
+ * the sea, shallows and lapping foam along each side that meets land or a bridge (`paintShore`),
+ * and a glint that drifts, still under reduced motion. A tile with water on all four sides is drawn deeper, so a channel darkens away
  * from either bank in one band rather than tile by tile. `shore` says which sides are dry.
  */
 export function paintSea(
@@ -196,13 +196,8 @@ export function paintSea(
     ctx.fillStyle = SEA_LOOK.deep;
     ctx.fillRect(left, top, w, h);
   }
-  const foam = Math.max(1.5, u * 0.11);
-  ctx.fillStyle = SEA_LOOK.foam;
-  if (shore.n) ctx.fillRect(left, top, w, foam);
-  if (shore.s) ctx.fillRect(left, top + h - foam, w, foam);
-  if (shore.w) ctx.fillRect(left, top, foam, h);
-  if (shore.e) ctx.fillRect(left + w - foam, top, foam, h);
   const t = still ? 0 : now / 1000;
+  paintShore(ctx, left, top, w, h, shore, seed, t);
   const drift = still ? 0 : Math.sin(t * 0.5 + seed * 1.7) * u * 0.07;
   ctx.strokeStyle = POND_LOOK.glint;
   ctx.globalAlpha = 0.3 + 0.18 * Math.sin(t * 1.1 + seed);
@@ -213,6 +208,75 @@ export function paintSea(
   ctx.lineTo(left + w * 0.46 + drift, top + h * (seed % 2 === 0 ? 0.38 : 0.62));
   ctx.stroke();
   ctx.globalAlpha = 1;
+}
+
+/** Where along a shore side each scallop of foam sits, overlapping into one wavy edge. */
+const SCALLOPS = [0.1, 0.3, 0.5, 0.7, 0.9] as const;
+
+/**
+ * Where the sea meets land: paler shallows, then a band of foam whose edge breaks into scallops
+ * that lap in and out with `t` (seconds, 0 under reduced motion, which holds them still). The
+ * scallops sit at the same places along every tile's side, so a shore reads as one long edge.
+ */
+function paintShore(
+  ctx: CanvasRenderingContext2D,
+  left: number,
+  top: number,
+  w: number,
+  h: number,
+  shore: Sides,
+  seed: number,
+  t: number,
+) {
+  if (!shore.n && !shore.e && !shore.s && !shore.w) return;
+  const u = Math.min(w, h);
+  const shallow = u * 0.26;
+  const foam = Math.max(1.5, u * 0.07);
+  const bubble = Math.max(1, u * 0.1);
+  // Each side as where it starts, which way it runs, and which way is out to sea.
+  const sides = [
+    [shore.n, left, top, 1, 0, 0, 1, w],
+    [shore.s, left, top + h, 1, 0, 0, -1, w],
+    [shore.w, left, top, 0, 1, 1, 0, h],
+    [shore.e, left + w, top, 0, 1, -1, 0, h],
+  ] as const;
+  ctx.fillStyle = SEA_LOOK.shallow;
+  for (const [on, x, y, ax, ay, ox, oy, len] of sides) {
+    if (!on) continue;
+    ctx.fillRect(
+      Math.min(x, x + ox * shallow),
+      Math.min(y, y + oy * shallow),
+      ax * len + Math.abs(ox) * shallow,
+      ay * len + Math.abs(oy) * shallow,
+    );
+  }
+  // Kept to the tile, so a scallop never spills onto the bank.
+  ctx.save();
+  ctx.beginPath();
+  ctx.rect(left, top, w, h);
+  ctx.clip();
+  ctx.fillStyle = SEA_LOOK.foam;
+  ctx.beginPath();
+  for (const [on, x, y, ax, ay, ox, oy, len] of sides) {
+    if (!on) continue;
+    ctx.rect(
+      Math.min(x, x + ox * foam),
+      Math.min(y, y + oy * foam),
+      ax * len + Math.abs(ox) * foam,
+      ay * len + Math.abs(oy) * foam,
+    );
+    for (const [k, f] of SCALLOPS.entries()) {
+      const lap = Math.sin(t * 1.3 + seed * 0.7 + k * 2.1) * 0.5 + 0.5;
+      const out = foam - bubble * (0.55 - lap * 0.35);
+      const r = bubble * (0.9 + lap * 0.25);
+      const cx = x + ax * len * f + ox * out;
+      const cy = y + ay * len * f + oy * out;
+      ctx.moveTo(cx + r, cy);
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    }
+  }
+  ctx.fill();
+  ctx.restore();
 }
 
 /**

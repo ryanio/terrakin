@@ -326,6 +326,8 @@ describe("GET /v1/town", () => {
         removed: 0,
         laid: 2,
         lifted: 0,
+        walled: 0,
+        unwalled: 0,
         uses: [],
         returns: [],
         skipped: [],

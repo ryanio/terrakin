@@ -8,7 +8,14 @@
  */
 
 import { WorkerEntrypoint } from "cloudflare:workers";
-import type { Card, CardDrawer, Rendered, SceneDrawer } from "../src/index";
+import type {
+  Card,
+  CardDrawer,
+  Rendered,
+  SceneDrawer,
+  SceneOptions,
+  SceneShot,
+} from "../src/index";
 import { cards } from "../src/worker";
 import { renderScene } from "./scene";
 
@@ -23,9 +30,9 @@ export default class CardsWorker extends WorkerEntrypoint<Env> implements CardDr
   }
 
   /** A scene photo (RFC 0049): the photo page at `url`, drawn by Browser Run. */
-  scene(url: string, origin: string, readyMs: number): Promise<Uint8Array> {
+  scene(url: string, origin: string, o: SceneOptions): Promise<SceneShot> {
     if (!this.env.BROWSER) throw new Error("no Browser Run binding");
-    return renderScene(this.env.BROWSER, url, origin, readyMs);
+    return renderScene(this.env.BROWSER, url, origin, o);
   }
 
   /**

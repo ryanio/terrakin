@@ -323,7 +323,24 @@ What we chose and why. Newest last.
 - [Browser Run is driven over its DevTools socket with no browser library](decisions/0387-browser-run-is-driven-over-its-devtools-socket-with-no-brows.md) · 2026-10-29 · accepted · `cards` `dependencies` `security` `deploy`
 - [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
 - [Scene photos keep the cap of 100 a day past the included browser hours](decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md) · 2026-10-29 · accepted · `scene-photos` `cost` `browser-run`
-- [Attendance counts at 10 minutes, behind the attend_at_ten switch](decisions/0390-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md) · 2026-10-30 · accepted · `sim` `server` `protocol` `events` `agents`
+- [Scene photos keep a browser and its photo page open two minutes after each photo](decisions/0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md) · 2026-10-29 · accepted · `scene-photos` `browser-run` `performance` `cost`
+- [The first load's budget is 136 kB, for the events and snapshot fields of things on tables and walls](decisions/0391-the-first-load-s-budget-is-136-kb-for-the-events-and-snapsho.md) · 2026-10-30 · accepted · `client` `performance` `tooling`
+- [Things on surfaces and walls are kept by tile and face, shop-only, and come back when their wall does](decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `economy` `design`
+- [A wall's surface is marks in the sim's palette that the map, the 3D textures and the plot photos all draw](decisions/0393-a-wall-s-surface-is-marks-in-the-sim-s-palette-that-the-map-.md) · 2026-10-30 · accepted · `art` `map` `3d` `cards` `materials`
+- [The 2D map zooms from close to the whole world, and draws a picture of the ground when zoomed out](decisions/0394-the-2d-map-zooms-from-close-to-the-whole-world-and-draws-a-p.md) · 2026-10-30 · accepted · `client` `map` `performance`
+- [Town squares are drawn as cobbled plazas from the drawn paving, and the Commons loses its dashed border](decisions/0395-town-squares-are-drawn-as-cobbled-plazas-from-the-drawn-pavi.md) · 2026-10-30 · accepted · `client` `design` `3d`
+- [Walls between tiles are keyed by a tile's north and west lines, walked by stepFrom, and a home's walls are slimmed by a server plan](decisions/0396-walls-between-tiles-are-keyed-by-a-tile-s-north-and-west-lin.md) · 2026-10-30 · accepted · `sim` `protocol` `server` `client` `design` `replay`
+- [Twenty-six more shop decor kinds cost 6 to 35 coins, with the paintings and the record player at the top](decisions/0397-twenty-six-more-shop-decor-kinds-cost-6-to-35-coins-with-the.md) · 2026-10-30 · accepted · `sim` `economy` `design`
+- [Six indoor floorings each cost a little of something already in the world](decisions/0398-six-indoor-floorings-each-cost-a-little-of-something-already.md) · 2026-10-30 · accepted · `sim` `protocol` `economy` `numbers` `design`
+- [A townsfolk teaches up to six recipe cards, and ten new pieces of furniture are spread across them](decisions/0399-a-townsfolk-teaches-up-to-six-recipe-cards-and-ten-new-piece.md) · 2026-10-30 · accepted · `server` `townsfolk` `items` `numbers`
+- [A furnished home counts furniture and seats as pieces and what is on surfaces, walls and display as on show](decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `homes`
+- [A plot map draws walls between tiles in a per-floor edges grid, and each design's roomy version is built with roomy: true](decisions/0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md) · 2026-10-30 · accepted · `protocol` `sim` `server` `design`
+- [Starter homes are built from walls between tiles in every world, and the home sheet builds roomy designs](decisions/0402-starter-homes-are-built-from-walls-between-tiles-in-every-wo.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
+- [Designs always build their walls on the lines between tiles, with no roomy field](decisions/0403-designs-always-build-their-walls-on-the-lines-between-tiles-.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `protocol`
+- [The town slims every home once, upstairs included, and tells each owner](decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
+- [walk_to plans the route on the server and walks it as moves](decisions/0405-walk-to-plans-the-route-on-the-server-and-walks-it-as-moves.md) · 2026-10-30 · accepted · `protocol` `walking` `agents`
+- [A dry run says what it would cost by trying it on a copy of the world](decisions/0406-a-dry-run-says-what-it-would-cost-by-trying-it-on-a-copy-of-.md) · 2026-10-30 · accepted · `protocol` `agents` `dry-run`
+- [Attendance counts at 10 minutes, behind the attend_at_ten switch](decisions/0407-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md) · 2026-10-30 · accepted · `sim` `server` `protocol` `events` `agents`
 
 ## Learnings
 
@@ -361,6 +378,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Roomier homes live, walk_to, and dry-run costs](handoffs/2026-10-30-1940-roomier-homes-live-walk-to-and-dry-run-costs.md) · 2026-10-30 · `homes` `rfc-0050` `agents` `protocol`
 - [Scene photos built and dark, RFC 0049 slices 1 to 5](handoffs/2026-10-29-1922-scene-photos-built-and-dark-rfc-0049-slices-1-to-5.md) · 2026-10-29 · `server` `client` `cards` `protocol` `photos`
 - [Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`
 - [Review of four days: the sea, the channel, the chunk signature, and eleven more](handoffs/2026-10-20-2220-review-of-four-days-the-sea-the-channel-the-chunk-signature-.md) · 2026-10-20 · `review` `lands` `roofs` `walk` `cards` `process`

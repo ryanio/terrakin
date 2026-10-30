@@ -1,11 +1,15 @@
 import {
   chebyshev,
   clearCost,
+  edgeAt,
+  edgeKey,
   type Ground,
   nearestCounter,
   plotAtTile,
   plotOf,
   plotsOwnedBy,
+  SIDES,
+  type Side,
   type WorldState,
   walkTree,
   walkWords,
@@ -17,7 +21,7 @@ type Tile = { x: number; y: number };
 /**
  * Homes the town can't be walked to from (decision 0343): every resident whose hearth has no walk
  * to within reach of the shop counter they are sent to, with the blocks that would each open one
- * on their own. The check-in's line for a home like this reads the same walk, so the two never
+ * on their own, walls between tiles among them. The check-in's line for a home like this reads the same walk, so the two never
  * disagree about who is shut in.
  */
 export interface ShutHome {
@@ -25,8 +29,12 @@ export interface ShutHome {
   hearth: Tile;
   /** How many tiles the walk from the hearth reaches. */
   reached: number;
-  /** Blocks on claimed plots whose clearing alone opens a walk, north to south, west to east. */
-  frees: { x: number; y: number; block: string; ownerId: string }[];
+  /**
+   * Blocks on claimed plots whose clearing alone opens a walk, north to south, west to east. One
+   * with a `side` is the wall between tiles on that line of its tile (RFC 0050), cleared with
+   * `remove` or staff's `clear_block` and that side.
+   */
+  frees: { x: number; y: number; side?: Side; block: string; ownerId: string }[];
 }
 
 /** Whether a walk from `from` on `ground` gets within reach of `to`, and the tiles it reaches. */
@@ -42,16 +50,38 @@ function without(ground: Ground, x: number, y: number): Ground {
   return {
     config: ground.config,
     obstacle: (tx, ty) => (tx === x && ty === y ? undefined : ground.obstacle(tx, ty)),
+    ...(ground.edge ? { edge: ground.edge } : {}),
+  };
+}
+
+/** The ground with the wall on the line on `side` of (x, y) taken away (RFC 0050). */
+function withoutLine(ground: Ground, x: number, y: number, side: Side): Ground {
+  const { edge } = ground;
+  if (!edge) return ground;
+  const gone = edgeKey(x, y, side);
+  return {
+    config: ground.config,
+    obstacle: ground.obstacle,
+    edge: (tx, ty, s) => edgeKey(tx, ty, s) !== gone && edge(tx, ty, s),
   };
 }
 
 /**
- * Whether the hearth at `from` has a walk to its counter once the block at `cleared` is gone.
- * The staff route reads it to say whether a clear did what it was for.
+ * Whether the hearth at `from` has a walk to its counter once the block at `cleared` is gone, or
+ * with a `side`, the wall on that line of the tile. The staff route reads it to say whether a
+ * clear did what it was for.
  */
-export function walksOutWithout(state: WorldState, from: Tile, cleared?: Tile): boolean {
+export function walksOutWithout(
+  state: WorldState,
+  from: Tile,
+  cleared?: Tile & { side?: Side },
+): boolean {
   const ground = worldGround(state);
-  const g = cleared ? without(ground, cleared.x, cleared.y) : ground;
+  const g = !cleared
+    ? ground
+    : cleared.side
+      ? withoutLine(ground, cleared.x, cleared.y, cleared.side)
+      : without(ground, cleared.x, cleared.y);
   return walkOut(state, g, from, nearestCounter(state, from)).out;
 }
 
@@ -88,6 +118,20 @@ export function shutHomeOf(state: WorldState, residentId: string): ShutHome | nu
         if (walkOut(state, without(ground, x, y), home, door).out) {
           frees.push({ x, y, block, ownerId: plot.ownerId });
         }
+      }
+    }
+    // A wall between tiles that opens a way stands on a line of a tile the walk reaches, and a
+    // line lies inside one plot, so the reached tile's plot is its owner's.
+    if (!ground.edge) continue;
+    for (const side of SIDES) {
+      const line = edgeKey(n.x, n.y, side);
+      if (tried.has(line) || !ground.edge(n.x, n.y, side)) continue;
+      tried.add(line);
+      const block = edgeAt(state, n.x, n.y, side);
+      const plot = plotAtTile(state, n.x, n.y);
+      if (block === undefined || !plot) continue;
+      if (walkOut(state, withoutLine(ground, n.x, n.y, side), home, door).out) {
+        frees.push({ x: n.x, y: n.y, side, block, ownerId: plot.ownerId });
       }
     }
   }

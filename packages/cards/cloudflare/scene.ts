@@ -9,59 +9,131 @@
  * brings dependencies for downloading browsers, which a Worker never does and whose advisories
  * fail the repo's audit (decision 0387).
  *
- * Each photo gets a browser of its own, closed after, since Browser Run bills a kept session for
- * every second it idles. The browser only ever loads `origin`: every other request is failed
- * before it leaves, so a scene can't fetch or navigate anywhere else.
+ * A browser is left open after a photo for the next one, and Browser Run closes it once it has sat
+ * idle the time the caller gives, which it bills like any other browser time (decision 0390). The
+ * browser only ever loads `origin`: every other request is failed before it leaves, so a scene
+ * can't fetch or navigate anywhere else.
  */
+
+import type { SceneOptions, SceneShot } from "../src/render";
 
 /** The host the binding's calls are addressed to. The binding routes them; the name is ignored. */
 const BINDING_HOST = "https://browser.binding";
-/** How often the page is asked whether it's ready. */
-const POLL_MS = 250;
+/** The longest one wait on the page runs before it's asked again. */
+const WAIT_STEP_MS = 5_000;
+/** A photo page's ticket, the only thing put into a script the page runs. */
+const TICKET = /^pt_[0-9a-f]{32}$/;
+
+/**
+ * What the photo page says on its body once a photo is drawn, or couldn't be: `ready`, `failed`,
+ * or `''` when it said nothing within `ms`. It answers the moment the page says it, rather than at
+ * the next of a fixed round of questions.
+ */
+const said = (ms: number) => `new Promise((done) => {
+  const now = () => document.body?.dataset.photo ?? "";
+  if (now()) return done(now());
+  if (!document.body) return setTimeout(() => done(""), 50);
+  const seen = new MutationObserver(() => {
+    if (!now()) return;
+    seen.disconnect();
+    done(now());
+  });
+  seen.observe(document.body, { attributes: true, attributeFilter: ["data-photo"] });
+  setTimeout(() => {
+    seen.disconnect();
+    done(now());
+  }, ${Math.max(0, Math.round(ms))});
+})`;
 
 interface Shot {
-  /** The page to load. */
   url: string;
-  /** The only origin the browser may load from. */
   origin: string;
-  /** A script that reads `ready`, `failed`, or anything else for not yet. */
-  ready: string;
-  /** How long the page has to load, and then to say it's ready, each. */
+  ticket: string;
+  /** How long the photo has, from loading the page or asking it, to saying it's ready. */
   readyMs: number;
 }
 
-/** The photo page at `url`, drawn by Browser Run once it says `data-photo="ready"`. */
-export function renderScene(
-  browserBinding: Fetcher,
+/** The photo page drew nothing and said so: a new browser would fail the same way. */
+class PageFailed extends Error {}
+
+/**
+ * The photo page at `url`, drawn by Browser Run once it says `data-photo="ready"`, and the browser
+ * it was drawn in, left open. The browser in `o.warm` is asked first, for `o.warmTryMs`: its photo
+ * page takes the next ticket in place, its scene's drawing programs already compiled, which is most
+ * of a photo's time. When it's gone, too slow, or its page too old, a new browser is opened, which
+ * Browser Run closes once it has sat idle `o.keepMs`.
+ */
+export async function renderScene(
+  binding: Fetcher,
   url: string,
   origin: string,
-  readyMs: number,
-): Promise<Uint8Array> {
+  o: SceneOptions,
+): Promise<SceneShot> {
   const at = new URL(url);
   if (at.origin !== origin || at.pathname !== "/photo")
     throw new Error("scene photos load only the photo page");
-  return shoot(browserBinding, {
+  const ticket = at.searchParams.get("t") ?? "";
+  if (!TICKET.test(ticket)) throw new Error("scene photos need a ticket");
+  if (o.warm) {
+    const browser = o.warm;
+    const socket = await connect(binding, browser).catch(() => undefined);
+    if (socket) {
+      try {
+        const png = await shoot(new Devtools(socket), "next", {
+          url,
+          origin,
+          ticket,
+          readyMs: o.warmTryMs,
+        });
+        return { png, browser };
+      } catch (err) {
+        if (err instanceof PageFailed) throw err;
+      }
+    }
+  }
+  const { browser, socket } = await openBrowser(binding, o.keepMs).catch(() =>
+    openBrowser(binding, o.keepMs),
+  );
+  const png = await shoot(new Devtools(socket), "load", {
     url,
     origin,
-    ready: "document.body?.dataset.photo ?? ''",
-    readyMs,
+    ticket,
+    readyMs: o.readyMs,
   });
+  return { png, browser };
 }
 
-/** Load a page in a new Browser Run browser, wait for it to say it's ready, and take a PNG. */
-async function shoot(binding: Fetcher, shot: Shot): Promise<Uint8Array> {
-  // A new browser's socket is now and then refused (a 410) as it starts: one more try.
-  const socket = await openBrowser(binding).catch(() => openBrowser(binding));
-  const cdp = new Devtools(socket);
+/**
+ * Take the photo in the browser behind `cdp`: by its photo page's own `photoNext` (`next`), or in
+ * a new tab (`load`). The browser stays open when the photo is taken and is closed when it fails,
+ * so a broken one is never asked again.
+ */
+async function shoot(cdp: Devtools, how: "next" | "load", shot: Shot): Promise<Uint8Array> {
+  let ok = false;
+  let until = Date.now() + shot.readyMs;
   try {
-    const { targetId } = await cdp.send<{ targetId: string }>("Target.createTarget", {
-      url: "about:blank",
-    });
+    let targetId: string | undefined;
+    if (how === "next") {
+      const { targetInfos } = await cdp.send<{
+        targetInfos: { targetId: string; type: string; url: string }[];
+      }>("Target.getTargets", {});
+      targetId = targetInfos.find((t) => {
+        if (t.type !== "page" || !t.url.startsWith(`${shot.origin}/photo`)) return false;
+        const where = new URL(t.url);
+        return where.origin === shot.origin && where.pathname === "/photo";
+      })?.targetId;
+      if (!targetId) throw new Error("no photo page open");
+    } else {
+      ({ targetId } = await cdp.send<{ targetId: string }>("Target.createTarget", {
+        url: "about:blank",
+      }));
+    }
     const { sessionId: page } = await cdp.send<{ sessionId: string }>("Target.attachToTarget", {
       targetId,
       flatten: true,
     });
-    // Every request waits here until it's let through: our own origin only.
+    // Every request waits here until it's let through: our own origin only. A connection's
+    // interception ends with it, and an open photo page between photos asks for nothing.
     cdp.on("Fetch.requestPaused", page, (params) => {
       const { requestId, request } = params as { requestId: string; request: { url: string } };
       const to = new URL(request.url);
@@ -81,41 +153,89 @@ async function shoot(binding: Fetcher, shot: Shot): Promise<Uint8Array> {
       page,
     );
     await cdp.send("Page.enable", {}, page);
-    await within(cdp.send("Page.navigate", { url: shot.url }, page), shot.readyMs, "load");
-    // The page says `ready` once the scene has drawn, or `failed`.
-    const until = Date.now() + shot.readyMs;
-    for (;;) {
+    if (how === "next") {
       const { result } = await cdp.send<{ result: { value?: unknown } }>(
         "Runtime.evaluate",
-        { expression: shot.ready, returnByValue: true },
+        {
+          // The ticket was checked against TICKET, so it's a plain string here.
+          expression: `window.photoNext?.(${JSON.stringify(shot.ticket)}) === true`,
+          returnByValue: true,
+        },
         page,
       );
+      // A page past its life, or from before a deploy, says no: a new browser loads it fresh.
+      if (result.value !== true) throw new Error("the photo page is too old");
+    } else {
+      await within(cdp.send("Page.navigate", { url: shot.url }, page), shot.readyMs, "load");
+      // Loaded, the page has as long again to draw.
+      until = Date.now() + shot.readyMs;
+    }
+    // The page says `ready` once the scene has drawn, or `failed`.
+    for (;;) {
+      const left = until - Date.now();
+      if (left <= 0) throw new Error("the page wasn't ready in time");
+      const { result } = await cdp
+        .send<{ result: { value?: unknown } }>(
+          "Runtime.evaluate",
+          {
+            expression: said(Math.min(left, WAIT_STEP_MS)),
+            awaitPromise: true,
+            returnByValue: true,
+          },
+          page,
+        )
+        // A wait begun on the blank page a new tab opens with ends as the photo page replaces it.
+        .catch((err: Error) => {
+          if (/context|navigat/i.test(err.message)) return { result: { value: "" } };
+          throw err;
+        });
       if (result.value === "ready") break;
-      if (result.value === "failed") throw new Error("the page couldn't draw the scene");
-      if (Date.now() > until) throw new Error("the page wasn't ready in time");
-      await new Promise((done) => setTimeout(done, POLL_MS));
+      if (result.value === "failed") throw new PageFailed("the page couldn't draw the scene");
     }
     const { data } = await cdp.send<{ data: string }>(
       "Page.captureScreenshot",
-      { format: "png" },
+      { format: "png", optimizeForSpeed: true },
       page,
     );
+    ok = true;
     return Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
   } finally {
-    await within(cdp.send("Browser.close", {}), 2_000, "close").catch(() => undefined);
+    if (!ok) await within(cdp.send("Browser.close", {}), 2_000, "close").catch(() => undefined);
     cdp.close();
   }
 }
 
-/** A new browser of its own, and the DevTools socket that drives it. */
-async function openBrowser(binding: Fetcher): Promise<WebSocket> {
-  const acquired = await binding.fetch(`${BINDING_HOST}/v1/devtools/browser`, { method: "POST" });
+/** A new browser of its own, kept `keepMs` after its last connection, and a socket to it. */
+async function openBrowser(
+  binding: Fetcher,
+  keepMs: number,
+): Promise<{ browser: string; socket: WebSocket }> {
+  const acquired = await binding.fetch(
+    `${BINDING_HOST}/v1/devtools/browser?keep_alive=${Math.round(keepMs)}`,
+    { method: "POST" },
+  );
   if (!acquired.ok) throw new Error(`no browser: ${acquired.status}`);
   const { sessionId } = (await acquired.json()) as { sessionId?: string };
   if (!sessionId) throw new Error("no browser session");
-  const upgraded = await binding.fetch(`${BINDING_HOST}/v1/devtools/browser/${sessionId}`, {
-    headers: { Upgrade: "websocket" },
-  });
+  try {
+    return { browser: sessionId, socket: await connect(binding, sessionId) };
+  } catch (err) {
+    // A browser we can't reach is closed now rather than left to sit out its idle time.
+    await binding
+      .fetch(`${BINDING_HOST}/v1/devtools/browser/${encodeURIComponent(sessionId)}`, {
+        method: "DELETE",
+      })
+      .catch(() => undefined);
+    throw err;
+  }
+}
+
+/** A DevTools socket to a browser that's open. */
+async function connect(binding: Fetcher, browser: string): Promise<WebSocket> {
+  const upgraded = await binding.fetch(
+    `${BINDING_HOST}/v1/devtools/browser/${encodeURIComponent(browser)}`,
+    { headers: { Upgrade: "websocket" } },
+  );
   const socket = upgraded.webSocket;
   if (!socket) throw new Error(`no devtools socket: ${upgraded.status}`);
   socket.accept();

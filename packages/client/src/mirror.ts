@@ -17,8 +17,11 @@ import {
   counterTiles,
   type Direction,
   type DrawnGround,
+  edgeBlocks,
+  edgeKey,
   type FindKind,
   FLOORS,
+  faceKey,
   type Ground,
   type GroundKind,
   groundOf,
@@ -40,12 +43,14 @@ import {
   type Resident,
   type RoofShape,
   roofShape,
+  type Side,
   type SpringFacts,
   type StepRoutine,
   squareOf,
   TEA,
   type Tile,
   tileKey,
+  topKey,
   upstairsGroundOf,
   type WorldConfig,
   waterBeside,
@@ -57,10 +62,43 @@ import { type Dozer, dozers } from "./scene3d/layout";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
+/** Events that never change the zoomed-out map's ground picture (`groundRev`). */
+const GROUND_STILL: ReadonlySet<WorldEvent["type"]> = new Set([
+  "moved",
+  "joined",
+  "left",
+  "profile_changed",
+  "resident_renamed",
+  "plot_named",
+  "plot_name_removed",
+  "admired",
+  "pet_renamed",
+  "pet_groomed",
+  "pet_treated",
+  "pet_walked",
+]);
+
 /** A made thing on display, as the world shows it. Its `label` is its maker's words. */
 export type DisplayView = Omit<NonNullable<WorldSnapshot["displays"]>[number], "x" | "y">;
 /** A pot set down on a plot (RFC 0047), as the snapshot and `block_placed` carry it. */
 export type PotView = Pick<NonNullable<WorldSnapshot["pots"]>[number], "good" | "by">;
+
+/**
+ * What stands on a surface or hangs on a wall (RFC 0050): a made thing, a find, or a trinket or
+ * wall thing by its kind, and who put it there. A made thing's `label` is its maker's words.
+ */
+export type ShownOnHome = Pick<
+  NonNullable<WorldSnapshot["tops"]>[number],
+  "good" | "find" | "thing" | "by"
+>;
+
+/** What a snapshot or an event says stands somewhere, as the mirror keeps it. */
+const onHome = (s: ShownOnHome): ShownOnHome => ({
+  ...(s.good ? { good: { ...s.good } } : {}),
+  ...(s.find ? { find: s.find } : {}),
+  ...(s.thing ? { thing: s.thing } : {}),
+  by: s.by,
+});
 
 /** A find on display (RFC 0021): its kind, who put it up, and the day it went up. No words. */
 export interface ShownFindView {
@@ -128,6 +166,7 @@ export interface FloorLayer {
 }
 
 const NO_FLOOR: Readonly<FloorLayer> = { blocks: new Map(), paving: new Map() };
+const NO_EDGES: ReadonlyMap<string, BlockKind> = new Map();
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
 export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * MINUTE_MS;
@@ -180,6 +219,13 @@ export class Mirror {
   solidBuildings: boolean;
   /** The ground each floor's walkers step on, built once each (`ground`). */
   private walkable = new Map<number, Ground>();
+  /**
+   * Walls between tiles (RFC 0050), by floor and then the sim's `edgeKey`: a tile's `n` or `w`
+   * line, `"x,y,n"`. Empty until the world has one.
+   */
+  private edgeLayers = new Map<number, Map<string, BlockKind>>();
+  /** Whether starter homes are built from walls between tiles (`starter_edges_set`, RFC 0050). */
+  starterEdges = false;
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -196,6 +242,10 @@ export class Mirror {
   pots = new Map<string, PotView>();
   /** Finds on display on pedestals and frames (RFC 0021), by tileKey. */
   shownFinds = new Map<string, ShownFindView>();
+  /** Small things on surfaces (RFC 0050), by the sim's `topKey`. Labels are untrusted text. */
+  tops = new Map<string, ShownOnHome>();
+  /** Things hung on walls (RFC 0050), by the sim's `faceKey`. Labels are untrusted text. */
+  hung = new Map<string, ShownOnHome>();
   /** Tiles picked clean today, so a pickup that's gone isn't drawn (phase 1 gathering). */
   gathered = new Set<string>();
   /** Whether a claimed plot's pickups are for its owner and co-owners only (`plot_pickups_owned`). */
@@ -245,6 +295,12 @@ export class Mirror {
   #bridge = new Set<string>();
   /** Downtown's public ways (RFC 0046), by tileKey. */
   ways = new Set<string>();
+  /**
+   * Counts the events that may change how the zoomed-out map draws the ground (its picture in
+   * `render/ground-picture.ts`): every one but walking, coming and going, and words on profiles,
+   * plots, and pets. A new snapshot is a new mirror, which starts again.
+   */
+  groundRev = 0;
   /** `drawnPaving`, kept until what it reads changes. */
   #drawn: ReadonlyMap<string, DrawnGround> | undefined;
   /** Today, as the world counts it. A crop is ready once this reaches its `readyDay`. */
@@ -290,6 +346,10 @@ export class Mirror {
       }
     }
     for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
+    for (const e of snapshot.edges ?? []) {
+      this.edgesAt(e.floor).set(edgeKey(e.x, e.y, e.side), e.block);
+    }
+    this.starterEdges = snapshot.starterEdges === true;
     for (const g of snapshot.ground ?? []) {
       this.pavingAt(g.floor).set(tileKey(g.x, g.y), g.ground);
     }
@@ -311,6 +371,10 @@ export class Mirror {
     }
     for (const d of snapshot.displays ?? []) {
       this.displays.set(tileKey(d.x, d.y), { good: { ...d.good }, by: d.by, day: d.day });
+    }
+    for (const t of snapshot.tops ?? []) this.tops.set(topKey(t.x, t.y, t.floor ?? 0), onHome(t));
+    for (const h of snapshot.hung ?? []) {
+      this.hung.set(faceKey(h.x, h.y, h.side, h.floor ?? 0), onHome(h));
     }
     for (const f of snapshot.displayedFinds ?? []) {
       this.shownFinds.set(tileKey(f.x, f.y), { kind: f.kind, by: f.by, day: f.day });
@@ -363,6 +427,28 @@ export class Mirror {
     return layer;
   }
 
+  /** The walls between tiles on a floor (absent or 0: the ground floor's), to change. */
+  edgesAt(floor: number | undefined): Map<string, BlockKind> {
+    const at = floor ?? 0;
+    let layer = this.edgeLayers.get(at);
+    if (!layer) {
+      layer = new Map();
+      this.edgeLayers.set(at, layer);
+    }
+    return layer;
+  }
+
+  /** The walls between tiles on any floor, to read: keyed by the sim's `edgeKey`. */
+  edgesOn(floor: number): ReadonlyMap<string, BlockKind> {
+    return this.edgeLayers.get(floor) ?? NO_EDGES;
+  }
+
+  /** What stands on the line on `side` of (x, y) on `floor`, if anything (RFC 0050). */
+  edgeAt(x: number, y: number, side: Side, floor = 0): BlockKind | undefined {
+    const layer = this.edgeLayers.get(floor);
+    return layer && layer.size > 0 ? layer.get(edgeKey(x, y, side)) : undefined;
+  }
+
   /** The blocks on a floor (absent or 0: the ground floor's), to change. */
   blocksAt(floor: number | undefined): Map<string, BlockKind> {
     return floor ? this.#layer(floor).blocks : this.blocks;
@@ -403,6 +489,13 @@ export class Mirror {
       roof: this.roofs.get(plotKey(px, py)),
       floors: this.floors.get(plotKey(px, py)) ?? 0,
       wall: (x, y, floor) => holdsRoof(this.blocksOn(floor).get(tileKey(x, y))),
+      // Walls between tiles (RFC 0050) carry a roof too; none in a world without them.
+      ...(this.edgeLayers.size > 0
+        ? {
+            edge: (x: number, y: number, side: "n" | "w", floor: number) =>
+              holdsRoof(this.edgeAt(x, y, side, floor)),
+          }
+        : {}),
     });
   }
 
@@ -457,31 +550,35 @@ export class Mirror {
    * own, which the snapshot carries beside its plots (RFC 0038, decision 0332).
    */
   isSquare(px: number, py: number): boolean {
-    if (this.commons.px === px && this.commons.py === py) return true;
-    return (this.lands?.list ?? []).some((l) => l.square.px === px && l.square.py === py);
+    return this.squares().some((q) => q.px === px && q.py === py);
+  }
+
+  /** Every town square's plot slot: downtown's Commons, then each open land's own (RFC 0038). */
+  squares(): { px: number; py: number }[] {
+    return [this.commons, ...(this.lands?.list ?? []).map((l) => l.square)];
   }
 
   /**
    * The ground floor's paths and flooring as the map and the 3D world draw them: what residents
-   * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): an island's
-   * streets drawn as cobbles, downtown's public ways in a look of their own (`WAY_LOOK`), so a way
-   * never reads as a path someone laid. Drawing only: walking,
-   * building and lifting read `paving`, where neither is.
+   * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): every town
+   * square paved as a plaza (`PLAZA_LOOK`), an island's streets drawn as cobbles, downtown's
+   * public ways in a look of their own (`WAY_LOOK`), so a way never reads as a path someone laid.
+   * Drawing only: walking, building and lifting read `paving`, where none of them is.
    */
   get drawnPaving(): ReadonlyMap<string, DrawnGround> {
     if (this.#drawn) return this.#drawn;
     const streets = (this.lands?.list ?? []).flatMap((l) => l.streets ?? []);
-    if (streets.length === 0 && this.ways.size === 0) {
-      this.#drawn = this.paving;
-      return this.paving;
-    }
     const S = this.config.plotSize;
     const drawn = new Map<string, DrawnGround>();
-    for (const { px, py } of streets) {
-      for (let y = py * S; y < (py + 1) * S; y++) {
-        for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), "cobble");
+    const pave = (slots: readonly { px: number; py: number }[], kind: DrawnGround) => {
+      for (const { px, py } of slots) {
+        for (let y = py * S; y < (py + 1) * S; y++) {
+          for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), kind);
+        }
       }
-    }
+    };
+    pave(this.squares(), "plaza");
+    pave(streets, "cobble");
     for (const key of this.ways) drawn.set(key, "way");
     for (const [key, laid] of this.paving) drawn.set(key, laid);
     this.#drawn = drawn;
@@ -528,12 +625,14 @@ export class Mirror {
             // Open water between lands, so a tap-to-walk route crosses by the bridge rather than
             // ending in a refusal (RFC 0038). Left out where there is none.
             ...(this.#sea ? { sea: this.#sea } : {}),
+            edge: (x, y, side) => edgeBlocks(this.edgeAt(x, y, side, 0)),
           })
         : upstairsGroundOf({
             config: this.config,
             block: (key) => this.floor(floor).blocks.get(key),
             flooring: (key) => this.floor(floor).paving.has(key),
             below: (key) => this.blocksOn(floor - 1).get(key),
+            edge: (x, y, side) => edgeBlocks(this.edgeAt(x, y, side, floor)),
           });
     this.walkable.set(floor, ground);
     return ground;
@@ -550,6 +649,7 @@ export class Mirror {
     if (seq > this.seq + 1) return "gap";
     this.seq = seq;
     this.#dozing = undefined;
+    if (!GROUND_STILL.has(event.type)) this.groundRev++;
     switch (event.type) {
       case "joined":
         this.residents.set(event.resident.id, residentFrom(event.resident));
@@ -667,6 +767,16 @@ export class Mirror {
             by: event.by,
           });
         }
+        break;
+      // Walls between tiles (RFC 0050), each on its `n` or `w` line.
+      case "edge_placed":
+        this.edgesAt(event.floor).set(edgeKey(event.x, event.y, event.side), event.block);
+        break;
+      case "edge_removed":
+        this.edgesAt(event.floor).delete(edgeKey(event.x, event.y, event.side));
+        break;
+      case "starter_edges_set":
+        this.starterEdges = true;
         break;
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));
@@ -800,11 +910,27 @@ export class Mirror {
         this.shownFinds.delete(tileKey(event.x, event.y));
         break;
       case "picture_removed":
-        for (const shown of this.displays.values()) {
-          if (!event.items.includes(shown.good.id)) continue;
+        for (const shown of [
+          ...this.displays.values(),
+          ...this.tops.values(),
+          ...this.hung.values(),
+        ]) {
+          if (!shown.good || !event.items.includes(shown.good.id)) continue;
           delete shown.good.media;
           delete shown.good.model;
         }
+        break;
+      case "put_on":
+        this.tops.set(topKey(event.x, event.y, event.floor ?? 0), onHome(event));
+        break;
+      case "taken_off":
+        this.tops.delete(topKey(event.x, event.y, event.floor ?? 0));
+        break;
+      case "hung":
+        this.hung.set(faceKey(event.x, event.y, event.side, event.floor ?? 0), onHome(event));
+        break;
+      case "unhung":
+        this.hung.delete(faceKey(event.x, event.y, event.side, event.floor ?? 0));
         break;
       case "admired": {
         const shown = this.displays.get(tileKey(event.x, event.y));

@@ -53,6 +53,7 @@ import { doorNote } from "./door-notes";
 import { type GuestFacts, teaRefusal } from "./events";
 import { startFree } from "./games";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
+import { slimPlan } from "./slim-plan";
 import { cleanMultiline, cleanText, nameKey } from "./text";
 import type { ActResult } from "./world-service";
 
@@ -214,6 +215,15 @@ export function performAction(
     return result;
   }
   if (action.type === "visit") return visit(ctx, residentId, action.px, action.py, dry);
+  // Slimming a home's walls (RFC 0050): the server plans it, and logs the plan's lists.
+  if (action.type === "slim_walls") {
+    const planned = slimPlan(ctx.state, action.px, action.py);
+    if ("problem" in planned) {
+      return { ok: false, error: { code: "invalid_plan", message: planned.problem } };
+    }
+    const command: Command = { type: "slim_walls", px: action.px, py: action.py, ...planned };
+    return ctx.run({ actor: residentId, command }, dry);
+  }
   if (action.type === "trick_or_treat") {
     const { px, py } = action;
     const refused = closedDoor(ctx, residentId, px, py, "You can't knock at this door.");
@@ -645,6 +655,16 @@ export function performAction(
     // Townsfolk take their turn, and a round everyone has settled closes now, not at its end.
     if (result.ok && !dry) ctx.runGames();
     return result;
+  }
+  // `walk_to` is walked as moves by `Api.actWalk` (decision 0405); it's never a sim command.
+  if (action.type === "walk_to") {
+    return {
+      ok: false,
+      error: {
+        code: "bad_request",
+        message: "Send walk_to to POST /v1/actions or the live socket.",
+      },
+    };
   }
   return ctx.run({ actor: residentId, command: action satisfies Command }, dry);
 }

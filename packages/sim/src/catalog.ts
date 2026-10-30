@@ -96,7 +96,11 @@ export type Role =
   | "sweet"
   | "fish"
   /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
-  | "material";
+  | "material"
+  /** A small thing that stands on a surface (RFC 0050): it stacks, and never places as a block. */
+  | "trinket"
+  /** A thing that hangs on a wall face (RFC 0050): it stacks, and never places as a block. */
+  | "wall_decor";
 
 /**
  * Block kinds you craft at. `craft` names the station's tile. A `kiln` (RFC 0047) fires what it
@@ -254,6 +258,28 @@ const find = <const F extends Family>(name: string, plural: string, family: F) =
  */
 const fish = (name: string, plural: string, look: Omit<FishLook, "template">) =>
   entry({ name, plural, family: "fish", role: "fish", look: { template: "fish", ...look } });
+
+/** A small thing that stands on a surface (RFC 0050), sold at the shop. */
+const trinket = (name: string, plural: string, price: number) =>
+  entry({
+    name,
+    plural,
+    family: "decor",
+    role: "trinket",
+    shop: { price },
+    look: { template: "drawn" },
+  });
+
+/** A thing that hangs on a wall (RFC 0050), sold at the shop. */
+const wallDecor = (name: string, plural: string, price: number) =>
+  entry({
+    name,
+    plural,
+    family: "decor",
+    role: "wall_decor",
+    shop: { price },
+    look: { template: "drawn" },
+  });
 
 interface CropSpec<F extends Family> {
   name: string;
@@ -1410,6 +1436,157 @@ const WRITTEN = {
     role: "piece",
     look: { template: "drawn" },
   }),
+  // Roomier homes (RFC 0050): three surfaces made at a workbench, and the small things that go on
+  // a surface (`trinket`) or hang on a wall (`wall_decor`), sold at the shop.
+  desk: entry({
+    name: "Desk",
+    plural: "Desks",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 3 } },
+    look: { template: "drawn" },
+  }),
+  side_table: entry({
+    name: "Side table",
+    plural: "Side tables",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2 } },
+    look: { template: "drawn" },
+  }),
+  dresser: entry({
+    name: "Dresser",
+    plural: "Dressers",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 4 } },
+    look: { template: "drawn" },
+  }),
+  candle: trinket("Candle", "Candles", 4),
+  table_lamp: trinket("Table lamp", "Table lamps", 15),
+  book_stack: trinket("Stack of books", "Stacks of books", 8),
+  potted_fern: trinket("Potted fern", "Potted ferns", 10),
+  jar_of_shells: trinket("Jar of shells", "Jars of shells", 6),
+  teacup: trinket("Teacup", "Teacups", 6),
+  globe: trinket("Globe", "Globes", 25),
+  music_box: trinket("Music box", "Music boxes", 30),
+  wall_clock: wallDecor("Wall clock", "Wall clocks", 30),
+  mirror: wallDecor("Mirror", "Mirrors", 25),
+  wreath: wallDecor("Wreath", "Wreaths", 12),
+  wall_shelf: wallDecor("Wall shelf", "Wall shelves", 10),
+  sconce: wallDecor("Sconce", "Sconces", 20),
+  pennant: wallDecor("Pennant", "Pennants", 6),
+  wall_map: wallDecor("Map of the town", "Maps of the town", 20),
+  // More for surfaces and walls, art among them: three paintings anyone can hang.
+  snow_globe: trinket("Snow globe", "Snow globes", 12),
+  hourglass: trinket("Hourglass", "Hourglasses", 12),
+  toy_boat: trinket("Toy boat", "Toy boats", 8),
+  fruit_bowl: trinket("Fruit bowl", "Fruit bowls", 6),
+  ceramic_cat: trinket("Ceramic cat", "Ceramic cats", 10),
+  candlesticks: trinket("Pair of candlesticks", "Pairs of candlesticks", 10),
+  bonsai: trinket("Bonsai", "Bonsai", 20),
+  terrarium: trinket("Terrarium", "Terrariums", 15),
+  radio: trinket("Radio", "Radios", 22),
+  record_player: trinket("Record player", "Record players", 35),
+  tea_set: trinket("Tea set", "Tea sets", 14),
+  photo_frame: trinket("Photo frame", "Photo frames", 6),
+  chess_set: trinket("Chess set", "Chess sets", 18),
+  lava_lamp: trinket("Lava lamp", "Lava lamps", 16),
+  tapestry: wallDecor("Tapestry", "Tapestries", 22),
+  quilt_hanging: wallDecor("Quilt", "Quilts", 18),
+  star_chart: wallDecor("Star chart", "Star charts", 15),
+  guitar: wallDecor("Guitar", "Guitars", 28),
+  bunting: wallDecor("String of bunting", "Strings of bunting", 6),
+  cuckoo_clock: wallDecor("Cuckoo clock", "Cuckoo clocks", 30),
+  dried_flowers: wallDecor("Bunch of dried flowers", "Bunches of dried flowers", 8),
+  plate_rack: wallDecor("Plate rack", "Plate racks", 12),
+  landscape_painting: wallDecor("Landscape painting", "Landscape paintings", 35),
+  portrait_painting: wallDecor("Portrait painting", "Portrait paintings", 35),
+  still_life_painting: wallDecor("Still life painting", "Still life paintings", 32),
+  coat_hooks: wallDecor("Row of coat hooks", "Rows of coat hooks", 6),
+  // More for a home: ten pieces made at a workbench from what you gather. The rocking chair is a
+  // seat (`SEATS`), the coffee table a surface (`SURFACE_BLOCKS`), and the fireplace and the floor
+  // lamp glow after dark.
+  wardrobe: entry({
+    name: "Wardrobe",
+    plural: "Wardrobes",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 5 } },
+    look: { template: "drawn" },
+  }),
+  rocking_chair: entry({
+    name: "Rocking chair",
+    plural: "Rocking chairs",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 3 } },
+    look: { template: "drawn" },
+  }),
+  piano: entry({
+    name: "Piano",
+    plural: "Pianos",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 4, stone: 2 } },
+    look: { template: "drawn" },
+  }),
+  bathtub: entry({
+    name: "Bathtub",
+    plural: "Bathtubs",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { stone: 4 } },
+    look: { template: "drawn" },
+  }),
+  fireplace: entry({
+    name: "Fireplace",
+    plural: "Fireplaces",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { stone: 4, wood: 1 } },
+    look: { template: "drawn" },
+  }),
+  aquarium: entry({
+    name: "Aquarium",
+    plural: "Aquariums",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { sea_glass_pane: 2, wood: 1 } },
+    look: { template: "drawn" },
+  }),
+  coffee_table: entry({
+    name: "Coffee table",
+    plural: "Coffee tables",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2 } },
+    look: { template: "drawn" },
+  }),
+  coat_rack: entry({
+    name: "Coat rack",
+    plural: "Coat racks",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2 } },
+    look: { template: "drawn" },
+  }),
+  floor_lamp: entry({
+    name: "Floor lamp",
+    plural: "Floor lamps",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2, stone: 1 } },
+    look: { template: "drawn" },
+  }),
+  potted_tree: entry({
+    name: "Potted tree",
+    plural: "Potted trees",
+    family: "furniture",
+    role: "furniture",
+    recipe: { station: "workbench", needs: { wood: 2, acorn: 1 } },
+    look: { template: "drawn" },
+  }),
 };
 
 // ---------- family recipes ----------
@@ -1493,6 +1670,8 @@ export type FindKind = With<{ role: "find" }>;
 export type SweetKind = With<{ role: "sweet" }>;
 export type FishKind = With<{ role: "fish" }>;
 export type MaterialKind = With<{ role: "material" }>;
+export type TrinketKind = With<{ role: "trinket" }>;
+export type WallDecorKind = With<{ role: "wall_decor" }>;
 export type StackKind =
   | SeedKind
   | ProduceKind
@@ -1503,7 +1682,9 @@ export type StackKind =
   | FindKind
   | SweetKind
   | FishKind
-  | MaterialKind;
+  | MaterialKind
+  | TrinketKind
+  | WallDecorKind;
 export type MadeKind = GoodKind | PieceKind;
 
 /** What a family recipe makes from one kind in its family. */
@@ -1574,6 +1755,10 @@ export const SWEET_KINDS = withRole("sweet") as readonly SweetKind[];
 export const FISH_KINDS = withRole("fish") as readonly FishKind[];
 /** Made materials (RFC 0041): walls and windows made at a workbench, held and placed. */
 export const MATERIAL_KINDS = withRole("material") as readonly MaterialKind[];
+/** Small things that stand on a surface (RFC 0050). */
+export const TRINKET_KINDS = withRole("trinket") as readonly TrinketKind[];
+/** Things that hang on a wall (RFC 0050). */
+export const WALL_DECOR_KINDS = withRole("wall_decor") as readonly WallDecorKind[];
 /**
  * Things that stack: you hold a count of each, not separate items. Finds, then sweets, then fish,
  * then made materials came last, after every role that shipped before them, so no kind that
@@ -1590,6 +1775,8 @@ export const STACK_KINDS: readonly StackKind[] = [
   ...SWEET_KINDS,
   ...FISH_KINDS,
   ...MATERIAL_KINDS,
+  ...TRINKET_KINDS,
+  ...WALL_DECOR_KINDS,
 ];
 /** Made things with a recipe. Each one is its own item with an id, its maker, and its made day. */
 export const GOOD_KINDS = withRole("good") as readonly GoodKind[];
@@ -1610,7 +1797,11 @@ export type ItemCategory =
   | "sweet"
   | "fish"
   /** A made material (RFC 0041): a wall or a window made at a workbench, held and placed. */
-  | "material";
+  | "material"
+  /** A small thing that stands on a surface (RFC 0050): it stacks, and never places as a block. */
+  | "trinket"
+  /** A thing that hangs on a wall face (RFC 0050): it stacks, and never places as a block. */
+  | "wall_decor";
 
 export interface ItemInfo {
   /** One of it, in plain words. */

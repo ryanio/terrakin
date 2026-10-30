@@ -7,7 +7,14 @@ import {
   RATE_LIMITS,
   REPEAT_WINDOW_MS,
 } from "@terrakin/protocol";
-import { FLOORS, HAIR_STYLES, POTTERY, type WorldConfig } from "@terrakin/sim";
+import {
+  FLOORS,
+  HAIR_STYLES,
+  type Input,
+  POTTERY,
+  TOWN_ACTOR,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -487,6 +494,34 @@ describe("action links", () => {
     // Diagonals walk too, and say which way.
     const diagonal = await wren.act("move?dir=ne");
     expect(diagonal.text).toContain("You walked 1 of 1 step northeast. You're at (4, 2)");
+
+    // A walk-to link finds the way out of the hut's doorway on its own (decision 0405).
+    const out = await wren.act("walk-to?x=3&y=10");
+    expect(out.text).toContain("# Walked there");
+    expect(out.text).toContain("you're at (3, 10)");
+    expect(codeOf((await wren.act("walk-to?x=3&y=10")).text)).toBe("already_there");
+    // A wall's own tile is reached only beside it.
+    const wall = await wren.act("walk-to?x=1&y=1");
+    expect(codeOf(wall.text)).toBe("blocked");
+    expect(wall.text).toContain('"near": 1');
+    expect((await wren.act("walk-to?x=1&y=1&near=1")).text).toContain("# Walked there");
+  });
+
+  it("draws a home of walls between tiles from above with its lines (RFC 0050)", async () => {
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    // No adapter logs the switch yet, so the test logs it as the town would.
+    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
+    expect(run.call(service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } })).toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    const built = await wren.act("build-home?walls=stone");
+    expect(built.text).toContain("walls between tiles\n+ + + + + + + + +\n");
+    expect(built.text).toContain("\n+ +S+S+D+S+S+ + +\n");
+    expect(built.text).toContain("`D` a door");
   });
 
   it("climbs stairs by link, through the world's own move, and offers the way up and down (RFC 0028)", async () => {
@@ -1232,14 +1267,14 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(menu).toContain("- `fishing_rod`, at a workbench");
     expect(menu).not.toContain("`lemonade`");
     expect(menu).not.toContain("`well`");
-    expect(menu).toContain("29 more recipes to learn, from the Recipes shelf of the town shop");
+    expect(menu).toContain("42 more recipes to learn, from the Recipes shelf of the town shop");
     expect(menu).toContain("You have 3 free picks: `pick_recipe`");
     // A pick takes it off the list of ones to learn, and onto the menu.
     expect(service.act(wren.id, { type: "pick_recipe", recipe: "lemonade" }).ok).toBe(true);
     // A different link than the first, so it isn't answered as a repeat of that one.
     const after = (await wren.act("craft?label=")).text;
     expect(after).toContain("- `lemonade`, at a kitchen");
-    expect(after).toContain("28 more recipes to learn");
+    expect(after).toContain("41 more recipes to learn");
     expect(after).toContain("You have 2 free picks");
   });
 
@@ -1263,9 +1298,11 @@ describe("links for the rest of a link-only resident's week", () => {
     expect(none).toContain(
       "Nothing lies within reach of you today. The nearest one you may take is 1 wood at (15, 8).",
     );
-    expect(none).toContain(`/v1/act/${wren.key}/move?dir=n&steps=1\n`);
+    // One walk-to link there, stopping within reach of it (decision 0405).
+    const walk = `walk-to?x=15&y=8&near=${service.state.config.reach}`;
+    expect(none).toContain(`/v1/act/${wren.key}/${walk}\n`);
     expect(none).toContain(`Gather: http`);
-    await wren.act("move?dir=n&steps=1");
+    expect((await wren.act(walk)).text).toContain("# Walked there");
     expect((await wren.act("gather")).text).toContain("You picked up 1 wood from 1 tile");
     expect(service.state.items?.inventories[wren.id]?.stacks.wood).toBe(2);
   });

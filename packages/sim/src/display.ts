@@ -1,3 +1,4 @@
+import type { StackKind } from "./catalog";
 import { refuse } from "./check";
 import {
   addStack,
@@ -16,6 +17,7 @@ import {
 import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
 import { plotListedProblem, tileListedProblem } from "./plot-market";
+import { parseFaceKey, parseTopKey } from "./surfaces";
 import type {
   BlockKind,
   Command,
@@ -26,9 +28,12 @@ import type {
   ResidentId,
   Shown,
   ShownFind,
+  ShownThing,
+  Side,
   WorldEvent,
   WorldState,
 } from "./types";
+import { TOWN_ACTOR } from "./types";
 import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
@@ -50,6 +55,12 @@ export const isDisplayBlock = (block: unknown): boolean =>
 /** Whether what's on display is a find, not a made thing. */
 export const isShownFind = (shown: Shown): shown is ShownFind => "find" in shown;
 
+/** Whether what's shown is a small thing by its kind (RFC 0050), not a made thing or a find. */
+export const isShownThing = (shown: Shown): shown is ShownThing => "thing" in shown;
+
+/** Whether what's shown is a made thing, with an id and a maker. */
+export const isShownGood = (shown: Shown): shown is Display => "good" in shown;
+
 /** What's on display on a tile, a made thing or a find, if anything. */
 export const displayAt = (state: WorldState, x: number, y: number): Shown | undefined =>
   state.items?.displays?.[tileKey(x, y)];
@@ -58,7 +69,7 @@ export const displayAt = (state: WorldState, x: number, y: number): Shown | unde
 export function displaysOf(state: WorldState): Record<string, Display> {
   const out: Record<string, Display> = {};
   for (const [key, shown] of Object.entries(state.items?.displays ?? {})) {
-    if (!isShownFind(shown)) out[key] = shown;
+    if (isShownGood(shown)) out[key] = shown;
   }
   return out;
 }
@@ -87,12 +98,37 @@ export function displayOfItem(
   return undefined;
 }
 
+/** Where a made thing is shown: on display, on a surface, or on a wall (RFC 0050). */
+export type ShownSpot = { x: number; y: number; key: string; shown: Display } & (
+  | { place: "display" }
+  | { place: "top"; floor: number }
+  | { place: "hung"; floor: number; side: Side }
+);
+
+/**
+ * Where a made thing is shown, by its id: on a pedestal or in a frame, on a surface, or on a wall.
+ * Staff take a reported one down wherever it is (`remove_display`).
+ */
+export function shownOfItem(state: WorldState, item: string): ShownSpot | undefined {
+  const on = displayOfItem(state, item);
+  if (on) return { ...on, place: "display" };
+  for (const [key, shown] of Object.entries(state.items?.tops ?? {})) {
+    if (!isShownGood(shown) || shown.good.id !== item) continue;
+    return { ...parseTopKey(key), key, shown, place: "top" };
+  }
+  for (const [key, shown] of Object.entries(state.items?.hung ?? {})) {
+    if (!isShownGood(shown) || shown.good.id !== item) continue;
+    return { ...parseFaceKey(key), key, shown, place: "hung" };
+  }
+  return undefined;
+}
+
 /**
  * A resident's made things taken down from display while they had no room, oldest first. They come
  * back with that resident's first input that leaves room for them.
  */
 export const heldAsideOf = (state: WorldState, id: ResidentId): Display[] =>
-  (state.items?.heldAside ?? []).filter((d): d is Display => d.by === id && !isShownFind(d));
+  (state.items?.heldAside ?? []).filter((d): d is Display => d.by === id && isShownGood(d));
 
 /** A resident's finds taken down from display while they had no room, oldest first. */
 export const findsHeldAsideOf = (state: WorldState, id: ResidentId): ShownFind[] =>
@@ -110,10 +146,14 @@ export function everyGood(state: WorldState): { good: Good; holder: ResidentId }
     for (const good of inv.goods) out.push({ good, holder });
   }
   for (const d of Object.values(items.displays ?? {})) {
-    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
   }
   for (const d of items.heldAside ?? []) {
-    if (!isShownFind(d)) out.push({ good: d.good, holder: d.by });
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
+  }
+  // On a surface or a wall (RFC 0050), it's whoever put it there's.
+  for (const d of [...Object.values(items.tops ?? {}), ...Object.values(items.hung ?? {})]) {
+    if (isShownGood(d)) out.push({ good: d.good, holder: d.by });
   }
   for (const l of Object.values(state.market?.listings ?? {})) {
     for (const good of l.goods ?? []) out.push({ good, holder: l.seller });
@@ -143,11 +183,11 @@ export function pieceShowingMedia(state: WorldState, mediaId: string): string | 
   return everyGood(state).find((g) => g.good.kind === "piece" && g.good.media === mediaId)?.good.id;
 }
 
-const fitsOne = (state: WorldState, items: ItemsState, id: ResidentId) =>
+export const fitsOne = (state: WorldState, items: ItemsState, id: ResidentId) =>
   inventorySize(items.inventories[id]) + 1 <= inventoryMaxOf(state);
 
 /** Keep a thing taken down from display for whoever put it up, until they have room. */
-function holdAside(items: ItemsState, shown: Shown) {
+export function holdAside(items: ItemsState, shown: Shown) {
   items.heldAside = [...(items.heldAside ?? []), shown];
 }
 
@@ -162,11 +202,12 @@ export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[]
   if (!items || !aside?.some((d) => d.by === id)) return [];
   let size = inventorySize(items.inventories[id]);
   const back: Good[] = [];
-  const finds = new Map<FindKind, number>();
+  const finds = new Map<StackKind, number>();
   const keep = aside.filter((d) => {
     if (d.by !== id || size + 1 > inventoryMaxOf(state)) return true;
     size += 1;
     if (isShownFind(d)) finds.set(d.find, (finds.get(d.find) ?? 0) + 1);
+    else if (isShownThing(d)) finds.set(d.thing, (finds.get(d.thing) ?? 0) + 1);
     else back.push(d.good);
     return false;
   });
@@ -179,7 +220,7 @@ export function returnHeldAside(state: WorldState, id: ResidentId): WorldEvent[]
   return [inventoryEvent(id, "held", changes, { gained: back })];
 }
 
-function closed(state: WorldState): Rejection | null {
+export function closed(state: WorldState): Rejection | null {
   if (!state.items || state.day === undefined) {
     return refuse("items_closed", "Growing and making haven't opened in this world yet.");
   }
@@ -391,7 +432,7 @@ export function checkRemoveDisplay(
   if (typeof item !== "string" || !ITEM_ID_PATTERN.test(item)) {
     return refuse("unknown_item", "Name a made thing by its id (i_...).");
   }
-  const on = displayOfItem(state, item);
+  const on = shownOfItem(state, item);
   let media: string | undefined;
   if (picture) {
     const good = on?.shown.good ?? goodById(state, item)?.good;
@@ -418,8 +459,24 @@ export function checkRemoveDisplay(
     if (!on) return events;
     const { x, y, key, shown } = on;
     const { good, by } = shown;
-    delete (items.displays as Record<string, Shown>)[key];
-    events.push({ type: "display_removed", x, y, item, by });
+    if (on.place === "display") {
+      delete (items.displays as Record<string, Shown>)[key];
+      events.push({ type: "display_removed", x, y, item, by });
+    } else {
+      // On a surface or a wall (RFC 0050): it comes off as the town takes it, the way it went up.
+      const floor = on.floor === 0 ? {} : { floor: on.floor };
+      const record = (on.place === "top" ? items.tops : items.hung) as Record<string, Shown>;
+      delete record[key];
+      if (Object.keys(record).length === 0) {
+        if (on.place === "top") delete items.tops;
+        else delete items.hung;
+      }
+      events.push(
+        on.place === "top"
+          ? { type: "taken_off", x, y, ...floor, by: TOWN_ACTOR }
+          : { type: "unhung", x, y, side: on.side, ...floor, by: TOWN_ACTOR },
+      );
+    }
     if (!room) {
       holdAside(items, shown);
       return events;

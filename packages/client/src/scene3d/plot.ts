@@ -26,6 +26,7 @@ import {
 import { blockMeshes, POOL_LIGHT } from "./blocks";
 import { cropPlants } from "./crops";
 import { createPictures, displayedThings } from "./displays";
+import { edgeMeshes } from "./edges";
 import { fadeFigure, figure, setUmbrella, sizeSign } from "./figure";
 import { border, ground } from "./ground";
 import { hearth, liftSmoke } from "./hearth";
@@ -48,6 +49,7 @@ import {
   tileHash,
   underFootprint,
 } from "./layout";
+import { wallTextures } from "./materials";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometry, petMaterial } from "./pets";
 import { roofMesh } from "./roofs";
@@ -87,6 +89,7 @@ export function buildPlot(
   };
   // Kept as the cut moves: freed with the stage, never with the floors shown.
   const spare = new Set<Texture>([grain, surfaces.plank, surfaces.stone, surfaces.pool]);
+  const walls = { ...surfaces, wall: wallTextures(stage, spare) };
   let atlas: Texture | undefined;
   const atlasOnce = () => {
     if (!atlas) {
@@ -141,7 +144,17 @@ export function buildPlot(
     const group = new Group();
     const shown = cutAway(blocks, top);
     const flooring = cutAway(laid, top);
-    addAll(group, blockMeshes(scope, origin, shown, grain, surfaces));
+    addAll(group, blockMeshes(scope, origin, shown, grain, walls));
+    // Walls between tiles (RFC 0050), cut away by floor as the blocks are.
+    addAll(
+      group,
+      edgeMeshes(
+        scope,
+        origin,
+        layout.edges.filter((e) => (e.floor ?? 0) <= top),
+        walls,
+      ),
+    );
     if (flooring.length > 0) {
       const paved = groundTiles(origin, flooring, atlasOnce());
       if (paved) group.add(paved);

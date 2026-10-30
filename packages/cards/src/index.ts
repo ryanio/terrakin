@@ -15,6 +15,7 @@ export {
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
+  type PlotEdge,
   type PlotFloor,
   type PlotFlooring,
   type PlotFurniture,
@@ -28,7 +29,14 @@ export {
   plotSvg,
   safeColor,
 } from "./plot";
-export type { CardDrawer, Cards, Rendered, SceneDrawer } from "./render";
+export type {
+  CardDrawer,
+  Cards,
+  Rendered,
+  SceneDrawer,
+  SceneOptions,
+  SceneShot,
+} from "./render";
 export { type PictureWeather, type Sky, WEATHERS } from "./sky";
 export {
   CARDS_VERSION,

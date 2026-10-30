@@ -18,6 +18,7 @@ import { awayTarget } from "./away-view";
 import { BANNER_MOTIFS, bannerShapes } from "./banner-art";
 import {
   clearedLine,
+  homeSlimmedLine,
   notificationItem,
   notificationLine,
   potSoldLine,
@@ -726,6 +727,10 @@ describe("the notice when the team opens a way out of a home (decision 0343)", (
     expect(chair.line).toContain("69, 31");
     expect(chair.next).toMatch(/^What it cost is back in your things/);
     expect(clearedLine({ x: 1, y: 1, block: "wood" }).next).toMatch(/^It was a free block/);
+    // A wall on a line between tiles (RFC 0050) names the side, not a block on the tile.
+    expect(clearedLine({ x: 3, y: 5, side: "s", block: "plaster" }).line).toContain(
+      "the wall on the south side of 3, 5",
+    );
   });
 });
 
@@ -744,6 +749,19 @@ describe("the notice when the town lays a way across your plot (RFC 0046)", () =
     const said = wayLine(way);
     expect(said.line).toContain(`your plot at ${way.px}, ${way.py}`);
     expect(said.line).toContain(way.tiles === 1 ? "1 tile " : `${way.tiles} tiles `);
+    expect(said.next).toMatch(next);
+  });
+});
+
+describe("the notice when the town slims your home (RFC 0050)", () => {
+  it.each([
+    [{ px: 6, py: 3, walls: 20, back: 0 }, /^Nothing else on your plot was moved/],
+    [{ px: 6, py: 3, walls: 20, back: 1 }, /^1 thing came back to your things/],
+    [{ px: 6, py: 3, walls: 26, back: 3 }, /^3 things came back to your things/],
+  ])("names the plot and the walls, and says what came back", (slimmed, next) => {
+    const said = homeSlimmedLine(slimmed);
+    expect(said.line).toContain(`your home's walls at ${slimmed.px}, ${slimmed.py}`);
+    expect(said.line).toContain(`${slimmed.walls} walls stand on lines`);
     expect(said.next).toMatch(next);
   });
 });

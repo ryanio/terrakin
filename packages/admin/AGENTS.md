@@ -20,7 +20,7 @@ The staff app at admin.terrakin.org: the review queue, AI triage's suggestions, 
 
 - `index.html` the static shell. `src/main.ts` boots: asks `GET /v1/admin/overview` who is signed in, shows the token sign-in or the staff-only screen, and routes the screens below. Its top bar shows who's signed in (`personLabel`) and their role. `src/jitless.ts` turns off zod's eval probe.
 - `src/queue-view.ts` `/`, the review queue: items by target with the author's record, reports, triage's suggestion, and the actions `itemActions` offers, with "Rule broken" on every takedown (`TAKEDOWN_ACTIONS`). Beside it, the Today card (`todayRows`, `triageLine`, `checkinLine`, `spendLine`, `chatterLine`, `participationLine`, `tipsLine`).
-- `src/shut-homes-view.ts` the Shut homes card under the queue: hearths with no walk to their shop counter (`GET /v1/admin/shut-homes`), the blocks that free each (`freesByCost`), and a maintainer's check and Clear (`POST /v1/admin/clear-block`, `clearWords`).
+- `src/shut-homes-view.ts` the Shut homes card under the queue: hearths with no walk to their shop counter (`GET /v1/admin/shut-homes`), the blocks and walls between tiles that free each (`freesByCost`, `clearWhat`), and a maintainer's check and Clear (`POST /v1/admin/clear-block`, `clearWords`).
 - `src/log-view.ts` `/log`, the moderation log, paged with `before`, under day headings.
 - `src/townsfolk-view.ts` `/townsfolk`: chatter's state (`chatterState`, `gateWords`), today's calls and spend, and what each townsfolk resident did (`todayWords`, `activityLine`, `ACTION_ICONS`).
 - `src/newcomers-view.ts` `/newcomers`: the newcomer funnel (`GET /v1/admin/newcomers`) for all time and each of the last 8 UTC weeks (`NEWCOMER_ROWS`, `stepShare`, `cohortTitle`).

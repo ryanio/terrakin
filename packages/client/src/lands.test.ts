@@ -1,6 +1,7 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { counterTiles, hallTiles, landSquare, route, stepFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { landNameAt } from "./lands";
 import { Mirror } from "./mirror";
 
 /**
@@ -168,7 +169,7 @@ describe("land_opened", () => {
 });
 
 describe("the town's own ground, drawn (RFC 0046)", () => {
-  it("draws streets as cobbles and ways in their own look, under what anyone laid, for drawing only", () => {
+  it("draws squares as plazas, streets as cobbles and ways in their own look, under what anyone laid, for drawing only", () => {
     const mirror = new Mirror({
       ...opened,
       lands: {
@@ -183,7 +184,11 @@ describe("the town's own ground, drawn (RFC 0046)", () => {
     expect(drawn.get("47,23")).toBe("cobble");
     expect(drawn.get("7,2")).toBe("way");
     expect(drawn.get("7,3")).toBe("brick");
-    // Lifting and walking read what was laid, where neither is.
+    // The Commons and the island's own square are paved, edge to edge.
+    expect(drawn.get("8,8")).toBe("plaza");
+    expect(drawn.get("39,23")).toBe("plaza");
+    // Lifting and walking read what was laid, where none of them is.
+    expect(mirror.paving.has("8,8")).toBe(false);
     expect(mirror.paving.has("40,16")).toBe(false);
     expect(mirror.paving.has("7,2")).toBe(false);
     // A way opened later is drawn at once, and one taken up goes.
@@ -191,5 +196,14 @@ describe("the town's own ground, drawn (RFC 0046)", () => {
     mirror.apply({ seq: 5, event: { type: "ways_closed", tiles: [{ x: 7, y: 2 }] } });
     expect(mirror.drawnPaving.get("6,2")).toBe("way");
     expect(mirror.drawnPaving.has("7,2")).toBe(false);
+  });
+});
+
+describe("a land's name", () => {
+  it("is found from its square too, for the sign in front of its hall", () => {
+    const { lands } = new Mirror(opened);
+    expect(landNameAt(lands, ISLAND.square.px, ISLAND.square.py)).toBe("Willowmere");
+    expect(landNameAt(lands, 4, 0)).toBe("Willowmere");
+    expect(landNameAt(lands, 1, 1)).toBeUndefined();
   });
 });

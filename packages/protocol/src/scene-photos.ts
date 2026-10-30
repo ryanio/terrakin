@@ -38,6 +38,19 @@ export const SCENE_PHOTO_LIMITS = {
    * takes 15 to 22 seconds in all (measured at terrakin.org, 2026-10-29).
    */
   readyMs: 30_000,
+  /**
+   * How long a browser stays open after a photo for the next one, its photo page and the scene's
+   * compiled drawing programs kept. A photo in an open browser takes a couple of seconds; one that
+   * opens a browser compiles them all again (decision 0390).
+   */
+  warmMs: 2 * MINUTE_MS,
+  /**
+   * How long a browser kept open has to take its photo before a new browser is opened instead. A
+   * photo in an open browser takes a couple of seconds, so one that takes longer is broken.
+   */
+  warmTryMs: 10_000,
+  /** How long one photo page takes photos before it's loaded again, so a deploy reaches it. */
+  pageLifeMs: 10 * MINUTE_MS,
   /** How long a ticket works. */
   ticketMs: MINUTE_MS,
   /** How long a moment is kept to be photographed. */

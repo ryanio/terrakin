@@ -55,6 +55,7 @@ import {
 } from "three";
 import type { Feelings, Shown } from "../feelings";
 import { type Cutaway, cutaway } from "../floors";
+import { landNameAt } from "../lands";
 import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
@@ -89,6 +90,7 @@ import {
 import { cropPlants } from "./crops";
 import { eveningHoliday } from "./daylight";
 import { createPictures, displayedThings, foundThings } from "./displays";
+import { edgeMeshes } from "./edges";
 import {
   fadeFigure,
   figure,
@@ -106,7 +108,7 @@ import {
   turnHead,
 } from "./figure";
 import { fireworkSparks } from "./fireworks";
-import { border, groundGrid } from "./ground";
+import { border, groundGrid, plazaKerb } from "./ground";
 import { HEARTH_LIGHT, hearth, liftSmoke } from "./hearth";
 import {
   cornerLight,
@@ -122,12 +124,14 @@ import {
   smokeStart,
 } from "./layout";
 import { worldMarks } from "./marks";
-import { hex, SKY } from "./palette";
+import { wallTextures } from "./materials";
+import { hex, isWindow, SKY } from "./palette";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { presentBoxes } from "./presents";
 import { roofMesh } from "./roofs";
 import { pickups, scenery } from "./scenery";
+import { type SeaLook, type SeaTile, seaLook, seaMeshes } from "./sea";
 import { createWeather } from "./weather";
 import {
   approach,
@@ -147,17 +151,21 @@ import {
   plotsAround,
   type Quarter,
   readChunk,
+  spotOfHit,
   type Tile,
   tileAtPoint,
   tileDistance,
-  tileOfHit,
   turnBetween,
   VIEW_RADIUS,
 } from "./world-layout";
 
 export interface World3dOptions {
-  /** A tap on the world, as the tile it landed on. Walking, building, and opening things follow. */
-  onTap(tile: Tile): void;
+  /**
+   * A tap on the world, as the tile it landed on and where in that tile, in tiles from its middle
+   * (what the build bar's walls between tiles read for the nearest side). Walking, building, and
+   * opening things follow.
+   */
+  onTap(tile: Tile, within: { fx: number; fy: number }): void;
   /** Whether a tap on a tile does more than walk there: a mouse over it shows a pointer. */
   tappable?(tile: Tile): boolean;
   /** The 3D view can't go on here: too slow even after stepping down, or the GPU went away. */
@@ -379,6 +387,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
     return atlas;
   };
+  // Each wall kind's surface, drawn the first time a plot shows one and shared by every plot.
+  const walls = { ...surfaces, wall: wallTextures(stage, shared) };
   const fog = scene.fog as Fog;
   // What's on display shares its pictures across plots, and frees each with its last display.
   const pictures = createPictures(shared);
@@ -422,7 +432,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const petAt = new Matrix4();
   /** Each hall and each counter, by its kind and the square it stands on ("shop:4,2"). */
   const buildings = new Map<string, Building>();
-  let ground: { mesh: Mesh; signature: string } | undefined;
+  /** Each town square's kerb, by its plot slot. */
+  const kerbs = new Map<string, Mesh>();
+  /** The ground under the view, and the sea's ripples and foam over it (`seaMeshes`). */
+  let ground:
+    | { mesh: Mesh; sea: { parts: Object3D[]; stop: () => void }; signature: string }
+    | undefined;
+  let seaTextures: SeaLook | undefined;
   let mirrorSeen: Mirror | undefined;
   let seqSeen = -1;
   /** Who was out on a routine at the last frame, so the cast changes when one goes back to sleep. */
@@ -481,9 +497,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       ...b,
       own: true,
       fade: 0,
-      ...(data.lit && b.block === "glass" ? { lit: true as const } : {}),
+      ...(data.lit && isWindow(b.block) ? { lit: true as const } : {}),
     }));
-    addAll(group, blockMeshes(scope, origin, blocks, grain, surfaces));
+    addAll(group, blockMeshes(scope, origin, blocks, grain, walls));
+    // Walls between tiles (RFC 0050), one draw per kind.
+    addAll(group, edgeMeshes(scope, origin, data.edges, walls));
     if (data.ground.length) {
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);
@@ -588,6 +606,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (ground) {
       scene.remove(ground.mesh);
       disposeTree(ground.mesh, shared);
+      ground.sea.stop();
+      for (const part of ground.sea.parts) {
+        scene.remove(part);
+        disposeTree(part, shared);
+      }
     }
     const S = config.plotSize;
     const plotTint = new Color(hex(seasonTone("#b4cd86", season)));
@@ -649,7 +672,31 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       return { color: c, alpha: 1 - t * t * t };
     });
     scene.add(mesh);
-    ground = { mesh, signature };
+    // Ripples and foam on the sea near enough to see, out to where the ground fades.
+    const waters: SeaTile[] = [];
+    const reach = (fadeStart + fadeEnd) / 2;
+    if (mirror.lands !== undefined) {
+      const dry = (tx: number, ty: number) => !mirror.isSea(tx, ty);
+      for (let ty = at.y - GROUND_RING; ty <= at.y + GROUND_RING; ty++) {
+        for (let tx = at.x - GROUND_RING; tx <= at.x + GROUND_RING; tx++) {
+          if (!inWorld(tx, ty) || !mirror.isSea(tx, ty)) continue;
+          if (Math.hypot(tx - at.x, ty - at.y) > reach) continue;
+          const shore = {
+            n: dry(tx, ty - 1),
+            e: dry(tx + 1, ty),
+            s: dry(tx, ty + 1),
+            w: dry(tx - 1, ty),
+          };
+          waters.push({ x: tx, y: ty, shore });
+        }
+      }
+    }
+    if (waters.length > 0) seaTextures ??= seaLook(stage, shared);
+    const seaParts = seaTextures
+      ? seaMeshes(stage, waters, seaTextures)
+      : { parts: [], stop: () => {} };
+    addAll(scene, seaParts.parts);
+    ground = { mesh, sea: seaParts, signature };
   }
 
   // ---------- the Town Hall and the shop ----------
@@ -680,13 +727,36 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     for (const [kind, all] of kinds) {
       for (const tiles of bySquare(mirror.config, all)) updateBuilding(mirror, kind, tiles);
     }
+    updateKerbs(mirror);
+  }
+
+  /** A kerb round every town square's plaza, kept apart from the buildings so it takes no tap. */
+  function updateKerbs(mirror: Mirror) {
+    const S = mirror.config.plotSize;
+    const wanted = new Set(mirror.squares().map((q) => `${q.px},${q.py}`));
+    for (const [key, mesh] of kerbs) {
+      if (wanted.has(key)) continue;
+      scene.remove(mesh);
+      disposeTree(mesh, shared);
+      kerbs.delete(key);
+    }
+    for (const { px, py } of mirror.squares()) {
+      const key = `${px},${py}`;
+      if (kerbs.has(key)) continue;
+      const mesh = plazaKerb(S, grain);
+      mesh.position.set(px * S + (S - 1) / 2, 0, py * S + (S - 1) / 2);
+      scene.add(mesh);
+      kerbs.set(key, mesh);
+    }
   }
 
   function updateBuilding(mirror: Mirror, kind: "hall" | "shop", tiles: readonly Tile[]) {
     const at = plotOf(mirror.config, tiles[0]?.x ?? 0, tiles[0]?.y ?? 0);
     const name = `${kind}:${at.px},${at.py}`;
     const fp = footprintOf(tiles);
-    const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth}` : "";
+    // A land's hall carries a sign with the land's name; downtown's has none.
+    const land = kind === "hall" ? landNameAt(mirror.lands, at.px, at.py) : undefined;
+    const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth},${land ?? ""}` : "";
     const have = buildings.get(name);
     if (have?.signature === signature) return;
     if (have) {
@@ -696,10 +766,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       buildings.delete(name);
     }
     if (!fp) return;
-    const group = kind === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain);
+    const group =
+      kind === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain, surfaces.pool, land);
     group.position.set(fp.x, 0, fp.y);
     scene.add(group);
-    // The shop's windows light up after dark, as on the map.
+    // The windows light up after dark, as on the map.
     const stops = buildingGlows(group).map((g) => stage.glow(g));
     buildings.set(name, {
       group,
@@ -1219,8 +1290,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     down = undefined;
     if (!d || d.id !== e.pointerId) return;
     if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || e.timeStamp - d.t > 500) return;
-    const tile = pick(e.clientX, e.clientY);
-    if (tile && lastMirror) opts.onTap(tile);
+    const picked = pick(e.clientX, e.clientY);
+    if (picked && lastMirror) opts.onTap(picked.tile, picked.within);
   };
   const onCancel = () => {
     pointers = Math.max(0, pointers - 1);
@@ -1250,13 +1321,20 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   function hover(now: number) {
     if (!mouse || !opts.tappable || now - hoverAt < HOVER_MS) return;
     hoverAt = now;
-    const tile = pick(mouse.x, mouse.y);
+    const tile = pick(mouse.x, mouse.y)?.tile;
     const cursor = tile && opts.tappable(tile) ? "pointer" : "";
     if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
   }
 
-  /** The tile under a point on screen: a figure first, then a block or building, then the ground. */
-  function pick(clientX: number, clientY: number): Tile | undefined {
+  /**
+   * The tile under a point on screen, a figure first, then a block or building, then the ground,
+   * and where in it the ray met it: its middle for a figure or a building.
+   */
+  function pick(
+    clientX: number,
+    clientY: number,
+  ): { tile: Tile; within: { fx: number; fy: number } } | undefined {
+    const middle = { fx: 0, fy: 0 };
     const rect = canvas.getBoundingClientRect();
     ndc.set(
       ((clientX - rect.left) / rect.width) * 2 - 1,
@@ -1282,24 +1360,30 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const id = ownerOf(figureHit.object, (o) => o.userData.residentId as string | undefined);
       const away = id ? figures.get(id)?.away : undefined;
       // Someone asleep at home is where they're drawn, not where they last stood.
-      if (away) return tileAtPoint(away.x, away.y);
+      if (away) return { tile: tileAtPoint(away.x, away.y), within: middle };
       const r = id ? lastMirror?.residents.get(id) : undefined;
-      if (r) return { x: r.x, y: r.y };
+      if (r) return { tile: { x: r.x, y: r.y }, within: middle };
     }
     if (hit) {
       const building = [...buildings.values()].find((b) =>
         ownerOf(hit.object, (o) => o === b.group),
       );
-      const tile = tileOfHit([hit.point.x, hit.point.y, hit.point.z], dir);
-      if (!building) return tile;
+      const spot = spotOfHit([hit.point.x, hit.point.y, hit.point.z], dir);
+      if (!building) return spot;
+      const { tile } = spot;
       // Anything on a building, its label too, is one of its tiles.
       const fp = building.footprint;
       const clamp = (v: number, mid: number, size: number) =>
         Math.min(mid + (size - 1) / 2, Math.max(mid - (size - 1) / 2, v));
-      return { x: clamp(tile.x, fp.x, fp.width), y: clamp(tile.y, fp.y, fp.depth) };
+      return {
+        tile: { x: clamp(tile.x, fp.x, fp.width), y: clamp(tile.y, fp.y, fp.depth) },
+        within: middle,
+      };
     }
     const g = groundPoint([origin.x, origin.y, origin.z], dir);
-    return g ? tileAtPoint(g[0], g[2]) : undefined;
+    if (!g) return undefined;
+    const tile = tileAtPoint(g[0], g[2]);
+    return { tile, within: { fx: g[0] - tile.x, fy: g[2] - tile.y } };
   }
 
   // ---------- losing the GPU ----------

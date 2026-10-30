@@ -1,4 +1,5 @@
 import type { BuildPlan } from "./build";
+import { type EdgeSide, edgeAt, edgeKey } from "./edges";
 import { blocksOn, groundOn, standingFloor } from "./floors";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
@@ -39,6 +40,12 @@ const GROUND_CHAR: Readonly<Record<GroundKind, string>> = {
   planks: "=",
   flower_bed: "f",
   rug: "u",
+  carpet: "a",
+  checker_tiles: "#",
+  parquet: "z",
+  terracotta: "t",
+  woven_mat: "v",
+  stone_tiles: "q",
 };
 
 /** The fixed characters for paths and flooring. */
@@ -53,6 +60,13 @@ export const MAP_GROUND: Readonly<Record<string, GroundKind>> = Object.fromEntri
  */
 export const MAP_MARKS = { keep: ".", clear: "x", hearth: "h", standing: "@", more: "*" } as const;
 
+/**
+ * The characters of a floor's `edges` grid (RFC 0050) that aren't a block's: `+` at every corner,
+ * `D` for a door on a line (since `+` is taken), and a space for a line with nothing on it. A wall
+ * or window on a line is its letter from `MAP_BLOCKS`, or a digit from the legend.
+ */
+export const MAP_EDGE_MARKS = { corner: "+", door: "D", none: " " } as const;
+
 /** Decor and furniture go on digits, `0` to `9`, in a map's own legend. */
 export const MAP_LEGEND_MAX = 10;
 
@@ -60,11 +74,18 @@ const BLOCK_CHAR = Object.fromEntries(
   Object.entries(MAP_BLOCKS).map(([char, kind]) => [kind, char]),
 ) as Partial<Record<BlockKind, string>>;
 
-/** A floor of a map, a row of text per row of tiles, north first. */
+/**
+ * A floor of a map, a row of text per row of tiles, north first. `edges` draws the lines between
+ * tiles (RFC 0050), two characters per tile plus one each way: even rows are the lines along the
+ * north side of a row of tiles (the last, the plot's south border), and odd rows the lines along
+ * the west side of each tile (the last, the east border) with the tile's block character between
+ * them. Absent on a floor with no wall on any of the plot's lines.
+ */
 export interface MapFloor {
   floor: number;
   blocks: string[];
   ground: string[];
+  edges?: string[];
 }
 
 /** A plot as a map, with a legend for the decor and furniture on it when there is any. */
@@ -86,6 +107,11 @@ export interface PlotTiles {
   floors: number[];
   block(floor: number, x: number, y: number): BlockKind | undefined;
   ground(floor: number, x: number, y: number): GroundKind | undefined;
+  /**
+   * What stands on the line on the `n` or `w` side of (x, y) (RFC 0050). `x` and `y` run to `size`
+   * for the plot's south and east borders, which are the north and west lines of the tiles past it.
+   */
+  edge(floor: number, x: number, y: number, side: EdgeSide): BlockKind | undefined;
   /** Hearths on the plot, north to south, then west to east. They're on the ground floor. */
   hearths: Tile[];
   /** Online residents standing on the plot, with their floor. */
@@ -114,6 +140,11 @@ export function plotTiles(
   for (const t of plan?.lifted ?? []) ground.set(at(t.floor ?? 0, t.x, t.y), null);
   for (const t of plan?.placed ?? []) blocks.set(at(t.floor ?? 0, t.x, t.y), t.block);
   for (const t of plan?.laid ?? []) ground.set(at(t.floor ?? 0, t.x, t.y), t.ground);
+  const edges = new Map<string, BlockKind | null>();
+  const line = (floor: number, x: number, y: number, side: EdgeSide) =>
+    `${floor}:${edgeKey(x, y, side)}`;
+  for (const t of plan?.unwalled ?? []) edges.set(line(t.floor ?? 0, t.x, t.y, t.side), null);
+  for (const t of plan?.walled ?? []) edges.set(line(t.floor ?? 0, t.x, t.y, t.side), t.block);
   const onPlot = (t: Tile) => t.x >= x0 && t.x < x0 + S && t.y >= y0 && t.y < y0 + S;
   const order = (a: Tile, b: Tile) => a.y - b.y || a.x - b.x;
   const hearths = new Map<string, Tile>();
@@ -140,15 +171,42 @@ export function plotTiles(
       if (ground.has(key)) return ground.get(key) ?? undefined;
       return groundOn(state, floor)[tileKey(x0 + x, y0 + y)];
     },
+    edge: (floor, x, y, side) => {
+      const key = line(floor, x0 + x, y0 + y, side);
+      if (edges.has(key)) return edges.get(key) ?? undefined;
+      return edgeAt(state, x0 + x, y0 + y, side, floor);
+    },
     hearths: [...hearths.values()].sort(order),
     standing: standing.sort((a, b) => a.floor - b.floor || order(a, b)),
   };
 }
 
 /**
+ * Every line of a plot on one floor with something on it (RFC 0050), north to south, then west to
+ * east, each as a tile and `n` or `w`: the plot's own north and west lines, and its south and east
+ * borders, which are the lines of the tiles past it (a `y` or `x` of `size`).
+ */
+export function plotLines(
+  tiles: PlotTiles,
+  floor: number,
+): { x: number; y: number; side: EdgeSide; block: BlockKind }[] {
+  const S = tiles.size;
+  const out: { x: number; y: number; side: EdgeSide; block: BlockKind }[] = [];
+  for (let y = 0; y <= S; y++) {
+    for (let x = 0; x <= S; x++) {
+      const n = x < S ? tiles.edge(floor, x, y, "n") : undefined;
+      if (n !== undefined) out.push({ x, y, side: "n", block: n });
+      const w = y < S ? tiles.edge(floor, x, y, "w") : undefined;
+      if (w !== undefined) out.push({ x, y, side: "w", block: w });
+    }
+  }
+  return out;
+}
+
+/**
  * Plot (`px`, `py`) as a map, every floor it has, as it stands or as `plan` leaves it. Decor and
  * furniture take digits in the order they first appear, ground floor first, north to south, then
- * west to east. Undefined for a plot outside the world.
+ * west to east, each floor's blocks before its lines. Undefined for a plot outside the world.
  */
 export function plotMap(
   state: WorldState,
@@ -193,7 +251,24 @@ export function plotMap(
       blocks.push(blockRow);
       ground.push(groundRow);
     }
-    return { floor, blocks, ground };
+    if (plotLines(tiles, floor).length === 0) return { floor, blocks, ground };
+    const { corner, door, none } = MAP_EDGE_MARKS;
+    const lineChar = (kind: BlockKind | undefined) =>
+      kind === undefined ? none : kind === "door" ? door : blockChar(kind);
+    const edges: string[] = [];
+    for (let y = 0; y <= S; y++) {
+      let lines = corner;
+      for (let x = 0; x < S; x++) lines += lineChar(tiles.edge(floor, x, y, "n")) + corner;
+      edges.push(lines);
+      if (y === S) break;
+      let row = "";
+      for (let x = 0; x <= S; x++) {
+        row += lineChar(tiles.edge(floor, x, y, "w"));
+        if (x < S) row += blocks[y]?.[x] ?? MAP_MARKS.keep;
+      }
+      edges.push(row);
+    }
+    return { floor, blocks, ground, edges };
   });
   return digits.size === 0 ? { floors } : { floors, legend };
 }

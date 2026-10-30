@@ -318,23 +318,20 @@ test.describe("the Town Hall", () => {
         deviceScaleFactor: 1,
       });
       const errors = watchErrors(photo, { console: "none" });
-      await photo.route("**/v1/photos/scene/*", (route) =>
-        route.fulfill({
-          json: {
-            framing: "wide",
-            names: true,
-            focus: center,
-            plot: { px: 4, py: 5 },
-            shown,
-            // The guest at the edge ranks just after Fern, as a friend's photo would rank them,
-            // so the crowd's cap of 12 keeps their tag and the edge rule is what's tested.
-            first: [fern.id, edge.id],
-            nowMs: world.time.nowMs,
-            dayLengthMs: world.time.dayLengthMs,
-            stamp: "Plot 4, 5",
-          },
-        }),
-      );
+      const scene = {
+        framing: "wide",
+        names: true,
+        focus: center,
+        plot: { px: 4, py: 5 },
+        shown,
+        // The guest at the edge ranks just after Fern, as a friend's photo would rank them,
+        // so the crowd's cap of 12 keeps their tag and the edge rule is what's tested.
+        first: [fern.id, edge.id],
+        nowMs: world.time.nowMs,
+        dayLengthMs: world.time.dayLengthMs,
+        stamp: "Plot 4, 5",
+      };
+      await photo.route("**/v1/photos/scene/*", (route) => route.fulfill({ json: scene }));
       await photo.goto(`/photo?t=pt_${"0".repeat(32)}`);
       await expect(photo.locator("body")).toHaveAttribute("data-photo", "ready", {
         timeout: 20_000,
@@ -363,6 +360,24 @@ test.describe("the Town Hall", () => {
       }
       // The guest at the frame's edge is named, with the tag kept inside it (checked above).
       expect(tags.map((t) => t.id)).toContain(edge.id);
+
+      // A browser kept open asks the same page for the next photo (decision 0390): one that
+      // lets only Fern in shows only Fern, with nobody carried over from the crowd.
+      scene.shown = [fern.id];
+      scene.first = [fern.id];
+      const took = await photo.evaluate(() =>
+        (window as Window & { photoNext?: (t: string) => boolean }).photoNext?.(
+          `pt_${"1".repeat(32)}`,
+        ),
+      );
+      expect(took).toBe(true);
+      await expect(photo.locator("body")).toHaveAttribute("data-photo", "ready", {
+        timeout: 20_000,
+      });
+      const next: { id: string }[] = JSON.parse(
+        (await photo.locator("canvas.photo-tags").getAttribute("data-tags")) ?? "[]",
+      );
+      expect(next.map((t) => t.id)).toEqual([fern.id]);
       await photo.close();
       expect(errors).toEqual([]);
     });

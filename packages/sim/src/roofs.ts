@@ -1,5 +1,6 @@
 import type { StackKind } from "./catalog";
 import { refuse } from "./check";
+import { edgesOn, hasEdges } from "./edges";
 import { blocksOn, HOLDING_BLOCKS } from "./floors";
 import {
   addStack,
@@ -91,9 +92,13 @@ export function roofSeat(
   py: number,
   plotSize: number,
   floors: number,
+  edge?: (x: number, y: number, side: "n" | "w", floor: number) => boolean,
 ): { floor: number; boxes: RoofBox[] } | undefined {
   for (let floor = floors; floor >= 0; floor--) {
-    const boxes = roofBoxes((x, y) => wall(x, y, floor), px, py, plotSize);
+    const onFloor = edge
+      ? (x: number, y: number, side: "n" | "w") => edge(x, y, side, floor)
+      : undefined;
+    const boxes = roofBoxes((x, y) => wall(x, y, floor), px, py, plotSize, onFloor);
     if (boxes.length > 0) return { floor, boxes };
   }
   return undefined;
@@ -122,7 +127,10 @@ export function roofBoxes(
   px: number,
   py: number,
   plotSize: number,
+  edge?: (x: number, y: number, side: "n" | "w") => boolean,
 ): RoofBox[] {
+  const lines = edge ? edgeSpans(edge, px, py, plotSize) : [];
+  if (lines.length > 0) return spanBoxes(wall, lines, px, py, plotSize);
   const ox = px * plotSize;
   const oy = py * plotSize;
   const seen = new Set<number>();
@@ -159,6 +167,84 @@ export function roofBoxes(
     }
     if (x1 - x0 + 1 < ROOFS.minSpan || y1 - y0 + 1 < ROOFS.minSpan) continue;
     boxes.push({ x0: ox + x0, y0: oy + y0, x1: ox + x1, y1: oy + y1 });
+  }
+  return boxes;
+}
+
+/** A wall's reach in corners: a tile from (x, y) to (x + 1, y + 1), a line along one side. */
+interface Span {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
+/**
+ * The walls between tiles (RFC 0050) on a plot's lines, as spans of corners: each tile's `n` and
+ * `w` line inside the plot, and the lines along its east and south border too.
+ */
+function edgeSpans(
+  edge: (x: number, y: number, side: "n" | "w") => boolean,
+  px: number,
+  py: number,
+  plotSize: number,
+): Span[] {
+  const ox = px * plotSize;
+  const oy = py * plotSize;
+  const spans: Span[] = [];
+  for (let y = oy; y <= oy + plotSize; y++) {
+    for (let x = ox; x <= ox + plotSize; x++) {
+      if (x < ox + plotSize && edge(x, y, "n")) spans.push({ x0: x, y0: y, x1: x + 1, y1: y });
+      if (y < oy + plotSize && edge(x, y, "w")) spans.push({ x0: x, y0: y, x1: x, y1: y + 1 });
+    }
+  }
+  return spans;
+}
+
+/**
+ * The boxes a plot's roof runs over once it has walls between tiles (RFC 0050): wall blocks and
+ * lines together, grouped where their spans of corners touch, and roofed over the tiles inside each
+ * group's span when that is `ROOFS.minSpan` tiles each way. A plot of wall blocks alone never comes
+ * here, so its roof is exactly what `roofBoxes` always gave.
+ */
+function spanBoxes(
+  wall: (x: number, y: number) => boolean,
+  lines: readonly Span[],
+  px: number,
+  py: number,
+  plotSize: number,
+): RoofBox[] {
+  const ox = px * plotSize;
+  const oy = py * plotSize;
+  const spans: Span[] = [...lines];
+  for (let y = oy; y < oy + plotSize; y++) {
+    for (let x = ox; x < ox + plotSize; x++) {
+      if (wall(x, y)) spans.push({ x0: x, y0: y, x1: x + 1, y1: y + 1 });
+    }
+  }
+  const touch = (a: Span, b: Span) => a.x0 <= b.x1 && b.x0 <= a.x1 && a.y0 <= b.y1 && b.y0 <= a.y1;
+  const seen = new Set<number>();
+  const boxes: RoofBox[] = [];
+  for (let start = 0; start < spans.length; start++) {
+    if (seen.has(start)) continue;
+    seen.add(start);
+    const group = [start];
+    const box = { ...(spans[start] as Span) };
+    for (let i = 0; i < group.length; i++) {
+      const here = spans[group[i] as number] as Span;
+      for (let j = 0; j < spans.length; j++) {
+        if (seen.has(j) || !touch(here, spans[j] as Span)) continue;
+        seen.add(j);
+        group.push(j);
+        const s = spans[j] as Span;
+        box.x0 = Math.min(box.x0, s.x0);
+        box.y0 = Math.min(box.y0, s.y0);
+        box.x1 = Math.max(box.x1, s.x1);
+        box.y1 = Math.max(box.y1, s.y1);
+      }
+    }
+    if (box.x1 - box.x0 < ROOFS.minSpan || box.y1 - box.y0 < ROOFS.minSpan) continue;
+    boxes.push({ x0: box.x0, y0: box.y0, x1: box.x1 - 1, y1: box.y1 - 1 });
   }
   return boxes;
 }
@@ -229,10 +315,15 @@ export function roofShape(facts: {
   floors: number;
   /** Whether a wall or window stands on the tile of that floor. */
   wall: (x: number, y: number, floor: number) => boolean;
+  /**
+   * Whether a wall or window stands on the `n` or `w` line of (x, y) on that floor (RFC 0050).
+   * Left out where there are none, and then the roof is what it always was.
+   */
+  edge?: (x: number, y: number, side: "n" | "w", floor: number) => boolean;
 }): RoofShape | undefined {
   const { plotSize, px, py, roof, floors, wall } = facts;
   if (!roof) return undefined;
-  const seat = roofSeat(wall, px, py, plotSize, floors);
+  const seat = roofSeat(wall, px, py, plotSize, floors, facts.edge);
   if (!seat) return undefined;
   const { style } = roof;
   const tiles: RoofTile[] = [];
@@ -287,7 +378,21 @@ export function plotRoof(state: WorldState, px: number, py: number): RoofShape |
     roof: plot.roof,
     floors: plot.floors ?? 0,
     wall: (x, y, floor) => holdsRoof(blocksOn(state, floor)[tileKey(x, y)]),
+    ...roofEdges(state),
   });
+}
+
+/**
+ * The world's walls between tiles as `roofShape` reads them (RFC 0050), or nothing in a world that
+ * has none, so its roofs are exactly what they always were.
+ */
+function roofEdges(state: WorldState): {
+  edge?: (x: number, y: number, side: "n" | "w", floor: number) => boolean;
+} {
+  if (!hasEdges(state)) return {};
+  return {
+    edge: (x, y, side, floor) => holdsRoof(edgesOn(state, floor)[`${tileKey(x, y)},${side}`]),
+  };
 }
 
 /** Whether a value from an input is one of the ridge's own (`ROOF_TOPS`). */
@@ -348,7 +453,7 @@ export function checkSetRoof(
   // What a roof covers is read from the walls, so one with nothing under it would draw nothing.
   const wall = (x: number, y: number, floor: number) =>
     holdsRoof(blocksOn(state, floor)[tileKey(x, y)]);
-  if (next && !roofSeat(wall, px, py, config.plotSize, plot.floors ?? 0)) {
+  if (next && !roofSeat(wall, px, py, config.plotSize, plot.floors ?? 0, roofEdges(state).edge)) {
     return refuse(
       "nothing_under",
       `A roof sits on a home's walls, and this plot has none ${ROOFS.minSpan} tiles across. Build them first.`,

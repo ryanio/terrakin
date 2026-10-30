@@ -112,6 +112,63 @@ describe("homes nobody can walk out of", () => {
     );
   });
 
+  it("walks a slimmed home's walls between tiles, and lists the lines that free it", async () => {
+    const { call, service, mira, vee, clear } = await start();
+    const act = (command: Record<string, unknown>) =>
+      call("POST", "/v1/actions", command, vee.token);
+    // Her walls go up on the lines round the same 25 tiles, the wood in the doorway with them, so
+    // she is still shut in, and a block just outside them is no way out.
+    expect((await act({ type: "slim_walls", px: 0, py: 0 })).status).toBe(200);
+    expect((await act({ type: "place", x: 3, y: 6, block: "wood" })).status).toBe(200);
+    type Free = { x: number; y: number; side?: string; block: string };
+    const frees = async () => {
+      const res = await call("GET", "/v1/admin/shut-homes", undefined, mira.token);
+      const homes = res.body.homes as { resident: { id: string }; frees: Free[] }[];
+      expect(homes.map((h) => h.resident.id)).toEqual([vee.residentId]);
+      return homes[0]?.frees ?? [];
+    };
+    // Each line of her ring opens a way but the one the block outside covers, and the block
+    // itself frees nobody.
+    const first = await frees();
+    expect(first).toHaveLength(19);
+    expect(first.every((f) => f.side !== undefined)).toBe(true);
+    expect(first).toContainEqual({
+      x: 1,
+      y: 3,
+      side: "w",
+      block: "glass",
+      owner: expect.objectContaining({ id: vee.residentId }),
+    });
+    expect(first).not.toContainEqual(expect.objectContaining({ x: 3, y: 5, side: "s" }));
+    // Her check-in names the cheapest of them, by its side, with the remove that takes it down.
+    const todo = (await call("GET", "/v1/checkin", undefined, vee.token)).body.todo as string[];
+    expect(todo.join("\n")).toMatch(
+      /Taking down the wall of wood on the north side of 1, 1 on your own plot opens a way out.*\{"type": "remove", "x": 1, "y": 1, "side": "n"\}.*"side": "n", "block": "door"/,
+    );
+    expect((await clear({ x: 3, y: 6, dry: true })).body).toMatchObject({ walksOut: false });
+    // With that block gone, the wood line where her doorway was is her way out: a dry run walks
+    // as if it were gone, and clearing it opens her home.
+    expect((await clear({ x: 3, y: 6 })).body).toMatchObject({ walksOut: false, cleared: true });
+    expect(await frees()).toContainEqual(
+      expect.objectContaining({ x: 3, y: 5, side: "s", block: "wood" }),
+    );
+    const dry = await clear({ x: 3, y: 5, side: "s", dry: true });
+    expect(dry.body).toMatchObject({ x: 3, y: 5, side: "s", block: "wood", walksOut: true });
+    expect(service.state.edges?.["3,6,n"]).toBe("wood");
+    const done = await clear({ x: 3, y: 5, side: "s" });
+    expect(done.body).toMatchObject({ side: "s", block: "wood", walksOut: true, cleared: true });
+    expect(service.state.edges?.["3,6,n"]).toBeUndefined();
+    expect((await call("GET", "/v1/admin/shut-homes", undefined, mira.token)).body.homes).toEqual(
+      [],
+    );
+    const notices = (await call("GET", "/v1/notifications", undefined, vee.token)).body
+      .notifications as { type: string; cleared?: unknown }[];
+    expect(notices.filter((n) => n.type === "block_cleared").map((n) => n.cleared)).toEqual([
+      { x: 3, y: 5, side: "s", block: "wood" },
+      { x: 3, y: 6, block: "wood" },
+    ]);
+  });
+
   it("refuses anyone but a maintainer, and a dry run says it would free her and changes nothing", async () => {
     const { service, otto, vee, clear } = await start();
     expect((await clear({ x: 3, y: 5 }, vee)).status).toBe(403);

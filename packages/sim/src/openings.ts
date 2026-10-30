@@ -1,5 +1,6 @@
 import type { BuildPlan } from "./build";
 import { sameHousehold } from "./economy";
+import { edgeAt, edgeBlocks, edgeKey } from "./edges";
 import { plotKey, tileKey } from "./keys";
 import { isStreet, landsFromSnapshot, onLand, type SnapshotLands, seaFrom } from "./lands";
 import type {
@@ -7,11 +8,12 @@ import type {
   Direction,
   Plot,
   ResidentId,
+  Side,
   Tile,
   WorldConfig,
   WorldState,
 } from "./types";
-import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
+import { DIRECTIONS, type Ground, groundOf, stepFrom, withEdges } from "./walk";
 import { isWay } from "./ways";
 import {
   blocksWalkers,
@@ -249,8 +251,8 @@ function touchesOpenGround(facts: OpeningFacts, px: number, py: number): boolean
 }
 
 /**
- * The world's facts for openings, as it stands or with `plan` laid over its ground floor: the
- * ground every walk reads (`worldGround`'s, sea and solid buildings included) and the plots claimed.
+ * The world's facts for openings, as it stands or with `plan` laid over its ground floor, its
+ * blocks and its walls between tiles: the ground every walk reads (`worldGround`'s, sea and solid buildings included) and the plots claimed.
  */
 export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts {
   const changed = new Map<string, boolean>();
@@ -259,6 +261,21 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
   for (const t of plan?.placed ?? []) {
     if ((t.floor ?? 0) === 0) changed.set(tileKey(t.x, t.y), blocksWalkers(t.block));
   }
+  // Walls between tiles (RFC 0050) as the plan leaves the ground floor's lines.
+  const lines = new Map<string, BlockKind | undefined>();
+  for (const t of plan?.unwalled ?? [])
+    if ((t.floor ?? 0) === 0) lines.set(edgeKey(t.x, t.y, t.side), undefined);
+  for (const t of plan?.walled ?? [])
+    if ((t.floor ?? 0) === 0) lines.set(edgeKey(t.x, t.y, t.side), t.block);
+  const edges =
+    lines.size === 0
+      ? withEdges(state, 0)
+      : {
+          edge: (x: number, y: number, side: Side) => {
+            const key = edgeKey(x, y, side);
+            return edgeBlocks(lines.has(key) ? lines.get(key) : edgeAt(state, x, y, side, 0));
+          },
+        };
   const sea = seaFrom(state.config, state.lands);
   const facts: OpeningFacts = {
     ground: groundOf({
@@ -268,6 +285,8 @@ export function openingFacts(state: WorldState, plan?: BuildPlan): OpeningFacts 
       townHall: townHallTiles(state),
       shop: state.shop ? shopTiles(state) : [],
       ...(sea ? { sea } : {}),
+      // Walls between tiles (RFC 0050) close a way out as wall blocks do.
+      ...edges,
     }),
     claimed: (px, py) => state.plots[plotKey(px, py)] !== undefined,
     together: (a, b) => plotsTogether(state, a, b),

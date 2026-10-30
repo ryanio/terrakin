@@ -6,6 +6,7 @@ import {
   commonsPlot,
   displayAt,
   landlocked,
+  type OpeningFacts,
   openingFacts,
   plotKey,
   plotOf,
@@ -31,6 +32,16 @@ export type WayCommand = Extract<
   { type: "clear_block" | "open_way" | "close_way" | "rebuild_home" }
 >;
 
+/**
+ * Opening facts whose ground has the world's walls between tiles (RFC 0050), which `openingFacts`
+ * leaves out, so the planner walks a slimmed home as the sim's own walk does.
+ */
+function withLines(state: WorldState, openings: OpeningFacts): OpeningFacts {
+  const { edge } = worldGround(state);
+  if (!edge || openings.ground.edge) return openings;
+  return { ...openings, ground: { ...openings.ground, edge } };
+}
+
 /** The planner's facts from the world as it stands. */
 export function wayFactsFrom(state: WorldState): WayFacts {
   const { config } = state;
@@ -44,20 +55,34 @@ export function wayFactsFrom(state: WorldState): WayFacts {
     const [x, y] = key.split(",").map(Number) as [number, number];
     return displayAt(state, x, y) !== undefined;
   });
+  // A surface with something on it (RFC 0050) and a pot set down (RFC 0047) are someone's things,
+  // so the town routes round them rather than plan a clear the sim refuses. Ground floor only:
+  // an upstairs key carries its floor before a colon.
+  const ownedThings = [
+    ...Object.keys(state.items?.tops ?? {}),
+    ...Object.keys(state.items?.pots ?? {}),
+  ].filter((key) => !key.includes(":"));
   const upstairs = Object.values(state.floors ?? {}).flatMap((layer) => [
     ...Object.keys(layer.blocks ?? {}),
     ...Object.keys(layer.ground ?? {}),
   ]);
   return {
     config,
-    openings: openingFacts(state),
+    openings: withLines(state, openingFacts(state)),
     downtown,
     commons,
     plots: Object.values(state.plots),
     townsfolk: new Set(state.townsfolk ?? []),
     hearths: Object.values(state.residents).flatMap((r) => (r.hearth ? [r.hearth] : [])),
     blocks,
-    fixed: new Set([...crops, ...firing, ...shown]),
+    fixed: new Set([...crops, ...firing, ...shown, ...ownedThings]),
+    facing: new Set(
+      Object.keys(state.items?.hung ?? {}).flatMap((key) => {
+        if (key.includes(":")) return [];
+        const [x, y] = key.split(",");
+        return [`${x},${y}`];
+      }),
+    ),
     upstairs: new Set(upstairs),
     listed: new Set(Object.keys(state.plotMarket?.listings ?? {})),
     ways: new Set(Object.keys(state.ways ?? {})),

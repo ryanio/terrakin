@@ -32,6 +32,7 @@ import {
   isJobWear,
   isShopSku,
   isShownFind,
+  isShownThing,
   isTownsfolk,
   kindsIn,
   potName,
@@ -316,8 +317,15 @@ export class CollectionBook {
         if (g.finish) add(resident, "finish", g.finish);
       }
     }
-    for (const shown of [...Object.values(items?.displays ?? {}), ...(items?.heldAside ?? [])]) {
+    for (const shown of [
+      ...Object.values(items?.displays ?? {}),
+      ...(items?.heldAside ?? []),
+      // On a surface or a wall (RFC 0050), it's still whoever put it there's.
+      ...Object.values(items?.tops ?? {}),
+      ...Object.values(items?.hung ?? {}),
+    ]) {
       if (isShownFind(shown)) add(shown.by, "thing", shown.find);
+      else if (isShownThing(shown)) add(shown.by, "thing", shown.thing);
       else {
         const g = shown.good;
         add(shown.by, "thing", g.kind, g.maker === shown.by ? g.madeDay : today);

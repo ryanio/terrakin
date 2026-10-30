@@ -1,5 +1,5 @@
-import { BUILD_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { FLOORS, type WorldConfig } from "@terrakin/sim";
+import { BUILD_LIMITS, designViews, type ServerMessage } from "@terrakin/protocol";
+import { designNotes, FLOORS, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
@@ -77,12 +77,20 @@ async function start(options: { starterDoors?: boolean; config?: WorldConfig } =
     if (!items) throw new Error("items aren't open");
     items.inventories[id] = { stacks: { stone: n }, goods: [] };
   };
+  /** Log `starter_edges` as the town does, so starter huts are built from lines (RFC 0050). */
+  const linesOn = () => {
+    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
+    expect(
+      run.call(service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } }),
+    ).toMatchObject({ ok: true });
+  };
   return {
     base,
     call,
     act,
     settler,
     stone,
+    linesOn,
     service,
     store,
     advance: (ms: number) => {
@@ -184,10 +192,12 @@ describe("build", () => {
 
   it("builds from a map or a design, answering with the plot as a map and notes about it (RFC 0032)", async () => {
     const t = await start();
+    t.linesOn();
     const ada = await t.settler("Ada", 0, 0);
     // Her hut with no path yet: the plan route draws it and says so.
     const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
-    expect(read.map.floors[0].blocks[3]).toBe(".G.h.G..");
+    expect(read.map.floors[0].blocks[3]).toBe("...h....");
+    expect(read.map.floors[0].edges[7]).toBe(" .G. . h . .G. . ");
     expect(read.notes.map((n: { code: string }) => n.code)).toEqual(["no_path"]);
     // A path out of the door drawn as a map, priced dry: the answer draws the plot it would make.
     const path = [
@@ -239,11 +249,103 @@ describe("build", () => {
       replace: true,
     };
     const swapped = await t.act(bob, { ...swap, dry: true });
-    expect(swapped).toMatchObject({ ok: true, plan: { removed: 15, uses: [], notes: [] } });
-    expect(swapped.plan.map.floors[0].blocks.join("")).not.toContain("W");
+    expect(swapped).toMatchObject({
+      ok: true,
+      plan: { removed: 0, unwalled: 19, walled: 19, uses: [], notes: [] },
+    });
+    expect(swapped.plan.map.floors[0].edges.join("")).not.toContain("W");
     // Turned, it clears only where it puts something: the hut's other walls stay, and say so.
     const turned = await t.act(bob, { ...swap, turn: 90, dry: true });
     expect(turned.plan.notes.map((n: { code: string }) => n.code)).toContain("hearth_walled_in");
+  });
+
+  it("builds a design's walls on the lines between tiles, and draws a plot's lines (RFC 0050)", async () => {
+    const t = await start();
+    const { body } = await t.call("POST", "/v1/session", { name: "Ada", kind: "agent" });
+    const ada = { id: body.residentId as string, token: body.token as string };
+    await t.act(ada, { type: "settle", px: 0, py: 0 });
+    const hut = { type: "build", px: 0, py: 0, design: "hut", dry: true };
+    expect((await t.call("GET", "/v1/designs")).body).toEqual(designViews());
+    const priced = await t.act(ada, hut);
+    expect(priced).toMatchObject({ ok: true, plan: { walled: 20, uses: [] } });
+    // The door of lines on the south side of (3, 5).
+    expect(priced.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
+    await t.act(ada, { ...hut, dry: false });
+    const read = (await t.call("GET", "/v1/plots/0/0/plan")).body.plan;
+    expect(read.edges).toHaveLength(20);
+    expect(read.map.floors[0].edges).toHaveLength(17);
+  });
+
+  it("previews a slim as the home it leaves, a map and its notes, and builds the same (RFC 0050)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const out = [
+      { x: 3, y: 6, ground: "dirt" },
+      { x: 3, y: 7, ground: "dirt" },
+    ];
+    await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
+    t.advance(BUILD_LIMITS.secondsBetween * 1000);
+    const dry = await t.act(ada, { type: "slim_walls", px: 0, py: 0, dry: true });
+    expect(dry).toMatchObject({ ok: true, plan: { walled: 20, notes: [] } });
+    // The door on the line south of (3, 5), and the path from it still counts.
+    expect(dry.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
+    const real = await t.act(ada, { type: "slim_walls", px: 0, py: 0 });
+    expect(real.plan).toEqual(dry.plan);
+  });
+
+  it("slims every home the town can, once, and tells each owner (decision 0404)", async () => {
+    const t = await start();
+    const ada = await t.settler("Ada", 0, 0);
+    const bob = await t.settler("Bob", 2, 0);
+    const out = [
+      { x: 3, y: 6, ground: "dirt" },
+      { x: 3, y: 7, ground: "dirt" },
+    ];
+    await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
+    // Cee slimmed her own hut, then walled a little room in blocks: hers to leave as it is.
+    const cee = await t.settler("Cee", 0, 2);
+    await t.act(cee, { type: "slim_walls", px: 0, py: 2 });
+    const ring = [
+      [4, 1],
+      [5, 1],
+      [6, 1],
+      [4, 2],
+      [6, 2],
+      [4, 3],
+      [5, 3],
+      [6, 3],
+    ].map(([x, y]) => ({ x, y, block: "wood" }));
+    expect(await t.act(cee, { type: "build", px: 0, py: 2, blocks: ring })).toMatchObject({
+      ok: true,
+    });
+    // The same world, booted again with the switches terrakin.org runs.
+    const reborn = new WorldService({
+      store: t.store,
+      config: CONFIG,
+      now: () => Date.UTC(2026, 9, 7, 9),
+      days: true,
+      economy: true,
+      items: true,
+      starterEdges: true,
+      slimHomes: true,
+    });
+    const told: unknown[] = [];
+    reborn.onHomeSlimmed = (owner, slimmed) => told.push({ owner, ...slimmed });
+    reborn.tick();
+    expect(reborn.state.homesSlimmed).toBe(true);
+    expect(Object.keys(reborn.state.blocks)).toHaveLength(8);
+    expect(Object.keys(reborn.state.edges ?? {})).toHaveLength(60);
+    expect(told).toEqual([
+      { owner: ada.id, px: 0, py: 0, walls: 20, back: 0 },
+      { owner: bob.id, px: 2, py: 0, walls: 20, back: 0 },
+    ]);
+    // Ada's path out of the door still counts, and Bob's plot has no more notes than it had.
+    expect(designNotes(reborn.state, 0, 0)).toEqual([]);
+    expect(designNotes(reborn.state, 2, 0).map((n) => n.code)).toEqual(["no_path"]);
+    // Never again.
+    const seq = reborn.state.seq;
+    reborn.tick();
+    expect(reborn.state.seq).toBe(seq);
   });
 
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {
@@ -353,7 +455,15 @@ describe("build", () => {
     const before = await purse();
     const seq = t.service.state.seq;
     const dry = await t.act(ada, { type: "add_floor", px: 0, py: 0, dry: true });
-    expect(dry).toEqual({ ok: true, dry: true, seq, events: [], price: FLOORS.price });
+    expect(dry).toEqual({
+      ok: true,
+      dry: true,
+      seq,
+      events: [],
+      price: FLOORS.price,
+      // The same price as what it would take from her purse (decision 0406).
+      cost: { uses: [], gets: [], coins: -FLOORS.price },
+    });
     expect(await purse()).toEqual(before);
     expect(t.service.state.seq).toBe(seq);
     expect((await t.call("GET", "/v1/plots/0/0")).body.plot.floors).toBeUndefined();

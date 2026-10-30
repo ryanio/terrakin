@@ -941,6 +941,10 @@ describe("shut homes (decision 0343)", () => {
     expect(freeLine(at(69, 31, "chair"))).toBe("Chair at 69, 31. Gives back 1 chair.");
     expect(freeLine(at(69, 31, "pond"))).toBe("Pond at 69, 31. Gives back 2 stone.");
     expect(freeLine(at(69, 31, "stone"))).toBe("Stone at 69, 31. Gives back nothing.");
+    // A wall between tiles (RFC 0050) is named by its line.
+    expect(freeLine({ ...at(69, 31, "glass"), side: "s" })).toBe(
+      "Wall of glass on the south side of 69, 31. Gives back nothing.",
+    );
   });
 
   it("says what a check would take and what a clear took, and whether the hearth walks out", () => {
@@ -955,5 +959,8 @@ describe("shut homes (decision 0343)", () => {
       /Vash's hearth still has no walk out to the town once it's gone\.$/,
     );
     expect(clearWords({ ...r, walksOut: null })).toMatch(/Vash has no hearth of their own\.$/);
+    expect(clearWords({ ...r, block: "wood", side: "w", cleared: true })).toMatch(
+      /^Took the wall of wood on the west side of 69, 31 off Vash's plot\./,
+    );
   });
 });

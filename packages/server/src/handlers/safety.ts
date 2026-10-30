@@ -9,6 +9,7 @@ import {
   AWARDS,
   awardedInWindow,
   circleById,
+  edgeAt,
   findBounty,
   findEvent,
   goodById,
@@ -564,34 +565,36 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
       });
       return { status: 200, body: { homes } };
     },
-    // A maintainer opens a way out of a home by taking one block off a plot (decision 0343). What
-    // it cost goes back to the plot's owner, who hears it from Terrakin.
+    // A maintainer opens a way out of a home by taking one block off a plot (decision 0343), or
+    // with `side` the wall on that line of the tile (RFC 0050). What it cost goes back to the
+    // plot's owner, who hears it from Terrakin.
     clearBlock: ({ viewer, body }) => {
       if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
       const { state } = service;
-      const { x, y } = body;
+      const { x, y, side } = body;
       const plot = plotAtTile(state, x, y);
-      const block = state.blocks[tileKey(x, y)];
+      const block = side ? edgeAt(state, x, y, side) : state.blocks[tileKey(x, y)];
       const owner = plot ? social().ref(plot.ownerId) : undefined;
       const dry = body.dry === true;
-      const done = service.clearBlock(x, y, dry);
+      const done = service.clearBlock(x, y, dry, side);
       if (!done.ok) return fail(done.error.code, done.error.message);
       if (!plot || !owner || block === undefined)
         return fail("no_plot", "That tile isn't on a claimed plot.");
       const hearth = residentById(state, plot.ownerId)?.hearth;
       // On a dry run the block is still there, so ask the walk as if it weren't.
-      const walksOut = hearth ? walksOutWithout(state, hearth, dry ? { x, y } : undefined) : null;
+      const cleared = { x, y, ...(side ? { side } : {}) };
+      const walksOut = hearth ? walksOutWithout(state, hearth, dry ? cleared : undefined) : null;
       if (!dry) {
         social().safety.recordNote(
           viewer,
           "clear_block",
           "resident",
           plot.ownerId,
-          `At ${x},${y}: ${body.reason}`,
+          `At ${x},${y}${side ? ` ${side}` : ""}: ${body.reason}`,
         );
-        social().blockCleared(plot.ownerId, { x, y, block });
+        social().blockCleared(plot.ownerId, { ...cleared, block });
       }
-      return { status: 200, body: { owner, x, y, block, walksOut, cleared: !dry } };
+      return { status: 200, body: { owner, ...cleared, block, walksOut, cleared: !dry } };
     },
     // A maintainer plans downtown's public ways and lays them (RFC 0046): every input is checked
     // against a copy of the world first, so the network goes in whole or not at all, and each

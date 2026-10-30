@@ -28,7 +28,7 @@ import {
   type TownsfolkActivityResponse,
   type TriageVerdictView,
 } from "@terrakin/protocol";
-import { DAY_MS } from "@terrakin/sim";
+import { DAY_MS, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { blockBackWords, blockName, clearCost } from "@terrakin/ui/blocks";
 import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
@@ -161,10 +161,20 @@ export function freesByCost(frees: readonly FreeingBlock[]): FreeingBlock[] {
 export const CLEAR_COST_WORDS = ["Free", "Comes back", "In use"] as const;
 
 /** A block's place and what clearing it gives back: "Chair at 69, 31. Gives back 1 chair." */
-export function freeLine(f: Pick<FreeingBlock, "x" | "y" | "block">): string {
-  const name = blockName(f.block);
-  return `${name[0]?.toUpperCase() ?? ""}${name.slice(1)} at ${f.x}, ${f.y}. Gives back ${blockBackWords(f.block)}.`;
+export function freeLine(f: Pick<FreeingBlock, "x" | "y" | "side" | "block">): string {
+  const what = clearWhat(f);
+  return `${what[0]?.toUpperCase() ?? ""}${what.slice(1)}. Gives back ${blockBackWords(f.block)}.`;
 }
+
+/** What a clear takes and where: "stone at 4, 7", or "wall of stone on the south side of 4, 7". */
+export const clearWhat = (f: ClearSpot) => `${clearName(f)} ${clearAt(f)}`;
+
+type ClearSpot = { x: number; y: number; side?: Side | undefined; block: string };
+/** What a clear takes: "stone", or a wall between tiles (RFC 0050) as "wall of stone". */
+const clearName = (f: ClearSpot) => (f.side ? `wall of ${blockName(f.block)}` : blockName(f.block));
+/** Where it stands: "at 4, 7", or a wall between tiles as "on the south side of 4, 7". */
+const clearAt = (f: ClearSpot) =>
+  f.side ? `on the ${SIDE_WORDS[f.side]} side of ${f.x}, ${f.y}` : `at ${f.x}, ${f.y}`;
 
 /** The reason a check sends. A dry run clears nothing and is never logged. */
 export const CLEAR_CHECK_REASON = "Checking a way out of a shut home";
@@ -176,11 +186,10 @@ export const CLEAR_CHECK_REASON = "Checking a way out of a shut home";
  */
 export function clearWords(r: StaffClearBlockResponse): string {
   const owner = r.owner.name;
-  const name = blockName(r.block);
   const back = blockBackWords(r.block);
   const took = r.cleared
-    ? `Took the ${name} at ${r.x}, ${r.y} off ${owner}'s plot.`
-    : `Clearing takes the ${name} at ${r.x}, ${r.y} off ${owner}'s plot.`;
+    ? `Took the ${clearWhat(r)} off ${owner}'s plot.`
+    : `Clearing takes the ${clearWhat(r)} off ${owner}'s plot.`;
   const gives =
     back === "nothing"
       ? "It was free, so nothing goes back."

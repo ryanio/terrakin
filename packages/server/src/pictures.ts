@@ -260,6 +260,7 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
       ground: area.ground,
       ...(tints.length ? { tints } : {}),
       blocks: area.blocks,
+      ...(area.edges.length > 0 ? { edges: area.edges } : {}),
       ...(area.crops.length ? { crops: area.crops } : {}),
       ...(floors.length ? { floors } : {}),
       ...(roofs.length ? { roofs } : {}),

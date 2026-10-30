@@ -8,10 +8,13 @@ import {
   type Crop,
   type Direction,
   type DrawnGround,
+  edgeKey,
   type FindKind,
+  FLOORS,
   type GroundKind,
   groundTile,
   type PickupKind,
+  parseEdgeKey,
   type Resident,
   type RoofShape,
   type Scenery,
@@ -29,8 +32,12 @@ import {
   type GroundLeaf,
   type LayoutCrop,
   type LayoutDisplay,
+  type LayoutEdge,
   plotBounds,
   potsOn,
+  type RoomShown,
+  roomPart,
+  roomThingsOn,
   type ShownGood,
   shownFind,
 } from "./layout";
@@ -135,6 +142,8 @@ export interface PlotChunk {
   highest: number;
   /** Its roof (RFC 0041), drawn over the walls, or none while the plot is the one cut away. */
   roof?: RoofShape;
+  /** Walls between tiles on every floor shown (RFC 0050), each on a tile's `n` or `w` line. */
+  edges: LayoutEdge[];
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
@@ -177,6 +186,10 @@ export interface ChunkSource {
   displays?: ReadonlyMap<string, { good: ShownGood }>;
   /** Pots set down (RFC 0047), by the sim's `potKey`. Absent reads as none. */
   pots?: ReadonlyMap<string, { good: ShownGood }>;
+  /** Small things on surfaces (RFC 0050), by the sim's `topKey`. Absent reads as none. */
+  tops?: ReadonlyMap<string, RoomShown>;
+  /** Things hung on walls (RFC 0050), by the sim's `faceKey`. Absent reads as none. */
+  hung?: ReadonlyMap<string, RoomShown>;
   /** Finds on display (RFC 0021), by tile key. */
   shownFinds?: ReadonlyMap<string, { kind: FindKind }>;
   crops?: ReadonlyMap<string, { crop: Crop; plantedDay: number; readyDay: number }>;
@@ -193,6 +206,8 @@ export interface ChunkSource {
   roofAt?(px: number, py: number): RoofShape | undefined;
   /** Whether a tile is open water between lands (RFC 0038). Absent reads as none, as it is today. */
   isSea?(x: number, y: number): boolean;
+  /** Walls between tiles on a floor (RFC 0050), by the sim's `edgeKey`. Absent reads as none. */
+  edgesOn?(floor: number): ReadonlyMap<string, BlockKind>;
 }
 
 /** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
@@ -317,11 +332,18 @@ export function readChunk(
     displays.push(pot);
     parts.push(potPart(pot));
   }
+  // Things on surfaces and walls (RFC 0050), on the same floors.
+  for (const thing of roomShown(source, bounds, up.blocks)) {
+    displays.push(thing);
+    parts.push(roomPart(thing));
+  }
   const presents = pilesOn(source, bounds);
   for (const p of presents) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
+  const edges = edgesShown(source, bounds, cut);
+  for (const e of edges) parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
   return {
     px,
     py,
@@ -332,6 +354,7 @@ export function readChunk(
     ground,
     highest: up.highest,
     ...(roof ? { roof } : {}),
+    edges,
     hearths: homes,
     displays,
     crops,
@@ -423,10 +446,33 @@ export function chunkSignature(
   const up = upstairsOf(source, bounds, lit, cut);
   parts.push(...up.parts);
   for (const pot of potsShown(source, bounds, up.blocks)) parts.push(potPart(pot));
+  for (const thing of roomShown(source, bounds, up.blocks)) parts.push(roomPart(thing));
   for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
+  for (const e of edgesShown(source, bounds, cut)) {
+    parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
+  }
   return parts.join("|");
+}
+
+/**
+ * The walls between tiles a plot draws (RFC 0050): each line owned by one of its tiles, on the
+ * ground floor and every floor shown, so the floors above the cut on the plot you stand on stay
+ * away as their blocks do.
+ */
+function edgesShown(source: ChunkSource, bounds: Bounds, cut: number | undefined): LayoutEdge[] {
+  if (!source.edgesOn) return [];
+  const out: LayoutEdge[] = [];
+  for (let floor = 0; floor <= FLOORS.max; floor++) {
+    if (cut !== undefined && floor > cut) break;
+    for (const [key, block] of source.edgesOn(floor)) {
+      const { x, y, side } = parseEdgeKey(key);
+      if (x < bounds.x0 || x > bounds.x1 || y < bounds.y0 || y > bounds.y1) continue;
+      out.push({ x, y, side, block, ...(floor ? { floor } : {}) });
+    }
+  }
+  return out;
 }
 
 /** The pots set down on a plot's ground floor and the floors shown above it (RFC 0047). */
@@ -441,6 +487,30 @@ function potsShown(
     for (let x = bounds.x0; x <= bounds.x1; x++)
       if (source.blocks.get(tileKey(x, y)) === "pot") below.push({ x, y, block: "pot" });
   return potsOn([...below, ...upstairs], source.pots);
+}
+
+/** The things on surfaces and walls (RFC 0050) on a plot's ground floor and the floors shown. */
+function roomShown(
+  source: ChunkSource,
+  bounds: Bounds,
+  upstairs: readonly { x: number; y: number; block: BlockKind; floor?: number }[],
+): LayoutDisplay[] {
+  if (!source.tops?.size && !source.hung?.size) return [];
+  const below: { x: number; y: number; block: BlockKind }[] = [];
+  for (let y = bounds.y0; y <= bounds.y1; y++)
+    for (let x = bounds.x0; x <= bounds.x1; x++) {
+      const block = source.blocks.get(tileKey(x, y));
+      if (block) below.push({ x, y, block });
+    }
+  const floors = new Set([0, ...upstairs.flatMap((b) => (b.floor ? [b.floor] : []))]);
+  return roomThingsOn(
+    [...below, ...upstairs],
+    source.tops,
+    source.hung,
+    (x, y) => x >= bounds.x0 && x <= bounds.x1 && y >= bounds.y0 && y <= bounds.y1,
+    floors,
+    (x, y, side, floor) => source.edgesOn?.(floor).get(edgeKey(x, y, side)) !== undefined,
+  );
 }
 
 /** A pot's words in a chunk's signature: where, which, and a vase's flower. */
@@ -478,6 +548,19 @@ export function groundPoint(origin: Vec, dir: Vec, height = 0): Vec | undefined 
 export function tileOfHit(point: Vec, dir: Vec, step = 0.05): Tile {
   const len = Math.hypot(dir[0], dir[1], dir[2]) || 1;
   return tileAtPoint(point[0] + (dir[0] / len) * step, point[2] + (dir[2] / len) * step);
+}
+
+/**
+ * Where a ray hit: `tileOfHit`'s tile, and how far east and south of that tile's middle the hit
+ * itself was, in tiles. A tap on the face of a wall between tiles lands on that wall's side of
+ * the tile, which is how the build bar finds the line a 3D tap meant.
+ */
+export function spotOfHit(
+  point: Vec,
+  dir: Vec,
+): { tile: Tile; within: { fx: number; fy: number } } {
+  const tile = tileOfHit(point, dir);
+  return { tile, within: { fx: point[0] - tile.x, fy: point[2] - tile.y } };
 }
 
 /**

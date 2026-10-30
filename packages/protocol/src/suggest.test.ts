@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { z } from "zod";
-import { ACTION_TYPES, Action, CreateSessionRequest } from "./schemas";
+import { ACTION_TYPES, Action } from "./actions";
+import { CreateSessionRequest } from "./schemas";
 import { editDistance, nearestName, plainProblem, suggestFor } from "./suggest";
 
 describe("editDistance", () => {

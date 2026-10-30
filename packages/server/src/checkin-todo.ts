@@ -23,6 +23,8 @@ import {
   potName,
   readyKilns,
   residentById,
+  SIDE_WORDS,
+  type Side,
   type WorldState,
 } from "@terrakin/sim";
 import type { StepLeft } from "./checkin-steps";
@@ -104,8 +106,19 @@ const WELCOME_BACK_DAYS = 3;
  * open tile, so the way stays open and the wall stays whole. A block that frees a home is on the
  * ground floor, where a door goes.
  */
-const doorAfter = (t: { x: number; y: number }) =>
-  ` To keep the wall whole, a door can go in its place, and a door is walked through: {"type": "place", "x": ${t.x}, "y": ${t.y}, "block": "door"}.`;
+const doorAfter = (t: Freeing) =>
+  ` To keep the wall whole, a door can go in its place, and a door is walked through: {"type": "place", "x": ${t.x}, "y": ${t.y}${sideField(t)}, "block": "door"}.`;
+
+/** A block that frees a home, or with `side` the wall between tiles on that line (RFC 0050). */
+type Freeing = { x: number; y: number; side?: Side | undefined; block: string };
+/** Where it stands, after its name: "at 4, 7", or "on the south side of 4, 7". */
+const freeingAt = (b: Freeing) =>
+  b.side ? `on the ${SIDE_WORDS[b.side]} side of ${b.x}, ${b.y}` : `at ${b.x}, ${b.y}`;
+const sideField = (b: Freeing) => (b.side ? `, "side": "${b.side}"` : "");
+/** The `remove` that takes it down. */
+const removeOf = (b: Freeing) => `{"type": "remove", "x": ${b.x}, "y": ${b.y}${sideField(b)}}`;
+/** Its name: "stone", or for a wall between tiles "wall of stone", "wall of glass". */
+const freeingName = (b: Freeing) => (b.side ? `wall of ${blockName(b.block)}` : blockName(b.block));
 
 const TODO: readonly TodoEntry[] = [
   (f) => f.firstVisit.map((s) => `First visit: ${s.line}`),
@@ -157,7 +170,7 @@ const TODO: readonly TodoEntry[] = [
     const own = cheapestFree(shut.frees.filter((b) => b.ownerId === f.viewer));
     if (own) {
       return [
-        `${head} Taking down the ${blockName(own.block)} at ${own.x}, ${own.y} on your own plot opens a way out, and it gives back ${blockBackWords(own.block)}: come within reach, then {"type": "remove", "x": ${own.x}, "y": ${own.y}}.${doorAfter(own)} Tell your owner what you took down and why.`,
+        `${head} Taking down the ${freeingName(own)} ${freeingAt(own)} on your own plot opens a way out, and it gives back ${blockBackWords(own.block)}: come within reach, then ${removeOf(own)}.${doorAfter(own)} Tell your owner what you took down and why.`,
       ];
     }
     // The neighbour told in their own check-in, if any is: `homesShutBy` names the same block.
@@ -170,7 +183,7 @@ const TODO: readonly TodoEntry[] = [
           ? "Their own check-in asks them to take it down; if it's still there in a day, ask them yourself"
           : "Ask them to take it down";
       return [
-        `${head} The way out is shut by the ${blockName(theirs.block)} at ${theirs.x}, ${theirs.y} on ${who}'s plot. ${asked}, or tell the team through the contact page.`,
+        `${head} The way out is shut by the ${freeingName(theirs)} ${freeingAt(theirs)} on ${who}'s plot. ${asked}, or tell the team through the contact page.`,
       ];
     }
     return [
@@ -186,7 +199,7 @@ const TODO: readonly TodoEntry[] = [
       const who = residentById(f.state, home.residentId)?.name;
       if (!who) return [];
       return [
-        `Your ${blockName(block.block)} at ${block.x}, ${block.y} shuts ${who}'s home in: no walk reaches the town from their hearth, so they can't buy, sell or file a proposal, and nothing on their own plot opens a way. Taking it down does, and it gives back ${blockBackWords(block.block)}: come within reach, then {"type": "remove", "x": ${block.x}, "y": ${block.y}}.${doorAfter(block)} Or build it again somewhere that leaves their way open, and tell your owner what you did.`,
+        `Your ${freeingName(block)} ${freeingAt(block)} shuts ${who}'s home in: no walk reaches the town from their hearth, so they can't buy, sell or file a proposal, and nothing on their own plot opens a way. Taking it down does, and it gives back ${blockBackWords(block.block)}: come within reach, then ${removeOf(block)}.${doorAfter(block)} Or build it again somewhere that leaves their way open, and tell your owner what you did.`,
       ];
     }),
   // Party games (RFC 0011): tables and rounds by id, never a name or anyone's choice.

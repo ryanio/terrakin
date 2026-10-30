@@ -1,5 +1,12 @@
 import { expect, test } from "@playwright/test";
-import { openMoveIn, signedInAs, skipPasskey, walkedOnto, watchErrors } from "./support";
+import {
+  openMoveIn,
+  signedInAs,
+  skipPasskey,
+  standingAt,
+  walkedOnto,
+  watchErrors,
+} from "./support";
 
 /**
  * A newcomer's way home on a phone: Move in from the town square as a guest (decision 0380), the
@@ -123,13 +130,33 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();
     expect(r.hearth).toEqual({ x: r.x, y: r.y });
-    // The greenhouse in stone stands round her hearth, with nothing off about it.
+    // The greenhouse in stone (RFC 0050) stands round her hearth: a glass north wall and
+    // stone sides on the lines round its room, planters outside, and nothing off about it.
     const size = (await world()).config.plotSize;
     const plot = `${Math.floor(r.x / size)}/${Math.floor(r.y / size)}`;
     const plan = (await (await page.request.get(`/v1/plots/${plot}/plan`)).json()).plan;
-    expect(plan.map.floors[0].blocks[1]).toBe(".GGGGG..");
-    expect(plan.map.floors[0].blocks[2]).toBe(".S...S.p");
+    expect(plan.map.floors[0].edges[2]).toBe("+ +G+G+G+G+G+ + +");
+    expect(plan.map.floors[0].edges[5]).toBe(" .S. . . . .S. p ");
+    expect(plan.map.floors[0].blocks[2]).toBe(".......p");
     expect(plan.notes).toEqual([]);
+  });
+
+  await test.step("the map zooms out to the whole town and back, and Places walks her to the Town Hall", async () => {
+    const out = page.locator("#map-zoom-out");
+    const zoomIn = page.locator("#map-zoom-in");
+    // Out a step at a time until the whole world is on the phone, then back in.
+    for (let i = 0; i < 10 && (await out.isEnabled()); i++) await out.click();
+    await expect(out).toBeDisabled();
+    await expect(zoomIn).toBeEnabled();
+    for (let i = 0; i < 10 && (await zoomIn.isEnabled()); i++) await zoomIn.click();
+    await expect(zoomIn).toBeDisabled();
+    await page.locator("#map-places").click();
+    const places = page.getByRole("dialog", { name: "Places" });
+    await expect(places.locator(".item-row-name")).toContainText(["Home", "Town Hall"]);
+    const from = await standingAt(page);
+    await places.getByRole("button", { name: "Walk there: Town Hall" }).click();
+    await expect(places).toBeHidden();
+    await expect.poll(async () => standingAt(page)).not.toEqual(from);
   });
 
   await test.step("Your things takes Claim plot's place, and the seeds are there", async () => {

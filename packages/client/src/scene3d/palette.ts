@@ -210,7 +210,7 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   sea_glass_pane: {
     color: hex(BLOCK_COLORS.sea_glass_pane),
     height: 1.25,
-    opacity: 0.42,
+    opacity: 0.82,
     form: "voxel",
     glow: { pool: 1.7, home: true },
   },
@@ -220,10 +220,53 @@ const BLOCK_LOOKS: Record<BlockKind, BlockLook> = {
   armchair: { color: hex(BLOCK_COLORS.armchair), height: 0.95, opacity: 1, form: "furniture" },
   sofa: { color: hex(BLOCK_COLORS.sofa), height: 0.9, opacity: 1, form: "furniture" },
   bed: { color: hex(BLOCK_COLORS.bed), height: 0.85, opacity: 1, form: "furniture" },
+  // Roomier homes (RFC 0050): surfaces, at the height a small thing stands on.
+  desk: { color: hex(BLOCK_COLORS.desk), height: 0.78, opacity: 1, form: "furniture" },
+  side_table: { color: hex(BLOCK_COLORS.side_table), height: 0.56, opacity: 1, form: "furniture" },
+  dresser: { color: hex(BLOCK_COLORS.dresser), height: 0.88, opacity: 1, form: "furniture" },
+  // More for a home, modelled in furniture.ts. The coffee table is a surface, so its height is its
+  // top; the fireplace and the floor lamp glow after dark.
+  wardrobe: { color: hex(BLOCK_COLORS.wardrobe), height: 1.62, opacity: 1, form: "furniture" },
+  rocking_chair: {
+    color: hex(BLOCK_COLORS.rocking_chair),
+    height: 1.1,
+    opacity: 1,
+    form: "furniture",
+  },
+  piano: { color: hex(BLOCK_COLORS.piano), height: 1.32, opacity: 1, form: "furniture" },
+  bathtub: { color: hex(BLOCK_COLORS.bathtub), height: 0.58, opacity: 1, form: "furniture" },
+  fireplace: {
+    color: hex(BLOCK_COLORS.fireplace),
+    height: 1.25,
+    opacity: 1,
+    form: "furniture",
+    glow: { pool: 2, at: [0, 0.3] },
+  },
+  aquarium: { color: hex(BLOCK_COLORS.aquarium), height: 1.04, opacity: 1, form: "furniture" },
+  coffee_table: {
+    color: hex(BLOCK_COLORS.coffee_table),
+    height: 0.42,
+    opacity: 1,
+    form: "furniture",
+  },
+  coat_rack: { color: hex(BLOCK_COLORS.coat_rack), height: 1.6, opacity: 1, form: "furniture" },
+  floor_lamp: {
+    color: hex(BLOCK_COLORS.floor_lamp),
+    height: 1.57,
+    opacity: 1,
+    form: "furniture",
+    glow: { pool: 1.8 },
+  },
+  potted_tree: { color: hex(BLOCK_COLORS.potted_tree), height: 1.4, opacity: 1, form: "furniture" },
 };
 
 export function blockLook(block: BlockKind): BlockLook {
   return BLOCK_LOOKS[block];
+}
+
+/** A window, which lights from inside after dark in a home someone's in (decision 0098). */
+export function isWindow(block: BlockKind): boolean {
+  return block === "glass" || block === "sea_glass_pane";
 }
 
 /** The resident colors of `RESIDENT_COLOR_HEX`, as numbers. */

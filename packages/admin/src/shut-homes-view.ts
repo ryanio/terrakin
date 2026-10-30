@@ -24,6 +24,7 @@ import { api } from "./api";
 import {
   CLEAR_CHECK_REASON,
   CLEAR_COST_WORDS,
+  clearWhat,
   clearWords,
   freeLine,
   freesByCost,
@@ -96,18 +97,18 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
       reason,
       h("div", { class: "cluster" }, clear),
     );
-    // The block the last check passed for: Clear it takes only that one.
-    let checked: { x: number; y: number } | undefined;
+    // The block or line the last check passed for: Clear it takes only that one.
+    let checked: Pick<Home["frees"][number], "x" | "y" | "side"> | undefined;
     const checks: HTMLButtonElement[] = [];
 
     async function check(f: Home["frees"][number], pressed: HTMLButtonElement) {
       disarm();
       const res = await whileBusyAll([...checks, clear], pressed, status, () =>
-        api.clearBlock(f.x, f.y, CLEAR_CHECK_REASON, true),
+        api.clearBlock(f, CLEAR_CHECK_REASON, true),
       );
       if (isGone()) return;
       for (const b of checks) b.disabled = false;
-      checked = res.ok ? { x: f.x, y: f.y } : undefined;
+      checked = res.ok ? { x: f.x, y: f.y, side: f.side } : undefined;
       clear.disabled = checked === undefined;
       confirmRow.hidden = checked === undefined;
       if (!res.ok) {
@@ -128,10 +129,10 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
           reason.focus();
           return;
         }
-        const { x, y } = checked;
+        const at = checked;
         void (async () => {
           const res = await whileBusyAll([...checks, clear], clear, status, () =>
-            api.clearBlock(x, y, reason.value.trim(), false),
+            api.clearBlock(at, reason.value.trim(), false),
           );
           if (isGone() || !res.ok) return;
           result.textContent = clearWords(res.data);
@@ -148,13 +149,17 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
       let trail: HTMLButtonElement | null = null;
       if (maintainer) {
         trail = button("Clear", (b) => void check(f, b));
-        trail.setAttribute("aria-label", `Check clearing the block at ${f.x}, ${f.y}`);
+        trail.setAttribute("aria-label", `Check clearing the ${clearWhat(f)}`);
         checks.push(trail);
       }
       return itemRow({
         plain: true,
         className: `shut-block cost-${cost}`,
-        attrs: { "data-x": String(f.x), "data-y": String(f.y) },
+        attrs: {
+          "data-x": String(f.x),
+          "data-y": String(f.y),
+          ...(f.side ? { "data-side": f.side } : {}),
+        },
         name: freeLine(f),
         lines: [
           h(

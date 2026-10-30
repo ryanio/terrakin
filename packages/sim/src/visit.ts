@@ -93,6 +93,7 @@ export function visitTile(
   const plotGround: Ground = {
     config,
     obstacle: (x, y) => (onPlot(x, y) ? ground.obstacle(x, y) : "block"),
+    ...(ground.edge ? { edge: ground.edge } : {}),
   };
   const heart = plotHeart(state, plot);
   const steps = new Map<string, number>();

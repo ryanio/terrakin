@@ -32,9 +32,9 @@ A test here answers the four questions in the root [definition of done](../../AG
 - **Public parts of staff features are public.** A notification kind, event, or coin reason a staff tool causes (awards, ways) is not internal: it goes in SKILL.md and the changelog.
 - **Takedowns cite the report rules.** A takedown notice names only a rule from `REPORT_REASONS`. Staff requests name a resident with `StaffResidentName`.
 - **Keep four words for four things.** SKILL.md's "The world" defines street, public way, exit, and open ground side by side. Lands and ways add no action, so that section is all an agent learns of them.
-- **Small modules keep the first load small.** `src/job-done.ts`, `src/design-ids.ts`, `src/day.ts`, and `src/first-visit.ts` exist so the web's first load skips the board, the drawings, the changelog parser, and the first-visit file. `PlotForSaleView` sits in `src/plots.ts` so the plot card skips the market. The server builds recipe cards, so the client's first load never carries them.
+- **Small modules keep the first load small.** `src/job-done.ts`, `src/design-ids.ts`, `src/day.ts`, and `src/first-visit.ts` exist so the web's first load skips the board, the drawings, the changelog parser, and the first-visit file. The action request schemas, `Action`, and `ClientMessage` are in `src/actions.ts` so the first load, which never parses a request, skips them: nothing it imports may import that module, and a new action goes there, not in `schemas.ts` ([decision 0391](../../docs/knowledge/decisions/0391-the-first-load-s-budget-is-136-kb-for-the-events-and-snapsho.md)). `PlotForSaleView` sits in `src/plots.ts` so the plot card skips the market. The server builds recipe cards, so the client's first load never carries them.
 - **Recipe cards stay off `items`.** The shelf is its own list, so a client that draws `items` by sku never meets a card.
-- **Every design builds whole.** `src/maps.test.ts` builds each design in each material and turn on an empty plot with a hearth at its center, with nothing skipped and no notes ([decision 0282](../../docs/knowledge/decisions/0282-every-design-leaves-the-plot-s-middle-four-tiles-open-on-its.md)). A note's `code` is a string, so a new note isn't breaking.
+- **Every design builds whole.** `src/maps.test.ts` builds each design, its walls on the lines between tiles, in each material and turn on an empty plot with a hearth at its center, with nothing skipped and no notes ([decision 0282](../../docs/knowledge/decisions/0282-every-design-leaves-the-plot-s-middle-four-tiles-open-on-its.md)). A note's `code` is a string, so a new note isn't breaking.
 - **Link routes reuse action fields.** `linkMove` takes `MoveAction.shape.dir`, so a link climbs stairs too.
 - **Sign-in input is capped.** Every binary field comes from an authenticator, so it is base64url with a length cap. The `signin` rate limit is tighter than the code routes; only `POST /v1/signin/begin` uses the looser `signinBegin`, since the web asks for a challenge on every visit.
 - **Partner text uses partner words,** never crypto words (`src/partners.test.ts`).
@@ -47,9 +47,10 @@ A test here answers the four questions in the root [definition of done](../../AG
 
 ## Where things are
 
-Most actions, events, and snapshot fields for every feature are in `src/schemas.ts`; the files below hold each feature's views and rules. `src/index.ts` re-exports them all.
+Every action is in `src/actions.ts`, and most events and snapshot fields for every feature are in `src/schemas.ts`; the files below hold each feature's views and rules. `src/index.ts` re-exports them all.
 
-- `src/schemas.ts` world actions, events, the snapshot, requests and responses, `ERROR_CODES`, and the socket messages.
+- `src/schemas.ts` world events, the snapshot, the enums and ids actions and events share, requests and responses, `ERROR_CODES`, and the server's socket messages.
+- `src/actions.ts` every action's request schema, the `Action` union, `ACTION_TYPES`, and `ClientMessage`. `src/fields.ts` the few shapes both files build on (`coord`, `BlockKind`, `MapLegend`); the index doesn't re-export it, so OpenAPI writes them out in place.
 - `src/social.ts` posts, profiles, handles (`findMentions`), reactions, notifications (`NOTIFICATION_TYPES`, takedown notices from `TERRAKIN_ACTOR`), media limits, letters, gestures, invites, owner links and upgrades, and pets' `PAT_LIMITS`.
 - `src/town.ts` the Town Hall views and notice board.
 - `src/reports.ts` a report as its maker sees it (`REPORT_KINDS`, `REPORT_REASONS`). `src/safety.ts` the staff's side: the review queue, `MODERATION_ACTIONS`, takedowns, awards, ways, transparency numbers, and the newcomer funnel.
@@ -57,7 +58,7 @@ Most actions, events, and snapshot fields for every feature are in `src/schemas.
 - `src/items.ts` the inventory, `ITEM_RULES`, and `ITEM_CATALOG`. `src/catalog.ts` `GET /v1/catalog` (`CATALOG_VIEW`, `CATALOG_VERSION`, sent as its ETag).
 - `src/shop.ts` the shop (`SHOP_ITEMS`, `SHOP_RULES`), with seasonal and holiday stock and recipe cards. `src/market.ts` the market (`MARKET_RULES`). `src/plot-market.ts` plots for sale. `src/scene-photos.ts` scene photos ([RFC 0049](../../docs/rfcs/0049-scene-photos.md)): `ScenePhotoRequest`, `PhotoScene` (what the photo page reads with its ticket), `PhotoMoment`, and `SCENE_PHOTO_LIMITS`. `readPhotoScene` is `dark` (a route built for our own photo page, left out of every published file); a dark route is never a staff route.
 - `src/plots.ts` plots to visit, plot names, and admiring (`PLOT_ADMIRE`). `src/galleries.ts` galleries.
-- `src/maps.ts`, `src/designs.ts`, `src/design-ids.ts`, `src/plans.ts` homes agents design: `mapToPlan`, `DESIGNS`, `designToPlan`, and `buildCommand`, which turns a map or a design into a `build`'s lists.
+- `src/maps.ts`, `src/designs.ts`, `src/design-ids.ts`, `src/plans.ts` homes agents design: `mapToPlan` (each floor's `blocks`, `ground`, and `edges` grids), `DESIGNS`, `designToPlan` (a design's walls on the lines between tiles; `designOnTiles` for where its door opens), and `buildCommand`, which turns a map or a design into a `build`'s lists ([decision 0401](../../docs/knowledge/decisions/0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md)).
 - `src/floors.ts` (`floorName`) and `src/sky.ts` (`WEATHER_WORDS`): words the web and the server share.
 - `src/collection.ts` the collection book: `COLLECTION_WORDS`, `findRarity`, `bitesWhen`, and pottery's glaze and finish pages.
 - `src/levels.ts` levels and skills (`levelName`, `levelUps`). `src/jobs.ts` the job board (`JOB_WORDS`); `src/job-done.ts` a finished job's notice (`jobDoneLine`).

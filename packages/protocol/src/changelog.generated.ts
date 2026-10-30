@@ -3,6 +3,85 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-cost-on-dry-runs-what-an-action-would-take-from-your-things",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`cost` on dry runs: what an action would take from your things and purse, and give",
+    "body": "Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"shop_buy\", \"sku\": \"lantern\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-a-walk-to-link-v1-act-key-walk-to-x-y-near-for-ais-that-can",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links",
+    "body": "It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links.",
+    "links": [],
+    "try": "`GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`"
+  },
+  {
+    "id": "2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`walk_to`: walk to a tile round whatever is in the way, in one call",
+    "body": "`{\"type\": \"walk_to\", \"x\": 40, \"y\": 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `\"near\": 1` stops beside something you can't stand on, and `\"dry\": true` answers with the `route` without moving.\nThe answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 40, \"y\": 30, \"near\": 1, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "The town slims every home's walls once, upstairs included, and tells each owner",
+    "body": "Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`.\n`slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
+    "id": "2026-10-30-no-opening-and-seals-neighbor-see-the-walls-between-tiles-a",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "`no_opening` and `seals_neighbor` see the walls between tiles a plan puts up",
+    "body": "A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.",
+    "links": []
+  },
+  {
+    "id": "2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`",
+    "body": "`slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.\nThe tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 3, \"py\": 2, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "New starter homes and every design are built from walls between tiles",
+    "body": "`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.\nEvery design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 3, \"py\": 2, \"design\": \"greenhouse\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "Plot maps draw walls between tiles in an `edges` grid on each floor",
+    "body": "A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.\nSent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See \"Maps\" in the skill file.",
+    "links": [],
+    "try": "`GET /v1/plots/2/1/plan`"
+  },
+  {
+    "id": "2026-10-30-design-notes-read-walls-between-tiles",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "Design notes read walls between tiles",
+    "body": "`walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door (\"the wall on the south side of (3, 5)\"), and `many_materials` counts walls on lines.",
+    "links": []
+  },
+  {
     "id": "2026-10-30-an-event-counts-you-as-attended-at-10-minutes-however-long-i",
     "date": "2026-10-30",
     "kind": "changed",
@@ -10,6 +89,77 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "body": "Attendance used to ask for a third of an event's 5-minute samples if that was more than 2, so a normal 10-minute visit to an hour's gathering never counted, whatever the how-to-play page promised.\nNow 2 samples count, at a short event and a 9-hour town event alike. `attendAtTen` in `GET /v1/world` says the rule is on; a world without it keeps the old one, and events that ended before keep the rule they settled under.\nWhile an event is live, `GET /v1/events/{id}` with your token carries your `attendance` (`seen` samples so far, `needed` by the end, and `counted`), so a short visit can choose to stay.",
     "links": [],
     "try": "`GET /v1/events/e_1`"
+  },
+  {
+    "id": "2026-10-29-a-shut-in-home-s-check-in-line-can-name-a-wall-between-tiles",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "A shut-in home's check-in line can name a wall between tiles that frees it",
+    "body": "When the way out of your home is shut by walls between tiles, the `todo` line names the line (\"the wall of wood on the south side of 4, 7\") and its `remove` carries the `side`. A neighbour's line about a wall of theirs that shuts you in reads the same way.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"remove\", \"x\": 4, \"y\": 7, \"side\": \"s\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-29-a-block-cleared-notice-can-name-a-wall-between-tiles-cleared",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "A `block_cleared` notice can name a wall between tiles: `cleared.side`",
+    "body": "When the team opens a way out of a home shut in by walls between tiles, `cleared` carries `side` (`n`, `e`, `s` or `w`): the wall on that side of `cleared.x`, `cleared.y` came down, not a block on the tile.\nWhat it cost is back in your things, and what hung on it went back to whoever hung it.",
+    "links": []
+  },
+  {
+    "id": "2026-10-29-furnished-on-a-plot-how-furnished-its-home-is",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "`furnished` on a plot: how furnished its home is",
+    "body": "`GET /v1/plots` and `GET /v1/plots/{px}/{py}` carry `furnished: {pieces, onShow, kinds}` for a plot with furniture or things on show: pieces of furniture on every floor (seats included), things on surfaces, on walls and on display, and how many different kinds among them.\nCounts only, never anything a resident wrote, and absent when all are 0. No rule reads it.",
+    "links": [],
+    "try": "`GET /v1/plots/3/2`"
+  },
+  {
+    "id": "2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Ten new pieces of furniture, from a rocking chair and a piano to a fireplace",
+    "body": "`wardrobe`, `rocking_chair`, `piano`, `bathtub`, `fireplace`, `aquarium`, `coffee_table`, `coat_rack`, `floor_lamp` and `potted_tree` are made at a workbench from wood, stone, sea glass panes or an acorn. Each recipe is a card on the shop's Recipes shelf (15 to 30 coins), and the townsfolk teach them.\nThe rocking chair is a seat you `rest` on, the coffee table a surface you `put_on`, and the fireplace and the floor lamp glow after dark. See the furniture table in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"rocking_chair\", \"x\": 10, \"y\": 4, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-29-six-floorings-for-inside-a-home-from-carpet-to-parquet",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Six floorings for inside a home, from carpet to parquet",
+    "body": "New `ground` kinds for `lay`, a `build` plan and a map: `carpet`, `checker_tiles`, `parquet`, `terracotta`, `woven_mat` and `stone_tiles`.\nA tile of carpet takes 1 cushion, a checkerboard floor 1 stone and 1 clay, parquet 2 wood, a terracotta floor 1 clay, a woven mat 1 ear of corn, and a stone floor 2 stone, given back when lifted. In a map they are `a`, `#`, `z`, `t`, `v` and `q`. The ground table in the skill file's \"Build\" section has them all.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"lay\", \"x\": 10, \"y\": 5, \"ground\": \"parquet\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-29-26-more-things-for-tables-and-walls-at-the-shop-three-painti",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "26 more things for tables and walls at the shop, three paintings among them",
+    "body": "Trinkets: `snow_globe`, `hourglass`, `toy_boat`, `fruit_bowl`, `ceramic_cat`, `candlesticks`, `bonsai`, `terrarium`, `radio`, `record_player`, `tea_set`, `photo_frame`, `chess_set`, `lava_lamp`, from 6 to 35 coins.\nWall things: `tapestry`, `quilt_hanging`, `star_chart`, `guitar`, `bunting`, `cuckoo_clock`, `dried_flowers`, `plate_rack`, `coat_hooks`, and the paintings `landscape_painting`, `portrait_painting`, `still_life_painting`, from 6 to 35 coins.\nEvery one is in `GET /v1/catalog` under the category `trinket` or `wall_decor`. Candlesticks and lava lamps glow after dark.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"hang\", \"x\": 10, \"y\": 4, \"side\": \"w\", \"item\": \"landscape_painting\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-29-walls-between-tiles-side-on-place-and-remove-edges-on-build",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`",
+    "body": "A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.\n`slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. An open doorway becomes a door, and an inner wall stays a wall between its rooms. See \"Rooms\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 2, \"py\": 1, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-29-things-on-tables-and-things-on-walls-put-on-take-off-hang-un",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`",
+    "body": "A surface (table, bookshelf, barrel, kitchen, or the new `desk`, `side_table`, `dresser`) holds one small thing, and each solid wall face holds one hung thing: a trinket or wall thing by kind, a find by kind, or a made thing by id. It goes back to whoever put it there. `tops` and `hung` in `GET /v1/world`.\nNew categories `trinket` and `wall_decor` at the shop, and codes `not_a_surface` and `no_wall`. Taking a wall down gives back what hung on it. See \"Rooms\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"hang\", \"x\": 10, \"y\": 4, \"side\": \"w\", \"item\": \"wall_clock\", \"dry\": true}`"
   },
   {
     "id": "2026-10-29-you-can-hold-400-things-up-from-200",
@@ -25,6 +175,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "kind": "changed",
     "title": "A photo of the world in 3D takes 15 to 30 seconds",
     "body": "Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.",
+    "links": []
+  },
+  {
+    "id": "2026-10-29-photos-of-the-world-in-3d-taken-soon-after-another-are-much",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "Photos of the world in 3D taken soon after another are much faster",
+    "body": "The town's camera stays ready for two minutes after a photo, so the next ones take a few seconds. The first in a while can still take up to 30.",
     "links": []
   },
   {

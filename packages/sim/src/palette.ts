@@ -110,6 +110,23 @@ export const BLOCK_COLORS: Readonly<Record<BlockKind, string>> = {
   kiln: "#b0674a",
   // A pot set down (RFC 0047) is drawn in its own glaze; this is bare clay, for a view that can't.
   pot: "#c98b64",
+  // Roomier homes (RFC 0050): surfaces in three woods, so a desk, a side table and a dresser read
+  // apart from the table (#b88552) and the bookshelf (#8c5a36).
+  desk: "#9a6a42",
+  side_table: "#c79a66",
+  dresser: "#7a5236",
+  // More for a home: each in the wood, stone, glass or leaf it is mostly made of, with a piano in
+  // near black and a bathtub in enamel white so they read apart from the woods and the walls.
+  wardrobe: "#86593a",
+  rocking_chair: "#a8764a",
+  piano: "#3b302c",
+  bathtub: "#e9e4da",
+  fireplace: "#9b8f84",
+  aquarium: "#7fc3c9",
+  coffee_table: "#b07c4f",
+  coat_rack: "#6e4b30",
+  floor_lamp: "#f2d7a0",
+  potted_tree: "#5f9a4a",
 };
 
 /** A kiln's glow while it fires a pot (RFC 0047), on the map and in 3D. */
@@ -169,7 +186,7 @@ export const POND_LOOK = {
 /**
  * How the open water between lands and the bridges over it look ([RFC 0038](../../../docs/rfcs/0038-new-lands.md)):
  * the sea (deeper than a pond, so a channel reads as water to cross rather than a puddle), the
- * deeper water out of sight of either bank, foam where it meets land, and the timber of a bridge
+ * deeper water out of sight of either bank, the shallows and foam where it meets land, and the timber of a bridge
  * with its planks and its rail. The map, the 3D world, and the plot photos all read it, so
  * a crossing looks the same everywhere.
  */
@@ -177,6 +194,8 @@ export const SEA_LOOK = {
   water: "#3f86b4",
   deep: "rgba(24, 58, 90, 0.18)",
   foam: "rgba(255, 255, 255, 0.5)",
+  /** The paler water just off the shore, under the foam. */
+  shallow: "rgba(190, 232, 236, 0.28)",
   deck: "#b08b5c",
   plank: "rgba(92, 62, 36, 0.45)",
   rail: "#8a6a42",
@@ -217,7 +236,15 @@ export interface GroundLook {
   tone: string;
 }
 
-const rect = (x: number, y: number, w: number, h: number, r: number, fill: string): GroundMark => ({
+/** A rounded rect mark, for `GROUND_LOOK` and `WALL_LOOK`. */
+export const markRect = (
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  r: number,
+  fill: string,
+): GroundMark => ({
   shape: "rect",
   x,
   y,
@@ -226,7 +253,8 @@ const rect = (x: number, y: number, w: number, h: number, r: number, fill: strin
   r,
   fill,
 });
-const dot = (cx: number, cy: number, r: number, fill: string): GroundMark => ({
+/** A round mark. */
+export const markDot = (cx: number, cy: number, r: number, fill: string): GroundMark => ({
   shape: "circle",
   cx,
   cy,
@@ -242,7 +270,8 @@ const leafMark = (cx: number, cy: number, turn: number, fill: string): GroundMar
   turn,
   fill,
 });
-const seam = (
+/** A line mark with round ends. */
+export const markLine = (
   x1: number,
   y1: number,
   x2: number,
@@ -250,6 +279,74 @@ const seam = (
   width: number,
   stroke: string,
 ): GroundMark => ({ shape: "line", x1, y1, x2, y2, width, stroke });
+
+/**
+ * Parquet's herringbone: planks two quarters long and one quarter wide, each row of them a step to
+ * the side of the last, the long way and the short way in turn. The pattern repeats every four
+ * quarters both ways, so a tile holds it whole: a plank the tile's side cuts through is drawn as
+ * the part on this tile, with no seam on the cut, and the next tile draws the rest.
+ */
+function herringboneMarks(): GroundMark[] {
+  const marks: GroundMark[] = [];
+  const q = 0.25;
+  const seam = 0.06;
+  // One plank lying east-west and one standing north-south, in quarters; the pattern is these two
+  // moved by any (p, r) with p - r a multiple of 4.
+  const planks = [
+    { x0: 0, y0: 0, x1: 2, y1: 1, tone: "#c99262" },
+    { x0: 2, y0: -1, x1: 3, y1: 1, tone: "#b67d4c" },
+  ];
+  for (let p = -4; p <= 7; p++) {
+    for (let r = -4; r <= 7; r++) {
+      if ((((p - r) % 4) + 4) % 4 !== 0) continue;
+      for (const k of planks) {
+        const x0 = Math.max(0, k.x0 + p);
+        const y0 = Math.max(0, k.y0 + r);
+        const x1 = Math.min(4, k.x1 + p);
+        const y1 = Math.min(4, k.y1 + r);
+        if (x1 <= x0 || y1 <= y0) continue;
+        // A seam only on a plank's own ends and sides, never where the tile cuts it.
+        const left = x0 === k.x0 + p ? seam : 0;
+        const top = y0 === k.y0 + r ? seam : 0;
+        const right = x1 === k.x1 + p ? seam : 0;
+        const bottom = y1 === k.y1 + r ? seam : 0;
+        marks.push(
+          markRect(
+            (x0 + left) * q,
+            (y0 + top) * q,
+            (x1 - x0 - left - right) * q,
+            (y1 - y0 - top - bottom) * q,
+            0,
+            k.tone,
+          ),
+        );
+      }
+    }
+  }
+  return marks;
+}
+
+/**
+ * Four square tiles to a tile, with grout between them and around them, half at each side so the
+ * next tile's half makes a whole line. Each square keeps its own tone, so a floor of them reads as
+ * laid by hand.
+ */
+function quarterTiles(
+  tones: readonly [string, string, string, string],
+  grout: number,
+): GroundMark[] {
+  const half = grout / 2;
+  return tones.map((tone, i) =>
+    markRect(
+      (i % 2) * 0.5 + half,
+      Math.floor(i / 2) * 0.5 + half,
+      0.5 - grout,
+      0.5 - grout,
+      0.04,
+      tone,
+    ),
+  );
+}
 
 /**
  * What each kind of path and flooring looks like (RFC 0016), as data. The map
@@ -261,38 +358,38 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   dirt: {
     fill: "#bf9461",
     marks: [
-      dot(0.22, 0.28, 0.045, "#a67c4c"),
-      dot(0.68, 0.22, 0.035, "#a67c4c"),
-      dot(0.5, 0.62, 0.05, "#a67c4c"),
-      dot(0.84, 0.76, 0.04, "#a67c4c"),
-      dot(0.3, 0.84, 0.03, "#cfa776"),
-      dot(0.8, 0.45, 0.03, "#cfa776"),
+      markDot(0.22, 0.28, 0.045, "#a67c4c"),
+      markDot(0.68, 0.22, 0.035, "#a67c4c"),
+      markDot(0.5, 0.62, 0.05, "#a67c4c"),
+      markDot(0.84, 0.76, 0.04, "#a67c4c"),
+      markDot(0.3, 0.84, 0.03, "#cfa776"),
+      markDot(0.8, 0.45, 0.03, "#cfa776"),
     ],
     tone: "#bf9461",
   },
   sand: {
     fill: "#ecd9a4",
     marks: [
-      dot(0.2, 0.25, 0.025, "#d6c088"),
-      dot(0.55, 0.18, 0.025, "#d6c088"),
-      dot(0.8, 0.42, 0.025, "#d6c088"),
-      dot(0.35, 0.6, 0.025, "#d6c088"),
-      dot(0.7, 0.78, 0.025, "#d6c088"),
-      dot(0.15, 0.82, 0.025, "#d6c088"),
-      dot(0.45, 0.4, 0.03, "#f6e8c0"),
-      dot(0.86, 0.14, 0.03, "#f6e8c0"),
+      markDot(0.2, 0.25, 0.025, "#d6c088"),
+      markDot(0.55, 0.18, 0.025, "#d6c088"),
+      markDot(0.8, 0.42, 0.025, "#d6c088"),
+      markDot(0.35, 0.6, 0.025, "#d6c088"),
+      markDot(0.7, 0.78, 0.025, "#d6c088"),
+      markDot(0.15, 0.82, 0.025, "#d6c088"),
+      markDot(0.45, 0.4, 0.03, "#f6e8c0"),
+      markDot(0.86, 0.14, 0.03, "#f6e8c0"),
     ],
     tone: "#ecd9a4",
   },
   moss: {
     fill: "#6e9a4c",
     marks: [
-      dot(0.3, 0.3, 0.17, "#82ae5d"),
-      dot(0.72, 0.64, 0.14, "#82ae5d"),
-      dot(0.78, 0.2, 0.1, "#7aa656"),
-      dot(0.2, 0.74, 0.04, "#5a8440"),
-      dot(0.5, 0.5, 0.035, "#5a8440"),
-      dot(0.88, 0.88, 0.04, "#5a8440"),
+      markDot(0.3, 0.3, 0.17, "#82ae5d"),
+      markDot(0.72, 0.64, 0.14, "#82ae5d"),
+      markDot(0.78, 0.2, 0.1, "#7aa656"),
+      markDot(0.2, 0.74, 0.04, "#5a8440"),
+      markDot(0.5, 0.5, 0.035, "#5a8440"),
+      markDot(0.88, 0.88, 0.04, "#5a8440"),
     ],
     tone: "#6e9a4c",
   },
@@ -311,55 +408,55 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
   cobble: {
     fill: "#857e73",
     marks: [
-      rect(0.05, 0.06, 0.42, 0.38, 0.12, "#b0a99c"),
-      rect(0.53, 0.05, 0.42, 0.4, 0.12, "#a69f92"),
-      rect(0.04, 0.5, 0.3, 0.45, 0.12, "#a69f92"),
-      rect(0.39, 0.51, 0.57, 0.43, 0.12, "#b0a99c"),
-      rect(0.1, 0.09, 0.2, 0.06, 0.03, "#c4beb2"),
-      rect(0.58, 0.08, 0.2, 0.06, 0.03, "#bdb7aa"),
-      rect(0.08, 0.54, 0.14, 0.06, 0.03, "#bdb7aa"),
-      rect(0.45, 0.55, 0.26, 0.06, 0.03, "#c4beb2"),
+      markRect(0.05, 0.06, 0.42, 0.38, 0.12, "#b0a99c"),
+      markRect(0.53, 0.05, 0.42, 0.4, 0.12, "#a69f92"),
+      markRect(0.04, 0.5, 0.3, 0.45, 0.12, "#a69f92"),
+      markRect(0.39, 0.51, 0.57, 0.43, 0.12, "#b0a99c"),
+      markRect(0.1, 0.09, 0.2, 0.06, 0.03, "#c4beb2"),
+      markRect(0.58, 0.08, 0.2, 0.06, 0.03, "#bdb7aa"),
+      markRect(0.08, 0.54, 0.14, 0.06, 0.03, "#bdb7aa"),
+      markRect(0.45, 0.55, 0.26, 0.06, 0.03, "#c4beb2"),
     ],
     tone: "#a39d91",
   },
   stepping_stones: {
     marks: [
-      dot(0.34, 0.39, 0.2, "rgba(70, 52, 30, 0.2)"),
-      dot(0.72, 0.74, 0.18, "rgba(70, 52, 30, 0.2)"),
-      dot(0.32, 0.35, 0.2, "#b7b0a3"),
-      dot(0.7, 0.7, 0.18, "#aba497"),
-      dot(0.27, 0.3, 0.08, "#ccc6ba"),
-      dot(0.65, 0.65, 0.07, "#c2bcaf"),
+      markDot(0.34, 0.39, 0.2, "rgba(70, 52, 30, 0.2)"),
+      markDot(0.72, 0.74, 0.18, "rgba(70, 52, 30, 0.2)"),
+      markDot(0.32, 0.35, 0.2, "#b7b0a3"),
+      markDot(0.7, 0.7, 0.18, "#aba497"),
+      markDot(0.27, 0.3, 0.08, "#ccc6ba"),
+      markDot(0.65, 0.65, 0.07, "#c2bcaf"),
     ],
     tone: "#b7b0a3",
   },
   brick: {
     fill: "#d9c7ab",
     marks: [
-      rect(0.03, 0.04, 0.45, 0.27, 0.03, "#b5573a"),
-      rect(0.52, 0.04, 0.45, 0.27, 0.03, "#a84e33"),
-      rect(0, 0.365, 0.21, 0.27, 0.03, "#a84e33"),
-      rect(0.26, 0.365, 0.47, 0.27, 0.03, "#b5573a"),
-      rect(0.78, 0.365, 0.22, 0.27, 0.03, "#b5573a"),
-      rect(0.03, 0.69, 0.45, 0.27, 0.03, "#b5573a"),
-      rect(0.52, 0.69, 0.45, 0.27, 0.03, "#a84e33"),
+      markRect(0.03, 0.04, 0.45, 0.27, 0.03, "#b5573a"),
+      markRect(0.52, 0.04, 0.45, 0.27, 0.03, "#a84e33"),
+      markRect(0, 0.365, 0.21, 0.27, 0.03, "#a84e33"),
+      markRect(0.26, 0.365, 0.47, 0.27, 0.03, "#b5573a"),
+      markRect(0.78, 0.365, 0.22, 0.27, 0.03, "#b5573a"),
+      markRect(0.03, 0.69, 0.45, 0.27, 0.03, "#b5573a"),
+      markRect(0.52, 0.69, 0.45, 0.27, 0.03, "#a84e33"),
     ],
     tone: "#b5573a",
   },
   planks: {
     fill: "#c08a55",
     marks: [
-      seam(0, 0.335, 1, 0.335, 0.03, "#93633b"),
-      seam(0, 0.665, 1, 0.665, 0.03, "#93633b"),
-      seam(0.4, 0, 0.4, 0.335, 0.025, "#93633b"),
-      seam(0.75, 0.335, 0.75, 0.665, 0.025, "#93633b"),
-      seam(0.25, 0.665, 0.25, 1, 0.025, "#93633b"),
-      seam(0.1, 0.17, 0.33, 0.17, 0.015, "#a9764a"),
-      seam(0.5, 0.5, 0.88, 0.5, 0.015, "#a9764a"),
-      seam(0.4, 0.84, 0.8, 0.84, 0.015, "#a9764a"),
-      dot(0.45, 0.06, 0.02, "#7a5232"),
-      dot(0.7, 0.39, 0.02, "#7a5232"),
-      dot(0.3, 0.72, 0.02, "#7a5232"),
+      markLine(0, 0.335, 1, 0.335, 0.03, "#93633b"),
+      markLine(0, 0.665, 1, 0.665, 0.03, "#93633b"),
+      markLine(0.4, 0, 0.4, 0.335, 0.025, "#93633b"),
+      markLine(0.75, 0.335, 0.75, 0.665, 0.025, "#93633b"),
+      markLine(0.25, 0.665, 0.25, 1, 0.025, "#93633b"),
+      markLine(0.1, 0.17, 0.33, 0.17, 0.015, "#a9764a"),
+      markLine(0.5, 0.5, 0.88, 0.5, 0.015, "#a9764a"),
+      markLine(0.4, 0.84, 0.8, 0.84, 0.015, "#a9764a"),
+      markDot(0.45, 0.06, 0.02, "#7a5232"),
+      markDot(0.7, 0.39, 0.02, "#7a5232"),
+      markDot(0.3, 0.72, 0.02, "#7a5232"),
     ],
     tone: "#c08a55",
   },
@@ -369,60 +466,168 @@ export const GROUND_LOOK: Readonly<Record<GroundKind, GroundLook>> = {
       leafMark(0.36, 0.42, -30, "#5f9a43"),
       leafMark(0.62, 0.5, 40, "#5f9a43"),
       leafMark(0.3, 0.9, 10, "#5f9a43"),
-      dot(0.25, 0.28, 0.1, "#e58fb6"),
-      dot(0.7, 0.24, 0.09, "#f2d04b"),
-      dot(0.46, 0.66, 0.1, "#fff4d6"),
-      dot(0.82, 0.72, 0.09, "#a98bd8"),
-      dot(0.18, 0.8, 0.08, "#e58fb6"),
-      dot(0.25, 0.28, 0.035, "#f2b84b"),
-      dot(0.46, 0.66, 0.035, "#f2b84b"),
-      dot(0.82, 0.72, 0.03, "#fff4d6"),
+      markDot(0.25, 0.28, 0.1, "#e58fb6"),
+      markDot(0.7, 0.24, 0.09, "#f2d04b"),
+      markDot(0.46, 0.66, 0.1, "#fff4d6"),
+      markDot(0.82, 0.72, 0.09, "#a98bd8"),
+      markDot(0.18, 0.8, 0.08, "#e58fb6"),
+      markDot(0.25, 0.28, 0.035, "#f2b84b"),
+      markDot(0.46, 0.66, 0.035, "#f2b84b"),
+      markDot(0.82, 0.72, 0.03, "#fff4d6"),
     ],
     tone: "#8a6a4a",
   },
   rug: {
     fill: "#c8674a",
     marks: [
-      rect(0.07, 0.07, 0.86, 0.86, 0.05, "#e9b85a"),
-      rect(0.13, 0.13, 0.74, 0.74, 0.03, "#c8674a"),
-      rect(0.13, 0.44, 0.74, 0.12, 0, "#f3e3c3"),
-      dot(0.3, 0.27, 0.05, "#f3e3c3"),
-      dot(0.7, 0.27, 0.05, "#f3e3c3"),
-      dot(0.3, 0.73, 0.05, "#f3e3c3"),
-      dot(0.7, 0.73, 0.05, "#f3e3c3"),
+      markRect(0.07, 0.07, 0.86, 0.86, 0.05, "#e9b85a"),
+      markRect(0.13, 0.13, 0.74, 0.74, 0.03, "#c8674a"),
+      markRect(0.13, 0.44, 0.74, 0.12, 0, "#f3e3c3"),
+      markDot(0.3, 0.27, 0.05, "#f3e3c3"),
+      markDot(0.7, 0.27, 0.05, "#f3e3c3"),
+      markDot(0.3, 0.73, 0.05, "#f3e3c3"),
+      markDot(0.7, 0.73, 0.05, "#f3e3c3"),
     ],
     tone: "#c8674a",
+  },
+  carpet: {
+    fill: "#b4506a",
+    // A soft pile: low tufts in two tones on a half-tile lattice, so a room of it has no seams.
+    marks: [
+      markDot(0.125, 0.125, 0.07, "#c1617a"),
+      markDot(0.625, 0.125, 0.07, "#c1617a"),
+      markDot(0.125, 0.625, 0.07, "#c1617a"),
+      markDot(0.625, 0.625, 0.07, "#c1617a"),
+      markDot(0.375, 0.375, 0.06, "#a3445d"),
+      markDot(0.875, 0.375, 0.06, "#a3445d"),
+      markDot(0.375, 0.875, 0.06, "#a3445d"),
+      markDot(0.875, 0.875, 0.06, "#a3445d"),
+    ],
+    tone: "#b4506a",
+  },
+  checker_tiles: {
+    fill: "#efe6cf",
+    // Two dark squares on the diagonal: the next tile starts dark again, so the checks run on.
+    marks: [
+      markRect(0, 0, 0.5, 0.5, 0, "#2f2a2c"),
+      markRect(0.5, 0.5, 0.5, 0.5, 0, "#2f2a2c"),
+      markDot(0.12, 0.12, 0.04, "#4a4446"),
+      markDot(0.62, 0.62, 0.04, "#4a4446"),
+      markDot(0.62, 0.12, 0.04, "#fbf6e8"),
+      markDot(0.12, 0.62, 0.04, "#fbf6e8"),
+    ],
+    tone: "#8f8a80",
+  },
+  parquet: {
+    fill: "#7d5532",
+    marks: herringboneMarks(),
+    tone: "#bf8857",
+  },
+  terracotta: {
+    fill: "#d9bf9c",
+    marks: quarterTiles(["#c8643c", "#bd5a34", "#c45f37", "#cf6c43"], 0.05),
+    tone: "#c4613a",
+  },
+  woven_mat: {
+    fill: "#d8c68c",
+    // Straw woven across the tile, bound in cloth at each side, so mats laid side by side read as
+    // rows of them.
+    marks: [
+      markLine(0.08, 0.17, 0.92, 0.17, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.33, 0.92, 0.33, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.5, 0.92, 0.5, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.67, 0.92, 0.67, 0.025, "#c2ad6c"),
+      markLine(0.08, 0.83, 0.92, 0.83, 0.025, "#c2ad6c"),
+      markRect(0, 0, 0.06, 1, 0, "#55704e"),
+      markRect(0.94, 0, 0.06, 1, 0, "#55704e"),
+    ],
+    tone: "#d8c68c",
+  },
+  stone_tiles: {
+    fill: "#9b968b",
+    // One pale flagstone a tile, with grout half on each side, so a floor of them is a grid.
+    marks: [
+      markRect(0.03, 0.03, 0.94, 0.94, 0.03, "#d8d3c6"),
+      markRect(0.08, 0.07, 0.6, 0.05, 0.02, "#e8e4d9"),
+      markDot(0.3, 0.42, 0.025, "#c3bdae"),
+      markDot(0.7, 0.6, 0.03, "#c3bdae"),
+      markDot(0.45, 0.8, 0.02, "#c3bdae"),
+    ],
+    tone: "#d8d3c6",
   },
 };
 
 /**
  * Ground the map draws that nobody laid (RFC 0046): a public way, in a look of its own, pale
  * gravel that no path a resident lays has, so a way never reads as someone's path. An island
- * street keeps the cobbles (`cobble`). Drawing only: no rule reads it.
+ * street keeps the cobbles (`cobble`). A town square is a plaza of laid setts (`PLAZA_LOOK`).
+ * Drawing only: no rule reads it.
  */
-export type DrawnGround = GroundKind | "way";
+export type DrawnGround = GroundKind | "way" | "plaza";
 
 /** What a public way looks like, as `GROUND_LOOK` has each path. */
 export const WAY_LOOK: GroundLook = {
   fill: "#d3cbb8",
   marks: [
-    dot(0.18, 0.22, 0.035, "#b2a88f"),
-    dot(0.58, 0.14, 0.03, "#b2a88f"),
-    dot(0.82, 0.5, 0.035, "#b2a88f"),
-    dot(0.38, 0.56, 0.03, "#b2a88f"),
-    dot(0.14, 0.82, 0.03, "#b2a88f"),
-    dot(0.66, 0.84, 0.035, "#b2a88f"),
-    dot(0.42, 0.3, 0.025, "#ebe5d6"),
-    dot(0.88, 0.2, 0.025, "#ebe5d6"),
-    dot(0.26, 0.6, 0.025, "#ebe5d6"),
-    dot(0.6, 0.66, 0.025, "#ebe5d6"),
+    markDot(0.18, 0.22, 0.035, "#b2a88f"),
+    markDot(0.58, 0.14, 0.03, "#b2a88f"),
+    markDot(0.82, 0.5, 0.035, "#b2a88f"),
+    markDot(0.38, 0.56, 0.03, "#b2a88f"),
+    markDot(0.14, 0.82, 0.03, "#b2a88f"),
+    markDot(0.66, 0.84, 0.035, "#b2a88f"),
+    markDot(0.42, 0.3, 0.025, "#ebe5d6"),
+    markDot(0.88, 0.2, 0.025, "#ebe5d6"),
+    markDot(0.26, 0.6, 0.025, "#ebe5d6"),
+    markDot(0.6, 0.66, 0.025, "#ebe5d6"),
   ],
   tone: "#d3cbb8",
 };
 
-/** The look of anything the map draws as ground: a laid path or flooring, or a public way. */
+/** The plaza's warm sandstone setts, in the order `PLAZA_LOOK` lays them. */
+const SETTS = ["#d8c39d", "#cdb58b", "#e0cfac", "#c8ad84", "#d3bc94"] as const;
+
+/** The pale, worn top edge each sett catches the light on. */
+const SETT_LIGHT = "#ebdfc4";
+
+/**
+ * Two rows of three setts, the second row half a sett over (a running bond), so a square of tiles
+ * reads as one paved plaza. The half setts at a tile's sides meet their other halves on the next
+ * tile, and each sett's tone is fixed here, so the paving repeats with no seam.
+ */
+function plazaMarks(): GroundMark[] {
+  const marks: GroundMark[] = [];
+  const wide = 1 / 3;
+  const row = 0.5;
+  const gap = 0.04;
+  const sett = (x: number, y: number, w: number, round: number, tone: string, lit = true) => {
+    marks.push(markRect(x, y, w, row - gap, round, tone));
+    if (lit) marks.push(markRect(x + gap, y + gap * 0.75, w - gap * 2, 0.045, 0.02, SETT_LIGHT));
+  };
+  for (let c = 0; c < 3; c++) {
+    sett(c * wide + gap / 2, gap / 2, wide - gap, 0.05, SETTS[c * 2] as string);
+  }
+  // The second row: two whole setts, and one split across the tile's sides. Its halves share a
+  // tone, and only the one on the right side carries the light edge, so the two meet as one stone.
+  const half = wide / 2 - gap / 2;
+  const y = row + gap / 2;
+  for (let c = 0; c < 2; c++) {
+    sett(wide / 2 + c * wide + gap / 2, y, wide - gap, 0.05, SETTS[c * 2 + 1] as string);
+  }
+  sett(0, y, half, 0, SETTS[4] as string, false);
+  sett(1 - half, y, half, 0, SETTS[4] as string);
+  return marks;
+}
+
+/** What a town square is paved with: the Commons, and every land's own square. */
+export const PLAZA_LOOK: GroundLook = {
+  fill: "#b39d7a",
+  marks: plazaMarks(),
+  tone: "#d3bc94",
+};
+
+/** The look of anything the map draws as ground: a laid path or flooring, a way, or a plaza. */
 export const drawnLook = (kind: DrawnGround): GroundLook =>
-  kind === "way" ? WAY_LOOK : GROUND_LOOK[kind];
+  kind === "way" ? WAY_LOOK : kind === "plaza" ? PLAZA_LOOK : GROUND_LOOK[kind];
 
 /** The hearth's roof (and the Town Hall's). */
 export const HEARTH_COLOR = "#d9653a";

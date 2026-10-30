@@ -12,6 +12,7 @@ import { mergeProgress } from "./levels";
 import { own, residentById } from "./own";
 import { mergePotters } from "./pottery";
 import { knownRecipes } from "./recipes";
+import { hasShownOnHomes } from "./surfaces";
 import type { Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { plotsOwnedBy } from "./world";
 
@@ -123,6 +124,10 @@ function mergeProblem(state: WorldState, from: ResidentId, into: ResidentId): Re
   }
   if (Object.values(items?.pots ?? {}).some((p) => p.by === from)) {
     return refuse("not_eligible", "The record to merge has a pot set down on a plot.");
+  }
+  // Things on surfaces and walls (RFC 0050) go back to whoever put them there.
+  if (hasShownOnHomes(state, from)) {
+    return refuse("not_eligible", "The record to merge has something on a surface or a wall.");
   }
   // A present (RFC 0034) names its giver and its recipient until it's opened.
   if (Object.values(items?.presents ?? {}).some((p) => p.from === from || p.to === from)) {

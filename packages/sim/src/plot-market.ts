@@ -6,6 +6,7 @@ import { plotKey } from "./keys";
 import { landOfPlot } from "./lands";
 import { MARKET, marketFee } from "./market";
 import { potsOf } from "./pottery";
+import { isSide, SIDE_STEP } from "./surfaces";
 import type {
   Command,
   EconomyState,
@@ -301,12 +302,29 @@ export function plotSale(state: WorldState, px: number, py: number, price: numbe
   return { price, fee, sellerGets: price - fee, hearths };
 }
 
-/** Whether anything stands on display on plot (px, py). */
+/**
+ * Whether anything stands on display on plot (px, py): on a pedestal or a frame, or on a surface or
+ * a wall (RFC 0050). A surface or wall key may carry a floor before a colon and a side after the
+ * tile; the tile alone says the plot.
+ */
 function displayOnPlot(state: WorldState, px: number, py: number): boolean {
   const { plotSize } = state.config;
-  return Object.keys(state.items?.displays ?? {}).some((key) => {
-    const [x, y] = key.split(",").map(Number) as [number, number];
-    return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  const items = state.items;
+  const keys = [
+    ...Object.keys(items?.displays ?? {}),
+    ...Object.keys(items?.tops ?? {}),
+    ...Object.keys(items?.hung ?? {}),
+  ];
+  const on = (x: number, y: number) =>
+    Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  // A wall face is seen from one tile and hangs on the next, so either one on the plot counts.
+  return keys.some((key) => {
+    const tile = key.includes(":") ? (key.split(":")[1] as string) : key;
+    const [x, y, side] = tile.split(",") as [string, string, string | undefined];
+    const tx = Number(x);
+    const ty = Number(y);
+    const [dx, dy] = isSide(side) ? SIDE_STEP[side] : [0, 0];
+    return on(tx, ty) || on(tx + dx, ty + dy);
   });
 }
 

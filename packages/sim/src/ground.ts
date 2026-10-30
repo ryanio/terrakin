@@ -9,6 +9,7 @@ import {
 } from "./floors";
 import {
   addStack,
+  CLAY_HINT,
   closed,
   countOf,
   GATHER_HINT,
@@ -18,7 +19,6 @@ import {
   inventoryEvent,
   inventoryMaxOf,
   inventorySize,
-  isResourceKind,
   type StackKind,
 } from "./items";
 import { tileKey } from "./keys";
@@ -47,6 +47,12 @@ export const GROUND_KINDS = [
   "planks",
   "flower_bed",
   "rug",
+  "carpet",
+  "checker_tiles",
+  "parquet",
+  "terracotta",
+  "woven_mat",
+  "stone_tiles",
 ] as const;
 export type GroundKind = (typeof GROUND_KINDS)[number];
 
@@ -72,6 +78,12 @@ export const GROUND_INFO: Readonly<Record<GroundKind, GroundInfo>> = {
   planks: { name: "Plank flooring", needs: { wood: 1 } },
   flower_bed: { name: "Flower bed", needs: { flower: 1 } },
   rug: { name: "Rug", needs: { herb: 1, flower: 1 } },
+  carpet: { name: "Carpet", needs: { cushion: 1 } },
+  checker_tiles: { name: "Checkerboard floor", needs: { stone: 1, clay: 1 } },
+  parquet: { name: "Parquet", needs: { wood: 2 } },
+  terracotta: { name: "Terracotta floor", needs: { clay: 1 } },
+  woven_mat: { name: "Woven mat", needs: { corn: 1 } },
+  stone_tiles: { name: "Stone floor", needs: { stone: 2 } },
 };
 
 /** What one tile of a kind takes, in a fixed order. Empty for a free kind. */
@@ -101,10 +113,13 @@ export function groundShort(
 /** Where to get what a refusal says is missing. */
 function sourceHint(kinds: readonly StackKind[]): string {
   const hints: string[] = [];
-  if (kinds.some((k) => isResourceKind(k))) hints.push(GATHER_HINT);
+  if (kinds.some((k) => k === "wood" || k === "stone")) hints.push(GATHER_HINT);
+  if (kinds.includes("clay")) hints.push(CLAY_HINT);
   if (kinds.some((k) => k === "flower" || k === "herb")) {
     hints.push("Flowers and herbs grow in a planter: plant, then harvest.");
   }
+  if (kinds.includes("corn")) hints.push("Corn grows in a planter: plant, then harvest.");
+  if (kinds.includes("cushion")) hints.push("The town shop sells cushions.");
   return hints.length > 0 ? ` ${hints.join(" ")}` : "";
 }
 

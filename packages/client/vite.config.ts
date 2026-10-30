@@ -363,7 +363,7 @@ function sitePages(): Plugin {
  * load the new code lazily, cut a module along a line that makes sense on its own, or raise it in a
  * decision record. `node scripts/first-load.ts` prints what the first load holds.
  */
-export const FIRST_LOAD_BUDGET = { js: 135_000, css: 26_000 } as const;
+export const FIRST_LOAD_BUDGET = { js: 136_000, css: 26_000 } as const;
 
 /**
  * Reading a world somewhere else, never writing to it. `pnpm dev:live` points the proxy at

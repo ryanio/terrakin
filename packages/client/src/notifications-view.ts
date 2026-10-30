@@ -12,7 +12,7 @@ import {
   type NotificationView,
   type TakedownView,
 } from "@terrakin/protocol";
-import { blockNeeds, potName } from "@terrakin/sim";
+import { blockNeeds, potName, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural, pluralWord } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -67,6 +67,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   plot_sold: "coin",
   way_laid: "town",
   way_closed: "town",
+  home_slimmed: "town",
   tea_poured: "kitchen",
   pot_sold: "coin",
   tea_served: "kitchen",
@@ -124,6 +125,7 @@ export function notificationLine(
     renamed: "gave you a new name",
     way_laid: "laid a public way across your plot",
     way_closed: "closed a public way on your plot",
+    home_slimmed: "moved your home's walls onto the lines between tiles",
     plot_sold: "says a plot you had for sale sold",
     // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
     tea_poured: "poured you a cup of tea at their event, to keep",
@@ -315,6 +317,19 @@ function systemWords(n: NotificationView): SystemWords | null {
       ],
     };
   }
+  if (n.homeSlimmed) {
+    // The town moved a home's walls onto the lines between tiles (RFC 0050). Counts, no words.
+    return {
+      icon: ICONS.home_slimmed,
+      ...homeSlimmedLine(n.homeSlimmed),
+      links: [
+        {
+          href: worldLinkPath({ kind: "plot", px: n.homeSlimmed.px, py: n.homeSlimmed.py }),
+          label: "Look at it",
+        },
+      ],
+    };
+  }
   if (n.wayClosed) {
     // The town closed public way tiles on your plot (RFC 0046). A count, no words.
     return {
@@ -371,17 +386,20 @@ function systemWords(n: NotificationView): SystemWords | null {
 }
 
 /**
- * A block-cleared notice in plain words (decision 0343): where the block was, and whether
- * anything came back, by the sim's own `blockNeeds`. Built from the notice's fields only. Pure, so
- * tests pin it.
+ * A block-cleared notice in plain words (decision 0343): where the block was, or the wall on a
+ * line (RFC 0050), and whether anything came back, by the sim's own `blockNeeds`. Built from the
+ * notice's fields only. Pure, so tests pin it.
  */
-export function clearedLine(c: { x: number; y: number; block: string }): {
+export function clearedLine(c: { x: number; y: number; side?: Side | undefined; block: string }): {
   line: string;
   next: string;
 } {
   const back = blockNeeds(c.block).length > 0;
+  const what = c.side
+    ? `the wall on the ${SIDE_WORDS[c.side]} side of ${c.x}, ${c.y}`
+    : `the block at ${c.x}, ${c.y}`;
   return {
-    line: `Your hearth had no way out to the town, so the team took the block at ${c.x}, ${c.y} off your plot.`,
+    line: `Your hearth had no way out to the town, so the team took ${what} off your plot.`,
     next: back
       ? "What it cost is back in your things. Build it somewhere else if you like, as long as a way out stays open."
       : "It was a free block, so nothing came back. Build it somewhere else if you like, as long as a way out stays open.",
@@ -430,6 +448,24 @@ export function wayClosedLine(w: { px: number; py: number; tiles: number }): {
   return {
     line: `The town closed the public way on your plot at ${w.px}, ${w.py}: ${tiles} that held no block are yours to build on again.`,
     next: "Nothing on your plot was moved.",
+  };
+}
+
+/**
+ * A home-slimmed notice in plain words (RFC 0050): which plot, its walls, and how many things came
+ * back. Built from the
+ * notice's fields only. Pure, so tests pin it.
+ */
+export function homeSlimmedLine(s: { px: number; py: number; walls: number; back: number }): {
+  line: string;
+  next: string;
+} {
+  return {
+    line: `The town moved your home's walls at ${s.px}, ${s.py} onto the lines between tiles, so its rooms keep every tile the walls stood on. ${plural(s.walls, "wall stands", "walls stand")} on lines now, with your windows and doors where they were.`,
+    next:
+      s.back > 0
+        ? `${plural(s.back, "thing", "things")} came back to your things.`
+        : "Nothing else on your plot was moved.",
   };
 }
 

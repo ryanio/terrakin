@@ -137,6 +137,22 @@ describe("openings (decision 0351)", () => {
     expect(t.dry("me", 1, 1, wall(3)).map((n) => n.text)).toEqual([
       "This plan closes the last exit of the plot next door, plot (0, 1): its only step onto open ground goes past the corner at (0, 0). Leave that tile open.",
     ]);
+    // Walls between tiles across the same side, one row in, close it too for a hearth inside them
+    // (RFC 0050).
+    Object.assign(t.state.residents.me ?? {}, { x: 11, y: 11 });
+    t.ok("me", { type: "set_hearth", x: 11, y: 11 });
+    const lines = Array.from({ length: 8 }, (_, x) => ({
+      x,
+      y: 1,
+      side: "n" as const,
+      block: "stone" as BlockKind,
+    }));
+    const lined = prepare(t.state, {
+      actor: "me",
+      command: { type: "build", px: 1, py: 1, edges: lines },
+    });
+    if (!lined.ok || !lined.plan) throw new Error("the plan was refused");
+    expect(designNotes(t.state, 1, 1, lined.plan).map((n) => n.code)).toContain("no_opening");
     // A plot already landlocked hears nothing from a plan: nothing it builds takes a way out.
     const shut = town(AROUND);
     shut.settle("me", 1, 1);

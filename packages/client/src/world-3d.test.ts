@@ -16,6 +16,7 @@ import {
   type PlotChunk,
   plotsAround,
   readChunk,
+  spotOfHit,
   tileAtPoint,
   tileOfHit,
   turnBetween,
@@ -335,6 +336,7 @@ describe("one plot of the world, read from the mirror", () => {
           ["14,14", "pedestal"],
           ["15,13", "kiln"],
           ["10,13", "pot"],
+          ["11,13", "table"],
         ]),
         paving: new Map<string, GroundKind>([["11,11", "cobble"]]),
         upstairs: new Map([
@@ -354,6 +356,10 @@ describe("one plot of the world, read from the mirror", () => {
         pickupAt: (x, y) => (x === 11 && y === 12 ? "wood" : null),
         residents: new Map([["capri", { hearth: { x: 9, y: 9 } }]]),
         presents: new Map([["capri", 2]]),
+        tops: new Map([["11,13", { thing: "candle" as const }]]),
+        hung: new Map([["8,9,n", { thing: "wall_clock" as const }]]),
+        edgesOn: (floor) =>
+          floor === 0 ? new Map<string, BlockKind>([["12,10,n", "stone"]]) : new Map(),
         roofAt: roof("gable"),
         isSea: () => false,
       },
@@ -399,6 +405,14 @@ describe("one plot of the world, read from the mirror", () => {
       pickupAt: source({ pickupAt: (x, y) => (x === 11 && y === 12 ? "stone" : null) }),
       residents: source({ residents: new Map([["capri", { hearth: { x: 30, y: 30 } }]]) }),
       presents: source({ presents: new Map([["capri", 3]]) }),
+      // A thing on a surface, and one on a wall, draw as themselves (RFC 0050).
+      tops: source({ tops: new Map([["11,13", { thing: "globe" }]]) }),
+      hung: source({ hung: new Map([["8,9,n", { thing: "mirror" }]]) }),
+      // A wall between tiles draws as itself (RFC 0050).
+      edgesOn: source({
+        edgesOn: (floor) =>
+          floor === 0 ? new Map<string, BlockKind>([["12,10,n", "brickwork"]]) : new Map(),
+      }),
       roofAt: source({ roofAt: roof("hip") }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },
@@ -436,6 +450,19 @@ describe("picking a tile from a tap", () => {
     expect(tileOfHit([10, 0.6, 10.48], [0, -0.6, -1])).toEqual({ x: 10, y: 10 });
     // The top of the same block, seen from above.
     expect(tileOfHit([10.2, 1.25, 10.3], [0, -1, -1])).toEqual({ x: 10, y: 10 });
+  });
+
+  it("says where in its tile a tap on a wall between tiles landed: on that wall's side", () => {
+    // The wall on the line between (10, 10) and (11, 10) stands at x = 10.5, its faces 0.11 out.
+    // Seen from the east, the tap is on (11, 10) near its west side; from the west, on (10, 10)
+    // near its east side.
+    const east = spotOfHit([10.61, 0.6, 10.1], [-1, -0.6, 0]);
+    expect(east.tile).toEqual({ x: 11, y: 10 });
+    expect(east.within.fx).toBeCloseTo(-0.39);
+    expect(east.within.fy).toBeCloseTo(0.1);
+    const west = spotOfHit([10.39, 0.6, 10.1], [1, -0.6, 0]);
+    expect(west.tile).toEqual({ x: 10, y: 10 });
+    expect(west.within.fx).toBeCloseTo(0.39);
   });
 });
 

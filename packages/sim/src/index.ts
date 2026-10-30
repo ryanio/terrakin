@@ -66,6 +66,10 @@ export {
   SWEET_KINDS,
   SWEET_RECIPES,
   type SweetKind,
+  TRINKET_KINDS,
+  type TrinketKind,
+  WALL_DECOR_KINDS,
+  type WallDecorKind,
 } from "./catalog";
 export { openDayOf, PRESENTS, presentsFor, presentsWaiting, wrapDay } from "./christmas";
 export {
@@ -117,7 +121,11 @@ export {
   heldAsideOf,
   isDisplayBlock,
   isShownFind,
+  isShownGood,
+  isShownThing,
   pieceShowingMedia,
+  type ShownSpot,
+  shownOfItem,
 } from "./display";
 export { nearestCounter, nearestPark } from "./doors";
 export {
@@ -135,6 +143,19 @@ export {
   treasuryOf,
   treasuryShareOf,
 } from "./economy";
+export {
+  EDGE_KINDS,
+  type EdgeSide,
+  edgeAt,
+  edgeBlocks,
+  edgeKey,
+  edgeOf,
+  edgesOn,
+  edgeTiles,
+  hasEdges,
+  isEdgeKind,
+  parseEdgeKey,
+} from "./edges";
 export * from "./entitlements";
 export {
   type Area,
@@ -188,6 +209,7 @@ export {
   upstairsProblem,
 } from "./floors";
 export { doorwayWithoutDoor } from "./front-doors";
+export { type Furnishing, furnishing, furnishings } from "./furnished";
 export {
   FURNITURE_KINDS,
   FURNITURE_RECIPES,
@@ -428,12 +450,14 @@ export {
 export * from "./looks";
 export {
   MAP_BLOCKS,
+  MAP_EDGE_MARKS,
   MAP_GROUND,
   MAP_LEGEND_MAX,
   MAP_MARKS,
   type MapFloor,
   type PlotMap,
   type PlotTiles,
+  plotLines,
   plotMap,
 } from "./map";
 export {
@@ -660,6 +684,21 @@ export {
   stockSeason,
   townBuys,
 } from "./shop";
+export {
+  faceKey,
+  hungAt,
+  hungOf,
+  isHangingWall,
+  isSide,
+  isSurface,
+  parseFaceKey,
+  parseTopKey,
+  SIDE_STEP,
+  SURFACE_BLOCKS,
+  topAt,
+  topKey,
+  topsOf,
+} from "./surfaces";
 export { checkTestGrant, TEST_GRANT } from "./test-grant";
 export { broughtTo, FEAST, feastDay, feastToday, isDish, liveFeast } from "./thanksgiving";
 export {
@@ -704,6 +743,7 @@ export {
   walkWords,
   worldGround,
 } from "./walk";
+export * from "./wall-look";
 export { isWay, WAYS, wayProblem } from "./ways";
 export {
   clockHour,

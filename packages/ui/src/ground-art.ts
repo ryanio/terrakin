@@ -2,7 +2,8 @@
  * Paths and flooring (RFC 0016) drawn from the sim's `GROUND_LOOK`: shapes in tile units that the
  * world map, the build palette, the 3D views' ground texture, and the plot photos all draw, so a
  * cobble path looks the same everywhere. `paintGround` draws a tile on a canvas; `groundArt` builds
- * a swatch as an SVG with `createElementNS`, never markup from a string.
+ * a swatch as an SVG with `createElementNS`, never markup from a string. `paintMarks` paints any
+ * list of the sim's marks, a wall's surface (`WALL_LOOK`) among them.
  */
 
 import {
@@ -27,12 +28,27 @@ export function paintGround(
   h: number,
 ): void {
   const look = drawnLook(kind);
-  const u = Math.min(w, h);
   if (look.fill) {
     ctx.fillStyle = look.fill;
     ctx.fillRect(left, top, w, h);
   }
-  for (const m of look.marks) paintMark(ctx, m, left, top, w, h, u);
+  paintMarks(ctx, look.marks, left, top, w, h);
+}
+
+/**
+ * Marks in the sim's tile units (`GroundMark`) over a `w` by `h` box at (`left`, `top`): a path's
+ * shapes, or a wall's surface from `WALL_LOOK`, which the map and the 3D textures both paint.
+ */
+export function paintMarks(
+  ctx: CanvasRenderingContext2D,
+  marks: readonly GroundMark[],
+  left: number,
+  top: number,
+  w: number,
+  h: number,
+): void {
+  const u = Math.min(w, h);
+  for (const m of marks) paintMark(ctx, m, left, top, w, h, u);
 }
 
 function paintMark(

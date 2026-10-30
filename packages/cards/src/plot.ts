@@ -102,6 +102,21 @@ export const PLOT_FURNITURE = [
   "armchair",
   "sofa",
   "bed",
+  // Roomier homes (RFC 0050): surfaces that hold a small thing on top.
+  "desk",
+  "side_table",
+  "dresser",
+  // More for a home: furniture made at a workbench.
+  "wardrobe",
+  "rocking_chair",
+  "piano",
+  "bathtub",
+  "fireplace",
+  "aquarium",
+  "coffee_table",
+  "coat_rack",
+  "floor_lamp",
+  "potted_tree",
 ] as const;
 export type PlotFurniture = (typeof PLOT_FURNITURE)[number];
 
@@ -122,6 +137,11 @@ export interface PlotBlock {
   water?: boolean | undefined;
   /** A lily pad floats on this tile of pond, as on the map. */
   lily?: boolean | undefined;
+  /**
+   * A wall's surface (bricks, beams, boards, panes) as the sim's `WALL_LOOK` gives it, in units of
+   * the block's face, drawn over `fill` as the map draws it.
+   */
+  marks?: readonly PlotMark[] | undefined;
 }
 
 /** Flooring laid on a floor above the ground floor (RFC 0028): its tile and its look. */
@@ -280,6 +300,8 @@ export interface PlotCard {
   floorPlan?: boolean | undefined;
   /** The home's roof (RFC 0041), over everything standing in it, as the map draws it. */
   roofs?: PlotRoofing[] | undefined;
+  /** Walls between tiles on the ground floor (RFC 0050), each on a tile's `n` or `w` line. */
+  edges?: PlotEdge[] | undefined;
   /**
    * A photo taken to post on Terrakin, where the post's card frames it and may crop its sides: no
    * card border, the brand on the photo's own frame, and room all round the frame.
@@ -314,6 +336,8 @@ export interface PlotArea {
   /** Theme tints laid over parts of the area: each plot's owner's, over that plot. */
   tints?: { x: number; y: number; w: number; h: number; fill: string }[] | undefined;
   blocks: PlotBlock[];
+  /** Walls between tiles (RFC 0050), drawn over the blocks. */
+  edges?: PlotEdge[] | undefined;
   crops?: PlotCrop[] | undefined;
   hearths?: { x: number; y: number }[] | undefined;
   pets?: PlotPet[] | undefined;
@@ -345,6 +369,63 @@ export interface PlotArea {
 
 const n = (v: number) => Number(v.toFixed(3));
 
+/**
+ * A wall between tiles (RFC 0050) as a plot photo carries it: its tile in the drawn box, its `n` or
+ * `w` line, and its color. A `door` is drawn as a door, a `pane` as a window.
+ */
+export interface PlotEdge {
+  x: number;
+  y: number;
+  side: "n" | "w";
+  fill: string;
+  door?: true | undefined;
+  pane?: true | undefined;
+}
+
+/** How thick a wall between tiles is drawn, in tiles: the map's own share (`EDGE_THICKNESS`). */
+const EDGE_THICKNESS = 0.22;
+
+/**
+ * Walls between tiles: a slab on each line, past each end by half its thickness so walls meet at
+ * their corners. Only numbers kept to the box and checked colors go in. At most four per tile.
+ */
+function edgesSvg(
+  edges: readonly PlotEdge[],
+  inX: (x: number) => boolean,
+  inY: (y: number) => boolean,
+): string[] {
+  const t = EDGE_THICKNESS;
+  return edges.slice(0, 4096).flatMap((e) => {
+    if (!inX(e.x) || !inY(e.y) || (e.side !== "n" && e.side !== "w")) return [];
+    const x = n(e.x - t / 2);
+    const y = n(e.y - t / 2);
+    const w = e.side === "n" ? n(1 + t) : n(t);
+    const h = e.side === "n" ? n(t) : n(1 + t);
+    const fill = e.door ? DOOR_FRAME : e.pane ? PANE_FRAME : safeColor(e.fill);
+    const out = [
+      `<rect x="${n(x + 0.04)}" y="${n(y + 0.1)}" width="${w}" height="${h}" rx="0.05" fill="rgba(74, 52, 28, 0.2)"/>`,
+      `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="0.05" fill="${fill}"/>`,
+    ];
+    if (e.door || e.pane) {
+      const inner = e.door ? DOOR_PANEL : safeColor(e.fill);
+      const ix = e.side === "n" ? n(x + w * 0.25) : n(x + 0.03);
+      const iy = e.side === "n" ? n(y + 0.03) : n(y + h * 0.25);
+      const iw = e.side === "n" ? n(w * 0.5) : n(Math.max(0.02, w - 0.06));
+      const ih = e.side === "n" ? n(Math.max(0.02, h - 0.06)) : n(h * 0.5);
+      out.push(
+        `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="0.03" fill="${inner}"/>`,
+      );
+    }
+    return out;
+  });
+}
+
+/** A door's frame and panel, the map's `DOOR_LOOK` (kept in step by cards-copies.test.ts). */
+const DOOR_FRAME = "#b8834f";
+const DOOR_PANEL = "#a8483a";
+/** A window's frame between tiles. */
+const PANE_FRAME = "#8a6a4a";
+
 /** The plot as SVG markup, `px` pixels square. Our own markup only: numbers and checked colors. */
 export function plotSvg(c: PlotCard, px: number): string {
   const side = (v: number) => Math.max(1, Math.min(32, Math.floor(v)));
@@ -359,6 +440,7 @@ export function plotSvg(c: PlotCard, px: number): string {
     ground: c.ground,
     tints: c.tints,
     blocks: c.blocks,
+    edges: c.edges,
     crops: c.crops,
     hearths: [...(c.hearth ? [c.hearth] : []), ...(c.hearths ?? [])],
     pets: c.pet ? [c.pet] : [],
@@ -386,6 +468,8 @@ const FLOOR_SHADOW = 0.22;
 const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
 /** How dim what's under a floor plan shows where it has no flooring, as on the map. */
 const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
+/** Most surface marks one wall draws. */
+const MAX_WALL_MARKS = 16;
 /** Most roofs an area draws, so a wide picture of the town stays cheap. */
 const MAX_ROOFS = 12;
 /** A roof (RFC 0041): how far its shadow falls, the light on its ridge, and its eaves' ink. */
@@ -482,6 +566,7 @@ export function areaParts(a: PlotArea): string[] {
   }
 
   parts.push(...blocksSvg(a.blocks, inX, inY));
+  parts.push(...edgesSvg(a.edges ?? [], inX, inY));
 
   // What's growing, over its planter.
   for (const crop of a.crops ?? []) {
@@ -570,8 +655,8 @@ function surroundWash(a: PlotArea, cols: number, rows: number): string[] {
 }
 
 /**
- * Blocks standing on one floor: a ground shadow, the block, a bottom shade, and a top highlight,
- * as in the world, with decor and furniture as themselves. Fences and low walls join their
+ * Blocks standing on one floor: a ground shadow, the block and its surface's marks, a bottom shade,
+ * and a top highlight, as in the world, with decor and furniture as themselves. Fences and low walls join their
  * neighbors on the same floor. Ponds are drawn flat with the ground, so they're left out here.
  */
 function blocksSvg(
@@ -618,14 +703,13 @@ function blocksSvg(
     parts.push(
       `<rect x="${n(left + 0.03)}" y="${n(top + lip * 0.6)}" width="${size}" height="${size}" rx="${r}" fill="rgba(74, 52, 28, 0.2)"/>`,
       `<rect x="${n(left)}" y="${n(top)}" width="${size}" height="${size}" rx="${r}" fill="${safeColor(b.fill)}"/>`,
+    );
+    for (const m of (b.marks ?? []).slice(0, MAX_WALL_MARKS))
+      parts.push(...markSvg(m, left, top, size));
+    parts.push(
       `<path d="M${n(left)} ${n(top + size - lip)}h${size}v${n(lip - r)}a${r} ${r} 0 0 1 -${r} ${r}h-${n(size - 2 * r)}a${r} ${r} 0 0 1 -${r} -${r}z" fill="rgba(70, 40, 18, 0.22)"/>`,
       `<rect x="${n(left + r * 0.5)}" y="${n(top + 0.05)}" width="${n(size - r)}" height="0.09" rx="0.04" fill="${b.glass ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 250, 235, 0.32)"}"/>`,
     );
-    if (b.glass) {
-      parts.push(
-        `<path d="M${n(left + size * 0.3)} ${n(top + size * 0.68)}L${n(left + size * 0.62)} ${n(top + size * 0.36)}" stroke="rgba(255, 255, 255, 0.75)" stroke-width="0.045" stroke-linecap="round"/>`,
-      );
-    }
   }
   return parts;
 }
@@ -923,6 +1007,7 @@ export function petSvg(p: PlotPet, cols: number, rows = cols): string[] {
 }
 
 const WOOD_DARK = "#6e4a2c";
+const WOOD = "#9a6b43";
 const EDGE = "rgba(70, 40, 18, 0.5)";
 const STRAW = "#e8c878";
 const STRAW_DEEP = "#c49a4c";
@@ -1470,32 +1555,43 @@ function pavingSvg(p: PlotPaving, x: number, y: number): string[] {
   if (p.fill) {
     out.push(`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${safeColor(p.fill)}"/>`);
   }
-  for (const m of p.marks) {
-    if (m.shape === "rect") {
-      out.push(
-        `<rect x="${n(x + unit(m.x))}" y="${n(y + unit(m.y))}" width="${unit(m.w)}" height="${unit(m.h)}" rx="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "circle") {
-      out.push(
-        `<circle cx="${n(x + unit(m.cx))}" cy="${n(y + unit(m.cy))}" r="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "ellipse") {
-      // A leaf: a turned oval, as a path, so the hearth's shadow stays the photo's only ellipse.
-      const cx = n(x + unit(m.cx));
-      const cy = n(y + unit(m.cy));
-      const rx = unit(m.rx);
-      const ry = unit(m.ry);
-      const turn = Number.isFinite(m.turn) ? Math.round(m.turn) % 360 : 0;
-      out.push(
-        `<path d="M${n(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${n(rx * 2)} 0a${rx} ${ry} 0 1 0 -${n(rx * 2)} 0z" transform="rotate(${turn} ${cx} ${cy})" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "line") {
-      out.push(
-        `<path d="M${n(x + unit(m.x1))} ${n(y + unit(m.y1))}L${n(x + unit(m.x2))} ${n(y + unit(m.y2))}" stroke="${safeColor(m.stroke)}" stroke-width="${unit(m.width)}" stroke-linecap="round" fill="none"/>`,
-      );
-    }
-  }
+  for (const m of p.marks) out.push(...markSvg(m, x, y, 1));
   return out;
+}
+
+/**
+ * One of the sim's marks (a path's or a wall's), its tile-unit box `k` across with its top left at
+ * (x, y): numbers kept to the tile and checked colors only.
+ */
+function markSvg(m: PlotMark, x: number, y: number, k: number): string[] {
+  const at = (v: number) => n(k * unit(v));
+  if (m.shape === "rect") {
+    return [
+      `<rect x="${n(x + k * unit(m.x))}" y="${n(y + k * unit(m.y))}" width="${at(m.w)}" height="${at(m.h)}" rx="${at(m.r)}" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "circle") {
+    return [
+      `<circle cx="${n(x + k * unit(m.cx))}" cy="${n(y + k * unit(m.cy))}" r="${at(m.r)}" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "ellipse") {
+    // A turned oval, as a path, so the hearth's shadow stays the photo's only ellipse.
+    const cx = n(x + k * unit(m.cx));
+    const cy = n(y + k * unit(m.cy));
+    const rx = at(m.rx);
+    const ry = at(m.ry);
+    const turn = Number.isFinite(m.turn) ? Math.round(m.turn) % 360 : 0;
+    return [
+      `<path d="M${n(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${n(rx * 2)} 0a${rx} ${ry} 0 1 0 -${n(rx * 2)} 0z" transform="rotate(${turn} ${cx} ${cy})" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "line") {
+    return [
+      `<path d="M${n(x + k * unit(m.x1))} ${n(y + k * unit(m.y1))}L${n(x + k * unit(m.x2))} ${n(y + k * unit(m.y2))}" stroke="${safeColor(m.stroke)}" stroke-width="${at(m.width)}" stroke-linecap="round" fill="none"/>`,
+    ];
+  }
+  return [];
 }
 
 const STONE_LO = "#8f887c";
@@ -1508,7 +1604,10 @@ const LINEN = "#f1e8d6";
 /**
  * One piece of furniture on tile (x, y), following its picture in the world: a table, a chair, a
  * bookshelf, a barrel, a signpost, a lamp post, a well, a low stone wall that joins the walls
- * beside it, a campfire, a flower box, or a piece you rest on: an armchair, a sofa, or a bed. Only numbers and checked colors go in, and no ellipses.
+ * beside it, a campfire, a flower box, a piece you rest on (an armchair, a sofa, a bed, or a rocking
+ * chair), a surface (a desk, a side table, a dresser, or a coffee table), a wardrobe, a piano, a
+ * bathtub, a fireplace, an aquarium, a coat rack, a floor lamp, or a potted tree. Only numbers and
+ * checked colors go in, and no ellipses.
  */
 function furnitureSvg(
   kind: PlotFurniture,
@@ -1569,6 +1668,28 @@ function furnitureSvg(
             ),
           ),
         ),
+      ];
+    case "desk":
+      return [
+        shade,
+        rect(0.12, 0.5, 0.08, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.56, 0.48, 0.32, 0.4, fill, 0.03),
+        rect(0.6, 0.56, 0.24, 0.04, WOOD_DARK, 0.01, false),
+        rect(0.08, 0.32, 0.84, 0.18, fill, 0.04),
+      ];
+    case "side_table":
+      return [
+        shade,
+        rect(0.3, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.63, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
+        rect(0.22, 0.36, 0.56, 0.16, fill, 0.06),
+      ];
+    case "dresser":
+      return [
+        shade,
+        rect(0.12, 0.16, 0.76, 0.72, fill, 0.04),
+        ...[0.24, 0.46, 0.68].map((fy) => rect(0.18, fy, 0.64, 0.16, WOOD_DARK, 0.02, false)),
+        ...[0.32, 0.54, 0.76].map((fy) => dot(0.5, fy, 0.03, "#e7c27a")),
       ];
     case "barrel":
       return [
@@ -1668,6 +1789,107 @@ function furnitureSvg(
         rect(0.26, 0.17, 0.48, 0.14, "#fffaf0", 0.05),
         rect(0.16, 0.38, 0.68, 0.48, fill, 0.04),
         `<path d="M${X(0.16)} ${Y(0.44)}H${X(0.84)}" stroke="${LINEN}" stroke-width="0.03" fill="none"/>`,
+      ];
+    case "wardrobe":
+      return [
+        shade,
+        rect(0.18, 0.06, 0.64, 0.82, fill, 0.04),
+        rect(0.22, 0.16, 0.26, 0.68, "rgba(60, 36, 20, 0.3)", 0.02, false),
+        rect(0.52, 0.16, 0.26, 0.68, "rgba(60, 36, 20, 0.3)", 0.02, false),
+        dot(0.45, 0.5, 0.025, "#e7c27a"),
+        dot(0.55, 0.5, 0.025, "#e7c27a"),
+        rect(0.14, 0.02, 0.72, 0.08, fill, 0.03),
+      ];
+    case "rocking_chair":
+      return [
+        shade,
+        rect(0.27, 0.1, 0.08, 0.5, fill, 0.02),
+        rect(0.65, 0.1, 0.08, 0.5, fill, 0.02),
+        rect(0.41, 0.2, 0.04, 0.36, fill, 0.01, false),
+        rect(0.55, 0.2, 0.04, 0.36, fill, 0.01, false),
+        rect(0.26, 0.13, 0.48, 0.09, fill, 0.02),
+        rect(0.3, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
+        rect(0.64, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
+        rect(0.2, 0.56, 0.6, 0.12, fill, 0.03),
+        `<path d="M${X(0.1)} ${Y(0.82)}Q${X(0.5)} ${Y(1)} ${X(0.9)} ${Y(0.82)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+      ];
+    case "piano":
+      return [
+        shade,
+        rect(0.16, 0.62, 0.68, 0.26, fill, 0.03),
+        rect(0.12, 0.1, 0.76, 0.42, fill, 0.04),
+        rect(0.4, 0.17, 0.2, 0.16, "#fffaf0", 0.01, false),
+        rect(0.08, 0.5, 0.84, 0.14, LINEN, 0.02),
+        ...[0.18, 0.28, 0.46, 0.56, 0.66, 0.8].map((fx) =>
+          rect(fx, 0.5, 0.05, 0.07, "#1f1a18", 0.005, false),
+        ),
+      ];
+    case "bathtub":
+      return [
+        shade,
+        dot(0.24, 0.86, 0.05, "#e7c27a"),
+        dot(0.76, 0.86, 0.05, "#e7c27a"),
+        `<path d="M${X(0.1)} ${Y(0.44)}H${X(0.9)}C${X(0.9)} ${Y(0.7)} ${X(0.8)} ${Y(0.84)} ${X(0.66)} ${Y(0.84)}H${X(0.34)}C${X(0.2)} ${Y(0.84)} ${X(0.1)} ${Y(0.7)} ${X(0.1)} ${Y(0.44)}z" fill="${fill}" ${stroke}/>`,
+        dot(0.3, 0.34, 0.06, "#ffffff"),
+        dot(0.4, 0.3, 0.045, "#ffffff"),
+        dot(0.62, 0.33, 0.05, "#ffffff"),
+        rect(0.06, 0.38, 0.88, 0.1, fill, 0.05),
+        rect(0.12, 0.4, 0.76, 0.04, "#9fd3e0", 0.02, false),
+      ];
+    case "fireplace":
+      return [
+        shade,
+        rect(0.1, 0.18, 0.8, 0.72, fill, 0.03),
+        `<path d="M${X(0.32)} ${Y(0.9)}V${Y(0.58)}Q${X(0.32)} ${Y(0.4)} ${X(0.5)} ${Y(0.4)}Q${X(0.68)} ${Y(0.4)} ${X(0.68)} ${Y(0.58)}V${Y(0.9)}z" fill="#3a2a22"/>`,
+        `<path d="M${X(0.5)} ${Y(0.5)}C${X(0.6)} ${Y(0.62)} ${X(0.62)} ${Y(0.7)} ${X(0.6)} ${Y(0.78)}C${X(0.57)} ${Y(0.86)} ${X(0.43)} ${Y(0.86)} ${X(0.4)} ${Y(0.78)}C${X(0.38)} ${Y(0.7)} ${X(0.42)} ${Y(0.62)} ${X(0.5)} ${Y(0.5)}z" fill="#e0603f"/>`,
+        dot(0.5, 0.76, 0.06, "#f2b84b"),
+        `<path d="M${X(0.36)} ${Y(0.88)}L${X(0.64)} ${Y(0.82)}M${X(0.36)} ${Y(0.82)}L${X(0.64)} ${Y(0.88)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+        rect(0.04, 0.12, 0.92, 0.1, WOOD, 0.03),
+      ];
+    case "aquarium":
+      return [
+        shade,
+        rect(0.16, 0.56, 0.68, 0.32, WOOD, 0.03),
+        rect(0.1, 0.14, 0.8, 0.44, fill, 0.04),
+        rect(0.12, 0.48, 0.76, 0.08, "#e6cfa3", 0.01, false),
+        `<path d="M${X(0.36)} ${Y(0.32)}l-0.06 -0.05v0.1z" fill="#e0603f"/>`,
+        dot(0.44, 0.32, 0.06, "#f2b84b"),
+        dot(0.66, 0.42, 0.04, "#e58fb6"),
+        rect(0.08, 0.1, 0.84, 0.06, WOOD_DARK, 0.02, false),
+      ];
+    case "coffee_table":
+      return [
+        shade,
+        rect(0.14, 0.56, 0.07, 0.32, WOOD_DARK, 0.02, false),
+        rect(0.79, 0.56, 0.07, 0.32, WOOD_DARK, 0.02, false),
+        rect(0.18, 0.72, 0.64, 0.05, WOOD_DARK, 0.01, false),
+        rect(0.06, 0.48, 0.88, 0.14, fill, 0.06),
+      ];
+    case "coat_rack":
+      return [
+        `<path d="M${X(0.28)} ${Y(0.9)}L${X(0.5)} ${Y(0.8)}L${X(0.72)} ${Y(0.9)}" stroke="${fill}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+        rect(0.47, 0.1, 0.06, 0.78, fill, 0.02, false),
+        dot(0.5, 0.1, 0.05, fill),
+        rect(0.3, 0.2, 0.08, 0.4, "#e0603f", 0.02),
+        rect(0.56, 0.2, 0.2, 0.46, "#5f86b5", 0.06),
+      ];
+    case "floor_lamp":
+      return [
+        shade,
+        dot(0.5, 0.22, 0.24, "rgba(242, 181, 68, 0.28)"),
+        rect(0.47, 0.32, 0.06, 0.54, WOOD_DARK, 0.02, false),
+        rect(0.34, 0.84, 0.32, 0.07, STONE_HI, 0.03),
+        `<path d="M${X(0.32)} ${Y(0.34)}L${X(0.4)} ${Y(0.08)}H${X(0.6)}L${X(0.68)} ${Y(0.34)}z" fill="${fill}" ${stroke}/>`,
+      ];
+    case "potted_tree":
+      return [
+        shade,
+        rect(0.46, 0.36, 0.08, 0.3, WOOD_DARK, 0.02, false),
+        dot(0.34, 0.38, 0.16, fill),
+        dot(0.66, 0.38, 0.16, fill),
+        dot(0.5, 0.26, 0.22, fill),
+        `<path d="M${X(0.28)} ${Y(0.62)}H${X(0.72)}L${X(0.68)} ${Y(0.9)}H${X(0.32)}z" fill="${WOOD}" ${stroke}/>`,
+        rect(0.24, 0.58, 0.52, 0.08, WOOD, 0.02),
       ];
   }
 }

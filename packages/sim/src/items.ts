@@ -588,7 +588,7 @@ export const GATHER_HINT =
   "Fallen branches (wood) lie in forests and loose stones on stone ground: pick them up with gather.";
 
 /** Where clay comes from (RFC 0047), for a refusal that's short of it. */
-const CLAY_HINT = "Clay lies beside water, by a pond or the sea: pick it up with gather.";
+export const CLAY_HINT = "Clay lies beside water, by a pond or the sea: pick it up with gather.";
 
 /**
  * `craft {recipe, x, y, label?}` at the right station within reach. A good is a made thing with an

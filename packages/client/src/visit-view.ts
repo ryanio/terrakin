@@ -1,9 +1,9 @@
 /**
  * `/visit`: plots to visit (RFC 0020). Every plot someone lives on as a card: a drawing of it from
  * above with whoever is standing on it, its name (decision 0121) and whose it is, what is new on it
- * in the server's own words (else how lately it changed), and this week's visitors and admirers
- * when anyone came, with a Visit button that jumps you there and opens the world. Newest change
- * first, or most admired. The Galleries page is the other tab of the same place. Names are
+ * in the server's own words (else how lately it changed), how furnished its home is (RFC 0050),
+ * and this week's visitors and admirers when anyone came, with a Visit button that jumps you there
+ * and opens the world. Newest change first, or most admired. The Galleries page is the other tab of the same place. Names are
  * residents' words: text only.
  */
 import { PLOT_SORTS, type PlotSort, type PlotView, type WorldSnapshot } from "@terrakin/protocol";
@@ -14,6 +14,7 @@ import { copyButton, kindPill, linkTabs, stateCard, wideLayout } from "@terrakin
 import { timeAgo } from "@terrakin/ui/when";
 import { plotsApi } from "./api/plots";
 import { worldApi } from "./api/world";
+import { furnishedLine } from "./furnished-line";
 
 import { savedResidentId, savedToken } from "./net";
 import { pageData, withOptional } from "./page-data";
@@ -106,6 +107,12 @@ function changedLine(plot: PlotView): HTMLElement | null {
   return h("span", { class: "plot-card-changed" }, "Changed ", when);
 }
 
+/** How furnished its home is, in the server's counts: nothing for a plot with none. */
+function furnishedEl(plot: PlotView): HTMLElement | null {
+  const line = furnishedLine(plot);
+  return line === null ? null : h("span", { class: "plot-card-furnished", text: line });
+}
+
 /**
  * One plot to visit: its drawing, its name and whose it is, how lately it changed, and this week's
  * counts.
@@ -141,6 +148,7 @@ export function plotCard(
         plot.name ? h("h2", { class: "plot-card-name", text: plot.name }) : null,
         h("div", { class: "cluster plot-card-people" }, ...people.map((p) => personLink(p))),
         changedLine(plot),
+        furnishedEl(plot),
         // A quiet week says nothing rather than "No visitors yet this week" on every card: the
         // line is there to tell one plot from another.
         quietWeek(plot) ? null : h("span", { class: "plot-card-week", text: weekLine(plot) }),

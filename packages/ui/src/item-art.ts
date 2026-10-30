@@ -2668,6 +2668,854 @@ function seaGlassPane(): ArtShape[] {
   ];
 }
 
+// ---------- roomier homes (RFC 0050) ----------
+
+/** A desk: a long top, a leg at one end and two drawers at the other. */
+function desk(): ArtShape[] {
+  const wood = BLOCK_COLORS.desk;
+  return [
+    shadow(18, 43),
+    rect(9, 24, 4, 18, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(26, 24, 13, 18, 1.5, wood, out()),
+    rect(28, 27, 9, 5, 0.8, WOOD_DARK, { opacity: 0.55 }),
+    rect(28, 34, 9, 5, 0.8, WOOD_DARK, { opacity: 0.55 }),
+    circle(32.5, 29.5, 0.9, SUN),
+    circle(32.5, 36.5, 0.9, SUN),
+    rect(5, 18, 38, 7, 2, wood, out()),
+    line("M8 20.5h32", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A side table: a small top on four slim legs, lower than a table. */
+function sideTable(): ArtShape[] {
+  const wood = BLOCK_COLORS.side_table;
+  return [
+    shadow(12, 43),
+    rect(15, 27, 3, 15, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    rect(30, 27, 3, 15, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    rect(17, 32, 14, 2.5, 0.8, WOOD, out({ "stroke-width": 0.8 })),
+    rect(11, 22, 26, 6, 3, wood, out()),
+    line("M14 24h20", "#ffffff", 1, { opacity: 0.4 }),
+  ];
+}
+
+/** A dresser: a chest of three drawers with brass knobs. */
+function dresser(): ArtShape[] {
+  const wood = BLOCK_COLORS.dresser;
+  const drawer = (y: number): ArtShape[] => [
+    rect(12, y, 24, 8, 1, WOOD_DARK, { opacity: 0.5 }),
+    circle(24, y + 4, 1.2, SUN, out({ "stroke-width": 0.6 })),
+  ];
+  return [
+    shadow(16, 44),
+    rect(9, 12, 30, 31, 2, wood, out()),
+    rect(8, 10, 32, 4, 1.5, wood, out()),
+    ...drawer(16),
+    ...drawer(25),
+    ...drawer(34),
+    line("M11 12h26", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A candle: a cream stick in a little brass holder, lit. */
+function candle(): ArtShape[] {
+  return [
+    shadow(9, 42),
+    ellipse(24, 39, 9, 2.5, LID, out()),
+    rect(20, 18, 8, 21, 1.5, LINEN, out()),
+    line("M24 18v-3", INK, 1),
+    path("M24 6c3 4 3.5 6.5 0 9.5-3.5-3-3-5.5 0-9.5z", SUN, out({ "stroke-width": 0.8 })),
+    path("M24 9.5c1.3 2 1.4 3.2 0 4.5-1.4-1.3-1.3-2.5 0-4.5z", "#fff6d6"),
+    line("M22 21v14", "#ffffff", 1.2, { opacity: 0.5 }),
+  ];
+}
+
+/** A table lamp: a cloth shade on a round base, glowing. */
+function tableLamp(): ArtShape[] {
+  return [
+    shadow(10, 43),
+    ellipse(24, 40, 9, 2.6, CLAY_DEEP, out()),
+    rect(23, 22, 2.5, 18, 1, WOOD_DARK),
+    path("M14 23 18 8h12l4 15z", KRAFT, out()),
+    path("M17 21 20 10h8l3 11z", "#fff1c4", { opacity: 0.6 }),
+    line("M15 21h18", CLAY, 1.4, { opacity: 0.7 }),
+  ];
+}
+
+/** A stack of books, three spines and a ribbon. */
+function bookStack(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    rect(10, 33, 28, 8, 1.2, ROSE, out()),
+    rect(13, 25, 24, 8, 1.2, SKY, out()),
+    rect(9, 17, 27, 8, 1.2, MOSS, out()),
+    line("M12 37h24M15 29h20M11 21h23", PAPER, 1, { opacity: 0.55 }),
+    path("M30 17v-6l2 2 2-2v6", SUN, out({ "stroke-width": 0.8 })),
+  ];
+}
+
+/** A potted fern in a clay pot. */
+function pottedFern(): ArtShape[] {
+  const frond = (d: string) => path(d, LEAF, out({ "stroke-width": 0.9 }));
+  return [
+    shadow(11, 43),
+    frond("M24 28C18 22 10 20 6 22c5-6 13-5 18 6z"),
+    frond("M24 28c6-6 14-8 18-6-5-6-13-5-18 6z"),
+    frond("M24 28c-3-8-2-16 1-21 3 6 3 14-1 21z"),
+    line("M24 28 17 18M24 28l7-10", STEM, 1, { opacity: 0.7 }),
+    path("M15 28h18l-3 14H18z", CLAY, out()),
+    rect(14, 27, 20, 4, 1.2, CLAY_DEEP, out()),
+  ];
+}
+
+/** A jar of seashells, with a cork. */
+function jarOfShells(): ArtShape[] {
+  return [
+    shadow(11, 43),
+    rect(14, 13, 20, 29, 4, GLASS, out({ opacity: 0.95 })),
+    path("M18 38c0-4 3-6 6-6s6 2 6 6z", "#f3d6c4", out({ "stroke-width": 0.8 })),
+    path("M17 31c2-3 5-3 7 0-2 3-5 3-7 0z", ROSE, out({ "stroke-width": 0.8 })),
+    path("M25 26c2-3 6-3 7 0-1 3-5 3-7 0z", PAPER, out({ "stroke-width": 0.8 })),
+    rect(17, 8, 14, 6, 1.5, KRAFT, out()),
+    shine(19, 22, 1.6, 5),
+  ];
+}
+
+/** A teacup on its saucer, with steam. */
+function teacup(): ArtShape[] {
+  return [
+    shadow(13, 42),
+    ellipse(24, 38, 14, 3.5, PAPER, out()),
+    path("M13 24h20c0 8-4 13-10 13s-10-5-10-13z", PAPER, out()),
+    path("M33 26c4 0 5 5 0 6", "none", { stroke: INK, "stroke-width": 1.6, fill: "none" }),
+    line("M15 27h16", SKY, 1.6),
+    line("M20 19c-2-3 2-4 0-7M26 19c-2-3 2-4 0-7", LINE, 1.1, { opacity: 0.5 }),
+  ];
+}
+
+/** A globe on a stand. */
+function globe(): ArtShape[] {
+  return [
+    shadow(10, 43),
+    ellipse(24, 40, 8, 2.4, WOOD_DARK, out()),
+    rect(23, 33, 2.5, 7, 1, WOOD_DARK),
+    circle(24, 20, 12, SKY, out()),
+    path("M17 13c3 1 5 4 3 7s1 6-2 8c-3-3-4-10-1-15z", MOSS_LIGHT, { opacity: 0.95 }),
+    path("M27 11c3 1 6 5 5 9-3-1-5-1-6-4s-1-3 1-5z", MOSS_LIGHT, { opacity: 0.95 }),
+    path("M12 21a12 12 0 0 0 20 9", "none", { stroke: LID, "stroke-width": 1.6, fill: "none" }),
+    shine(19, 14, 3, 1.6),
+  ];
+}
+
+/** A music box with its lid up and a little brass comb. */
+function musicBox(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    path("M11 22 14 10h20l3 12z", PLUM, out()),
+    rect(10, 22, 28, 18, 2, PLUM, out()),
+    rect(14, 25, 20, 6, 1, LID, out({ "stroke-width": 0.8 })),
+    line("M17 25v6M20 25v6M23 25v6M26 25v6M29 25v6", WOOD_DARK, 0.6, { opacity: 0.6 }),
+    rect(21, 34, 6, 3, 1, SUN),
+    line("M14 14h20", "#ffffff", 1, { opacity: 0.3 }),
+  ];
+}
+
+/** A round wall clock with a wooden rim. */
+function wallClock(): ArtShape[] {
+  return [
+    circle(24, 23, 17, WOOD, out()),
+    circle(24, 23, 13.5, PAPER, out({ "stroke-width": 1 })),
+    line("M24 12v2M24 32v2M13 23h2M33 23h2", INK, 1.2),
+    line("M24 23v-7M24 23l5 3", INK, 1.6),
+    circle(24, 23, 1.2, CLAY),
+    shine(18, 16, 3, 1.5),
+  ];
+}
+
+/** An oval mirror in a gilt frame. */
+function mirror(): ArtShape[] {
+  return [
+    ellipse(24, 24, 13, 18, LID, out()),
+    ellipse(24, 24, 10, 15, GLASS, out({ "stroke-width": 0.8 })),
+    path("M19 14c-3 4-3 12 0 16", "none", {
+      stroke: "#ffffff",
+      "stroke-width": 2,
+      fill: "none",
+      opacity: 0.7,
+    }),
+    circle(24, 5, 1.6, LID, out({ "stroke-width": 0.6 })),
+  ];
+}
+
+/** A wreath of greenery with berries and a bow. */
+function wreath(): ArtShape[] {
+  return [
+    circle(24, 24, 16, LEAF, out()),
+    circle(24, 24, 8.5, MOSS, out()),
+    circle(24, 24, 6, "#fbf4e6"),
+    circle(14, 18, 1.8, ROSE),
+    circle(33, 17, 1.8, ROSE),
+    circle(31, 32, 1.8, ROSE),
+    circle(17, 33, 1.8, ROSE),
+    path("M24 36l-5 6 1-7zM24 36l5 6-1-7z", CLAY, out({ "stroke-width": 0.8 })),
+    circle(24, 36, 2, CLAY, out({ "stroke-width": 0.8 })),
+  ];
+}
+
+/** A wall shelf on two brackets, with a little jar and a book. */
+function wallShelf(): ArtShape[] {
+  return [
+    rect(18, 18, 6, 9, 1, CLAY, out({ "stroke-width": 0.8 })),
+    rect(27, 15, 4, 12, 0.6, SKY, out({ "stroke-width": 0.8 })),
+    rect(6, 27, 36, 5, 1.2, WOOD, out()),
+    path("M11 32v6l5-6zM37 32v6l-5-6z", WOOD_DARK, out({ "stroke-width": 0.8 })),
+    line("M9 28.5h30", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A wall sconce: a brass back plate and a little shaded light. */
+function sconce(): ArtShape[] {
+  return [
+    rect(20, 18, 8, 20, 3, LID, out()),
+    path("M24 28h6v-3", "none", { stroke: LID, "stroke-width": 2, fill: "none" }),
+    path("M25 25 28 12h8l3 13z", KRAFT, out()),
+    path("M28 23 30 14h4l2 9z", "#fff1c4", { opacity: 0.7 }),
+  ];
+}
+
+/** A pennant on a little rod, in the town's clay and sun. */
+function pennant(): ArtShape[] {
+  return [
+    line("M8 12h32", WOOD_DARK, 2.2),
+    path("M11 13h26L24 40z", CLAY, out()),
+    path("M15 13h18l-9 13z", SUN, { opacity: 0.85 }),
+    line("M24 8v4", WOOD_DARK, 1.2),
+  ];
+}
+
+/** A map of the town, pinned up: the Commons in the middle and paths out. */
+function wallMap(): ArtShape[] {
+  return [
+    rect(7, 9, 34, 30, 1.5, KRAFT, out()),
+    rect(20, 19, 8, 8, 1, MOSS_LIGHT, out({ "stroke-width": 0.8 })),
+    line("M7 23h13M28 23h13M24 9v10M24 27v12", CLAY, 1.6, { "stroke-dasharray": "2 1.4" }),
+    path("M10 12h7v5h-7zM31 30h7v6h-7zM31 12h7v4h-7z", SKY, { opacity: 0.6 }),
+    circle(24, 23, 1.6, ROSE),
+    circle(9.5, 11, 1.2, CLAY_DEEP),
+    circle(38.5, 11, 1.2, CLAY_DEEP),
+  ];
+}
+
+/** A snow globe: a little pine in the snow under glass, on a wooden base. */
+function snowGlobe(): ArtShape[] {
+  return [
+    shadow(11, 43),
+    circle(24, 21, 12.5, PAPER),
+    circle(24, 21, 12.5, SKY, { opacity: 0.55 }),
+    ellipse(24, 29, 10, 3.5, "#ffffff"),
+    rect(23, 24, 2, 3, 0.5, WOOD_DARK),
+    path("M24 11l5.5 13h-11z", MOSS, out({ "stroke-width": 0.9 })),
+    path("M24 11l2.5 6h-5z", "#ffffff", { opacity: 0.85 }),
+    circle(16, 17, 0.9, "#ffffff"),
+    circle(31, 14, 0.9, "#ffffff"),
+    circle(19, 12.5, 0.8, "#ffffff"),
+    circle(32, 22, 0.8, "#ffffff"),
+    circle(24, 21, 12.5, "none", out()),
+    shine(18, 14, 3, 1.6),
+    path("M13 33h22l3 8H10z", WOOD, out()),
+    line("M12.5 36.5h23", LID, 1.4),
+  ];
+}
+
+/** An hourglass: sand running through a glass waist between two wooden ends. */
+function hourglass(): ArtShape[] {
+  return [
+    shadow(11, 43),
+    rect(14, 9, 2, 30, 0.8, WOOD_DARK, out({ "stroke-width": 0.7 })),
+    rect(32, 9, 2, 30, 0.8, WOOD_DARK, out({ "stroke-width": 0.7 })),
+    path("M17.5 10h13c0 8-5 10-5 14s5 6 5 14h-13c0-8 5-10 5-14s-5-6-5-14z", GLASS, out()),
+    path("M19.5 15h9c-.8 4-3.6 5.6-4.5 8.4-.9-2.8-3.7-4.4-4.5-8.4z", STRAW),
+    line("M24 23.5v9", STRAW_DEEP, 0.9),
+    path(
+      "M18.5 38c.8-4.5 3.5-6 5.5-6.4 2 .4 4.7 1.9 5.5 6.4z",
+      STRAW,
+      out({ "stroke-width": 0.6 }),
+    ),
+    shine(20.5, 13.5, 0.9, 2.4, -10),
+    rect(12, 6, 24, 4, 1.2, WOOD, out()),
+    rect(12, 38, 24, 4, 1.2, WOOD, out()),
+  ];
+}
+
+/** A toy sailboat: a red hull, two cream sails, and a flag on the mast. */
+function toyBoat(): ArtShape[] {
+  return [
+    shadow(14, 42),
+    line("M24 7v25", WOOD_DARK, 1.6),
+    path("M24 8l5 2-5 2z", SUN, out({ "stroke-width": 0.6 })),
+    path("M25.5 11l11 20h-11z", PAPER, out()),
+    path("M22.5 14l-8 17h8z", LINEN, out()),
+    line("M28 26h5", SKY, 1.2, { opacity: 0.8 }),
+    path("M7 31h34l-6 9H13z", CLAY, out()),
+    line("M10 34.5h28", PAPER, 1.4),
+    circle(15, 37, 0.9, CLAY_DEEP),
+  ];
+}
+
+/** A bowl of fruit: an apple, an orange and a bunch of grapes in a striped bowl. */
+function fruitBowl(): ArtShape[] {
+  const grape = (x: number, y: number) => circle(x, y, 2.4, PLUM, out({ "stroke-width": 0.7 }));
+  return [
+    shadow(14, 43),
+    circle(31, 21, 5.2, SUN, out()),
+    grape(24, 15.5),
+    grape(21.5, 18.5),
+    grape(26.5, 18.5),
+    grape(24, 21.5),
+    circle(16.5, 21, 5.6, CANOPY, out()),
+    line("M16.5 15.5v-2.5", WOOD_DARK, 1.1),
+    leaf(17, 14, 4.5, -30),
+    shine(14.5, 18.5, 1.6, 1),
+    path("M6 24h36c0 10-8 15.5-18 15.5S6 34 6 24z", PAPER, out()),
+    line("M9 28.5h30", SKY, 1.8),
+    line("M12 33h24", SKY, 1.2, { opacity: 0.7 }),
+    rect(18, 38.5, 12, 3, 1, PAPER, out()),
+  ];
+}
+
+/** A ceramic cat sitting up, white glaze with blue patches and a bell on its collar. */
+function ceramicCat(): ArtShape[] {
+  return [
+    shadow(11, 43),
+    line("M31 40.5c6.5 0 8.5-5 5.5-9.5", LINE, 4.4),
+    line("M31 40.5c6.5 0 8.5-5 5.5-9.5", PAPER, 2.2),
+    path("M15 41c-1-9 2.5-16 9-16s10 7 9 16z", PAPER, out()),
+    ellipse(28.5, 34.5, 3, 4, DENIM, { opacity: 0.8 }),
+    path("M17.5 15.5l-1.5-9 7 4.5z", PAPER, out()),
+    path("M30.5 15.5l1.5-9-7 4.5z", PAPER, out()),
+    circle(24, 19, 8, PAPER, out()),
+    path("M18 13.2l-.6-4 3.2 2.2z", ROSE),
+    path("M30 13.2l.6-4-3.2 2.2z", ROSE),
+    path("M26 11.5c2.5.2 4.6 1.6 5.6 3.6-2.4.3-4.6-1-5.6-3.6z", DENIM, { opacity: 0.8 }),
+    circle(21, 19, 1, INK),
+    circle(27, 19, 1, INK),
+    path("M23 21.6h2l-1 1.2z", ROSE),
+    line("M14.5 21.5l4 .6M14.5 24l4-.6M33.5 21.5l-4 .6M33.5 24l-4-.6", LINE, 0.6),
+    line("M18 26.5c4 2 8 2 12 0", CLAY, 1.8),
+    circle(24, 28.4, 1.4, SUN, out({ "stroke-width": 0.6 })),
+    shine(19.5, 14.5, 2, 1.1),
+  ];
+}
+
+/** A pair of brass candlesticks, one taller, both lit. */
+function candlesticks(): ArtShape[] {
+  const stick = (x: number, top: number): ArtShape[] => [
+    ellipse(x, 40, 6, 2, LID, out()),
+    rect(x - 1.5, 28, 3, 12, 1, LID, out({ "stroke-width": 0.8 })),
+    rect(x - 2.5, top, 5, 28 - top, 1, LINEN, out()),
+    ellipse(x, 28.5, 4.2, 1.5, LID, out()),
+    line(`M${x} ${top}v-2.5`, INK, 0.9),
+    path(
+      `M${x} ${top - 10}c2.4 3.2 2.8 5.2 0 7.6-2.8-2.4-2.4-4.4 0-7.6z`,
+      SUN,
+      out({ "stroke-width": 0.7 }),
+    ),
+    path(`M${x} ${top - 7}c1 1.6 1.1 2.6 0 3.6-1.1-1-1-2 0-3.6z`, "#fff6d6"),
+  ];
+  return [shadow(14, 43), ...stick(16, 14), ...stick(32, 19)];
+}
+
+/** A bonsai: a twisting little tree with round clouds of leaves, in a shallow blue pot. */
+function bonsai(): ArtShape[] {
+  return [
+    shadow(15, 43),
+    line("M22.5 34c-1.5-5 3-7 .5-12s2-8 6-9.5", WOOD_DARK, 3.2),
+    line("M23 23c-3-1.5-6-1-8.5 1", WOOD_DARK, 2),
+    line("M24.5 28c3-2 5.5-3 8.5-4", WOOD_DARK, 2),
+    ellipse(30, 12.5, 8.5, 4.6, MOSS, out()),
+    ellipse(14, 23, 6.5, 3.6, MOSS, out()),
+    ellipse(34, 22.5, 6, 3.4, MOSS, out()),
+    ellipse(28, 11, 4.5, 1.7, MOSS_LIGHT, { opacity: 0.9 }),
+    ellipse(13, 22, 3.5, 1.4, MOSS_LIGHT, { opacity: 0.9 }),
+    ellipse(33, 21.4, 3.2, 1.3, MOSS_LIGHT, { opacity: 0.9 }),
+    path("M10 35.5h28l-3 6.5H13z", DENIM, out()),
+    rect(8, 33, 32, 3.5, 1, DENIM, out()),
+    line("M11 34.6h26", "#ffffff", 0.9, { opacity: 0.4 }),
+  ];
+}
+
+/** A terrarium: moss, a little plant and a red mushroom under a glass bell on a wooden base. */
+function terrarium(): ArtShape[] {
+  const dome = "M10.5 37V21c0-8 6-14 13.5-14s13.5 6 13.5 14v16";
+  return [
+    shadow(14, 43),
+    path(`${dome}z`, GLASS, { opacity: 0.55 }),
+    path("M11 37c2-5 7-7 13-7s11 2 13 7z", MOSS_LIGHT, out({ "stroke-width": 0.8 })),
+    leaf(19, 31, 8, -105),
+    leaf(19, 31, 7, -60),
+    leaf(19, 31, 6, -150),
+    rect(28.5, 28, 2, 4.5, 0.6, PAPER, out({ "stroke-width": 0.5 })),
+    path("M25.8 29c0-3.4 7.4-3.4 7.4 0z", CANOPY, out({ "stroke-width": 0.7 })),
+    circle(28, 27.6, 0.6, "#ffffff"),
+    circle(30.8, 27.2, 0.5, "#ffffff"),
+    circle(14.5, 35.5, 1.2, STONE_HI),
+    circle(33, 35.8, 1, STONE_HI),
+    path(dome, "none", out()),
+    circle(24, 6, 2.2, GLASS, out({ "stroke-width": 1 })),
+    path("M15 30V21c0-4 2-8 5-10", "none", {
+      stroke: "#ffffff",
+      "stroke-width": 1.8,
+      "stroke-linecap": "round",
+      opacity: 0.75,
+    }),
+    rect(8, 36.5, 32, 5, 2, WOOD, out()),
+  ];
+}
+
+/** An old wooden radio with a round top, a cloth speaker, a lit dial and two knobs. */
+function radio(): ArtShape[] {
+  return [
+    shadow(16, 43),
+    path("M8 41V23c0-9 7-14 16-14s16 5 16 14v18z", WOOD, out()),
+    path("M12 30V24c0-6 5-10 12-10s12 4 12 10v6z", KRAFT, out({ "stroke-width": 0.8 })),
+    line("M16 16.5V30M20 14.6V30M24 14V30M28 14.6V30M32 16.5V30", WICKER, 1, { opacity: 0.85 }),
+    rect(11, 32, 26, 6.5, 1.5, PAPER2, out({ "stroke-width": 0.8 })),
+    rect(18, 33.5, 12, 3.5, 1, SUN, { opacity: 0.55 }),
+    line("M20 34v1.5M22 34v1.5M24 34v1.5M26 34v1.5M28 34v1.5", LINE, 0.5),
+    line("M25 33.2v4", CLAY, 1),
+    circle(14.5, 35.2, 1.9, WOOD_DARK, out({ "stroke-width": 0.6 })),
+    circle(33.5, 35.2, 1.9, WOOD_DARK, out({ "stroke-width": 0.6 })),
+    line("M13 12.5c3-2.4 6-3.2 9-3.4", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A record player in its case: the lid up behind, a black record spinning, and the arm on it. */
+function recordPlayer(): ArtShape[] {
+  return [
+    shadow(18, 43),
+    path("M10 17 12 5h24l2 12z", CLAY_DEEP, out()),
+    path("M13 16 14.5 7.5h19L35 16z", ROSE, { opacity: 0.55 }),
+    path("M5 27 10 16h28l5 11z", WOOD_DARK, out()),
+    ellipse(22, 21.5, 11, 4, INK, out({ "stroke-width": 0.8 })),
+    ellipse(22, 21.5, 7.5, 2.7, "none", { stroke: "#ffffff", "stroke-width": 0.5, opacity: 0.25 }),
+    ellipse(22, 21.5, 3.2, 1.2, CLAY),
+    circle(22, 21.5, 0.5, PAPER),
+    circle(37, 18.5, 1.6, IRON, out({ "stroke-width": 0.5 })),
+    line("M37 18.5 35 23.5 28.5 22.5", STONE_HI, 1.3),
+    rect(5, 27, 38, 13, 2, WOOD, out()),
+    rect(9, 30, 16, 7, 1, KRAFT, out({ "stroke-width": 0.7 })),
+    line("M11 32h12M11 34h12M11 36h12", WICKER, 0.6),
+    circle(31, 33.5, 2, LID, out({ "stroke-width": 0.6 })),
+    circle(37, 33.5, 2, LID, out({ "stroke-width": 0.6 })),
+  ];
+}
+
+/** A tea set on a tray: a round teapot with a blue band and two little cups. */
+function teaSet(): ArtShape[] {
+  const cup = (x: number): ArtShape[] => [
+    path(`M${x - 4.5} 32.5h9c0 3.5-2 5.5-4.5 5.5s-4.5-2-4.5-5.5z`, PAPER, out()),
+    line(`M${x - 3.5} 34.2h7`, SKY, 1.2),
+  ];
+  return [
+    shadow(19, 43),
+    ellipse(24, 39, 19.5, 3.5, WOOD, out()),
+    path("M16 27c-4-1-6.5-5-7-8 3 .5 5.5 3 7.5 5z", PAPER, out()),
+    line("M32 24c4.5-.5 5.5 6.5.5 8", LINE, 1.6),
+    ellipse(24, 28.5, 9, 7.5, PAPER, out()),
+    line("M15.5 29h17", SKY, 1.8),
+    circle(24, 29, 1.3, ROSE),
+    path("M18 22c0-3.5 12-3.5 12 0z", PAPER, out()),
+    circle(24, 18.6, 1.6, SKY, out({ "stroke-width": 0.6 })),
+    shine(19.5, 25, 1.8, 1),
+    ...cup(10),
+    ...cup(38),
+  ];
+}
+
+/** A standing photo frame with a snapshot of two friends on a hill. */
+function photoFrame(): ArtShape[] {
+  return [
+    shadow(12, 43),
+    line("M31 28l5 13", WOOD_DARK, 2),
+    rect(12, 8, 24, 32, 2, LID, out()),
+    rect(15.5, 11.5, 17, 25, 0.5, PAPER),
+    rect(15.5, 11.5, 17, 25, 0.5, SKY, { opacity: 0.6 }),
+    path("M15.5 31c5-4 12-4 17-1v6.5h-17z", MOSS_LIGHT),
+    rect(18.5, 26, 4.4, 7, 2, ROSE),
+    rect(25, 26.5, 4.4, 6.5, 2, DENIM),
+    circle(20.7, 23.6, 2.3, "#f3d6c4", out({ "stroke-width": 0.5 })),
+    circle(27.2, 24.2, 2.2, "#f3d6c4", out({ "stroke-width": 0.5 })),
+    circle(29.5, 15, 2, SUN),
+    rect(15.5, 11.5, 17, 25, 0.5, "none", out({ "stroke-width": 0.8 })),
+  ];
+}
+
+/** A chess board with a king and a pawn a side. */
+function chessSet(): ArtShape[] {
+  // The board's top face: its back edge from (10, 25) to (38, 25), its front from (5, 35) to (43, 35).
+  const at = (u: number, v: number): string => {
+    const y = 25 + v * 10;
+    const left = 10 - v * 5;
+    const right = 38 + v * 5;
+    return `${(left + (right - left) * u).toFixed(2)} ${y.toFixed(2)}`;
+  };
+  const squares: ArtShape[] = [];
+  for (let r = 0; r < 3; r++) {
+    for (let c = 0; c < 6; c++) {
+      if ((r + c) % 2 === 0) continue;
+      const [u0, u1, v0, v1] = [c / 6, (c + 1) / 6, r / 3, (r + 1) / 3];
+      squares.push(
+        path(`M${at(u0, v0)}L${at(u1, v0)}L${at(u1, v1)}L${at(u0, v1)}z`, WOOD_DARK, {
+          opacity: 0.85,
+        }),
+      );
+    }
+  }
+  const pawn = (x: number, y: number, fill: string): ArtShape[] => [
+    path(
+      `M${x - 3} ${y}c0-2 1.2-2.4 1.8-6h2.4c.6 3.6 1.8 4 1.8 6z`,
+      fill,
+      out({ "stroke-width": 0.8 }),
+    ),
+    circle(x, y - 7.2, 2.3, fill, out({ "stroke-width": 0.8 })),
+  ];
+  const king = (x: number, y: number, fill: string): ArtShape[] => [
+    path(
+      `M${x - 3.5} ${y}c0-2.4 1.4-3 2-10h3c.6 7 2 7.6 2 10z`,
+      fill,
+      out({ "stroke-width": 0.8 }),
+    ),
+    rect(x - 3, y - 12, 6, 2.4, 1, fill, out({ "stroke-width": 0.8 })),
+    line(`M${x} ${y - 12}v-4.5M${x - 1.8} ${y - 14.4}h3.6`, fill === PAPER ? LINE : fill, 1.4),
+  ];
+  return [
+    shadow(19, 43),
+    path("M5 35h38v4.5H5z", WOOD_DARK, out()),
+    path("M10 25h28l5 10H5z", LINEN, out()),
+    ...squares,
+    path("M10 25h28l5 10H5z", "none", out()),
+    ...king(30, 27.5, WOOD_DARK),
+    ...pawn(36.5, 30.5, WOOD_DARK),
+    ...king(17, 33.5, PAPER),
+    ...pawn(25.5, 34, PAPER),
+  ];
+}
+
+/** A lava lamp: warm blobs rising in purple, between a metal cap and base. */
+function lavaLamp(): ArtShape[] {
+  return [
+    shadow(10, 43),
+    path("M19 31c-2-4-2.6-8-1.4-10.5L21 9h6l3.4 11.5c1.2 2.5.6 6.5-1.4 10.5z", DUSK, out()),
+    ellipse(24, 26.5, 4.2, 3.2, CANOPY),
+    circle(22.6, 18.5, 2.3, CANOPY),
+    circle(25.6, 13, 1.4, CANOPY),
+    ellipse(25.5, 22, 1.4, 1, CANOPY),
+    shine(21, 15, 0.9, 3, -10),
+    path("M20.4 9.5 21.5 4h5l1.1 5.5z", STONE_LO, out()),
+    path("M19 31h10l4.5 11h-19z", STONE_LO, out()),
+    line("M20.5 33.5 18 40", STONE_HI, 1.2, { opacity: 0.8 }),
+  ];
+}
+
+/** A woven tapestry on a rod: a sun over a green hill in a clay border, fringed at the foot. */
+function tapestry(): ArtShape[] {
+  return [
+    line("M9 8 24 3l15 5", WOOD_DARK, 0.9),
+    rect(10, 8, 28, 29, 0.5, CLAY, out()),
+    rect(13, 11, 22, 23, 0.5, KRAFT),
+    path("M13 28c5-4 15-4 22 0v6H13z", MOSS),
+    circle(24, 20, 4.2, SUN),
+    line("M24 13.5v-1.5M24 26.5v1.5M17.5 20H16M30.5 20H32M19.4 15.4l-1-1M28.6 15.4l1-1", SUN, 1.2),
+    line("M13 11h22v23H13z", SUN, 0.9, { "stroke-dasharray": "1.6 1.2" }),
+    line(
+      "M12 37v4M15 37v4M18 37v4M21 37v4M24 37v4M27 37v4M30 37v4M33 37v4M36 37v4",
+      CLAY_DEEP,
+      1.2,
+    ),
+    line("M7 8h34", WOOD_DARK, 2.4),
+    circle(7, 8, 1.6, WOOD_DARK),
+    circle(41, 8, 1.6, WOOD_DARK),
+  ];
+}
+
+/** A patchwork quilt hung on a rod: nine squares in the town's colors, stitched. */
+function quiltHanging(): ArtShape[] {
+  const colors = [ROSE, PAPER, SKY, SUN, CLAY, MOSS_LIGHT, SKY, PLUM, ROSE];
+  const patches = colors.map((fill, i) =>
+    rect(10 + (i % 3) * 9.33, 9 + Math.floor(i / 3) * 9.33, 9.33, 9.33, 0, fill),
+  );
+  return [
+    line("M9 8 24 3l15 5", WOOD_DARK, 0.9),
+    ...patches,
+    line("M19.3 9v28M28.7 9v28M10 18.3h28M10 27.7h28", "#ffffff", 0.8, {
+      "stroke-dasharray": "1.4 1",
+      opacity: 0.9,
+    }),
+    path("M12 13l3 3M31 22l3 3M21 31l3 3", "none", { stroke: CLAY_DEEP, "stroke-width": 0.7 }),
+    rect(10, 9, 28, 28, 1, "none", out()),
+    line("M10 37.5c3 1.2 25 1.2 28 0", LINE, 0.8, { opacity: 0.5 }),
+    line("M7 8h34", WOOD_DARK, 2.4),
+    circle(7, 8, 1.6, WOOD_DARK),
+    circle(41, 8, 1.6, WOOD_DARK),
+  ];
+}
+
+/** A star chart pinned up: a crescent moon, a ring of the sky and one constellation, in gold. */
+function starChart(): ArtShape[] {
+  const star = (x: number, y: number, r = 1.3) => circle(x, y, r, SUN);
+  return [
+    rect(8, 8, 32, 32, 1.5, DENIM, out()),
+    circle(24, 24, 12.5, "none", { stroke: PAPER, "stroke-width": 0.8, opacity: 0.45 }),
+    line("M24 11.5v25M11.5 24h25", PAPER, 0.5, { opacity: 0.3 }),
+    line("M15 31 19 23.5l7 2 5-9 4.5 3", PAPER, 0.8, { opacity: 0.8 }),
+    star(15, 31),
+    star(19, 23.5),
+    star(26, 25.5, 1.6),
+    star(31, 16.5),
+    star(35.5, 19.5),
+    circle(13, 14, 0.6, PAPER),
+    circle(34, 33, 0.6, PAPER),
+    circle(28, 33.5, 0.5, PAPER),
+    circle(21, 13.5, 0.5, PAPER),
+    path("M14.5 11a4 4 0 1 0 4.8 5.6 3.2 3.2 0 1 1-4.8-5.6z", SUN),
+    circle(10.5, 10.5, 1.2, CLAY_DEEP),
+    circle(37.5, 10.5, 1.2, CLAY_DEEP),
+    circle(10.5, 37.5, 1.2, CLAY_DEEP),
+    circle(37.5, 37.5, 1.2, CLAY_DEEP),
+  ];
+}
+
+/** A guitar hung up by its neck: a honey body, a dark sound hole and six strings. */
+function guitar(): ArtShape[] {
+  return [
+    rect(22.5, 7, 3, 20, 0.6, WOOD_DARK, out({ "stroke-width": 0.8 })),
+    line("M22.5 11h3M22.5 14.5h3M22.5 18h3M22.5 21.5h3", LID, 0.6, { opacity: 0.8 }),
+    rect(20.5, 2, 7, 7, 1.8, WOOD_DARK, out()),
+    circle(19.6, 4, 1, LID),
+    circle(19.6, 7, 1, LID),
+    circle(28.4, 4, 1, LID),
+    circle(28.4, 7, 1, LID),
+    path(
+      "M24 20c-5 0-8 3-8 7 0 2 1 3 .4 4.4C14 33 13 35 13 37.6 13 43 18 46 24 46s11-3 11-8.4c0-2.6-1-4.6-3.4-6.2C31 30 32 29 32 27c0-4-3-7-8-7z",
+      WICKER,
+      out(),
+    ),
+    circle(24, 32.5, 3.2, INK),
+    circle(24, 32.5, 4.4, "none", { stroke: WOOD_DARK, "stroke-width": 0.8 }),
+    rect(20, 39, 8, 2, 1, WOOD_DARK),
+    line("M23.2 9v30.5M24.8 9v30.5", PAPER, 0.4, { opacity: 0.85 }),
+    shine(18.5, 38, 1.6, 3, 20),
+  ];
+}
+
+/** A string of bunting: five cloth flags in the town's colors, between two nails. */
+function bunting(): ArtShape[] {
+  const colors = [CLAY, SUN, SKY, ROSE, MOSS_LIGHT];
+  // Along the string from (3, 9) to (45, 9), sagging to 25 in the middle.
+  const flags = colors.map((fill, i) => {
+    const t = 0.1 + i * 0.2;
+    const x = 3 + 42 * t;
+    const y = 9 + 32 * t * (1 - t);
+    return path(`M${x - 4} ${y}h8l-4 14z`, fill, out({ "stroke-width": 1 }));
+  });
+  return [
+    line("M3 9q21 16 42 0", LINE, 1.1),
+    ...flags,
+    circle(3, 9, 1.5, CLAY_DEEP),
+    circle(45, 9, 1.5, CLAY_DEEP),
+  ];
+}
+
+/** A cuckoo clock: a little wooden house with a bird at its door, a pendulum and two pinecones. */
+function cuckooClock(): ArtShape[] {
+  return [
+    line("M18 33v6M30 33v4", IRON, 0.8),
+    line("M24 33v6", LID, 1),
+    circle(24, 40.5, 2.4, LID, out({ "stroke-width": 0.7 })),
+    ellipse(18, 41.5, 2, 3.4, WOOD_DARK, out({ "stroke-width": 0.7 })),
+    ellipse(30, 39.5, 2, 3.4, WOOD_DARK, out({ "stroke-width": 0.7 })),
+    path("M11 33V17L24 7l13 10v16z", WOOD, out()),
+    line("M7 18.5 24 5.5l17 13", WOOD_DARK, 3.2),
+    rect(21.5, 10.5, 5, 5, 1, WOOD_DARK),
+    circle(24, 13, 1.7, SUN),
+    path("M25.5 12.6l1.6.5-1.6.5z", CLAY),
+    circle(24, 24, 6.5, PAPER, out({ "stroke-width": 1 })),
+    line("M24 24v-4.2M24 24l3 1.6", INK, 1.2),
+    leaf(24, 5, 4, -150, MOSS),
+    leaf(24, 5, 4, -30, MOSS),
+  ];
+}
+
+/** A bunch of dried flowers hung upside down from a nail, tied with twine. */
+function driedFlowers(): ArtShape[] {
+  const spike = (x: number, y: number, turn: number, fill: string, rx = 1.8) =>
+    ellipse(
+      x,
+      y,
+      rx,
+      4.6,
+      fill,
+      out({ "stroke-width": 0.7, transform: `rotate(${turn} ${x} ${y})` }),
+    );
+  return [
+    circle(24, 3, 1.4, IRON),
+    line("M24 3 21.5 11.5M24 3l2.5 8.5", KRAFT, 0.8),
+    line("M21 5.5l3 7M27 5.5l-3 7M24 5v7.5", STRAW_DEEP, 1),
+    line(
+      "M24 14 13 30M24 14l-7 20M24 14l-3 22M24 14v18M24 14l3 22M24 14l7 20M24 14l11 15",
+      STRAW_DEEP,
+      1,
+    ),
+    leaf(22.5, 19, 8, 120, MOSS_LIGHT),
+    leaf(25.5, 19, 8, 60, MOSS_LIGHT),
+    spike(12.5, 32, 35, PLUM),
+    spike(35.5, 31.5, -35, PLUM),
+    spike(16.5, 36.5, 18, PLUM, 1.6),
+    spike(31.5, 36, -18, STRAW, 2),
+    circle(15.5, 26.5, 1.1, PAPER),
+    circle(32.5, 26.5, 1.1, PAPER),
+    circle(19.5, 30.5, 1.1, PAPER),
+    circle(29, 30, 1.1, PAPER),
+    circle(24, 32.5, 3.1, ROSE, out({ "stroke-width": 0.8 })),
+    circle(20.5, 37.5, 3.2, CLAY, out({ "stroke-width": 0.8 })),
+    circle(27, 39, 3.3, ROSE, out({ "stroke-width": 0.8 })),
+    line(
+      "M23 32c1-1 2.2-.6 2 .6M19.5 37c1-1.2 2.6-.8 2.4.6M26 38.6c1-1.2 2.6-.8 2.4.6",
+      CLAY_DEEP,
+      0.7,
+    ),
+    rect(21, 11.5, 6, 3.5, 1, KRAFT, out({ "stroke-width": 0.7 })),
+  ];
+}
+
+/** A plate rack: three painted plates standing on a wooden rack. */
+function plateRack(): ArtShape[] {
+  const plate = (x: number, y: number, r: number, rim: string): ArtShape[] => [
+    circle(x, y, r, PAPER, out()),
+    circle(x, y, r - 1.8, "none", { stroke: rim, "stroke-width": 1.2 }),
+    circle(x, y, r * 0.32, rim, { opacity: 0.85 }),
+  ];
+  return [
+    rect(5, 9, 38, 3.5, 1, WOOD, out()),
+    rect(5, 9, 3, 31, 1, WOOD, out()),
+    rect(40, 9, 3, 31, 1, WOOD, out()),
+    ...plate(13.5, 25, 7, SKY),
+    ...plate(34.5, 25, 7, ROSE),
+    ...plate(24, 23, 8.5, DENIM),
+    rect(5, 31, 38, 3.5, 1, WOOD, out()),
+    rect(5, 37, 38, 3.5, 1, WOOD_DARK, out()),
+  ];
+}
+
+/** A gilt frame around a painting, hung from a nail: the frame, the canvas, then the picture. */
+const painting = (x: number, y: number, w: number, h: number, scene: ArtShape[]): ArtShape[] => [
+  line(`M${x + w * 0.25} ${y}L${x + w / 2} 3L${x + w * 0.75} ${y}`, WOOD_DARK, 0.9),
+  circle(x + w / 2, 3, 1.2, IRON),
+  rect(x, y, w, h, 1.5, LID, out()),
+  rect(x + 2, y + 2, w - 4, h - 4, 0.6, "none", { stroke: STRAW_DEEP, "stroke-width": 1 }),
+  rect(x + 4, y + 4, w - 8, h - 8, 0, PAPER),
+  ...scene,
+  rect(x + 4, y + 4, w - 8, h - 8, 0, "none", out({ "stroke-width": 0.8 })),
+  circle(x + 1.6, y + 1.6, 0.8, SUN),
+  circle(x + w - 1.6, y + 1.6, 0.8, SUN),
+  circle(x + 1.6, y + h - 1.6, 0.8, SUN),
+  circle(x + w - 1.6, y + h - 1.6, 0.8, SUN),
+];
+
+/** A landscape: hills under a summer sky, a tree, a little house and a path winding in. */
+function landscapePainting(): ArtShape[] {
+  // The canvas is (8, 14) to (40, 35).
+  return painting(4, 10, 40, 29, [
+    rect(8, 14, 32, 21, 0, SKY, { opacity: 0.6 }),
+    circle(33.5, 19, 2.8, SUN),
+    ellipse(15, 18.5, 3.4, 1.5, "#ffffff", { opacity: 0.9 }),
+    ellipse(18, 17.6, 2.2, 1.4, "#ffffff", { opacity: 0.9 }),
+    path("M8 27c6-5 12-6 18-3s10-1 14-4v15H8z", MOSS_LIGHT),
+    rect(28.5, 23.4, 4.2, 3, 0, PAPER),
+    path("M28 23.6l2.6-2.4 2.6 2.4z", CLAY),
+    path("M8 31c8-4 17-4 24-1s6 0 8-1v6H8z", MOSS),
+    line("M22 35c.5-2.4 3-3.4 5-4.6s1.4-2.2-.6-3", KRAFT, 1.5),
+    rect(13.6, 25.5, 1.2, 4, 0, WOOD_DARK),
+    circle(14.2, 24.4, 2.7, MOSS),
+  ]);
+}
+
+/** A portrait: someone in a plum coat and a white collar, smiling, on a green ground. */
+function portraitPainting(): ArtShape[] {
+  const skin = "#f3d6c4";
+  // The canvas is (13, 8) to (35, 40).
+  return painting(9, 4, 30, 40, [
+    rect(13, 8, 22, 32, 0, MOSS),
+    ellipse(24, 20, 9, 11, MOSS_LIGHT, { opacity: 0.35 }),
+    path("M14 40c0-7 4-10.5 10-10.5S34 33 34 40z", PLUM, out({ "stroke-width": 0.8 })),
+    path("M19.8 30.4 24 34.6l4.2-4.2c-1.3-.5-2.7-.8-4.2-.8s-2.9.3-4.2.8z", PAPER),
+    rect(22.5, 25, 3, 5.5, 1, skin),
+    ellipse(24, 20, 5.4, 6.6, skin, out({ "stroke-width": 0.8 })),
+    path(
+      "M18.5 20c-.6-6.4 2.6-9 5.5-9s6.1 2.6 5.5 9c-.8-3.2-2.8-4.8-5.5-4.8s-4.7 1.6-5.5 4.8z",
+      WOOD_DARK,
+    ),
+    circle(22, 20.4, 0.7, INK),
+    circle(26, 20.4, 0.7, INK),
+    circle(20.9, 22.6, 1, ROSE, { opacity: 0.6 }),
+    circle(27.1, 22.6, 1, ROSE, { opacity: 0.6 }),
+    line("M22.6 23.6c.9.8 1.9.8 2.8 0", CLAY_DEEP, 0.7),
+  ]);
+}
+
+/** A still life: sunflowers in a blue jug beside an apple and a pear, on a wooden table. */
+function stillLifePainting(): ArtShape[] {
+  const flower = (x: number, y: number): ArtShape[] => [
+    circle(x, y, 2.6, SUN, out({ "stroke-width": 0.6 })),
+    circle(x, y, 1, WOOD_DARK),
+  ];
+  // The canvas is (10, 11) to (38, 37).
+  return painting(6, 7, 36, 34, [
+    rect(10, 11, 28, 26, 0, KRAFT),
+    rect(10, 31, 28, 6, 0, WOOD),
+    line("M10 31h28", STRAW_DEEP, 0.8),
+    line("M20 21 16 16M20 21v-6M20 21l4.5-4.5", STEM, 0.8),
+    ...flower(16, 16),
+    ...flower(20, 15),
+    ...flower(24.5, 16.5),
+    path(
+      "M17.5 32c-3-2-3.4-6-1.4-8.4l.6-3h6.6l.6 3c2 2.4 1.6 6.4-1.4 8.4z",
+      DENIM,
+      out({ "stroke-width": 0.8 }),
+    ),
+    circle(29, 29.4, 2.8, CANOPY, out({ "stroke-width": 0.7 })),
+    path(
+      "M34 32c-2.6 0-3.2-2.4-2-4 .6-.8.6-2.4 2-2.4s1.4 1.6 2 2.4c1.2 1.6.6 4-2 4z",
+      MOSS_LIGHT,
+      out({ "stroke-width": 0.7 }),
+    ),
+    line("M34 25.6v-1.4", WOOD_DARK, 0.7),
+  ]);
+}
+
+/** A row of coat hooks on a board, a striped scarf on one and a straw hat on another. */
+function coatHooks(): ArtShape[] {
+  const hook = (x: number) => line(`M${x} 18v4.5c0 2.6 3.4 2.6 3.4 0`, IRON, 1.6);
+  return [
+    rect(5, 12, 38, 7, 1.5, WOOD, out()),
+    line("M7 14h34", "#ffffff", 1, { opacity: 0.3 }),
+    circle(8, 15.5, 0.8, WOOD_DARK),
+    circle(40, 15.5, 0.8, WOOD_DARK),
+    hook(10.5),
+    hook(19.5),
+    hook(28.5),
+    hook(37.5),
+    rect(14.5, 23, 6.5, 17, 1, ROSE, out({ "stroke-width": 0.8 })),
+    rect(21.5, 23, 6.5, 12, 1, ROSE, out({ "stroke-width": 0.8 })),
+    line("M15 28h5.5M15 33h5.5M22 28h5.5M22 31.5h5.5", PAPER, 1.6),
+    line("M16 40v2.5M17.8 40v2.5M19.6 40v2.5M23 35v2.5M24.8 35v2.5M26.6 35v2.5", ROSE, 0.8),
+    path("M14.5 24.5c0-3.5 13.5-3.5 13.5 0z", ROSE, out({ "stroke-width": 0.8 })),
+    path("M32 27c0-5 2-7.5 5.5-7.5S43 22 43 27z", STRAW, out()),
+    line("M32.4 25.5h10.2", SKY, 1.4),
+    ellipse(37.5, 27.5, 8, 2.2, STRAW, out()),
+  ];
+}
+
 // ---------- cozy homes (RFC 0044) ----------
 
 /** A plump square cushion with a button in the middle, the pale piping the furniture wears. */
@@ -2736,6 +3584,211 @@ function bed(): ArtShape[] {
   ];
 }
 
+// ---------- more for a home ----------
+
+/** A wardrobe: a tall cabinet with a crown on top and two doors with brass knobs. */
+function wardrobe(): ArtShape[] {
+  const wood = BLOCK_COLORS.wardrobe;
+  return [
+    shadow(16, 44),
+    rect(11, 40, 3.5, 4, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(33.5, 40, 3.5, 4, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(10, 7, 28, 34, 2, wood, out()),
+    rect(12.5, 10, 10, 28, 1, WOOD_DARK, { opacity: 0.3 }),
+    rect(25.5, 10, 10, 28, 1, WOOD_DARK, { opacity: 0.3 }),
+    line("M24 9v31", WOOD_DARK, 1, { opacity: 0.6 }),
+    circle(22, 24, 1.1, SUN, out({ "stroke-width": 0.6 })),
+    circle(26, 24, 1.1, SUN, out({ "stroke-width": 0.6 })),
+    rect(8, 4, 32, 4.5, 1.5, wood, out()),
+    line("M10.5 5.8h27", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A rocking chair: a spindle back, a seat, and two curved rockers under its legs. */
+function rockingChair(): ArtShape[] {
+  const wood = BLOCK_COLORS.rocking_chair;
+  const spindle = (x: number): ArtShape =>
+    rect(x, 11, 2, 16, 0.8, wood, out({ "stroke-width": 0.8 }));
+  return [
+    shadow(15, 44),
+    rect(14, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(30, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
+    spindle(19.5),
+    spindle(23),
+    spindle(26.5),
+    rect(13, 7, 22, 4.5, 1.4, wood, out({ "stroke-width": 1 })),
+    rect(14.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(30.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(11, 26, 26, 5.5, 1.8, wood, out()),
+    line("M13 27.8h22", "#ffffff", 1, { opacity: 0.35 }),
+    line("M6 37.5c7 6 29 6 36 0", LINE, 4),
+    line("M6 37.5c7 6 29 6 36 0", WOOD_DARK, 2.4),
+  ];
+}
+
+/** An upright piano: a dark case, a page of music, white keys with black ones, and a pedal. */
+function piano(): ArtShape[] {
+  const body = BLOCK_COLORS.piano;
+  return [
+    shadow(18, 44),
+    rect(10, 39, 3, 5, 1, body, out({ "stroke-width": 1 })),
+    rect(35, 39, 3, 5, 1, body, out({ "stroke-width": 1 })),
+    rect(9, 29, 30, 11, 1.5, body, out()),
+    rect(8, 8, 32, 17, 2, body, out()),
+    rect(19, 11, 10, 8, 0.6, PAPER, out({ "stroke-width": 0.8 })),
+    line("M21 13.5h6M21 16h6", LINE, 0.7, { opacity: 0.7 }),
+    rect(6, 5.5, 36, 4, 1.5, body, out()),
+    rect(5, 24, 38, 6.5, 1, PAPER, out()),
+    line(
+      "M10 24.5v5.5M14.5 24.5v5.5M19 24.5v5.5M24 24.5v5.5M29 24.5v5.5M33.5 24.5v5.5M38 24.5v5.5",
+      LINE,
+      0.6,
+      {
+        opacity: 0.6,
+      },
+    ),
+    ...[11.5, 16, 25.5, 30, 34.5].map((x) => rect(x, 24.5, 2.2, 3.4, 0.4, INK)),
+    rect(22, 38, 4, 2, 0.8, SUN, out({ "stroke-width": 0.6 })),
+    line("M10 7.3h28", "#ffffff", 1, { opacity: 0.25 }),
+  ];
+}
+
+/** A bathtub: a deep enamel tub on four brass feet, a tap at one end, and bubbles over the rim. */
+function bathtub(): ArtShape[] {
+  const enamel = BLOCK_COLORS.bathtub;
+  return [
+    shadow(19, 43),
+    circle(12, 40, 2.2, LID, out({ "stroke-width": 0.8 })),
+    circle(36, 40, 2.2, LID, out({ "stroke-width": 0.8 })),
+    line("M39.5 19V12a2.5 2.5 0 0 0-2.5-2.5h-3", IRON, 1.8),
+    path("M5 21h38c0 9-4 17-11 18H16C9 38 5 30 5 21z", enamel, out()),
+    circle(14, 17.5, 2.6, "#ffffff", out({ "stroke-width": 0.8 })),
+    circle(18.5, 15, 1.8, "#ffffff", out({ "stroke-width": 0.8 })),
+    circle(29, 17, 2.2, "#ffffff", out({ "stroke-width": 0.8 })),
+    rect(3.5, 18.5, 41, 4, 2, enamel, out()),
+    rect(7, 19.4, 34, 1.6, 0.8, "#9fd3e0"),
+    line("M10 25c1 5 3 9 7 11", "#ffffff", 1.2, { opacity: 0.6 }),
+  ];
+}
+
+/** A fireplace: a stone hearth under a wooden mantel, with logs burning in its arch. */
+function fireplace(): ArtShape[] {
+  const stone = BLOCK_COLORS.fireplace;
+  return [
+    shadow(19, 44),
+    circle(24, 32, 15, BLOCK_COLORS.lantern, { opacity: 0.14 }),
+    rect(6, 10, 36, 33, 2, stone, out()),
+    path(
+      "M6.5 19h7M34.5 19h7M6.5 27h7M34.5 27h7M6.5 35h7M34.5 35h7M10 12v7M38 12v7M10 27v8M38 27v8",
+      "none",
+      out({ stroke: STONE_LO, "stroke-width": 1 }),
+    ),
+    path("M14 43V28c0-6 4.5-9 10-9s10 3 10 9v15z", "#3a2a22", out()),
+    path(
+      "M24 25c3.5 4 6 7 6 10.5 0 3-2.7 5-6 5s-6-2-6-5c0-2.5 2-4 2.6-6 1 1.6 2 2 2 2 0-2.6.3-4.5 1.4-6.5z",
+      BLOCK_COLORS.campfire,
+      out({ "stroke-width": 1 }),
+    ),
+    path(
+      "M24 31c1.8 2 3 3.6 3 5.4 0 1.7-1.3 2.8-3 2.8s-3-1.1-3-2.8c0-1.4 1-2.2 1.4-3.2.6.8 1 1 1 1 0-1.2.2-2.2.6-3.2z",
+      SUN,
+    ),
+    line("M16 42 32 39", WOOD, 3),
+    line("M17 39 31 42", WOOD_DARK, 3),
+    rect(3, 7, 42, 5, 1.5, WOOD, out()),
+    line("M5 8.8h38", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** An aquarium: a glass tank of water on a wooden stand, with weed, sand, two fish and bubbles. */
+function aquarium(): ArtShape[] {
+  const water = BLOCK_COLORS.aquarium;
+  return [
+    shadow(18, 44),
+    rect(9, 31, 30, 12, 1.5, WOOD, out()),
+    line("M24 32.5v9", WOOD_DARK, 0.9, { opacity: 0.45 }),
+    rect(6, 10, 36, 22, 2, water, out()),
+    line("M7.5 14h33", "#ffffff", 1, { opacity: 0.6 }),
+    rect(7, 27.5, 34, 3.5, 1, KRAFT),
+    line("M13 28c-2-4 2-7 0-11M16.5 28c1-3-1-5 1-8", STEM, 1.5),
+    path("M23.5 20l-3-2.5v5z", CLAY, out({ "stroke-width": 0.8 })),
+    ellipse(27.5, 20, 4, 2.6, SUN, out({ "stroke-width": 0.8 })),
+    circle(29.5, 19.4, 0.6, INK),
+    path("M38.5 25l2-1.8v3.6z", ROSE, out({ "stroke-width": 0.7 })),
+    ellipse(35.5, 25, 2.8, 1.8, ROSE, out({ "stroke-width": 0.7 })),
+    circle(31.5, 15.5, 1, "#ffffff", { opacity: 0.85 }),
+    circle(33, 12.5, 0.8, "#ffffff", { opacity: 0.85 }),
+    rect(5, 8.5, 38, 3, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    shine(11.5, 20, 1.4, 5, 0),
+  ];
+}
+
+/** A coffee table: a long low top on four short legs, with a shelf under it. */
+function coffeeTable(): ArtShape[] {
+  const wood = BLOCK_COLORS.coffee_table;
+  return [
+    shadow(19, 42),
+    rect(9, 30, 4, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(35, 30, 4, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(11, 35, 26, 3, 0.8, WOOD, out({ "stroke-width": 0.8 })),
+    rect(5, 26, 38, 6, 3, wood, out()),
+    line("M8 28h32", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A coat rack: a turned pole on three feet, with a coat on one hook and a scarf on the other. */
+function coatRack(): ArtShape[] {
+  const wood = BLOCK_COLORS.coat_rack;
+  return [
+    shadow(11, 44),
+    line("M13.5 43.5 24 38.5l10.5 5M24 38.5v5", wood, 2.6),
+    rect(22.5, 7, 3, 33, 1.2, wood, out({ "stroke-width": 1 })),
+    circle(24, 6, 2.3, wood, out({ "stroke-width": 1 })),
+    line("M23 12.5c-4 0-6.5-1-7.5-3.5M25 12.5c4 0 6.5-1 7.5-3.5", wood, 1.8),
+    path("M15 9.5c-1.5 5-1 12 0 18h3.4c-.8-6-.8-12 .4-17.5z", ROSE, out({ "stroke-width": 1 })),
+    line("M15.5 24.5h3M15.4 26.3h3", PAPER, 0.8, { opacity: 0.8 }),
+    path("M31 10c3.5 0 6 2.5 6.5 6l1 15c-3 1.5-7.5 1.5-10.5 0l1-15c.2-3 .8-5 2-6z", DENIM, out()),
+    line("M33 13v17", LINE, 0.8, { opacity: 0.5 }),
+    circle(34.5, 18, 0.8, PAPER),
+    circle(34.5, 23, 0.8, PAPER),
+  ];
+}
+
+/** A floor lamp: a tall pole on a round stone foot, under a cloth shade lit from inside. */
+function floorLamp(): ArtShape[] {
+  const shade = BLOCK_COLORS.floor_lamp;
+  return [
+    shadow(10, 44),
+    circle(24, 13, 12, BLOCK_COLORS.lantern, { opacity: 0.2 }),
+    rect(22.8, 17, 2.4, 24, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    ellipse(24, 41.5, 7, 2.5, STONE_HI, out()),
+    ellipse(24, 18.5, 5.5, 1.6, "#fff3c4"),
+    path("M15.5 18.5 19.5 5h9l4 13.5z", shade, out()),
+    line("M16.3 16.8h15.4", CLAY, 1.2),
+    line("M28.5 19v4", LINE, 0.8),
+    circle(28.5, 23.6, 0.9, LID),
+    shine(21.3, 11, 1, 4, 14),
+  ];
+}
+
+/** A potted tree: a little oak grown from an acorn, in a hooped wooden tub. */
+function pottedTree(): ArtShape[] {
+  return [
+    shadow(13, 44),
+    rect(22.5, 19, 3, 14, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    circle(17, 19, 6.5, LEAF, out()),
+    circle(31, 19, 6.5, LEAF, out()),
+    circle(24, 13, 9.5, LEAF, out()),
+    circle(20.5, 10.5, 3, MOSS_LIGHT, { opacity: 0.55 }),
+    circle(19, 19.5, 1, CLAY_DEEP),
+    circle(29, 15.5, 1, CLAY_DEEP),
+    path("M14 32h20l-2 11H16z", WOOD, out()),
+    line("M14.8 37.5h18.4", IRON, 1.6),
+    rect(12.5, 30, 23, 4, 1.2, WOOD, out()),
+    line("M14.5 31.5h19", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
   jar,
@@ -2764,6 +3817,60 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   armchair,
   sofa,
   bed,
+  desk,
+  side_table: sideTable,
+  dresser,
+  wardrobe,
+  rocking_chair: rockingChair,
+  piano,
+  bathtub,
+  fireplace,
+  aquarium,
+  coffee_table: coffeeTable,
+  coat_rack: coatRack,
+  floor_lamp: floorLamp,
+  potted_tree: pottedTree,
+  candle,
+  table_lamp: tableLamp,
+  book_stack: bookStack,
+  potted_fern: pottedFern,
+  jar_of_shells: jarOfShells,
+  teacup,
+  globe,
+  music_box: musicBox,
+  wall_clock: wallClock,
+  mirror,
+  wreath,
+  wall_shelf: wallShelf,
+  sconce,
+  pennant,
+  wall_map: wallMap,
+  snow_globe: snowGlobe,
+  hourglass,
+  toy_boat: toyBoat,
+  fruit_bowl: fruitBowl,
+  ceramic_cat: ceramicCat,
+  candlesticks,
+  bonsai,
+  terrarium,
+  radio,
+  record_player: recordPlayer,
+  tea_set: teaSet,
+  photo_frame: photoFrame,
+  chess_set: chessSet,
+  lava_lamp: lavaLamp,
+  tapestry,
+  quilt_hanging: quiltHanging,
+  star_chart: starChart,
+  guitar,
+  bunting,
+  cuckoo_clock: cuckooClock,
+  dried_flowers: driedFlowers,
+  plate_rack: plateRack,
+  landscape_painting: landscapePainting,
+  portrait_painting: portraitPainting,
+  still_life_painting: stillLifePainting,
+  coat_hooks: coatHooks,
   campfire,
   flower_box: flowerBox,
   jack_o_lantern: jackOLantern,

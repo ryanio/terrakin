@@ -5,7 +5,7 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BATH_WATER, BLOCK_COLORS, PET_BOX, PET_FEET, WEATHERS } from "@terrakin/sim";
+import { BATH_WATER, BLOCK_COLORS, DOOR_LOOK, PET_BOX, PET_FEET, WEATHERS } from "@terrakin/sim";
 import {
   BRAND_HEX,
   LINEN,
@@ -13,6 +13,7 @@ import {
   STONE_LO,
   STRAW,
   STRAW_DEEP,
+  WOOD,
   WOOD_DARK,
 } from "@terrakin/ui/brand";
 import {
@@ -50,13 +51,19 @@ function colorsIn(path: string, name: string): Record<string, string> {
 
 const PLOT = constsIn("packages/cards/src/plot.ts");
 const ROOFS = constsIn("packages/client/src/render/roofs.ts");
+const EDGES = constsIn("packages/client/src/render/edges.ts");
 const WINTER_MAP = constsIn("packages/client/src/render/decor-winter.ts");
 
 /** Each copy in `packages/cards/src/plot.ts`, and the value it copies. */
 const PLOT_COPIES: Record<string, unknown> = {
+  // Walls between tiles (RFC 0050): a door's frame and panel, and how thick the map draws one.
+  DOOR_FRAME: DOOR_LOOK.frame,
+  DOOR_PANEL: DOOR_LOOK.panel,
+  EDGE_THICKNESS: EDGES.get("EDGE_THICKNESS"),
   PET_BOX,
   PET_FEET,
   WOOD_DARK,
+  WOOD,
   STRAW,
   STRAW_DEEP,
   STONE_LO,

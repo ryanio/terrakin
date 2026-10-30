@@ -23,13 +23,15 @@ export interface DesignChoice {
 /** A design's map in the walls picked, where it takes them, else in its own first walls. */
 function drawn(view: DesignView, walls: BlockKind): PlotMapView {
   const design = DESIGNS.find((d) => d.id === view.id);
-  const out = design && designToPlan(design, view.options.walls.includes(walls) ? { walls } : {});
+  const choices = view.options.walls.includes(walls) ? { walls } : {};
+  const out = design && designToPlan(design, choices);
   if (!out || "problem" in out) return view.map;
   return {
     floors: out.map.floors.map((f) => ({
       floor: f.floor ?? 0,
       blocks: f.blocks ?? [],
       ground: f.ground ?? [],
+      ...(f.edges ? { edges: f.edges } : {}),
     })),
   };
 }
@@ -113,5 +115,8 @@ export function designPicker(
     about,
     wallRow,
   );
-  return { element, choice: () => ({ design: picked.id, walls }) };
+  return {
+    element,
+    choice: () => ({ design: picked.id, walls }),
+  };
 }

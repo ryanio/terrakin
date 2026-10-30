@@ -13,6 +13,8 @@ import {
   type RecipeName,
   type StackKind,
   type SweetKind,
+  type TrinketKind,
+  type WallDecorKind,
 } from "./catalog";
 import type { Catch } from "./fishing";
 import type { SeatKind } from "./furniture";
@@ -134,6 +136,21 @@ export const BLOCK_KINDS = [
   "kiln",
   // A pot set down on a plot (RFC 0047): the pot itself stands there, drawn from `items.pots`.
   "pot",
+  // Roomier homes (RFC 0050): surfaces made at a workbench, each holding one small thing on top.
+  "desk",
+  "side_table",
+  "dresser",
+  // More for a home: furniture made at a workbench.
+  "wardrobe",
+  "rocking_chair",
+  "piano",
+  "bathtub",
+  "fireplace",
+  "aquarium",
+  "coffee_table",
+  "coat_rack",
+  "floor_lamp",
+  "potted_tree",
 ] as const;
 
 /**
@@ -284,6 +301,7 @@ export interface Plot {
   px: number;
   py: number;
   ownerId: ResidentId;
+
   /**
    * Residents the owner shares this plot with (`share_plot`). They build here as if they owned it.
    * Present only when non-empty, so plots that were never shared hash exactly as they always have.
@@ -341,6 +359,8 @@ export interface PlotRoof {
 export interface FloorLayer {
   blocks: Record<string, BlockKind>;
   ground: Record<string, GroundKind>;
+  /** Walls between tiles on this floor (RFC 0050), keyed by `edgeKey`. Absent until the first. */
+  edges?: Record<string, BlockKind>;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -401,6 +421,16 @@ export interface PlanBlock extends PlanTile {
 /** One path or flooring a `build` lays. */
 export interface PlanGround extends PlanTile {
   ground: GroundKind;
+}
+
+/** A line between tiles in a `build` (RFC 0050): a tile counted from the plot's corner, and a side. */
+export interface PlanEdgeSpot extends PlanTile {
+  side: Side;
+}
+
+/** One wall a `build` puts on a line between tiles (RFC 0050). */
+export interface PlanEdge extends PlanEdgeSpot {
+  block: BlockKind;
 }
 
 export interface Proposal {
@@ -498,6 +528,11 @@ export interface WorldState {
   /** Placed blocks, keyed by tileKey(x, y). */
   blocks: Record<string, BlockKind>;
   /**
+   * Walls, windows, hedges and doors on the lines between ground-floor tiles (RFC 0050), keyed by
+   * `edgeKey`: a tile and the `n` or `w` line it owns. Absent until the first.
+   */
+  edges?: Record<string, BlockKind>;
+  /**
    * The Town Hall and the shop stop walkers, from the server's `solid_buildings` on. Absent until
    * then, so older logs replay as they were made, when residents walked across both.
    */
@@ -514,6 +549,22 @@ export interface WorldState {
    * with an open doorway.
    */
   starterDoors?: true;
+  /**
+   * `build_starter_home` builds the hut from walls between tiles (RFC 0050), from the server's
+   * `starter_edges` on. Absent until then, so starter homes built before it replay as they were made.
+   */
+  starterEdges?: true;
+  /**
+   * Plots whose walls the town has helped slim (RFC 0050), by plot key: the first `slim_walls` on a
+   * plot tops up the made material its lines need, once for good, whoever holds the plot later.
+   * Kept on the world, not the plot, so releasing and settling again never earns it twice.
+   */
+  slimmed?: Record<string, true>;
+  /**
+   * Set by `slim_homes` once the town has slimmed every home it could (RFC 0050), so the server
+   * never runs that sweep again.
+   */
+  homesSlimmed?: true;
   /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
@@ -1377,8 +1428,34 @@ export interface ShownFind {
   day: number;
 }
 
-/** What stands on a pedestal or hangs in a frame: a made thing, or a find. */
-export type Shown = Display | ShownFind;
+/**
+ * A small thing on a surface or a thing on a wall (RFC 0050), by its kind: one of a stack, out of
+ * its holder's things until it's taken off.
+ */
+export interface ShownThing {
+  thing: TrinketKind | WallDecorKind;
+  /** Who put it there. It goes back to them when it's taken off. */
+  by: ResidentId;
+  /** The day it went there. */
+  day: number;
+}
+
+/**
+ * What stands on a pedestal or hangs in a frame: a made thing, or a find. On a surface or a wall
+ * (RFC 0050) it can also be a small thing by its kind.
+ */
+export type Shown = Display | ShownFind | ShownThing;
+
+/** The side of a tile a wall stands on, as seen from the tile (RFC 0050). */
+export const SIDES = ["n", "e", "s", "w"] as const;
+export type Side = (typeof SIDES)[number];
+/** A side in words, for refusals and lines that name a wall: "the wall on the south side". */
+export const SIDE_WORDS: Readonly<Record<Side, string>> = {
+  n: "north",
+  e: "east",
+  s: "south",
+  w: "west",
+};
 
 /** What one resident holds. */
 export interface Inventory {
@@ -1491,7 +1568,7 @@ export interface ItemsState {
    * Made things and finds on display, keyed by tileKey(x, y). Absent until the first `display`.
    * A find (`ShownFind`) can stand there only once finds are out.
    */
-  displays?: Record<string, Shown>;
+  displays?: Record<string, Display | ShownFind>;
   /**
    * Tiles picked clean today, by tileKey(x, y) to the day they were gathered. Absent until the
    * first `gather`, so worlds from before gathering replay as they always have. `new_day`
@@ -1540,6 +1617,16 @@ export interface ItemsState {
    */
   pots?: Record<string, PlacedPot>;
   /**
+   * Small things on surfaces (RFC 0050), keyed by `potKey(x, y, floor)` like pots. Absent until the
+   * first `put_on`, and dropped when empty.
+   */
+  tops?: Record<string, Shown>;
+  /**
+   * Things hung on walls (RFC 0050), keyed by `faceKey(x, y, side, floor)`: the tile you stand on
+   * to see it, and the side its wall is on. Absent until the first `hang`, and dropped when empty.
+   */
+  hung?: Record<string, Shown>;
+  /**
    * Things taken down from display while whoever put them up had no room for them, oldest first.
    * Each waits for `by` and comes back with their first input that leaves room for it. Absent
    * until the first one.
@@ -1584,6 +1671,10 @@ export const INVENTORY_REASONS = [
   "displayed",
   /** Taken down from display, back into your things. */
   "off_display",
+  /** Put on a surface or hung on a wall (RFC 0050). */
+  "put_up",
+  /** Taken off a surface or a wall, back into your things (RFC 0050). */
+  "taken_off",
   /** Held aside for you while your things were full, and back now that they have room. */
   "held",
   /** What a path or flooring took, laid with `lay` (RFC 0016). */
@@ -1790,8 +1881,17 @@ export type Command =
       block: BlockKind;
       item?: string | undefined;
       flower?: string | undefined;
+      /** On the line on this side of the tile rather than on the tile (RFC 0050). */
+      side?: Side | undefined;
     }
-  | { type: "remove"; x: number; y: number; floor?: number | undefined }
+  | {
+      type: "remove";
+      x: number;
+      y: number;
+      floor?: number | undefined;
+      /** The wall on the line on this side of the tile (RFC 0050). */
+      side?: Side | undefined;
+    }
   /** Lay a path or flooring on a tile, within reach (RFC 0016). */
   | { type: "lay"; x: number; y: number; floor?: number | undefined; ground: GroundKind }
   /** Lift the path or flooring off a tile, within reach. What it took comes back. */
@@ -1825,7 +1925,20 @@ export type Command =
       ground?: PlanGround[];
       remove?: PlanTile[];
       lift?: PlanTile[];
+      /** Walls on the lines between tiles (RFC 0050), in plot coordinates. */
+      edges?: PlanEdge[];
+      /** Walls to take off the lines between tiles (RFC 0050), in plot coordinates. */
+      removeEdges?: PlanEdgeSpot[];
     }
+  /**
+   * A home's wall blocks turned into walls between tiles (RFC 0050): the server's plan, logged as
+   * a build's lists (`remove` for the blocks, `edges` for the lines), checked as that resident's
+   * `build`. The plot's first one tops up made material its lines need past the blocks it gave
+   * back, and marks the plot `slimmed`.
+   */
+  | { type: "slim_walls"; px: number; py: number; remove: PlanTile[]; edges: PlanEdge[] }
+  /** Only TOWN_ACTOR sends it: a plot owner's slim, made by the town (`slim_homes`, RFC 0050). */
+  | { type: "town_slim"; px: number; py: number; remove: PlanTile[]; edges: PlanEdge[] }
   | { type: "settle"; px: number; py: number }
   /**
    * A jump to the edge of someone else's plot (RFC 0020). Residents send `px` and `py`; the server
@@ -1902,6 +2015,15 @@ export type Command =
   | { type: "display"; item: string; x: number; y: number }
   | { type: "take_down"; x: number; y: number }
   | { type: "admire"; x: number; y: number }
+  // Roomier homes (RFC 0050). `item` is what `display` takes, or a trinket or wall decor by kind.
+  /** Put a small thing on the surface at (x, y). */
+  | { type: "put_on"; x: number; y: number; floor?: number | undefined; item: string }
+  /** Take the small thing off the surface at (x, y), back to whoever put it there. */
+  | { type: "take_off"; x: number; y: number; floor?: number | undefined }
+  /** Hang a thing on the wall on `side` of (x, y), seen from (x, y). */
+  | { type: "hang"; x: number; y: number; side: Side; floor?: number | undefined; item: string }
+  /** Take down what hangs on the wall on `side` of (x, y), back to whoever hung it. */
+  | { type: "unhang"; x: number; y: number; side: Side; floor?: number | undefined }
   | { type: "set_gallery"; px: number; py: number; open: boolean }
   /**
    * Name plot (px, py), or clear its name with `null` (decision 0121). `name` is untrusted text the
@@ -2044,9 +2166,10 @@ export type Command =
   | { type: "rename_resident"; resident: ResidentId; name: string }
   /**
    * Staff took one block off the ground floor of a claimed plot, to open a way out of a home
-   * nobody can walk out of (decision 0343). What it took comes back to the plot's owner.
+   * nobody can walk out of (decision 0343). What it took comes back to the plot's owner. With a
+   * `side`, it took the wall on the ground-floor line on that side of (x, y) instead (RFC 0050).
    */
-  | { type: "clear_block"; x: number; y: number }
+  | { type: "clear_block"; x: number; y: number; side?: Side | undefined }
   /** The town makes these tiles public ways, which hold no block (RFC 0046). Sorted `[x, y]`. */
   | { type: "open_way"; tiles: [number, number][] }
   /** The town takes these tiles off the public ways. */
@@ -2100,6 +2223,9 @@ export type Command =
   | { type: "keep_table_spots" }
   /** From now on, a starter home has a door in its doorway (decision 0349). */
   | { type: "starter_doors" }
+  /** From now on a starter home is built from walls between tiles (RFC 0050). TOWN_ACTOR only. */
+  | { type: "starter_edges" }
+  | { type: "slim_homes" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -2339,6 +2465,9 @@ export const SERVER_COMMANDS = [
   "close_table",
   "keep_table_spots",
   "starter_doors",
+  "starter_edges",
+  "town_slim",
+  "slim_homes",
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
@@ -2416,6 +2545,18 @@ export type WorldEvent =
       pot?: Good;
     }
   | { type: "block_removed"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A wall went up on the line on `side` of (x, y), `n` or `w` (RFC 0050). Public. */
+  | {
+      type: "edge_placed";
+      x: number;
+      y: number;
+      side: "n" | "w";
+      floor?: number;
+      block: BlockKind;
+      by: ResidentId;
+    }
+  /** The wall on the line on `side` of (x, y) came down (RFC 0050). Public. */
+  | { type: "edge_removed"; x: number; y: number; side: "n" | "w"; floor?: number; by: ResidentId }
   /** A path or flooring went down on a tile (RFC 0016). Public. */
   | {
       type: "ground_laid";
@@ -2557,6 +2698,11 @@ export type WorldEvent =
   | { type: "table_spots_kept" }
   /** `starter_doors` turned on: a starter home has a door in its doorway from now on. Public. */
   | { type: "starter_doors_set" }
+  /** From now on starter homes are built from walls between tiles (RFC 0050). Public. */
+  | { type: "starter_edges_set" }
+  | { type: "homes_slimmed_set" }
+  /** A home's wall blocks became walls between tiles (RFC 0050), the first time on its plot. */
+  | { type: "home_slimmed"; px: number; py: number; by: ResidentId }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   | { type: "plot_market_opened"; maxPlotsPerResident: number }
@@ -2712,6 +2858,36 @@ export type WorldEvent =
   | { type: "find_displayed"; x: number; y: number; kind: FindKind; by: ResidentId }
   /** A displayed thing was taken down by `by`. Public. */
   | { type: "taken_down"; x: number; y: number; by: ResidentId }
+  /**
+   * A small thing went on a surface (RFC 0050): a made thing, a find, or a trinket by its kind.
+   * Public: it shows in the world, label and all.
+   */
+  | {
+      type: "put_on";
+      x: number;
+      y: number;
+      floor?: number;
+      good?: Good;
+      find?: FindKind;
+      thing?: TrinketKind | WallDecorKind;
+      by: ResidentId;
+    }
+  /** What stood on a surface was taken off by `by` (RFC 0050). Public. */
+  | { type: "taken_off"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A thing was hung on the wall on `side` of (x, y) (RFC 0050). Public. */
+  | {
+      type: "hung";
+      x: number;
+      y: number;
+      side: Side;
+      floor?: number;
+      good?: Good;
+      find?: FindKind;
+      thing?: TrinketKind | WallDecorKind;
+      by: ResidentId;
+    }
+  /** What hung on the wall on `side` of (x, y) was taken down by `by` (RFC 0050). Public. */
+  | { type: "unhung"; x: number; y: number; side: Side; floor?: number; by: ResidentId }
   /** Staff took a made thing off display. `by` put it up. Public, like the display was. */
   | { type: "display_removed"; x: number; y: number; item: string; by: ResidentId }
   /** Staff removed these pieces' picture: they keep their titles and show none. Public. */
@@ -3081,6 +3257,12 @@ export const REJECTION_CODES = [
   "invalid_piece",
   "no_display",
   "nothing_displayed",
+  /** A wall between tiles on a plot's border, with ground that isn't yours beyond it (RFC 0050). */
+  "plot_border",
+  /** Nothing on that tile holds a thing on top (RFC 0050). */
+  "not_a_surface",
+  /** No wall stands on that side of the tile to hang a thing on (RFC 0050). */
+  "no_wall",
   "not_entitled",
   "already_admired",
   "bounties_closed",
@@ -3258,7 +3440,10 @@ export const REJECTION_CODES = [
   "already_brought",
   /** That isn't something a kitchen makes: a pie, a jam, a soup, a drink, or a sweet. */
   "not_food",
-  /** That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, or a bed (RFC 0044). */
+  /**
+   * That block isn't a seat: you rest on a chair, a bench, an armchair, a sofa, a rocking chair, or a
+   * bed (RFC 0044).
+   */
   "not_a_seat",
   /**
    * That's ground everyone walks and nobody builds on or claims: a public way, which holds no

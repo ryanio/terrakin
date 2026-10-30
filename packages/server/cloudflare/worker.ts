@@ -1,6 +1,6 @@
 import { DurableObject, WorkerEntrypoint } from "cloudflare:workers";
 import { instrumentDurableObjectWithSentry, withSentry } from "@sentry/cloudflare";
-import type { CardDrawer, SceneDrawer } from "@terrakin/cards";
+import type { CardDrawer, SceneDrawer, SceneShot } from "@terrakin/cards";
 import { buildOpenApi, LINKS, SCENE_PHOTO_LIMITS } from "@terrakin/protocol";
 import SKILL_MD from "@terrakin/protocol/SKILL.md";
 import {
@@ -55,6 +55,7 @@ import {
 import { findPartner } from "../src/partners";
 import type { PictureRoute, PictureSpec } from "../src/pictures";
 import { materializePlot, type PlotPhotoSpec } from "../src/plot-photo";
+import type { SceneRenderer } from "../src/scene-photo-desk";
 import { parseMaintainers, parseTownsfolk, SocialService } from "../src/social-service";
 import { SqlStore } from "../src/sql-store";
 import { count, report, sentryOptions, span } from "../src/telemetry";
@@ -63,6 +64,7 @@ import { lessonsMode, TownsfolkLessons } from "../src/townsfolk-lessons";
 import { TIPS_CRON, TownsfolkTips, tipsMode } from "../src/townsfolk-tips";
 import { TownsfolkWelcome, welcomeMode } from "../src/townsfolk-welcome";
 import { TriageClient, triageConfig } from "../src/triage";
+import { WarmBrowsers } from "../src/warm-browsers";
 import { WorldService } from "../src/world-service";
 import { WORLD_SWITCHES } from "../src/world-switches";
 import { rewritePage } from "./meta-rewriter";
@@ -574,7 +576,7 @@ class WorldObject extends DurableObject<Env> {
       // Scene photos too: the Worker drives Browser Run, while this object checks, counts, and
       // keeps the PNG (RFC 0049). Off unless TERRAKIN_SCENE_PHOTOS is `on`.
       ...(env.TERRAKIN_SCENE_PHOTOS === "on"
-        ? { scenePhotos: { render: (url: string) => env.PHOTOS.scene(url), origin: SITE_ORIGIN } }
+        ? { scenePhotos: { render: browserRunScenes(env), origin: SITE_ORIGIN } }
         : {}),
       staff: {
         access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
@@ -758,13 +760,40 @@ class WorldObject extends DurableObject<Env> {
 }
 
 /**
+ * Scene photos through Browser Run (RFC 0049), each in a browser an earlier photo left open when
+ * one still is (decision 0390). The browsers are remembered here, in the World object, which is
+ * the one place every photo passes through.
+ */
+function browserRunScenes(env: Env): SceneRenderer {
+  const warm = new WarmBrowsers<string>({
+    keepMs: SCENE_PHOTO_LIMITS.warmMs,
+    most: SCENE_PHOTO_LIMITS.atOnce,
+    now: () => Date.now(),
+  });
+  return async (url) => {
+    const shot = await env.PHOTOS.scene(url, warm.take());
+    warm.give(shot.browser);
+    return shot.png;
+  };
+}
+
+/**
  * Draws plot photos (issue #34) for the World object, over RPC through the `PHOTOS` binding. Not
  * reachable from the internet: only a service binding can call a named entrypoint.
  */
 export class PlotPhotos extends WorkerEntrypoint<Env> {
-  /** A scene photo (RFC 0049): the photo page at `url`, drawn by Browser Run in the cards Worker. */
-  scene(url: string): Promise<Uint8Array> {
-    return this.env.CARDS.scene(url, SITE_ORIGIN, SCENE_PHOTO_LIMITS.readyMs);
+  /**
+   * A scene photo (RFC 0049): the photo page at `url`, drawn by Browser Run in the cards Worker,
+   * in the browser `warm` when it's still open. The browser it was drawn in stays open
+   * `SCENE_PHOTO_LIMITS.warmMs` for the next.
+   */
+  scene(url: string, warm: string | undefined): Promise<SceneShot> {
+    return this.env.CARDS.scene(url, SITE_ORIGIN, {
+      readyMs: SCENE_PHOTO_LIMITS.readyMs,
+      warm,
+      warmTryMs: SCENE_PHOTO_LIMITS.warmTryMs,
+      keepMs: SCENE_PHOTO_LIMITS.warmMs,
+    });
   }
 
   async draw(spec: PlotPhotoSpec): Promise<Uint8Array> {

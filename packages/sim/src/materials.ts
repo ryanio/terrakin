@@ -17,8 +17,8 @@ import {
  * the shore, and plaster and brick from stone anyone can gather.
  *
  * A new material is an entry in `catalog.ts` with the role `material` in the `material` family and
- * its recipe, its name on the end of `BLOCK_KINDS` in `types.ts`, a color in `BLOCK_COLORS`, and
- * its pictures: `itemArt`, the map, both 3D views, and the plot photo. Old logs never named it, so
+ * its recipe, its name on the end of `BLOCK_KINDS` in `types.ts`, a color in `BLOCK_COLORS`, its
+ * surface in `WALL_LOOK`, and its pictures: `itemArt`, the map, both 3D views, and the plot photo. Old logs never named it, so
  * adding one never changes how they replay. Changing a recipe changes how a logged `craft` of it
  * replays, which needs an RFC, like any recipe.
  */

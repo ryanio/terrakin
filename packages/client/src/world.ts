@@ -14,6 +14,7 @@ import {
 } from "@terrakin/protocol";
 import {
   type BlockKind,
+  blocksWalkers,
   type Climb,
   canBuildOn,
   chebyshev,
@@ -24,13 +25,18 @@ import {
   FLOORS,
   FLOWER_KINDS,
   type FlowerKind,
+  faceKey,
   fireworkNight,
   floorField,
   type GroundKind,
+  holdsRoof,
   ITEM_INFO,
   inEventArea,
+  isEdgeKind,
   isGroundKind,
+  isHangingWall,
   isHeldBlock,
+  isSurface,
   onGreen,
   pageKnown,
   parseKey,
@@ -41,12 +47,14 @@ import {
   potKey,
   type Resident,
   route,
+  type Side,
   STEP,
   seasonOf,
   settleProblem,
   spawnIn,
   type Tile,
   tileKey,
+  topKey,
   upstairsProblem,
   walkedToday,
   waterBeside,
@@ -101,6 +109,15 @@ import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
 import { onLandPlot, onStreet } from "./lands";
 import { lookCard, type Place, placeOf, wayThere } from "./look-card";
+import {
+  clampScale,
+  drawnScale,
+  keepInWorld,
+  type ZoomBounds,
+  zoomAround,
+  zoomBounds,
+  zoomStep,
+} from "./map-zoom";
 import { Mirror } from "./mirror";
 import { Motion } from "./motion";
 import { nearestTile, wayWords } from "./nearest";
@@ -109,6 +126,7 @@ import { passkeysWork, passkeyWhy, provePasskey } from "./passkey";
 import { type PasskeyMoment, passkeyMoment } from "./passkey-words";
 import { openWorldPetSheet, patPet } from "./pet-sheet";
 import { PatsToday, PetMotion, petCalled, walkLine } from "./pets";
+import { type MapPlace, mapPlaces } from "./places";
 import { coins } from "./purse";
 import {
   BURST_MS,
@@ -121,6 +139,7 @@ import {
   render,
 } from "./render";
 import { ROOF_STYLE_WORDS } from "./roofs";
+import { wallFace } from "./room-spots";
 import { dozerAt } from "./scene3d/layout";
 import type { World3d } from "./scene3d/world";
 import { approach, type Quarter, turnDir } from "./scene3d/world-layout";
@@ -190,6 +209,24 @@ const roofToggle = h("button", {
   attrs: { type: "button", id: "palette-roof" },
   on: { click: () => void openRoof() },
 });
+/**
+ * Whether a build tap puts a wall on the line by the tap rather than on the tile (RFC 0050), and
+ * the chip that turns it on and off.
+ */
+let betweenTiles = false;
+const linesToggle = h("button", {
+  class: "palette-notes-toggle",
+  attrs: { type: "button", id: "palette-lines", "aria-pressed": "false" },
+  on: {
+    click: () => {
+      betweenTiles = !betweenTiles;
+      floorsDrawn = "";
+      paintFloors();
+    },
+  },
+});
+/** Where in its tile the last tap on the map landed, -0.5 to 0.5 each way, for a wall's side. */
+let tapIn = { fx: 0, fy: 0 };
 /** Which floor taps build on, Add an upstairs, or the roof, on a plot you can build on. */
 const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
@@ -325,6 +362,7 @@ const walker = new Walker({
   send: (dir) => {
     // A step of your own: the camera is yours again.
     stopLooking();
+    stopRoaming();
     if (guest) return guestStep(guest, dir);
     const id = act({ type: "move", dir });
     // A footstep for each step your figure takes, on the path or flooring it steps onto.
@@ -426,6 +464,22 @@ let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
 let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
+/**
+ * The map's zoom (`map-zoom.ts`): the scale a pinch, a wheel, or + and - asked for, kept inside
+ * `zoomLimits`. Undefined is the usual view.
+ */
+let zoom: number | undefined;
+/** The scale the map is at, before `drawnScale` rounds it into `cam.scale` for drawing. */
+let liveScale = cam.scale;
+/** How quickly the map eases to a zoom + or - asked for, per second. */
+const ZOOM_RATE = 12;
+/**
+ * The camera roams free of your figure: dragged or pinched while zoomed out, or sent to a place
+ * from Places by someone who hasn't moved in. A step of your own brings it back.
+ */
+let roaming = false;
+/** Where a roaming camera glides to: a place picked from Places. */
+let panTarget: Tile | undefined;
 /** 2D map or 3D view (decision 0060). The 2D map is the default; the choice is remembered. */
 let mode: WorldMode = "2d";
 let world3d: World3d | undefined;
@@ -775,7 +829,10 @@ function onMessage(msg: ServerMessage) {
             plot: { px, py },
             say: showToast,
             buildMyself: buildFromHearth,
-            where: { config: m.config, season: m.day === undefined ? undefined : seasonOf(m.day) },
+            where: {
+              config: m.config,
+              season: m.day === undefined ? undefined : seasonOf(m.day),
+            },
             standing: () => self(),
             hearth: () => (me ? m.residents.get(me)?.hearth : undefined),
             walkNear: (tile, near) =>
@@ -1255,18 +1312,229 @@ function openStation(x: number, y: number) {
   );
 }
 
+// ---------- taps, drags, pinches, and the wheel on the map ----------
+
+/** Fingers and the mouse down on the map, by pointer id, where each is now. */
+const pressed = new Map<number, { x: number; y: number }>();
+/**
+ * The gesture under way, from the first finger down to the last one up: a tap where it went down,
+ * until it drags the map or a second finger pinches it.
+ */
+let gesture:
+  | {
+      x: number;
+      y: number;
+      tap: boolean;
+      dragging: boolean;
+      pinch?: { dist: number; scale: number; midX: number; midY: number } | undefined;
+    }
+  | undefined;
+/** How far a finger moves before a press is a drag rather than a tap, in CSS pixels. */
+const DRAG_SLOP = 8;
+
+/** The two fingers of a pinch: how far apart, and the point between them. */
+function pinchOf(): { dist: number; midX: number; midY: number } | undefined {
+  const [a, b] = [...pressed.values()];
+  if (!a || !b) return undefined;
+  return {
+    dist: Math.max(1, Math.hypot(a.x - b.x, a.y - b.y)),
+    midX: (a.x + b.x) / 2,
+    midY: (a.y + b.y) / 2,
+  };
+}
+
+/** Whether the map zooms now: the map in 2D, with someone or somewhere to look at. */
+function zoomable(): boolean {
+  return !world3d && mirror !== undefined && (me !== undefined || !!lookingAt || !!guest);
+}
+
+// A tap acts as the finger or button lifts, so a pinch's first finger or a drag never walks you.
 canvas.addEventListener("pointerdown", (e) => {
-  tapTile(screenToTile(cam, e.clientX, e.clientY));
+  if (e.pointerType === "mouse" && e.button !== 0) return;
+  try {
+    canvas.setPointerCapture(e.pointerId);
+  } catch {
+    // A pointer the browser no longer tracks: the gesture still works while it stays on the map.
+  }
+  pressed.set(e.pointerId, { x: e.clientX, y: e.clientY });
+  if (pressed.size === 1) {
+    gesture = { x: e.clientX, y: e.clientY, tap: true, dragging: false };
+    return;
+  }
+  if (!gesture) return;
+  gesture.tap = false;
+  const p = pinchOf();
+  if (p && zoomable()) gesture.pinch = { ...p, scale: liveScale };
 });
 
 /** Where a mouse rests over the map. Each frame rings what a click there would act on. */
 let pointer: { x: number; y: number } | undefined;
 canvas.addEventListener("pointermove", (e) => {
   pointer = e.pointerType === "mouse" ? { x: e.clientX, y: e.clientY } : undefined;
+  const was = pressed.get(e.pointerId);
+  if (!was || !gesture) return;
+  const dx = e.clientX - was.x;
+  const dy = e.clientY - was.y;
+  was.x = e.clientX;
+  was.y = e.clientY;
+  const pinch = gesture.pinch;
+  if (pinch) {
+    const p = pinchOf();
+    if (!p) return;
+    // The tile under the fingers stays under them as they spread, close, and move together.
+    const limits = zoomLimits();
+    const next = clampScale((pinch.scale * p.dist) / pinch.dist, limits);
+    const at = zoomAround(cam, drawnScale(next), pinch.midX, pinch.midY);
+    zoom = next;
+    setScale(next);
+    roaming = next < limits.base;
+    panTarget = undefined;
+    if (roaming) {
+      cam.cx = at.cx - (p.midX - pinch.midX) / cam.scale;
+      cam.cy = at.cy - (p.midY - pinch.midY) / cam.scale;
+    }
+    Object.assign(pinch, { scale: next, dist: p.dist, midX: p.midX, midY: p.midY });
+    return;
+  }
+  if (pressed.size !== 1) return;
+  // Zoomed out, a drag moves the map; zoomed in, the camera stays on you and a drag is a tap.
+  if (!gesture.dragging) {
+    const far = Math.hypot(e.clientX - gesture.x, e.clientY - gesture.y) > DRAG_SLOP;
+    if (!far || !zoomable() || (!roaming && liveScale >= zoomLimits().base)) return;
+    gesture.dragging = true;
+    gesture.tap = false;
+    roaming = true;
+    panTarget = undefined;
+  }
+  cam.cx -= dx / cam.scale;
+  cam.cy -= dy / cam.scale;
 });
+
+function liftPointer(e: PointerEvent, tap: boolean) {
+  if (!pressed.delete(e.pointerId)) return;
+  if (gesture?.pinch && pressed.size < 2) gesture.pinch = undefined;
+  if (pressed.size > 0) return;
+  const g = gesture;
+  gesture = undefined;
+  if (tap && g?.tap) {
+    const tile = screenToTile(cam, g.x, g.y);
+    tapIn = {
+      fx: (g.x - cam.width / 2) / cam.scale + cam.cx - tile.x,
+      fy: (g.y - cam.height / 2) / cam.scale + cam.cy - tile.y,
+    };
+    tapTile(tile);
+  }
+}
+canvas.addEventListener("pointerup", (e) => liftPointer(e, true));
+canvas.addEventListener("pointercancel", (e) => liftPointer(e, false));
 canvas.addEventListener("pointerleave", () => {
   pointer = undefined;
 });
+
+// A wheel or a trackpad zooms around the pointer; a trackpad's pinch comes as a wheel with Control.
+canvas.addEventListener(
+  "wheel",
+  (e) => {
+    if (!zoomable()) return;
+    e.preventDefault();
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? cam.height : 1;
+    const k = Math.exp(-e.deltaY * unit * (e.ctrlKey ? 0.01 : 0.0015));
+    zoomTo(liveScale * k, e.clientX, e.clientY);
+  },
+  { passive: false },
+);
+
+/** Zoom to `scale` around a point on the screen, as a wheel does. */
+function zoomTo(scale: number, sx: number, sy: number) {
+  const limits = zoomLimits();
+  const next = clampScale(scale, limits);
+  const at = zoomAround(cam, drawnScale(next), sx, sy);
+  zoom = next;
+  setScale(next);
+  // Zoomed in, the camera stays on you; out, it stays where it was looking.
+  roaming = next < limits.base;
+  if (!roaming) return;
+  panTarget = undefined;
+  cam.cx = at.cx;
+  cam.cy = at.cy;
+}
+
+/** How far the map zooms on this screen, for this world. */
+function zoomLimits(): ZoomBounds {
+  const base = fitScale(cam.width, cam.height);
+  return mirror ? zoomBounds(cam, mirror.config, base) : { min: base, base, max: base };
+}
+
+function setScale(scale: number) {
+  liveScale = scale;
+  cam.scale = drawnScale(scale);
+}
+
+/** The camera goes back to following your figure. */
+function stopRoaming() {
+  roaming = false;
+  panTarget = undefined;
+}
+
+const zoomInButton = $<HTMLButtonElement>("map-zoom-in");
+const zoomOutButton = $<HTMLButtonElement>("map-zoom-out");
+
+/** + and -: a step each, eased in `frame`, around the middle of the screen. */
+function stepZoom(dir: 1 | -1) {
+  if (!zoomable()) return;
+  const limits = zoomLimits();
+  zoom = zoomStep(zoom ?? liveScale, dir, limits);
+  // Back at the usual view or closer, the camera comes back to you.
+  if (zoom >= limits.base) stopRoaming();
+  paintZoom();
+}
+zoomInButton.addEventListener("click", () => stepZoom(1));
+zoomOutButton.addEventListener("click", () => stepZoom(-1));
+
+/** + and - are off at the ends of the range, and away in 3D, where the camera is the scene's. */
+function paintZoom() {
+  const off = world3d !== undefined;
+  if (zoomInButton.hidden !== off) zoomInButton.hidden = zoomOutButton.hidden = off;
+  if (off) return;
+  const limits = zoomLimits();
+  const at = zoom ?? limits.base;
+  const closest = at >= limits.max - 0.01;
+  const farthest = at <= limits.min + 0.01;
+  if (zoomInButton.disabled !== closest) zoomInButton.disabled = closest;
+  if (zoomOutButton.disabled !== farthest) zoomOutButton.disabled = farthest;
+}
+
+// ---------- Places ----------
+
+$("map-places").addEventListener("click", () => {
+  const m = mirror;
+  if (!m) return;
+  const places = mapPlaces(m, me ? m.residents.get(me)?.hearth : undefined);
+  void import("./places-sheet").then((p) =>
+    p.openPlacesSheet({ places, walks: me !== undefined, choose: goToPlace }),
+  );
+});
+
+/**
+ * A place picked from Places: a resident walks there with the route a tap plans, a leg at a time
+ * (`walkFar`), and the camera follows; someone who hasn't moved in looks there instead.
+ */
+function goToPlace(place: MapPlace) {
+  const at = here();
+  if (me && at) {
+    stopLooking();
+    stopRoaming();
+    if (Math.max(Math.abs(place.x - at.x), Math.abs(place.y - at.y)) <= place.near) {
+      showToast(place.kind === "home" ? "You're home." : "You're there already.");
+      return;
+    }
+    walkFar(place, place.near);
+    return;
+  }
+  if (!zoomable()) return;
+  roaming = true;
+  panTarget = { x: place.x, y: place.y };
+}
 
 /** A tap on the world, as a tile: from the 2D map, or picked in the 3D view. Both act the same. */
 /** Turn to look at something you tapped or are using. Only how you're drawn; the server moves you. */
@@ -1285,6 +1553,8 @@ type TapTarget =
   | { kind: "pond" }
   | { kind: "seat" }
   | { kind: "station" }
+  | { kind: "surface" }
+  | { kind: "wall"; face: { x: number; y: number; side: Side } }
   | { kind: "pickup" }
   | { kind: "pet"; owner: Resident }
   | { kind: "resident"; other: Resident }
@@ -1333,6 +1603,10 @@ function tapTarget(tile: Tile): TapTarget | undefined {
   // A seat on your own floor (RFC 0044): a tap sits you on it, or lays you on a bed.
   if (postureOn(mirror.blocksOn(myFloor()).get(tileKey(tile.x, tile.y)))) return { kind: "seat" };
   if (block && STATIONS.includes(block)) return { kind: "station" };
+  // A surface or a solid wall on your own floor (RFC 0050): what stands or hangs there, or what
+  // you could put there when it's yours.
+  const room = roomTarget(tile, at);
+  if (room) return room;
   if (mirror.pickupAt(tile.x, tile.y)) return { kind: "pickup" };
   // Someone else's pet drawn on the tile. Pets are drawing only, so this asks where they were last
   // drawn; yours sits at your heel, where you tap to walk.
@@ -1341,6 +1615,60 @@ function tapTarget(tile: Tile): TapTarget | undefined {
   if (owner?.pet) return { kind: "pet", owner };
   const line = thingAt(tile);
   return line ? { kind: "thing", line } : undefined;
+}
+
+/** Whether a tile is on a plot you can build on, by the sim's rule. */
+function buildableHere(m: Mirror, x: number, y: number): boolean {
+  const ownerId = m.ownerAt(x, y);
+  return !!ownerId && !!me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, me);
+}
+
+/**
+ * A tap on a surface or a solid wall on your floor (RFC 0050). A surface opens when it's yours or
+ * something stands on it; a wall opens on your own plot, at the face seen from the open tile
+ * beside it nearest you (`wallFace`). Anything else isn't a room tap.
+ */
+function roomTarget(tile: Tile, at: Tile): TapTarget | undefined {
+  const m = mirror;
+  if (!m) return undefined;
+  const floor = myFloor();
+  const here = m.blocksOn(floor);
+  const block = here.get(tileKey(tile.x, tile.y));
+  if (isSurface(block) && block !== "kitchen") {
+    const mine = buildableHere(m, tile.x, tile.y);
+    return mine || m.tops.has(topKey(tile.x, tile.y, floor)) ? { kind: "surface" } : undefined;
+  }
+  if (!isHangingWall(block) || !buildableHere(m, tile.x, tile.y)) return undefined;
+  const face = wallFace(tile, at, (x, y) => {
+    if (x < 0 || y < 0 || x >= m.config.width || y >= m.config.height) return false;
+    return !blocksWalkers(here.get(tileKey(x, y))) && buildableHere(m, x, y);
+  });
+  return face ? { kind: "wall", face } : undefined;
+}
+
+/** Open the sheet for a surface or a wall face (RFC 0050), once it's in reach. */
+function openRoom(spot: { x: number; y: number; side?: Side }) {
+  const m = mirror;
+  if (!m) return;
+  const floor = myFloor();
+  const block = m.blocksOn(floor).get(tileKey(spot.x, spot.y));
+  const side = spot.side;
+  const shown = side
+    ? m.hung.get(faceKey(spot.x, spot.y, side, floor))
+    : m.tops.get(topKey(spot.x, spot.y, floor));
+  void import("./room-sheet").then((r) =>
+    r.openRoomSheet({
+      x: spot.x,
+      y: spot.y,
+      floor,
+      place: side ? { side } : { surface: block ?? "table" },
+      shown,
+      yours: buildableHere(m, spot.x, spot.y),
+      me,
+      nameOf: (id) => m.residents.get(id)?.name,
+      act: (action) => act(action),
+    }),
+  );
 }
 
 /** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
@@ -1386,6 +1714,12 @@ function tapTile(tile: { x: number; y: number }) {
       if (mirror.pavingOn(floor).has(key)) tryAct({ type: "lift", ...on });
       else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
       else showToast(groundLine(pick, holdings));
+    } else if (betweenTiles && isEdgeKind(pick)) {
+      // A wall between tiles (RFC 0050): on the line nearest the tap, or off it again.
+      const side = tappedSide();
+      if (mirror.edgeAt(tile.x, tile.y, side, floor)) tryAct({ type: "remove", ...on, side });
+      else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
+      else tryAct({ type: "place", ...on, side, block: pick });
     } else if (hasBlock) tryAct({ type: "remove", ...on });
     else if (pick === "pot") {
       // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
@@ -1438,6 +1772,30 @@ function tapTile(tile: { x: number; y: number }) {
     const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
     if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
     else walkToward(tile, 1, rest);
+    return;
+  }
+  // A surface or a wall face (RFC 0050) opens its sheet once it's in reach, as a station does.
+  if (target?.kind === "surface") {
+    reachThen(() => {
+      lookAt(tile);
+      openRoom(tile);
+    });
+    return;
+  }
+  if (target?.kind === "wall") {
+    const face = target.face;
+    const reach = mirror.config.reach;
+    const open = () => {
+      lookAt(tile);
+      openRoom(face);
+    };
+    if (inReach(at, face)) open();
+    else
+      walkToward(face, reach, () => {
+        const there = here();
+        if (there && inReach(there, face)) open();
+        else showToast("You can't get close enough to reach that from here.");
+      });
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
@@ -1638,7 +1996,10 @@ function open3d() {
       if (mode !== "3d" || !active || !(me || lookingAt)) return liftLoader();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, {
-        onTap: tapTile,
+        onTap: (tile, within) => {
+          tapIn = within;
+          tapTile(tile);
+        },
         tappable: (tile) => !!hoverTiles(tile),
         onFail: fallBack,
       });
@@ -2051,7 +2412,7 @@ function paintFloors() {
   buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
   const roofNow = plot ? mirror?.roofs.get(plotKey(plot.px, plot.py)) : undefined;
   const drawn = plot
-    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""}`
+    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""},${betweenTiles},${hasWallBlocks(plot)}`
     : "";
   if (drawn === floorsDrawn) return;
   floorsDrawn = drawn;
@@ -2065,6 +2426,22 @@ function paintFloors() {
   roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
   roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
   floorRow.append(roofToggle);
+  // Walls on tiles, or on the lines between them (RFC 0050).
+  linesToggle.textContent = betweenTiles ? "Walls: between tiles" : "Walls: on tiles";
+  linesToggle.setAttribute("aria-pressed", String(betweenTiles));
+  floorRow.append(linesToggle);
+  // A home of wall blocks can turn its walls into walls between tiles, and gain their floor.
+  if (hasWallBlocks(plot)) {
+    const slim = h("button", {
+      attrs: { type: "button", id: "slim-walls" },
+      text: "Slim the walls",
+    });
+    const { px, py } = plot;
+    confirmTwice(slim, "Tap again: walls move between tiles", () =>
+      tryAct({ type: "slim_walls", px, py }),
+    );
+    floorRow.append(slim);
+  }
   if (notesToggle.textContent) floorRow.append(notesToggle);
   // An upstairs comes last: it's the one chip here that spends coins, and a lot of them.
   if (plot.floors < FLOORS.max) {
@@ -2081,6 +2458,23 @@ function paintFloors() {
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
+
+/** Whether a plot's ground floor has a wall block a slim could move between tiles (RFC 0050). */
+function hasWallBlocks(plot: { px: number; py: number }): boolean {
+  const m = mirror;
+  if (!m) return false;
+  const S = m.config.plotSize;
+  for (let y = plot.py * S; y < (plot.py + 1) * S; y++) {
+    for (let x = plot.px * S; x < (plot.px + 1) * S; x++) {
+      if (holdsRoof(m.blocks.get(tileKey(x, y)))) return true;
+    }
+  }
+  return false;
+}
+
+/** The side of a tile a tap nearest it means: whichever edge the tap landed closest to. */
+const tappedSide = (): Side =>
+  Math.abs(tapIn.fx) > Math.abs(tapIn.fy) ? (tapIn.fx > 0 ? "e" : "w") : tapIn.fy > 0 ? "s" : "n";
 
 /** Open the roof picker for the plot you're building on, loading it on its own. */
 async function openRoof() {
@@ -2289,7 +2683,8 @@ function settleLook() {
   if (me || peek === "on") look.show(place, me !== undefined);
   if (lookSnapped) return;
   lookSnapped = true;
-  Object.assign(cam, { cx: place.x, cy: place.y, scale: targetScale() });
+  Object.assign(cam, { cx: place.x, cy: place.y });
+  setScale(targetScale());
   if (me) return;
   // Someone with no character: the loader lifts onto the place, in 3D when the link asked.
   if (mode === "3d") open3d();
@@ -2373,7 +2768,7 @@ function resize() {
   const dpr = Math.min(window.devicePixelRatio || 1, 3);
   cam.width = window.innerWidth;
   cam.height = window.innerHeight;
-  cam.scale = targetScale();
+  setScale(targetScale());
   canvas.width = Math.floor(cam.width * dpr);
   canvas.height = Math.floor(cam.height * dpr);
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -2384,7 +2779,8 @@ function resize() {
  * back to show more of it, far enough that the town square fits in the space above the door card.
  */
 function targetScale() {
-  if (me || lookingAt || guest) return fitScale(cam.width, cam.height);
+  if (me || lookingAt || guest)
+    return clampScale(zoom ?? fitScale(cam.width, cam.height), zoomLimits());
   const wide = fitScale(cam.width, cam.height, 17);
   if (!landing.isUp()) return wide;
   const above = cam.height - TOP_BAR_PX - landing.cardHeight();
@@ -2393,7 +2789,7 @@ function targetScale() {
 
 function snapCamera() {
   const at = lookingAt ?? self();
-  cam.scale = targetScale();
+  setScale(targetScale());
   if (at) Object.assign(cam, { cx: at.x, cy: at.y - (world3d ? 0 : lift) / cam.scale });
 }
 
@@ -2481,7 +2877,15 @@ function frame() {
     // The map's camera follows your figure as it's drawn, so the world glides under a walk, or
     // the place a link named.
     const p = focus ?? (r && motion.pose(r, now, still));
-    if (p) {
+    // + and - ease the map to their zoom; a pinch or a wheel has already put it there.
+    if (zoomable()) setScale(approach(liveScale, targetScale(), dt, ZOOM_RATE));
+    if (roaming && !world3d) {
+      // Free of your figure: where it was dragged, or gliding to a place from Places.
+      if (panTarget) {
+        cam.cx = approach(cam.cx, panTarget.x, dt, CAMERA_RATE / 2);
+        cam.cy = approach(cam.cy, panTarget.y, dt, CAMERA_RATE / 2);
+      }
+    } else if (p) {
       // Kept in the middle of the clear map rather than the screen's (`clearLift`), on the map only.
       lift = approach(lift, world3d ? 0 : clearLift(), dt, LIFT_RATE);
       const shown = Math.round(lift);
@@ -2489,11 +2893,15 @@ function frame() {
       cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
       cam.cy = approach(cam.cy, p.y - lift / cam.scale, dt, CAMERA_RATE);
     }
+    // Zoomed out, the world stays on the screen, in the middle once it all fits.
+    if (mirror && !world3d && (roaming || cam.scale < zoomLimits().base))
+      Object.assign(cam, keepInWorld(cam, mirror.config));
+    paintZoom();
   } else if (mirror) {
     // Behind the door card: a slow drift over the town square, centered in the space above the
     // card, with the Town Hall a little north of the middle.
     const { plotSize } = mirror.config;
-    cam.scale = targetScale();
+    setScale(targetScale());
     const ox = (mirror.commons.px + 0.5) * plotSize - 0.5;
     const oy = (mirror.commons.py + 0.5) * plotSize - 1.5;
     const lift = landing.isUp() ? (landing.cardHeight() - TOP_BAR_PX) / 2 / cam.scale : 0;

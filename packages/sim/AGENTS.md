@@ -31,8 +31,8 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - `src/hash.ts`, `src/keys.ts`, `src/own.ts`, `src/renamed.ts`, `src/replay.ts` (`REPLAY_VERSION`): the plumbing the invariants name.
 - `src/check.ts`: `refuse`, `isWhole`, `coinCount`, `oneTimeSwitch`. `src/test-support.ts`: `expectSupplyHolds`, `fund`, `stock`.
 - `src/catalog.ts`: every kind of thing (see [Adding a kind](#adding-a-kind)). `src/looks.ts`: themes, prints, wear slots, hair.
-- A system's rules are in a module named for it (`economy.ts` for coins, `pottery.ts`, one per holiday). Less obvious homes: `ground.ts` paths and flooring, `furniture.ts` and `rest.ts` seats, `materials.ts` made walls and windows, `front-doors.ts` built doors, `display.ts` pieces and galleries, `entitlements.ts` partner wear, `awards.ts` recognition awards, `town.ts` the Town Hall, `doors.ts` the counter, park, and hall door an action needs you at ([RFC 0042](../../docs/rfcs/0042-actions-that-need-you-there.md)), `rebuild-home.ts` the server's `rebuild_home`, `openings.ts` exits, `design.ts` design notes, `map.ts` a plot as a map.
-- Pure functions of place, day, or hour: `biome.ts`, `season.ts`, `holiday.ts`, `weather.ts`, `time-of-day.ts`, `day-words.ts`, `clock.ts`. `palette.ts`: colors and looks.
+- A system's rules are in a module named for it (`economy.ts` for coins, `pottery.ts`, one per holiday). Less obvious homes: `ground.ts` paths and flooring, `furniture.ts` and `rest.ts` seats, `materials.ts` made walls and windows, `front-doors.ts` built doors, `display.ts` pieces and galleries, `entitlements.ts` partner wear, `awards.ts` recognition awards, `town.ts` the Town Hall, `doors.ts` the counter, park, and hall door an action needs you at ([RFC 0042](../../docs/rfcs/0042-actions-that-need-you-there.md)), `rebuild-home.ts` the server's `rebuild_home`, `openings.ts` exits, `design.ts` design notes, `map.ts` a plot as a map, `furnished.ts` how furnished a home is (counts only, read by views, never a rule; [decision 0400](../../docs/knowledge/decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md)).
+- Pure functions of place, day, or hour: `biome.ts`, `season.ts`, `holiday.ts`, `weather.ts`, `time-of-day.ts`, `day-words.ts`, `clock.ts`. `palette.ts`: colors and looks, and `wall-look.ts` what each wall is made of (kept out of the web's first load).
 
 ## The world, walking, and reach
 
@@ -58,6 +58,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - `openings.ts`, `design.ts`, and `map.ts` are read-only: no rule calls them, and `apply` reads only `nearestFreePlot`, for a refusal's words. `scripts/landlocked.ts`, `scripts/ways.ts`, and the web's claim picker ask the same question through `openingFactsFrom`, and the server's way planner reads the exported `placeOf` and `placeWalk` so it plans on the same place and walk.
 - One household's touching plots are one place for exits, so a place never has fewer exits than a plot of it alone (decision 0364).
 - A design note's words are fixed strings with numbers and tiles, never a name or anything a resident wrote, and a note never refuses.
+- Design notes and maps read a plot through `PlotTiles`, whose `edge` gives the walls between tiles, so notes walk past lines with `stepFrom` and `plotMap` draws them in a floor's `edges` grid. The web builds its `PlotTiles` from the mirror.
 
 ## Coins
 
@@ -116,7 +117,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - Ground (`state.ground`) never blocks: `isSolid` reads blocks only. `release` refuses while a plot has ground, blocks, a roof, or anything on any floor (`plotHasAnything`).
 - What any block costs is `blockNeeds` in `items.ts`, which `place`, `remove`, `build`, `build_starter_home`, and `set_roof` all read; it's given back to whoever takes it up. Free blocks touch nobody's things and work before items open. A starter home is never built from decor, ponds, or doors.
 - A new furniture piece is a catalog entry with the role `furniture` and its name on the end of `BLOCK_KINDS`, never in `FREE_BLOCKS` or `BUILDING_BLOCKS`. `BUILDING_BLOCKS` stays the four free walls, since it's what a Town Hall build places from nobody's things and what a theme dresses.
-- Every piece of furniture blocks walking but `WALKED_ONTO_SEATS`, and only stairs, a door, and those seats are let through by `blocksWalkers`. The chair and the bench stay solid, since making them walkable would change logged walks.
+- Every piece of furniture blocks walking but `WALKED_ONTO_SEATS`, and only stairs, a door, and those seats are let through by `blocksWalkers`. The chair and the bench stay solid, since making them walkable would change logged walks, and the rocking chair stays solid like them.
 - A `build` plan is in plot coordinates. `build` refuses all of a plan it gets wrong, and skips and reports what moved. Its events are the single actions' own plus one `inventory` with the net change. `src/fixtures/build-log.ts` pins it.
 - A Town Hall `commons_build` uses nobody's things and, once `keep_table_spots` is logged, puts no block on a game table's spot ([decision 0126](../../docs/knowledge/decisions/0126-town-hall-builds-keep-the-game-tables-spots-clear-from-a-log.md)). `commons-log.ts` and `table-spots-log.ts` pin it.
 - A door is ground floor only and holds nothing up. A lock, if one comes, never counts against a plot's way out. `src/fixtures/doors-log.ts` pins `starter_doors`.
@@ -131,9 +132,22 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - A `build` plan's order is fixed (removals from the top floor down, then the ground floor, then each floor up), and each tile is checked against the plan's running view. The protocol's `PLAN_MAX` is `planMax`. `src/fixtures/floors-log.ts` pins it.
 - The client builds its walking ground and climbs from its mirror with the same pure functions (`groundOf`, `upstairsGroundOf`, `climbsAt`, `upstairsProblem`).
 
+## Surfaces and walls (RFC 0050)
+
+- A surface (`SURFACE_BLOCKS`) holds one small thing in `items.tops`, keyed like a pot; a solid wall face holds one thing in `items.hung`, keyed by the tile it's seen from and the side its wall is on (`faceKey`). Both keep whoever put it there and give it back, held aside when they're full ([decision 0392](../../docs/knowledge/decisions/0392-things-on-surfaces-and-walls-are-kept-by-tile-and-face-shop-.md)).
+- A surface with something on it refuses `remove`, `clear_block` and a plan's removal. A wall coming down any way gives back what hung on it (`releaseHungOn`) in the same commit, never refuses. A tile something hangs facing takes no block.
+- `src/fixtures/surfaces-log.ts` and `surfaces.test.ts` pin it.
+
 ## Resting (RFC 0044)
 
 - Resting is where you stand, never a field: someone on a seat's tile is resting, and any move takes them off. `rest` pays nothing. `src/fixtures/cozy-log.ts` and `rest.test.ts` pin it.
+
+## Walls between tiles (RFC 0050)
+
+- A line between two tiles has one key, a tile and `n` or `w` (`edgeKey`); readers go through `edgeAt` and `edgesOn`, and nothing else reaches into `state.edges` or a floor's `edges` ([decision 0396](../../docs/knowledge/decisions/0396-walls-between-tiles-are-keyed-by-a-tile-s-north-and-west-lin.md)).
+- `stepFrom` reads a ground's `edge` only when it has one, and `worldGround` and `floorGround` give one only to a world with edges (`withEdges`), so a world without them walks as it always did. Every wrapper of a `Ground` passes `edge` through.
+- A line counts as a wall at both its tiles for holding flooring up, for a roof (`spanBoxes`, only when a plot has edges), and for hanging. Taking one down gives back its cost and what hung on it, by `remove`, a plan's `removeEdges`, or a slim.
+- `slim_walls` is the server's plan logged as lists and checked as the resident's `build`; the plot's first one gets a gift of made material through `planBuild`'s `gift`. A slim checks its lines before its removals (`linesFirst`), so flooring upstairs stays held. `town_slim` is the same slim made by the town for the plot's owner, and `slim_homes` marks the town's one sweep done ([decision 0404](../../docs/knowledge/decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md)). `src/fixtures/edges-log.ts`, `slim-homes-log.ts` and `edges.test.ts` pin it.
 
 ## Roofs (RFC 0041)
 
@@ -169,7 +183,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 ## Hosted events
 
 - The server logs an event's life (`event_start`, `event_tick`, `event_end`); the sim has no clock and never compares a time. `src/fixtures/events-log.ts` pins it.
-- Attendance is read through `attendNeeded(ticks, state.attendAtTen)`: a third of the samples until `attend_at_ten` is logged, then 2 samples (10 minutes) however long the event runs ([decision 0390](../../docs/knowledge/decisions/0390-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md)). `src/fixtures/attendance-log.ts` pins both sides.
+- Attendance is read through `attendNeeded(ticks, state.attendAtTen)`: a third of the samples until `attend_at_ten` is logged, then 2 samples (10 minutes) however long the event runs ([decision 0407](../../docs/knowledge/decisions/0407-attendance-counts-at-10-minutes-behind-the-attend-at-ten-swi.md)). `src/fixtures/attendance-log.ts` pins both sides.
 - A Commons deposit counts in the supply identity (`eventHeld`) and comes back only when the event counted enough attendees outside the host's household, was called off in time, or was voided.
 - `event_scheduled` carries where and when, never the words. `event_ticked` stays off the wire.
 
@@ -237,7 +251,7 @@ A new kind of thing is an entry in `src/catalog.ts`, on the end of `WRITTEN`:
 
 1. One entry: a `fruit(...)` or `crop(...)` call for something that grows (it makes the seed too, and a fruit's jam comes from the jam family recipe), or an `entry(...)` with its name and plural, family, role, and, as it needs them, a recipe or a shop price with seasons or a holiday.
 2. Its look: a template and colors (`produce`, `sprig`, `bloom`, `jar`), or `drawn` with a picture under its id in `packages/ui/src/item-art.ts`.
-3. Decor, furniture and made materials are blocks too: their id goes on the end of `BLOCK_KINDS` in `types.ts`, with a color in `BLOCK_COLORS` and their 3D and plot photo pictures.
+3. Decor, furniture and made materials are blocks too: their id goes on the end of `BLOCK_KINDS` in `types.ts`, with a color in `BLOCK_COLORS` and their 3D and plot photo pictures. A made material's surface goes in `WALL_LOOK`.
 
 The tests that run over every entry cover the rest: ids, families, names, looks, seeds and crops that pair up, recipes from things that stack, a jam for every fruit, and a picture for every kind ([decision 0085](../../docs/knowledge/decisions/0085-furniture-keeps-its-own-role-in-decor-furniture-and-pomegran.md), [decision 0308](../../docs/knowledge/decisions/0308-a-basket-of-fourteen-crops-sold-all-year-with-ten-recipes-an.md)). A new kind never joins a frozen list or what the town buys by being added: those are their own decisions. A new find lies nowhere until a new spawn table starts at a logged switch. A new family recipe, template, role, or family needs a decision record.
 

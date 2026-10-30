@@ -177,6 +177,8 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   solidBuildings: "solidBuildings",
   tableSpots: "tableSpotsKept",
   starterDoors: "starterDoors",
+  starterEdges: "starterEdges",
+  slimHomes: "homesSlimmed",
   shop: "shop",
   recipes: "recipesOpen",
   holidayPrices: null,

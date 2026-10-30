@@ -29,8 +29,9 @@ export const isFurnitureKind = (k: unknown): k is FurnitureKind =>
  * Seats (RFC 0044): the blocks `rest` puts you on, and how you rest there, sitting or lying. Resting
  * is where you stand, never a field: someone on a seat's tile is resting on it, and any move takes
  * them off. `chair` and `bench` stay solid, as they always were, so you rest on them from beside
- * them; making them walked onto would change how logged walks replay. Only kinds added with this
- * table are walked onto (`WALKED_ONTO_SEATS`).
+ * them; making them walked onto would change how logged walks replay. The armchair, the sofa and
+ * the bed, added with this table, are walked onto (`WALKED_ONTO_SEATS`); the rocking chair stays
+ * solid like the chair it is.
  */
 export const SEATS = {
   chair: "sit",
@@ -38,6 +39,7 @@ export const SEATS = {
   armchair: "sit",
   sofa: "sit",
   bed: "lie",
+  rocking_chair: "sit",
 } as const satisfies Partial<Record<BlockKind, "sit" | "lie">>;
 export type SeatKind = keyof typeof SEATS;
 export type Posture = (typeof SEATS)[SeatKind];

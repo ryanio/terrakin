@@ -262,6 +262,36 @@ describe("the town shop", () => {
     expect(refused.error.code).toBe("not_owned");
   });
 
+  it("says on a dry run what an action would cost, in coins and things (decision 0406)", async () => {
+    const w = await start();
+    const ada = await w.settler("Ada", 0, 0);
+    const shop = (await w.call("GET", "/v1/shop", undefined, ada.token)).body;
+    const price = shop.shop.items.find((i: { sku: string }) => i.sku === "lantern")?.price;
+    expect(price).toBeGreaterThan(0);
+    const buy = { type: "shop_buy", sku: "lantern", count: 1 };
+    expect(shop.you.balance).toBeGreaterThanOrEqual(price);
+    expect(await w.act(ada.token, { ...buy, dry: true })).toMatchObject({
+      ok: true,
+      dry: true,
+      cost: { uses: [], gets: [{ kind: "lantern", count: 1 }], coins: -price },
+    });
+    expect((await w.call("GET", "/v1/shop", undefined, ada.token)).body.you.balance).toBe(
+      shop.you.balance,
+    );
+    expect((await w.act(ada.token, buy)).ok).toBe(true);
+    // Placing one takes it from her things, inside her hut by her hearth at (3, 3).
+    expect(
+      await w.act(ada.token, { type: "place", x: 2, y: 2, block: "lantern", dry: true }),
+    ).toMatchObject({
+      ok: true,
+      cost: { uses: [{ kind: "lantern", count: 1 }], gets: [], coins: 0 },
+    });
+    // Free dirt costs nothing, so the answer says nothing about cost.
+    const free = await w.act(ada.token, { type: "lay", x: 2, y: 2, ground: "dirt", dry: true });
+    expect(free).toMatchObject({ ok: true, dry: true });
+    expect(free.cost).toBeUndefined();
+  });
+
   it("buys from residents what the town wants today, counting down what's left", async () => {
     const w = await start();
     const ada = await w.settler("Ada", 0, 0);

@@ -1,7 +1,10 @@
 import { type BlockKind, type DrawnGround, GROUND_KINDS } from "@terrakin/sim";
 
-/** Every kind the atlas holds: each path and flooring, then a public way's look (RFC 0046). */
-const ATLAS_KINDS: readonly DrawnGround[] = [...GROUND_KINDS, "way"];
+/**
+ * Every kind the atlas holds: each path and flooring, then a public way's look (RFC 0046) and a
+ * town square's plaza.
+ */
+const ATLAS_KINDS: readonly DrawnGround[] = [...GROUND_KINDS, "way", "plaza"];
 
 import { paintGround } from "@terrakin/ui/ground-art";
 import {
@@ -23,14 +26,15 @@ import { blockLook, mix, SKY, shade } from "./palette";
 
 // ---------- paths and flooring (RFC 0016) ----------
 
-/** Cells across and down the ground atlas, and each cell's side in pixels. */
-const ATLAS_CELLS = 4;
+/** Cells across and down the ground atlas (as few as hold every kind), and each cell's side in pixels. */
+const ATLAS_CELLS = Math.ceil(Math.sqrt(ATLAS_KINDS.length));
 const ATLAS_CELL = 64;
 
 /**
  * Every kind of path and flooring drawn once into one texture, a cell each, from the sim's looks (the same
  * drawing the map uses), so all the ground on a plot is one draw. Stepping stones leave their
- * cell's background clear, and the grass under them shows. About 340 kB with mipmaps.
+ * cell's background clear, and the grass under them shows. With 18 kinds it is 5 cells a side,
+ * 320 pixels square: about 550 kB with mipmaps.
  */
 export function groundAtlas(): CanvasTexture {
   const side = ATLAS_CELLS * ATLAS_CELL;

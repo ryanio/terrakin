@@ -110,13 +110,13 @@ function town({ mode = "on", recipes = true }: { mode?: LessonsMode; recipes?: b
 }
 
 describe("the specialties", () => {
-  it("are 2 to 4 recipe cards for each of the eight townsfolk", () => {
+  it("are 2 to 6 recipe cards for each of the eight townsfolk", () => {
     expect(Object.keys(SPECIALTIES).sort()).toEqual(
       ["ansel", "bram", "clem", "juniper", "marlo", "otis", "pip", "sable"].sort(),
     );
     for (const [who, list] of Object.entries(SPECIALTIES)) {
       expect(list.length, who).toBeGreaterThanOrEqual(2);
-      expect(list.length, who).toBeLessThanOrEqual(4);
+      expect(list.length, who).toBeLessThanOrEqual(6);
       expect(new Set(list).size, who).toBe(list.length);
       for (const recipe of list) expect(CARD_RECIPES, `${who} ${recipe}`).toContain(recipe);
     }

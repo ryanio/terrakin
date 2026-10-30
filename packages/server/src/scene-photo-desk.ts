@@ -34,10 +34,11 @@ export interface ScenePhotoOptions {
 /** Bytes a scene photo is assumed to take before it's drawn. A drawn one is 300 to 700 KB. */
 const SCENE_RESERVE_BYTES = 2_000_000;
 /**
- * The longest the desk waits on a render before it's given up as failed: the page's load and its
- * ready signal each get `readyMs` in the renderers, and a browser launch fits in what's left.
+ * The longest the desk waits on a render before it's given up as failed: a kept browser gets
+ * `warmTryMs`, then a new one's page load and its ready signal each get `readyMs`, and closing
+ * the first and launching the second fit in what's left.
  */
-const RENDER_TIMEOUT_MS = SCENE_PHOTO_LIMITS.readyMs * 2 + 10_000;
+const RENDER_TIMEOUT_MS = SCENE_PHOTO_LIMITS.warmTryMs + SCENE_PHOTO_LIMITS.readyMs * 2 + 15_000;
 /** How often a waiting request looks for a free render. */
 const WAIT_STEP_MS = 250;
 /**

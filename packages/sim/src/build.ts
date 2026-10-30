@@ -1,9 +1,23 @@
 import { isWhole, refuse } from "./check";
 import { displayAt } from "./display";
 import {
+  EDGE_KINDS,
+  type EdgeSide,
+  edgeKey,
+  edgeOf,
+  edgePlaceProblem,
+  edgesFor,
+  edgesOn,
+  edgeWhereProblem,
+  hasEdges,
+  isEdgeKind,
+  tidyEdges,
+} from "./edges";
+import {
   blockKindProblem,
   blockSupportProblem,
   blocksOn,
+  edgeRemoveProblem,
   FLOORS,
   type FloorView,
   floorField,
@@ -38,6 +52,7 @@ import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
 import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
+import { hungFrom, isSide, releaseHungOn, releaseHungOnEdge, topAt } from "./surfaces";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -45,6 +60,7 @@ import {
   type Plot,
   type Rejection,
   type ResidentId,
+  type Side,
   type Tile,
   type WorldConfig,
   type WorldEvent,
@@ -96,7 +112,7 @@ export const BUILD_SKIPS = [
 export type BuildSkip = (typeof BUILD_SKIPS)[number];
 
 /** Which of a plan's lists a skipped tile came from. */
-export const BUILD_PARTS = ["remove", "lift", "block", "ground"] as const;
+export const BUILD_PARTS = ["remove", "lift", "block", "ground", "wall", "remove_wall"] as const;
 export type BuildPart = (typeof BUILD_PARTS)[number];
 
 export interface BuildSkipped {
@@ -107,6 +123,8 @@ export interface BuildSkipped {
   floor?: number;
   what: BuildPart;
   why: BuildSkip;
+  /** For a line between tiles (RFC 0050): the side of the tile it's on, as the plan gave it. */
+  side?: Side;
 }
 
 /** A world tile a plan changes, with `floor` only above the ground floor. */
@@ -120,6 +138,10 @@ export interface BuildPlan {
   lifted: FloorTile[];
   placed: (FloorTile & { block: BlockKind })[];
   laid: (FloorTile & { ground: GroundKind })[];
+  /** Walls taken off lines between tiles (RFC 0050), as `n` or `w` lines. World tiles. */
+  unwalled: (FloorTile & { side: EdgeSide })[];
+  /** Walls put on lines between tiles (RFC 0050), as `n` or `w` lines. World tiles. */
+  walled: (FloorTile & { side: EdgeSide; block: BlockKind })[];
   /** The net change to the builder's things, in catalog order: negative uses, positive gives back. */
   changes: { kind: StackKind; amount: number }[];
   skipped: BuildSkipped[];
@@ -133,6 +155,9 @@ export interface BuildSummary {
   removed: number;
   laid: number;
   lifted: number;
+  /** Walls put up and taken off lines between tiles (RFC 0050). */
+  walled: number;
+  unwalled: number;
   /** What it takes from your things, net. */
   uses: { kind: StackKind; count: number }[];
   /** What it gives back to your things, net. */
@@ -202,6 +227,10 @@ function planTile(entry: unknown, size: number, plot: Plot | undefined): PlanSpo
   return floor;
 }
 
+/** A plot's first world tile on each axis. */
+const x0Of = (px: number, size: number) => px * size;
+const y0Of = (py: number, size: number) => py * size;
+
 /** A tile's place in the plan's running view: the tile key, with the floor above the ground. */
 const spotKey = (floor: number, key: string) => (floor === 0 ? key : `${floor}:${key}`);
 
@@ -227,6 +256,17 @@ export function planBuild(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "build" }>,
+  /**
+   * What the town gives toward the plan before it's checked (RFC 0050's first `slim_walls`): the
+   * plan's own changes take it in, so it's spent on the plan and never lands in anyone's things.
+   */
+  gift: Partial<Record<StackKind, number>> = {},
+  /**
+   * Check the ground floor's new lines before any removal, as a slim does (RFC 0050), so a wall
+   * block that holds flooring upstairs can come out once the line beside it holds it instead.
+   * Only the checks' order moves: the commit makes the same changes in the same order.
+   */
+  linesFirst = false,
 ): BuildPlan | Rejection {
   const { config } = state;
   if (!state.residents[actor]) return refuse("not_joined", "Join the world first.");
@@ -275,10 +315,14 @@ export function planBuild(
     }
   }
   const all = lists as Record<keyof typeof lists, unknown[]>;
-  if (all.remove.length + all.lift.length + all.blocks.length + all.ground.length === 0) {
+  // Walls between tiles (RFC 0050) count too; their lists are checked below.
+  const lines =
+    (Array.isArray(command.edges) ? command.edges.length : 0) +
+    (Array.isArray(command.removeEdges) ? command.removeEdges.length : 0);
+  if (all.remove.length + all.lift.length + all.blocks.length + all.ground.length + lines === 0) {
     return refuse(
       "invalid_plan",
-      "A plan needs at least one tile in blocks, ground, remove, or lift.",
+      "A plan needs at least one tile in blocks, ground, remove, or lift, or a line in edges or removeEdges.",
     );
   }
   const tiles: Record<keyof typeof lists, PlanSpot[]> = {
@@ -340,6 +384,50 @@ export function planBuild(
     groundKinds.push(ground);
   }
 
+  // Walls between tiles (RFC 0050): each a tile on the plot and a side, at most once per line.
+  const wallLists = { edges: listOf(command.edges), removeEdges: listOf(command.removeEdges) };
+  for (const [name, list] of Object.entries(wallLists)) {
+    if (list === null) return refuse("invalid_plan", `${name} is a list of lines.`);
+    if (list.length > max) {
+      return refuse(
+        "invalid_plan",
+        `A plan lists at most ${max} lines in each of edges and removeEdges.`,
+      );
+    }
+  }
+  const wallSpots: Record<
+    "edges" | "removeEdges",
+    (PlanSpot & { side: Side; block?: BlockKind })[]
+  > = {
+    edges: [],
+    removeEdges: [],
+  };
+  for (const name of ["edges", "removeEdges"] as const) {
+    const seen = new Set<string>();
+    for (const entry of wallLists[name] as unknown[]) {
+      const t = planTile(entry, S, plot);
+      if ("code" in t) return t;
+      const side = (entry as { side?: unknown }).side;
+      if (!isSide(side)) {
+        return refuse("invalid_plan", `${spotWords(t)} needs a side: n, e, s or w.`);
+      }
+      const key = spotKey(t.floor, edgeKey(x0Of(px, S) + t.x, y0Of(py, S) + t.y, side));
+      if (seen.has(key))
+        return refuse("invalid_plan", `A line at ${spotWords(t)} is in ${name} twice.`);
+      seen.add(key);
+      if (name === "edges") {
+        const block = (entry as { block?: unknown }).block;
+        if (!isEdgeKind(block)) {
+          return refuse(
+            "unknown_item",
+            `${String(block)} doesn't stand between tiles. Walls: ${EDGE_KINDS.join(", ")}.`,
+          );
+        }
+        wallSpots.edges.push({ ...t, side, block });
+      } else wallSpots.removeEdges.push({ ...t, side });
+    }
+  }
+
   // What happens to each tile, in the plan's order, against its running view of the world.
   const x0 = px * S;
   const y0 = py * S;
@@ -351,6 +439,12 @@ export function planBuild(
   }
   const blocksNow = new Map<string, BlockKind | undefined>();
   const groundNow = new Map<string, GroundKind | undefined>();
+  // Walls between tiles (RFC 0050) as the plan leaves them so far, read before anything below.
+  const edgesNow = new Map<string, BlockKind | undefined>();
+  const edgeNow = (floor: number, key: string) => {
+    const at = spotKey(floor, key);
+    return edgesNow.has(at) ? edgesNow.get(at) : edgesOn(state, floor)[key];
+  };
   const view: FloorView = {
     block: (floor, key) => {
       const at = spotKey(floor, key);
@@ -360,6 +454,10 @@ export function planBuild(
       const at = spotKey(floor, key);
       return groundNow.has(at) ? groundNow.get(at) : groundOn(state, floor)[key];
     },
+    // Only once the world or the plan has one, so a plan in a world without them reads as before.
+    ...(hasEdges(state) || wallSpots.edges.length > 0 || wallSpots.removeEdges.length > 0
+      ? { edge: edgeNow }
+      : {}),
   };
   const delta = new Map<StackKind, number>();
   const add = (kind: StackKind, n: number) => delta.set(kind, (delta.get(kind) ?? 0) + n);
@@ -370,11 +468,20 @@ export function planBuild(
     lifted: [],
     placed: [],
     laid: [],
+    unwalled: [],
+    walled: [],
     changes: [],
     skipped: [],
   };
-  const skip = (t: PlanSpot, what: BuildPart, why: BuildSkip) =>
-    plan.skipped.push({ x: t.x, y: t.y, ...floorField(t.floor), what, why });
+  const skip = (t: PlanSpot & { side?: Side }, what: BuildPart, why: BuildSkip) =>
+    plan.skipped.push({
+      x: t.x,
+      y: t.y,
+      ...floorField(t.floor),
+      what,
+      why,
+      ...(t.side ? { side: t.side } : {}),
+    });
   /** A plan's entries on one floor, with their index in the list. */
   const on = (list: PlanSpot[], floor: number) =>
     [...list.entries()].filter(([, t]) => t.floor === floor);
@@ -389,8 +496,12 @@ export function planBuild(
       if (block === undefined) skip(t, "remove", "empty");
       else if (floor === 0 && (state.items?.crops[key] || state.items?.firings?.[key])) {
         skip(t, "remove", "growing");
-      } else if ((floor === 0 && displayAt(state, x, y)) || block === POT_BLOCK) {
-        // A pot set down (RFC 0047) is someone's thing, on any floor.
+      } else if (
+        (floor === 0 && displayAt(state, x, y)) ||
+        block === POT_BLOCK ||
+        topAt(state, x, y, floor)
+      ) {
+        // A pot set down (RFC 0047), and a thing on a surface (RFC 0050), is someone's thing.
         skip(t, "remove", "on_display");
       } else if (removeProblem(state, x, y, floor, view)) skip(t, "remove", "holds_up");
       else {
@@ -428,6 +539,8 @@ export function planBuild(
       else if (there !== undefined) skip(t, "block", "occupied");
       else if (floor === 0 && hearths.has(key)) skip(t, "block", "hearth");
       else if (standing.has(spotKey(floor, key))) skip(t, "block", "standing");
+      // A tile something hangs facing stays open (RFC 0050).
+      else if (hungFrom(state, x, y, floor)) skip(t, "block", "occupied");
       else if (stairwellProblem(state, x, y, floor, view)) skip(t, "block", "occupied");
       else {
         const unheld = blockSupportProblem(state, x, y, floor, block, view);
@@ -441,6 +554,60 @@ export function planBuild(
         for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n);
       }
     }
+  };
+  const unwallOn = (floor: number): Rejection | null => {
+    for (const t of wallSpots.removeEdges.filter((w) => w.floor === floor)) {
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = edgeKey(x, y, t.side);
+      const there = edgeNow(floor, key);
+      if (there === undefined) skip(t, "remove_wall", "empty");
+      else if (edgeWhereProblem(state, actor, x, y, t.side)) {
+        // A line on the border with someone else's ground is theirs as much as yours.
+        return edgeWhereProblem(state, actor, x, y, t.side) as Rejection;
+      } else if (edgeRemoveProblem(state, x, y, t.side, floor, view)) {
+        skip(t, "remove_wall", "holds_up");
+      } else {
+        const e = edgeOf(x, y, t.side);
+        plan.unwalled.push({ x: e.x, y: e.y, side: e.side, ...floorField(floor) });
+        edgesNow.set(spotKey(floor, key), undefined);
+        for (const [kind, n] of blockNeeds(there, clayRule(state))) add(kind, n);
+      }
+    }
+    return null;
+  };
+  const wallOn = (floor: number): Rejection | null => {
+    for (const t of wallSpots.edges.filter((w) => w.floor === floor)) {
+      const block = t.block as BlockKind;
+      const x = x0 + t.x;
+      const y = y0 + t.y;
+      const key = edgeKey(x, y, t.side);
+      const there = edgeNow(floor, key);
+      if (there === block) {
+        skip(t, "wall", "same");
+        continue;
+      }
+      if (there !== undefined) {
+        skip(t, "wall", "occupied");
+        continue;
+      }
+      const ground = (tx: number, ty: number) => view.ground(floor, tileKey(tx, ty)) !== undefined;
+      const problem = edgePlaceProblem(state, actor, x, y, t.side, floor, block, ground);
+      // The line as it stands in the world may hold a wall the plan takes away: that's fine.
+      if (problem && problem.code !== "tile_occupied") {
+        if (problem.code === "nothing_under") {
+          skip(t, "wall", "unsupported");
+          continue;
+        }
+        // A border, a way, the world's edge, or a door upstairs never fits, so the plan is wrong.
+        return refuse(problem.code, `${spotWords(t)}: ${problem.message}`);
+      }
+      const e = edgeOf(x, y, t.side);
+      plan.walled.push({ x: e.x, y: e.y, side: e.side, ...floorField(floor), block });
+      edgesNow.set(spotKey(floor, key), block);
+      for (const [kind, n] of blockNeeds(block, clayRule(state))) add(kind, -n);
+    }
+    return null;
   };
   const layOn = (floor: number) => {
     for (const [i, t] of on(tiles.ground, floor)) {
@@ -460,22 +627,39 @@ export function planBuild(
       }
     }
   };
+  if (linesFirst) {
+    const wrong = wallOn(0);
+    if (wrong) return wrong;
+  }
   for (const floor of DOWN) {
+    const border = unwallOn(floor);
+    if (border) return border;
     removeOn(floor);
     liftOn(floor);
   }
   for (const floor of UP) {
     // The ground floor as plans always went, blocks then ground; upstairs flooring comes first.
+    // Walls between tiles (RFC 0050) go up before the blocks, on flooring upstairs.
     if (floor === 0) {
+      const wrong = linesFirst ? null : wallOn(floor);
+      if (wrong) return wrong;
       placeOn(floor);
       layOn(floor);
     } else {
       layOn(floor);
+      const wrong = wallOn(floor);
+      if (wrong) return wrong;
       placeOn(floor);
     }
   }
 
-  const changed = plan.removed.length + plan.lifted.length + plan.placed.length + plan.laid.length;
+  const changed =
+    plan.removed.length +
+    plan.lifted.length +
+    plan.placed.length +
+    plan.laid.length +
+    plan.unwalled.length +
+    plan.walled.length;
   if (changed === 0) {
     if (plan.skipped.every((s) => s.why === "same")) {
       return refuse(
@@ -493,6 +677,11 @@ export function planBuild(
     );
   }
 
+  // The town's gift goes toward what the plan uses of its kind, never past it.
+  for (const [kind, n] of Object.entries(gift) as [StackKind, number][]) {
+    const uses = -(delta.get(kind) ?? 0);
+    if (uses > 0) add(kind, Math.min(uses, n));
+  }
   plan.changes = STACK_KINDS.flatMap((kind) => {
     const amount = delta.get(kind) ?? 0;
     return amount === 0 ? [] : [{ kind, amount }];
@@ -547,7 +736,18 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
       events.push({ type: "ground_laid", x, y, ...floorField(floor), ground, by: actor });
     }
   };
+  const wall = (floor: number) => {
+    for (const { x, y, side, block } of plan.walled.filter((t) => level(t) === floor)) {
+      edgesFor(state, floor)[`${tileKey(x, y)},${side}`] = block;
+      events.push({ type: "edge_placed", x, y, side, ...floorField(floor), block, by: actor });
+    }
+  };
   for (const floor of DOWN) {
+    for (const { x, y, side } of plan.unwalled.filter((t) => level(t) === floor)) {
+      delete edgesFor(state, floor)[`${tileKey(x, y)},${side}`];
+      tidyEdges(state, floor);
+      events.push({ type: "edge_removed", x, y, side, ...floorField(floor), by: actor });
+    }
     for (const { x, y } of plan.removed.filter((t) => level(t) === floor)) {
       delete blocksFor(floor)[tileKey(x, y)];
       events.push({ type: "block_removed", x, y, ...floorField(floor), by: actor });
@@ -559,10 +759,12 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
   }
   for (const floor of UP) {
     if (floor === 0) {
+      wall(floor);
       place(floor);
       lay(floor);
     } else {
       lay(floor);
+      wall(floor);
       place(floor);
     }
   }
@@ -570,6 +772,14 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     const mine = inventory(state.items, actor);
     const changes = plan.changes.map((c) => addStack(mine, c.kind, c.amount));
     events.push(inventoryEvent(actor, "built", changes));
+  }
+  // What hung on a wall that came down goes back to whoever hung it (RFC 0050), after the plan's
+  // own change, so it's held aside rather than pushed past the cap when there's no room left.
+  for (const { x, y, floor } of plan.removed) {
+    events.push(...releaseHungOn(state, x, y, floor ?? 0, actor));
+  }
+  for (const { x, y, side, floor } of plan.unwalled) {
+    events.push(...releaseHungOnEdge(state, x, y, side, floor ?? 0, actor));
   }
   return events;
 }
@@ -582,8 +792,10 @@ export function checkBuild(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "build" }>,
+  gift?: Partial<Record<StackKind, number>>,
+  linesFirst?: boolean,
 ): { plan: BuildPlan; commit: () => WorldEvent[] } | Rejection {
-  const plan = planBuild(state, actor, command);
+  const plan = planBuild(state, actor, command, gift, linesFirst);
   if ("code" in plan) return plan;
   return { plan, commit: () => commitBuild(state, actor, plan) };
 }
@@ -597,6 +809,8 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
     removed: plan.removed.length,
     laid: plan.laid.length,
     lifted: plan.lifted.length,
+    walled: plan.walled.length,
+    unwalled: plan.unwalled.length,
     uses: plan.changes.filter((c) => c.amount < 0).map((c) => ({ kind: c.kind, count: -c.amount })),
     returns: plan.changes
       .filter((c) => c.amount > 0)
@@ -608,8 +822,10 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
 /**
  * A plot's blocks and ground on every floor as a plan for `build` (tiles from its north-west
  * corner, the ground floor's first, `floor` on the rest), with its hearths, which a build leaves
- * alone. For `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a design they like, lofts and all,
- * onto their own plot. Undefined for a plot outside the world.
+ * alone, and its walls between tiles (RFC 0050) as `build`'s `edges` takes them, only when it has
+ * some: a tile's `n` and `w` lines, and `s` and `e` for its south and east borders. For
+ * `GET /v1/plots/{px}/{py}/plan`, so anyone can copy a design they like, lofts and all, onto
+ * their own plot. Undefined for a plot outside the world.
  */
 export function plotPlan(
   state: WorldState,
@@ -623,6 +839,7 @@ export function plotPlan(
       ownerId?: ResidentId;
       blocks: (FloorTile & { block: BlockKind })[];
       ground: (FloorTile & { ground: GroundKind })[];
+      edges?: (FloorTile & { side: Side; block: BlockKind })[];
       hearths: Tile[];
     }
   | undefined {
@@ -633,9 +850,11 @@ export function plotPlan(
   const y0 = py * S;
   const blocks: (FloorTile & { block: BlockKind })[] = [];
   const ground: (FloorTile & { ground: GroundKind })[] = [];
+  const edges: (FloorTile & { side: Side; block: BlockKind })[] = [];
   for (const floor of UP) {
     const blocksThere = blocksOn(state, floor);
     const groundThere = groundOn(state, floor);
+    const edgesThere = edgesOn(state, floor);
     const at = floorField(floor);
     for (let y = 0; y < S; y++) {
       for (let x = 0; x < S; x++) {
@@ -644,6 +863,13 @@ export function plotPlan(
         if (block !== undefined) blocks.push({ x, y, ...at, block });
         const g = groundThere[key];
         if (g !== undefined) ground.push({ x, y, ...at, ground: g });
+        const sides: Side[] = ["n", "w"];
+        if (y === S - 1) sides.push("s");
+        if (x === S - 1) sides.push("e");
+        for (const side of sides) {
+          const edge = edgesThere[edgeKey(x0 + x, y0 + y, side)];
+          if (edge !== undefined) edges.push({ x, y, side, ...at, block: edge });
+        }
       }
     }
   }
@@ -668,6 +894,7 @@ export function plotPlan(
     ...(owner === undefined ? {} : { ownerId: owner }),
     blocks,
     ground,
+    ...(edges.length > 0 ? { edges } : {}),
     hearths,
   };
 }

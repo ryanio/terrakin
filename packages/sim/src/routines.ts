@@ -268,6 +268,7 @@ function plotGround(state: WorldState, plot: Plot, floor: number): Ground {
       const p = plotOf(state.config, x, y);
       return p.px === plot.px && p.py === plot.py ? ground.obstacle(x, y) : "block";
     },
+    ...(ground.edge ? { edge: ground.edge } : {}),
   };
 }
 

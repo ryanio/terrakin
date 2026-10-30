@@ -363,10 +363,11 @@ export function performAction(
       ...(label ? { label } : {}),
       ...(action.glaze === undefined ? {} : { glaze: action.glaze }),
       ...(action.grade === undefined ? {} : { grade: action.grade }),
-      // A fine craft (RFC 0051) carries the server's masterwork roll, drawn after the input's own
-      // checks and logged with it, as a kiln's is. A resident can't send one: the action has no
-      // such field. A dry run draws nothing: it checks with the one roll that is never masterwork,
-      // and its answer says only that the craft makes fine (`costOf`), never what the floor would.
+      // A fine craft (RFC 0051) carries the server's masterwork roll, drawn here as the command is
+      // filled in, before the sim checks it, and logged with it, as a kiln's is. A refused craft's
+      // roll is never logged or shown, so nobody sees a roll before paying for it. A resident can't
+      // send one: the action has no such field. A dry run draws nothing: it checks with the one roll
+      // that is never masterwork, and its answer says only that it makes fine (`costOf`).
       ...(action.grade === "fine"
         ? { roll: dry ? GRADING.outOf - 1 : fairRoll(GRADING.outOf) }
         : {}),

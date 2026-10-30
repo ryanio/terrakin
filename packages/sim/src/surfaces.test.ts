@@ -5,7 +5,7 @@ import { hashWorld } from "./hash";
 import { held, inventoryMaxOf, inventorySize } from "./items";
 import { replay } from "./replay";
 import { faceKey, hungAt, SURFACE_BLOCKS, topAt } from "./surfaces";
-import { stock } from "./test-support";
+import { expectMaterialsHold, stock } from "./test-support";
 import {
   type Command,
   type Rejection,
@@ -31,7 +31,7 @@ function world() {
   const state = createWorld(CONFIG);
   const send = (actor: string, command: Command) => {
     const before = hashWorld(state);
-    const result = apply(state, { actor, command });
+    const result = expectMaterialsHold(state, () => apply(state, { actor, command }));
     if (!result.ok) expect(hashWorld(state)).toBe(before);
     return result;
   };

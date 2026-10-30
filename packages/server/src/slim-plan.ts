@@ -1,6 +1,7 @@
 import {
   apply,
   type BlockKind,
+  blockNeeds,
   blocksOn,
   type Command,
   cloneWorld,
@@ -64,6 +65,8 @@ interface FloorSlim {
   room: boolean;
   taken: Map<string, BlockKind>;
   edges: PlanEdge[];
+  /** For each line, the floor and tile of the wall it stands for, or empty for none in particular. */
+  from: string[];
 }
 
 /**
@@ -114,7 +117,8 @@ export function slimPlan(
   for (const [floor, f] of floors.entries()) {
     for (const key of floor === 0 ? [] : f.taken.keys()) take(...xy(key), floor);
   }
-  return { remove, edges: floors.flatMap((f) => f.edges) };
+  const lines = floors.flatMap((f) => f.edges.map((edge, i) => ({ edge, from: f.from[i] ?? "" })));
+  return { remove, edges: paidFor(state, px, py, remove, lines) };
 }
 
 /**
@@ -223,7 +227,7 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
     }
   }
   // Upstairs, walls round no flooring at all wall in no room: a parapet stays a parapet.
-  if (![...inside].some(floored)) return { room: false, taken: new Map(), edges: [] };
+  if (![...inside].some(floored)) return { room: false, taken: new Map(), edges: [], from: [] };
 
   // The walls that touch the room, sides or corners, come up and their tiles join it.
   const taken = new Map<string, BlockKind>();
@@ -236,7 +240,7 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
       }
     }
   }
-  if (taken.size === 0) return { room: true, taken, edges: [] };
+  if (taken.size === 0) return { room: true, taken, edges: [], from: [] };
   // What stood on each tile the room grows into: its block at its grade (RFC 0051), or a door for
   // a doorway. A line takes the kind and grade of the wall it stands for, so a fine brick home
   // slims into a fine brick home.
@@ -308,14 +312,19 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
   }
   for (const key of rest) roomOf.set(key, rooms++);
 
-  // Between two rooms, a plain wall before a door or a window.
-  const between = (a: string, b: string): Wall => {
-    const ka = stood.get(a);
-    const kb = stood.get(b);
-    if (!ka || !kb) return ka ?? kb ?? most;
-    return plain(ka.block) || !plain(kb.block) ? ka : kb;
+  // Between two rooms, a plain wall before a door or a window, and the tile it stood on.
+  const pick = (key: string): [Wall, string] | undefined => {
+    const wall = stood.get(key);
+    return wall ? [wall, key] : undefined;
+  };
+  const between = (a: string, b: string): [Wall, string] => {
+    const ka = pick(a);
+    const kb = pick(b);
+    if (!ka || !kb) return ka ?? kb ?? [most, ""];
+    return plain(ka[0].block) || !plain(kb[0].block) ? ka : kb;
   };
   const edges: PlanEdge[] = [];
+  const from: string[] = [];
   const seen = new Set<string>();
   for (const key of room) {
     const [x, y] = xy(key);
@@ -331,20 +340,101 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
       seen.add(line);
       // Facing out, the kind that stood there: the room's own tile if it was a wall, else the one
       // beyond it.
-      const wall = room.has(next)
+      const [wall, source] = room.has(next)
         ? between(key, next)
-        : (stood.get(key) ?? stood.get(next) ?? most);
+        : (pick(key) ?? pick(next) ?? [most, ""]);
       const kind = wall.block;
       if (floor === 0) {
         edges.push({ x, y, side, block: kind, ...gradeField(wall.grade) });
+        from.push(source && `0:${source}`);
         continue;
       }
       // Upstairs a doorway stays open, and a line stands only beside flooring.
       if (kind === "door" || !(floored(key) || floored(next))) continue;
       edges.push({ x, y, side, floor, block: kind, ...gradeField(wall.grade) });
+      from.push(source && `${floor}:${source}`);
     }
   }
-  return { room: true, taken, edges };
+  return { room: true, taken, edges, from };
+}
+
+/**
+ * The slim's lines, none asking for more of a made material at a grade than the slim can pay for
+ * (RFC 0051): the blocks of that kind and grade it takes up, and on a plot's first slim the town's
+ * gift, at most a quarter more (`slimGift` in the sim). A corner block stands for two lines, so a
+ * home with graded corners would ask for more of their grade than it gives back. The lines past
+ * what a grade can pay for, a tile's second line first and then the last ones planned, go up as
+ * the first that can be paid for of: the same kind plain, the home's other plain walls, most
+ * first, and wood, which is free.
+ */
+function paidFor(
+  state: WorldState,
+  px: number,
+  py: number,
+  remove: readonly PlanTile[],
+  lines: { edge: PlanEdge; from: string }[],
+): PlanEdge[] {
+  const S = state.config.plotSize;
+  const unit = (block: BlockKind, grade: Grade = "plain") => `${block}:${grade}`;
+  const had = new Map<string, number>();
+  for (const t of remove) {
+    const floor = t.floor ?? 0;
+    const key = tileKey(px * S + t.x, py * S + t.y);
+    const block = blocksOn(state, floor)[key];
+    if (block === undefined) continue;
+    const u = unit(block, gradeAt(state, key, floor));
+    had.set(u, (had.get(u) ?? 0) + 1);
+  }
+  // The town tops up only a plot's first slim.
+  const gift = state.slimmed?.[`${px},${py}`] === undefined;
+  const cap = (block: BlockKind, grade: Grade = "plain") => {
+    if (blockNeeds(block).length === 0) return Number.POSITIVE_INFINITY;
+    const n = had.get(unit(block, grade)) ?? 0;
+    return n + (gift ? Math.ceil(n / 4) : 0);
+  };
+  const used = new Map<string, number[]>();
+  for (const [i, { edge }] of lines.entries()) {
+    const u = unit(edge.block, edge.grade);
+    used.set(u, [...(used.get(u) ?? []), i]);
+  }
+  const over: number[] = [];
+  for (const [u, indices] of used) {
+    const { block, grade } = (lines[indices[0] as number] as { edge: PlanEdge }).edge;
+    if (!grade || grade === "plain") continue;
+    const extra = indices.length - cap(block, grade);
+    if (extra <= 0) continue;
+    const seen = new Set<string>();
+    const second: number[] = [];
+    const first: number[] = [];
+    for (const i of indices) {
+      const tile = (lines[i] as { from: string }).from;
+      if (tile && seen.has(tile)) second.push(i);
+      else first.push(i);
+      seen.add(tile);
+    }
+    const moved = [...second.reverse(), ...first.reverse()].slice(0, extra);
+    used.set(
+      u,
+      indices.filter((i) => !moved.includes(i)),
+    );
+    over.push(...moved);
+  }
+  const plainWalls = [...had.entries()]
+    .filter(([u]) => u.endsWith(":plain"))
+    .map(([u, n]) => [u.slice(0, -":plain".length) as BlockKind, n] as const)
+    .filter(([block]) => block !== "door" && !WINDOWS.includes(block))
+    .sort((a, b) => b[1] - a[1])
+    .map(([block]) => block);
+  const out = lines.map(({ edge }) => edge);
+  for (const i of over.sort((a, b) => a - b)) {
+    const { grade: _, ...edge } = out[i] as PlanEdge;
+    const block =
+      [edge.block, ...plainWalls].find((b) => (used.get(unit(b))?.length ?? 0) < cap(b)) ??
+      ("wood" as BlockKind);
+    used.set(unit(block), [...(used.get(unit(block)) ?? []), i]);
+    out[i] = { ...edge, block };
+  }
+  return out;
 }
 
 /** A design note as the town's slim compares them: its code and the tiles it names. */

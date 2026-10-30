@@ -5,7 +5,7 @@ import { designNotes } from "./design";
 import { GROUND_KINDS } from "./ground";
 import { hashWorld } from "./hash";
 import { MAP_BLOCKS, MAP_GROUND, MAP_LEGEND_MAX, MAP_MARKS, plotMap } from "./map";
-import { fund, stock } from "./test-support";
+import { expectMaterialsHold, fund, stock } from "./test-support";
 import { BLOCK_KINDS, type Command, TOWN_ACTOR, type WorldConfig } from "./types";
 import { createWorld } from "./world";
 
@@ -23,7 +23,7 @@ type Build = Extract<Command, { type: "build" }>;
 function world() {
   const state = createWorld(CONFIG);
   const ok = (actor: string, command: Command) => {
-    const result = apply(state, { actor, command });
+    const result = expectMaterialsHold(state, () => apply(state, { actor, command }));
     expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
   };
   ok(TOWN_ACTOR, { type: "new_day", day: 20_000 });

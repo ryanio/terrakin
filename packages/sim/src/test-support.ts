@@ -8,6 +8,7 @@ import type { StackKind } from "./items";
 import { isMaterialKind, MATERIAL_KINDS } from "./materials";
 import { roofNeeds } from "./roofs";
 import type { WorldEvent, WorldState } from "./types";
+import { cloneWorld } from "./world";
 
 /**
  * Helpers the sim's tests share. They reach into state directly, so they're for setting up and
@@ -112,14 +113,32 @@ function materialsIn(state: WorldState): Map<string, number> {
   return tally;
 }
 
+/** Made material walls (blocks and lines, every floor) in `was` that no longer stand in `now`. */
+function wallsTakenDown(was: WorldState, now: WorldState): Map<string, number> {
+  const out = new Map<string, number>();
+  for (const floor of [0, ...Object.keys(was.floors ?? {}).map(Number)]) {
+    for (const layer of [blocksOn, edgesOn]) {
+      const after = layer(now, floor);
+      for (const [key, block] of Object.entries(layer(was, floor))) {
+        if (!isMaterialKind(block) || after[key] === block) continue;
+        const unit = unitKey(block, gradeAt(was, key, floor));
+        out.set(unit, (out.get(unit) ?? 0) + 1);
+      }
+    }
+  }
+  return out;
+}
+
 /**
  * Run one input and check that every made material is still somewhere at the grade it had, by
  * `materialsIn` before and after. The only changes allowed are a craft's own (what its `craft`
  * inventory event says it took and made) and a first slim's gift (`home_slimmed`), which can only
- * add. Returns what `run` returned.
+ * add, and at most a quarter of the walls of that kind and grade it took down (`slimGift`).
+ * Returns what `run` returned.
  */
 export function expectMaterialsHold<T extends { ok: boolean }>(state: WorldState, run: () => T): T {
   const before = materialsIn(state);
+  const was = cloneWorld(state);
   const result = run();
   const after = materialsIn(state);
   const events = "events" in result ? (result.events as WorldEvent[]) : [];
@@ -132,12 +151,13 @@ export function expectMaterialsHold<T extends { ok: boolean }>(state: WorldState
       expected.set(key, (expected.get(key) ?? 0) + c.amount);
     }
   }
-  const gift = events.some((e) => e.type === "home_slimmed");
+  const gift = events.some((e) => e.type === "home_slimmed") ? wallsTakenDown(was, state) : null;
   const wrong: string[] = [];
   for (const key of new Set([...expected.keys(), ...after.keys()])) {
     const want = expected.get(key) ?? 0;
     const got = after.get(key) ?? 0;
-    if (gift ? got < want : got !== want) wrong.push(`${key}: ${want} expected, ${got} held`);
+    const most = want + (gift ? Math.ceil((gift.get(key) ?? 0) / 4) : 0);
+    if (got < want || got > most) wrong.push(`${key}: ${want} to ${most} expected, ${got} held`);
   }
   expect(wrong).toEqual([]);
   return result;

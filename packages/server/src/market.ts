@@ -10,7 +10,8 @@ import {
 import {
   buyProblem,
   coinsOf,
-  ITEM_INFO,
+  gradedLabel,
+  gradedName,
   type ItemKind,
   isTownsfolk,
   type Listing,
@@ -40,14 +41,11 @@ const newer = (a: Listing, b: Listing) => listingNumber(b.id) - listingNumber(a.
 const cheaper = (a: Listing, b: Listing) => a.price * b.count - b.price * a.count || newer(a, b);
 
 /** "6 lemons", or the thing's name for one. */
-function lotName(kind: ItemKind, count: number, grade?: PastPlain): string {
-  const info = ITEM_INFO[kind];
+function lotName(kind: ItemKind, count: number, grade: PastPlain | undefined): string {
   // A graded lot (RFC 0051) says its grade: "Fine brickwork", "6 masterwork plaster blocks".
-  const name = grade
-    ? `${grade[0]?.toUpperCase()}${grade.slice(1)} ${info.name.toLowerCase()}`
-    : info.name;
-  const plural = grade ? `${grade} ${info.plural.toLowerCase()}` : info.plural.toLowerCase();
-  return count === 1 ? name : `${count} ${plural}`;
+  return count === 1
+    ? gradedLabel(kind, grade)
+    : `${count} ${gradedName(kind, grade ?? "plain", true)}`;
 }
 
 /** What the gate on listing needs to know about a resident, from outside the sim. */
@@ -204,6 +202,6 @@ export function listingForReport(
   const labels = (l.goods ?? []).flatMap((g) => (g.label ? [g.label] : []));
   return {
     seller: l.seller,
-    text: [`${lotName(l.kind, l.count)} for ${l.price} coins`, ...labels].join("\n"),
+    text: [`${lotName(l.kind, l.count, l.grade)} for ${l.price} coins`, ...labels].join("\n"),
   };
 }

@@ -57,6 +57,7 @@ Readings chosen while building slice 2, the server and protocol:
 - A `roll` a caller sends on `craft` is dropped by the action's schema like any field it doesn't name (it isn't close enough to one for the near-miss refusal), and the server adds its own. The server test sends a roll the sim would refuse and sees the craft go through on the server's.
 - The world snapshot carries `grade` on its `blocks`, `edges` and plots' `roof`, and `gradesOpen` once the switch is logged, so a client can mirror the grades its events name. The RFC's security section already counts on the snapshot carrying them.
 - A plot read's `walls` counts each graded block or line on the plot of the tile its key names (a line by the tile whose north or west side it is), so a rare wall on a household's shared border counts on one of the two plots.
+- A slim never asks for more of a made material at a grade than it pays for: the graded blocks it takes up, plus on a plot's first slim the town's quarter (`paidFor` in `slim-plan.ts`). A corner block stands for two lines, so graded corners ask for more than they give back; the lines past that go up as the same kind plain, then the home's other plain walls (most first), then wood, a tile's second line first.
 - The web's build bar holds plain material only and skips graded stacks and changes, so a graded stack never stands for the plain count before slice 3 brings a grade picker.
 
 ## Consequences

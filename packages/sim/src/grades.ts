@@ -1,4 +1,10 @@
-import { ITEM_INFO, type MaterialKind, STACK_KINDS, type StackKind } from "./catalog";
+import {
+  ITEM_INFO,
+  type ItemKind,
+  type MaterialKind,
+  STACK_KINDS,
+  type StackKind,
+} from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { isMaterialKind } from "./materials";
 import { own } from "./own";
@@ -78,10 +84,21 @@ export const fineCraftGrade = (run: number, roll: number): PastPlain =>
   roll < GRADING.masterwork || run >= GRADING.floor ? "masterwork" : "fine";
 
 /** "brickwork", "fine brickwork", "masterwork plaster blocks": a kind at a grade, lower case. */
-export function gradedName(kind: StackKind, grade: Grade, plural = false): string {
+export function gradedName(kind: ItemKind, grade: Grade, plural = false): string {
   const info = ITEM_INFO[kind];
   const name = (plural ? info.plural : info.name).toLowerCase();
   return grade === "plain" ? name : `${grade} ${name}`;
+}
+
+/**
+ * A kind's name at a grade as a label, "Fine brickwork", "Masterwork plaster blocks": its own
+ * name for plain, so a plain thing reads as it always did. The one name every surface uses.
+ */
+export function gradedLabel(kind: ItemKind, grade: Grade | undefined, plural = false): string {
+  const info = ITEM_INFO[kind];
+  if (grade === undefined || grade === "plain") return plural ? info.plural : info.name;
+  const name = gradedName(kind, grade, plural);
+  return `${name.charAt(0).toUpperCase()}${name.slice(1)}`;
 }
 
 /** "1 lemon", "3 fine brickwork", in plain words. */
@@ -160,13 +177,14 @@ export function gradeAt(state: WorldState, key: string, floor = 0): Grade {
 export function setGrade(state: WorldState, floor: number, key: string, grade: Grade) {
   const layer: { grades?: Record<string, PastPlain> } | undefined =
     floor === 0 ? state : state.floors?.[String(floor)];
-  if (!layer) throw new Error(`floor ${floor} has no layer`);
   if (grade === "plain") {
-    if (!layer.grades || !Object.hasOwn(layer.grades, key)) return;
+    // Nothing to drop on a floor with no layer, and so nothing to refuse.
+    if (!layer?.grades || !Object.hasOwn(layer.grades, key)) return;
     delete layer.grades[key];
     if (Object.keys(layer.grades).length === 0) delete layer.grades;
     return;
   }
+  if (!layer) throw new Error(`floor ${floor} has no layer`);
   layer.grades ??= {};
   layer.grades[key] = grade;
 }

@@ -296,6 +296,59 @@ describe("slimPlan", () => {
     );
   });
 
+  it("asks no grade for more than the slim pays: a hut of fine corners and plain sides slims, by its owner and the town", () => {
+    // A plaster hut whose four corners are fine: each corner stands for two lines, eight fine lines
+    // from four fine blocks and a gift of one, so the lines past five go up plain.
+    const graded = () => {
+      const { state, ok } = hut();
+      ok(TOWN_ACTOR, { type: "open_economy" });
+      ok(TOWN_ACTOR, { type: "open_items" });
+      ok(TOWN_ACTOR, { type: "open_grades" });
+      const corners = new Set(["1,1", "5,1", "1,5", "5,5"]);
+      const wood = Object.entries(state.blocks)
+        .filter(([, b]) => b === "wood")
+        .map(([key]) => key);
+      const items = state.items;
+      if (!items) throw new Error("items aren't open");
+      items.inventories.ada = {
+        stacks: { plaster: wood.length - corners.size },
+        goods: [],
+        graded: { plaster: { fine: corners.size } },
+      };
+      const at = (key: string) => {
+        const [x = 0, y = 0] = key.split(",").map(Number);
+        return { x, y };
+      };
+      ok("ada", {
+        type: "build",
+        px: 0,
+        py: 0,
+        remove: wood.map(at),
+        blocks: wood.map((key) => ({
+          ...at(key),
+          block: "plaster",
+          ...(corners.has(key) ? { grade: "fine" as const } : {}),
+        })),
+      });
+      expect(items.inventories.ada?.stacks.plaster).toBeUndefined();
+      return { state, ok };
+    };
+    const { state, ok } = graded();
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    const fine = plan.edges.filter((e) => e.grade === "fine");
+    expect(fine).toHaveLength(5);
+    expect(fine.every((e) => e.block === "plaster")).toBe(true);
+    ok("ada", { type: "slim_walls", px: 0, py: 0, ...plan });
+    // The town's slim of the same home goes through too, and spends nothing of the owner's.
+    const town = graded().state;
+    const slim = townSlim(town, 0, 0);
+    expect(slim).toBeDefined();
+    if (slim) {
+      expect(apply(town, { actor: TOWN_ACTOR, command: slim.command })).toMatchObject({ ok: true });
+    }
+  });
+
   it("slims a hut built before doors, its open doorway becoming a door", () => {
     const { state, ok } = hut(false);
     expect(state.blocks["3,5"]).toBeUndefined();

@@ -4,7 +4,7 @@ import { plotPlan } from "./build";
 import { GRADES_CONFIG, GRADES_HASH, GRADES_LOG } from "./fixtures/grades-log";
 import { FINE_RECIPES, GRADING, type Grade, gradeAt } from "./grades";
 import { hashWorld } from "./hash";
-import { heldGraded, type StackKind } from "./items";
+import { heldGraded, inventoryMaxOf, inventorySize, type StackKind } from "./items";
 import { replay } from "./replay";
 import { expectMaterialsHold, stock } from "./test-support";
 import { type Command, TOWN_ACTOR, type WorldEvent, type WorldState } from "./types";
@@ -426,10 +426,7 @@ describe("material grades", () => {
 
   it("counts graded things toward what a resident can hold", () => {
     const s = open();
-    const room =
-      200 -
-      Object.values(s.items?.inventories.bob?.stacks ?? {}).reduce((a, n) => a + (n ?? 0), 0) -
-      (s.items?.inventories.bob?.goods.length ?? 0);
+    const room = inventoryMaxOf(s) - inventorySize(s.items?.inventories.bob);
     stock(s, "bob", { plaster: room }, "fine");
     refused(s, "ada", { type: "give", item: "sugar", to: "bob" }, "inventory_full");
   });

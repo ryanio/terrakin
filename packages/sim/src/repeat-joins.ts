@@ -72,7 +72,10 @@ function retireProblem(
     return "A listed record has had coins.";
   }
   const things = state.items?.inventories[id];
-  if (things && (Object.keys(things.stacks).length > 0 || things.goods.length > 0)) {
+  if (
+    things &&
+    (Object.keys(things.stacks).length > 0 || things.goods.length > 0 || things.graded)
+  ) {
     return "A listed record holds things.";
   }
   if (mentioned.has(id)) return "A listed record is named elsewhere in the world.";

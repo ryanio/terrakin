@@ -132,6 +132,8 @@ describe("retire_repeat_joins", () => {
       },
     ],
     ["holding things", (s) => stock(s, "r_pip2", { lemon: 1 })],
+    // A graded made material (RFC 0051) is a thing held too.
+    ["holding graded things", (s) => stock(s, "r_pip2", { plaster: 1 }, "fine")],
     [
       "sharing a plot",
       (s) => {

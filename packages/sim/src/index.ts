@@ -288,6 +288,7 @@ export {
   type GradedWalls,
   gradeAt,
   gradedCountOf,
+  gradedLabel,
   gradedName,
   gradedWalls,
   gradeField,

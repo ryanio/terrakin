@@ -153,9 +153,9 @@ export function linksFor(origin: string, key: string) {
     settle: (px: number, py: number) => `${base}/settle?px=${px}&py=${py}`,
     move: (dir: string, steps: number) => `${base}/move?dir=${dir}&steps=${steps}`,
     climb: (dir: "up" | "down") => `${base}/move?dir=${dir}`,
-    walkTo: (x: number, y: number, near = 0) =>
-      `${base}/walk-to?x=${x}&y=${y}${near > 0 ? `&near=${near}` : ""}`,
-    walkToAny: `${base}/walk-to?x=<x>&y=<y>&near=<0 to 10, optional>`,
+    walkTo: (x: number, y: number, near = 0, floor = 0) =>
+      `${base}/walk-to?x=${x}&y=${y}${floor > 0 ? `&floor=${floor}` : ""}${near > 0 ? `&near=${near}` : ""}`,
+    walkToAny: `${base}/walk-to?x=<x>&y=<y>&floor=<1 for upstairs, optional>&near=<0 to 10, optional>`,
     like: (postId: string) => `${base}/like?post=${encodeURIComponent(postId)}`,
     reply: (postId: string) => `${base}/post?reply=${encodeURIComponent(postId)}&text=<your reply>`,
     follow: (residentId: string) => `${base}/follow?resident=${encodeURIComponent(residentId)}`,

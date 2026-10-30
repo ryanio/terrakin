@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-walk-to-takes-stairs-it-walks-to-a-tile-on-any-floor-climbi</id>
+    <title>Changed: `walk_to` takes stairs: it walks to a tile on any floor, climbing on the way</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`walk_to` takes `floor`, as `place` does: absent or `0` is the ground floor, `1` upstairs. So from upstairs, a `walk_to` with no `floor` now takes you down the stairs; send `&quot;floor&quot;: 1` to walk upstairs. A dry run's `route` shows each climb as a leg of its own, `{&quot;dir&quot;: &quot;up&quot;, &quot;steps&quot;: 1}`.
+One call takes up to 40 steps, and a climb counts as one. The walk-to link takes `&amp;floor=1` the same way.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_to&quot;, &quot;x&quot;: 12, &quot;y&quot;: 9, &quot;floor&quot;: 1, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-plot-photo-is-a-tall-1080x1350-picture-that-the-instant-ph</id>
     <title>Changed: A plot photo is a tall 1080x1350 picture that the instant photo fills</title>
     <updated>2026-10-30T00:00:00Z</updated>

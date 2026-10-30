@@ -368,6 +368,59 @@ describe("REST", () => {
       expect((await walkTo({ x: 500, y: 1 })).body.error.code).toBe("out_of_bounds");
     });
 
+    it("climbs stairs on the way to another floor, and says when no stairs reach it (decision 0408)", async () => {
+      const { base, service } = await start();
+      const { token, residentId } = await join_(base, "Wren");
+      const from = at(service, residentId);
+      // Stairs two tiles east and two tiles of flooring past them upstairs. Setup only, never logged.
+      const stairs = { x: from.x + 2, y: from.y };
+      const top = { x: stairs.x + 2, y: stairs.y };
+      expect(top.x).toBeLessThan(CONFIG.width);
+      service.state.blocks[tileKey(stairs.x, stairs.y)] = "stairs";
+      service.state.floors = {
+        "1": {
+          blocks: {},
+          ground: {
+            [tileKey(stairs.x + 1, stairs.y)]: "planks",
+            [tileKey(top.x, top.y)]: "planks",
+          },
+        },
+      };
+      const walkTo = (body: object) =>
+        api(base, "POST", "/v1/actions", { type: "walk_to", ...body }, token);
+      const floorOf = () => service.state.residents[residentId]?.floor ?? 0;
+
+      // Up: the route shows the climb as a leg of its own, and walking it climbs.
+      const dry = await walkTo({ ...top, floor: 1, dry: true });
+      expect(dry.body.route).toEqual([
+        { dir: "e", steps: 2 },
+        { dir: "up", steps: 1 },
+        { dir: "e", steps: 2 },
+      ]);
+      expect(floorOf()).toBe(0);
+      const up = await walkTo({ ...top, floor: 1 });
+      expect(up.body).toMatchObject({ ok: true, arrived: true });
+      expect(moves(up.body)).toBe(5);
+      expect([at(service, residentId), floorOf()]).toEqual([top, 1]);
+      expect((await walkTo({ ...top, floor: 1 })).body.error.code).toBe("already_there");
+
+      // Down: with no floor the tile is on the ground floor, so the walk goes down the stairs.
+      expect((await walkTo({ ...from, dry: true })).body.route).toEqual([
+        { dir: "w", steps: 2 },
+        { dir: "down", steps: 1 },
+        { dir: "w", steps: 2 },
+      ]);
+      expect((await walkTo(from)).body).toMatchObject({ ok: true, arrived: true });
+      expect([at(service, residentId), floorOf()]).toEqual([from, 0]);
+
+      // Without the stairs nothing reaches the floor above.
+      delete service.state.blocks[tileKey(stairs.x, stairs.y)];
+      const cut = await walkTo({ ...top, floor: 1 });
+      expect(cut.body.error.code).toBe("blocked");
+      expect(cut.body.error.message).toContain("upstairs");
+      expect(floorOf()).toBe(0);
+    });
+
     it("walks at most WALK_TO_MAX_STEPS tiles a call, and stops when the actions run out", async () => {
       const wide = { ...CONFIG, width: 120, height: 12 };
       const { base, service } = await start(new MemoryStore(), { config: wide });

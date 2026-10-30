@@ -13,6 +13,7 @@ import {
   type Input,
   POTTERY,
   TOWN_ACTOR,
+  tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -500,6 +501,15 @@ describe("action links", () => {
     expect(out.text).toContain("# Walked there");
     expect(out.text).toContain("you're at (3, 10)");
     expect(codeOf((await wren.act("walk-to?x=3&y=10")).text)).toBe("already_there");
+    // And up stairs to a floor above (decision 0408). Setup only, never logged.
+    service.state.blocks[tileKey(5, 10)] = "stairs";
+    service.state.floors = { "1": { blocks: {}, ground: { [tileKey(6, 10)]: "planks" } } };
+    const up = await wren.act("walk-to?x=6&y=10&floor=1");
+    expect(up.text).toContain("You walked 4 steps and you're at (6, 10) upstairs");
+    expect(service.state.residents[wren.id]?.floor).toBe(1);
+    expect((await wren.act("walk-to?x=3&y=10")).text).toContain(
+      "you're at (3, 10) on the ground floor",
+    );
     // A wall's own tile is reached only beside it.
     const wall = await wren.act("walk-to?x=1&y=1");
     expect(codeOf(wall.text)).toBe("blocked");

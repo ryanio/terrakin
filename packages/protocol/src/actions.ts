@@ -154,19 +154,25 @@ export const MoveAction = z.object({
   ...dry,
 });
 
-/** The most tiles one `walk_to` walks: past it, the answer says how far you got. */
+/**
+ * The most steps one `walk_to` takes, a tile or a climb each: past it, the answer says how far you
+ * got.
+ */
 export const WALK_TO_MAX_STEPS = 40;
 
 /**
- * Walk to a tile on the floor you're on, around whatever is in the way (decision 0405): the server
- * finds the fewest steps, as a refusal's walk does, and walks them a tile at a time, each a `move`
- * checked and paid for like any other. `near` stops within that many tiles of it (diagonals count
- * as 1), for something you can't stand on. A dry run answers with the `route` and moves nothing.
+ * Walk to a tile on a floor, around whatever is in the way and up or down stairs (decisions 0405
+ * and 0408): the server finds the fewest steps, a tile or a climb each, and takes them one at a
+ * time, each a `move` checked and paid for like any other. `floor` is the ground floor when
+ * absent, as on every other action. `near` stops within that many tiles of it on that floor
+ * (diagonals count as 1), for something you can't stand on. A dry run answers with the `route`
+ * and moves nothing.
  */
 export const WalkToAction = z.object({
   type: z.literal("walk_to"),
   x: coord,
   y: coord,
+  ...toFloor,
   near: z
     .number()
     .int()

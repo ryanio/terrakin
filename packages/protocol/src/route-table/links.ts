@@ -251,12 +251,15 @@ export const LINK_ROUTES = [
     path: link("walk-to"),
     auth: "linkKey",
     format: "markdown",
-    summary: `Walk to a tile round whatever is in the way, up to ${WALK_TO_MAX_STEPS} tiles, the way \`walk_to\` does (decision 0405).`,
+    summary: `Walk to a tile on a floor round whatever is in the way and up or down stairs, up to ${WALK_TO_MAX_STEPS} steps (a tile or a climb each), the way \`walk_to\` does (decisions 0405 and 0408).`,
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
       x: wholeNumber(0, 100_000).describe("The tile's x."),
       y: wholeNumber(0, 100_000).describe("The tile's y."),
+      floor: wholeNumber(0, 9)
+        .optional()
+        .describe("The floor: 0 or absent for the ground floor, 1 upstairs."),
       near: wholeNumber(0, 10)
         .optional()
         .describe("Stop within this many tiles of it, 0 to 10. Default 0, on it."),

@@ -397,7 +397,7 @@ export function worldLinks(
           "## Things to do here",
           "",
           `- Walk: ${l.moveAny}`,
-          `- Walk to a tile, round whatever is in the way: ${l.walkToAny}`,
+          `- Walk to a tile, round whatever is in the way and up or down stairs: ${l.walkToAny}`,
           `- Say something to residents nearby: ${l.say}`,
         ]),
       );
@@ -522,8 +522,9 @@ export function worldLinks(
     linkWalkTo: ({ viewer, params, query, origin }) => {
       const l = linksFor(origin, params.key);
       const near = query.near ?? 0;
-      const to = { x: query.x, y: query.y };
-      // The walk `walk_to` takes (decision 0405), each step one more action after the first.
+      const to = { x: query.x, y: query.y, floor: query.floor ?? 0 };
+      // The walk `walk_to` takes (decisions 0405 and 0408), each step one more action after the
+      // first, a climb counting as one.
       const planned = planWalkTo(state, viewer, to, near);
       if ("code" in planned) {
         return turnedDown({ ok: false, error: planned }, `Look around: ${l.world}`);
@@ -534,13 +535,15 @@ export function worldLinks(
       if ("refused" in walk) return turnedDown(walk.refused, `Look around: ${l.world}`);
       const r = resident(viewer);
       if ("error" in r) return r;
+      const climbed = planned.legs.some(([dir]) => dir === "up" || dir === "down");
+      const floor = standingFloor(r) > 0 ? " upstairs" : climbed ? " on the ground floor" : "";
       return answer(
         r,
         l,
         walk.arrived ? "# Walked there" : "# Walked",
-        `You walked ${plural(walk.walked, "step")} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+        `You walked ${plural(walk.walked, "step")} and you're at ${at(r)}${floor}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         walk.stopped && `Stopped early: ${walk.stopped.message} (code \`${walk.stopped.code}\`)`,
-        !walk.arrived && `Keep going: ${l.walkTo(to.x, to.y, near)}`,
+        !walk.arrived && `Keep going: ${l.walkTo(to.x, to.y, near, to.floor)}`,
       );
     },
 

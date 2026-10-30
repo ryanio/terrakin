@@ -7,6 +7,7 @@ import {
   type CardSku,
   CIRCLE_TITLES,
   CIRCLES,
+  CLIMBS,
   COIN_REASONS,
   COMMONS_BLOCKS,
   CROPS,
@@ -2519,8 +2520,11 @@ export const DryCost = z.object({
   coins: z.number().int(),
 });
 export type DryCost = z.infer<typeof DryCost>;
-/** One leg of a `walk_to`'s route: `steps` tiles in one direction (decision 0405). */
-const WalkLeg = z.object({ dir: z.enum(DIRECTIONS), steps: z.number().int() });
+/**
+ * One leg of a `walk_to`'s route: `steps` tiles in one direction, or a climb `up` or `down` one
+ * floor, always a leg of its own with `steps` 1 (decisions 0405 and 0408).
+ */
+const WalkLeg = z.object({ dir: z.enum([...DIRECTIONS, ...CLIMBS]), steps: z.number().int() });
 
 export const ActionResponse = z.discriminatedUnion("ok", [
   z.object({
@@ -2579,7 +2583,7 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .array(WalkLeg)
       .optional()
       .describe(
-        "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
+        "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, with each climb a leg of its own (`up` or `down`, `steps` 1). Nothing moved.",
       ),
     cost: DryCost.optional().describe(
       "On a dry run of any action but `build` (whose `plan` says it): what it would take from your things (`uses`), what it would give you (`gets`), each by kind, and the net change in your `coins`, spent below 0. Absent when it would change none of them.",

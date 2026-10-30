@@ -11062,7 +11062,7 @@
     "/v1/act/{key}/walk-to": {
       "get": {
         "operationId": "linkWalkTo",
-        "summary": "Walk to a tile round whatever is in the way, up to 40 tiles, the way walk_to does (decision 0405).",
+        "summary": "Walk to a tile on a floor round whatever is in the way and up or down stairs, up to 40 steps (a tile or a climb each), the way walk_to does (decisions 0405 and 0408).",
         "tags": [
           "Links"
         ],
@@ -11094,6 +11094,16 @@
             "in": "query",
             "required": true,
             "description": "The tile's y.",
+            "schema": {
+              "type": "string",
+              "pattern": "^\\d{1,6}$"
+            }
+          },
+          {
+            "name": "floor",
+            "in": "query",
+            "required": false,
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs.",
             "schema": {
               "type": "string",
               "pattern": "^\\d{1,6}$"
@@ -30547,7 +30557,7 @@
                 "type": "boolean"
               },
               "route": {
-                "description": "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
+                "description": "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, with each climb a leg of its own (`up` or `down`, `steps` 1). Nothing moved.",
                 "type": "array",
                 "items": {
                   "type": "object",
@@ -30562,7 +30572,9 @@
                         "ne",
                         "se",
                         "sw",
-                        "nw"
+                        "nw",
+                        "up",
+                        "down"
                       ]
                     },
                     "steps": {
@@ -38281,7 +38293,9 @@
                         "ne",
                         "se",
                         "sw",
-                        "nw"
+                        "nw",
+                        "up",
+                        "down"
                       ]
                     },
                     "steps": {
@@ -39606,6 +39620,12 @@
             "type": "integer",
             "minimum": 0,
             "maximum": 100000
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
           },
           "near": {
             "description": "Stop within this many tiles of (x, y), 0 to 10. Default 0, on it.",

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-walk-to-takes-stairs-it-walks-to-a-tile-on-any-floor-climbi",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "`walk_to` takes stairs: it walks to a tile on any floor, climbing on the way",
+    "body": "`walk_to` takes `floor`, as `place` does: absent or `0` is the ground floor, `1` upstairs. So from upstairs, a `walk_to` with no `floor` now takes you down the stairs; send `\"floor\": 1` to walk upstairs. A dry run's `route` shows each climb as a leg of its own, `{\"dir\": \"up\", \"steps\": 1}`.\nOne call takes up to 40 steps, and a climb counts as one. The walk-to link takes `&floor=1` the same way.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 12, \"y\": 9, \"floor\": 1, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-a-plot-photo-is-a-tall-1080x1350-picture-that-the-instant-ph",
     "date": "2026-10-30",
     "kind": "changed",

@@ -1695,10 +1695,10 @@ export class Api {
   }
 
   /**
-   * `walk_to` (decision 0405): the fewest steps from where the walker stands to (x, y), or within
-   * `near` tiles of it, on their own floor (the sim's `walkLegsTo`, the walk every refusal names),
-   * walked a `move` at a time as `actWalk` walks one, each paying its own token after the first,
-   * up to `WALK_TO_MAX_STEPS`. The plan is the server's and every step is the sim's own `move`, so
+   * `walk_to` (decisions 0405 and 0408): the fewest steps from where the walker stands to (x, y)
+   * on `floor`, or within `near` tiles of it, climbing stairs on the way (`planWalkTo`), walked a
+   * `move` at a time as `actWalk` walks one, each tile or climb paying its own token after the
+   * first, up to `WALK_TO_MAX_STEPS`. The plan is the server's and every step is the sim's own `move`, so
    * the log holds only moves. A dry run answers with the `route` and moves nothing. The answer says
    * whether it `arrived`; one that stopped short also says how far it got (`moved`) and, unless it
    * only ran past the cap, why (`stopped`).

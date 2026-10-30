@@ -5,8 +5,8 @@ import { AuthorView } from "./social";
 
 /**
  * Offline routines (RFC 0009) as the REST API shows them: what you have on, and the away log, a
- * list of what your routines did while you were away. Turn them on with the `set_routines` action,
- * which is in `schemas.ts` with the routine shapes and the `routines_set` event.
+ * list of what your routines did while you were away. Turn them on with the `set_routines` action
+ * in `actions.ts`; the routine shapes and the `routines_set` event are in `schemas.ts`.
  */
 
 /** The numbers the server keeps for routines, beyond the sim's `ROUTINES`. */

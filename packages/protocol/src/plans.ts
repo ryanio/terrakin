@@ -1,7 +1,7 @@
 import type { Command } from "@terrakin/sim";
+import type { BuildAction } from "./actions";
 import { DESIGN_SIZE, DESIGNS, designToPlan } from "./designs";
 import { mapToPlan, type PlotNow } from "./maps";
-import type { BuildAction } from "./schemas";
 
 type BuildCommand = Extract<Command, { type: "build" }>;
 

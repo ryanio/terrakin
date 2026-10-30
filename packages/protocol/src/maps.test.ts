@@ -12,11 +12,11 @@ import {
   type WorldState,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { Action } from "./actions";
 import { DESIGN_TURNS } from "./design-ids";
 import { DESIGNS, designViews } from "./designs";
 import { mapToPlan } from "./maps";
 import { buildCommand } from "./plans";
-import { Action } from "./schemas";
 
 const S = DEFAULT_CONFIG.plotSize;
 const EMPTY = { blocks: [], ground: [] };

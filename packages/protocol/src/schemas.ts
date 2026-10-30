@@ -342,14 +342,17 @@ export const MoveAction = z.object({
  * wave at them (`greeted` in the response).
  */
 export const PutterAction = z.object({ type: z.literal("putter"), ...dry });
-/** The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair or a sofa; lie on a bed. */
+/**
+ * The blocks you rest on (RFC 0044): sit on a chair, a bench, an armchair, a sofa or a rocking
+ * chair; lie on a bed.
+ */
 export const SeatKind = z.enum(
   Object.keys(SEATS) as [keyof typeof SEATS, ...(keyof typeof SEATS)[]],
 );
 export type SeatKind = z.infer<typeof SeatKind>;
 /**
  * Sit or lie down on the seat on a tile one step away (RFC 0044): a chair, a bench, an armchair, a
- * sofa, or a bed. Any move takes you off it again.
+ * sofa, a rocking chair, or a bed. Any move takes you off it again.
  */
 export const RestAction = z.object({
   type: z.literal("rest"),
@@ -941,7 +944,8 @@ export const WallDecorKind = z.enum(
 
 /**
  * Put a small thing on the surface on (x, y) within reach, on your plot or one shared with you
- * (RFC 0050): a table, a bookshelf, a barrel, a kitchen, a desk, a side table or a dresser. A
+ * (RFC 0050): a table, a bookshelf, a barrel, a kitchen, a desk, a side table, a dresser or a
+ * coffee table. A
  * trinket by its kind (like `candle`), a find by its kind, or a made thing or a piece by its id.
  */
 export const PutOnAction = z.object({

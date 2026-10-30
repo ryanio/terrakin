@@ -65,8 +65,15 @@ function world() {
 }
 
 describe("seats", () => {
-  it("are the five pieces you rest on, and only the new three are walked onto", () => {
-    expect(SEATS).toEqual({ chair: "sit", bench: "sit", armchair: "sit", sofa: "sit", bed: "lie" });
+  it("are the six pieces you rest on, and only the armchair, sofa and bed are walked onto", () => {
+    expect(SEATS).toEqual({
+      chair: "sit",
+      bench: "sit",
+      armchair: "sit",
+      sofa: "sit",
+      bed: "lie",
+      rocking_chair: "sit",
+    });
     // Every block kind but stairs, a door, and the walked-onto seats is in the way.
     const walkedOnto = BLOCK_KINDS.filter((k) => !blocksWalkers(k));
     expect(walkedOnto).toEqual(["stairs", "door", ...WALKED_ONTO_SEATS]);

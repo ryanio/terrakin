@@ -22,11 +22,14 @@ describe("resting", () => {
   });
 
   it("says where you sat or lay down, and nothing about anyone else", () => {
-    const rested = (block: "bed" | "armchair" | "bench", residentId = "r_1") =>
+    const rested = (block: "bed" | "armchair" | "bench" | "rocking_chair", residentId = "r_1") =>
       newsLine({ type: "rested", residentId, x: 2, y: 2, block }, "r_1");
     expect(rested("bed")).toBe("You lay down on the bed. Any step gets you up.");
     expect(rested("armchair")).toBe("You sat down in the armchair. Any step gets you up.");
     expect(rested("bench")).toBe("You sat down on the bench. Any step gets you up.");
+    expect(rested("rocking_chair")).toBe(
+      "You sat down in the rocking chair. Any step gets you up.",
+    );
     expect(rested("bed", "r_2")).toBeNull();
   });
 });

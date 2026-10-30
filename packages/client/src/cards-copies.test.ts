@@ -13,6 +13,7 @@ import {
   STONE_LO,
   STRAW,
   STRAW_DEEP,
+  WOOD,
   WOOD_DARK,
 } from "@terrakin/ui/brand";
 import {
@@ -62,6 +63,7 @@ const PLOT_COPIES: Record<string, unknown> = {
   PET_BOX,
   PET_FEET,
   WOOD_DARK,
+  WOOD,
   STRAW,
   STRAW_DEEP,
   STONE_LO,

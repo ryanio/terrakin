@@ -78,6 +78,7 @@ describe("surfaces", () => {
       "desk",
       "side_table",
       "dresser",
+      "coffee_table",
     ]);
   });
 

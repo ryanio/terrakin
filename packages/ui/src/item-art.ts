@@ -2974,6 +2974,211 @@ function bed(): ArtShape[] {
   ];
 }
 
+// ---------- more for a home ----------
+
+/** A wardrobe: a tall cabinet with a crown on top and two doors with brass knobs. */
+function wardrobe(): ArtShape[] {
+  const wood = BLOCK_COLORS.wardrobe;
+  return [
+    shadow(16, 44),
+    rect(11, 40, 3.5, 4, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(33.5, 40, 3.5, 4, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(10, 7, 28, 34, 2, wood, out()),
+    rect(12.5, 10, 10, 28, 1, WOOD_DARK, { opacity: 0.3 }),
+    rect(25.5, 10, 10, 28, 1, WOOD_DARK, { opacity: 0.3 }),
+    line("M24 9v31", WOOD_DARK, 1, { opacity: 0.6 }),
+    circle(22, 24, 1.1, SUN, out({ "stroke-width": 0.6 })),
+    circle(26, 24, 1.1, SUN, out({ "stroke-width": 0.6 })),
+    rect(8, 4, 32, 4.5, 1.5, wood, out()),
+    line("M10.5 5.8h27", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A rocking chair: a spindle back, a seat, and two curved rockers under its legs. */
+function rockingChair(): ArtShape[] {
+  const wood = BLOCK_COLORS.rocking_chair;
+  const spindle = (x: number): ArtShape =>
+    rect(x, 11, 2, 16, 0.8, wood, out({ "stroke-width": 0.8 }));
+  return [
+    shadow(15, 44),
+    rect(14, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(30, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
+    spindle(19.5),
+    spindle(23),
+    spindle(26.5),
+    rect(13, 7, 22, 4.5, 1.4, wood, out({ "stroke-width": 1 })),
+    rect(14.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(30.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(11, 26, 26, 5.5, 1.8, wood, out()),
+    line("M13 27.8h22", "#ffffff", 1, { opacity: 0.35 }),
+    line("M6 37.5c7 6 29 6 36 0", LINE, 4),
+    line("M6 37.5c7 6 29 6 36 0", WOOD_DARK, 2.4),
+  ];
+}
+
+/** An upright piano: a dark case, a page of music, white keys with black ones, and a pedal. */
+function piano(): ArtShape[] {
+  const body = BLOCK_COLORS.piano;
+  return [
+    shadow(18, 44),
+    rect(10, 39, 3, 5, 1, body, out({ "stroke-width": 1 })),
+    rect(35, 39, 3, 5, 1, body, out({ "stroke-width": 1 })),
+    rect(9, 29, 30, 11, 1.5, body, out()),
+    rect(8, 8, 32, 17, 2, body, out()),
+    rect(19, 11, 10, 8, 0.6, PAPER, out({ "stroke-width": 0.8 })),
+    line("M21 13.5h6M21 16h6", LINE, 0.7, { opacity: 0.7 }),
+    rect(6, 5.5, 36, 4, 1.5, body, out()),
+    rect(5, 24, 38, 6.5, 1, PAPER, out()),
+    line(
+      "M10 24.5v5.5M14.5 24.5v5.5M19 24.5v5.5M24 24.5v5.5M29 24.5v5.5M33.5 24.5v5.5M38 24.5v5.5",
+      LINE,
+      0.6,
+      {
+        opacity: 0.6,
+      },
+    ),
+    ...[11.5, 16, 25.5, 30, 34.5].map((x) => rect(x, 24.5, 2.2, 3.4, 0.4, INK)),
+    rect(22, 38, 4, 2, 0.8, SUN, out({ "stroke-width": 0.6 })),
+    line("M10 7.3h28", "#ffffff", 1, { opacity: 0.25 }),
+  ];
+}
+
+/** A bathtub: a deep enamel tub on four brass feet, a tap at one end, and bubbles over the rim. */
+function bathtub(): ArtShape[] {
+  const enamel = BLOCK_COLORS.bathtub;
+  return [
+    shadow(19, 43),
+    circle(12, 40, 2.2, LID, out({ "stroke-width": 0.8 })),
+    circle(36, 40, 2.2, LID, out({ "stroke-width": 0.8 })),
+    line("M39.5 19V12a2.5 2.5 0 0 0-2.5-2.5h-3", IRON, 1.8),
+    path("M5 21h38c0 9-4 17-11 18H16C9 38 5 30 5 21z", enamel, out()),
+    circle(14, 17.5, 2.6, "#ffffff", out({ "stroke-width": 0.8 })),
+    circle(18.5, 15, 1.8, "#ffffff", out({ "stroke-width": 0.8 })),
+    circle(29, 17, 2.2, "#ffffff", out({ "stroke-width": 0.8 })),
+    rect(3.5, 18.5, 41, 4, 2, enamel, out()),
+    rect(7, 19.4, 34, 1.6, 0.8, "#9fd3e0"),
+    line("M10 25c1 5 3 9 7 11", "#ffffff", 1.2, { opacity: 0.6 }),
+  ];
+}
+
+/** A fireplace: a stone hearth under a wooden mantel, with logs burning in its arch. */
+function fireplace(): ArtShape[] {
+  const stone = BLOCK_COLORS.fireplace;
+  return [
+    shadow(19, 44),
+    circle(24, 32, 15, BLOCK_COLORS.lantern, { opacity: 0.14 }),
+    rect(6, 10, 36, 33, 2, stone, out()),
+    path(
+      "M6.5 19h7M34.5 19h7M6.5 27h7M34.5 27h7M6.5 35h7M34.5 35h7M10 12v7M38 12v7M10 27v8M38 27v8",
+      "none",
+      out({ stroke: STONE_LO, "stroke-width": 1 }),
+    ),
+    path("M14 43V28c0-6 4.5-9 10-9s10 3 10 9v15z", "#3a2a22", out()),
+    path(
+      "M24 25c3.5 4 6 7 6 10.5 0 3-2.7 5-6 5s-6-2-6-5c0-2.5 2-4 2.6-6 1 1.6 2 2 2 2 0-2.6.3-4.5 1.4-6.5z",
+      BLOCK_COLORS.campfire,
+      out({ "stroke-width": 1 }),
+    ),
+    path(
+      "M24 31c1.8 2 3 3.6 3 5.4 0 1.7-1.3 2.8-3 2.8s-3-1.1-3-2.8c0-1.4 1-2.2 1.4-3.2.6.8 1 1 1 1 0-1.2.2-2.2.6-3.2z",
+      SUN,
+    ),
+    line("M16 42 32 39", WOOD, 3),
+    line("M17 39 31 42", WOOD_DARK, 3),
+    rect(3, 7, 42, 5, 1.5, WOOD, out()),
+    line("M5 8.8h38", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** An aquarium: a glass tank of water on a wooden stand, with weed, sand, two fish and bubbles. */
+function aquarium(): ArtShape[] {
+  const water = BLOCK_COLORS.aquarium;
+  return [
+    shadow(18, 44),
+    rect(9, 31, 30, 12, 1.5, WOOD, out()),
+    line("M24 32.5v9", WOOD_DARK, 0.9, { opacity: 0.45 }),
+    rect(6, 10, 36, 22, 2, water, out()),
+    line("M7.5 14h33", "#ffffff", 1, { opacity: 0.6 }),
+    rect(7, 27.5, 34, 3.5, 1, KRAFT),
+    line("M13 28c-2-4 2-7 0-11M16.5 28c1-3-1-5 1-8", STEM, 1.5),
+    path("M23.5 20l-3-2.5v5z", CLAY, out({ "stroke-width": 0.8 })),
+    ellipse(27.5, 20, 4, 2.6, SUN, out({ "stroke-width": 0.8 })),
+    circle(29.5, 19.4, 0.6, INK),
+    path("M38.5 25l2-1.8v3.6z", ROSE, out({ "stroke-width": 0.7 })),
+    ellipse(35.5, 25, 2.8, 1.8, ROSE, out({ "stroke-width": 0.7 })),
+    circle(31.5, 15.5, 1, "#ffffff", { opacity: 0.85 }),
+    circle(33, 12.5, 0.8, "#ffffff", { opacity: 0.85 }),
+    rect(5, 8.5, 38, 3, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    shine(11.5, 20, 1.4, 5, 0),
+  ];
+}
+
+/** A coffee table: a long low top on four short legs, with a shelf under it. */
+function coffeeTable(): ArtShape[] {
+  const wood = BLOCK_COLORS.coffee_table;
+  return [
+    shadow(19, 42),
+    rect(9, 30, 4, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(35, 30, 4, 11, 1, WOOD_DARK, out({ "stroke-width": 1 })),
+    rect(11, 35, 26, 3, 0.8, WOOD, out({ "stroke-width": 0.8 })),
+    rect(5, 26, 38, 6, 3, wood, out()),
+    line("M8 28h32", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
+/** A coat rack: a turned pole on three feet, with a coat on one hook and a scarf on the other. */
+function coatRack(): ArtShape[] {
+  const wood = BLOCK_COLORS.coat_rack;
+  return [
+    shadow(11, 44),
+    line("M13.5 43.5 24 38.5l10.5 5M24 38.5v5", wood, 2.6),
+    rect(22.5, 7, 3, 33, 1.2, wood, out({ "stroke-width": 1 })),
+    circle(24, 6, 2.3, wood, out({ "stroke-width": 1 })),
+    line("M23 12.5c-4 0-6.5-1-7.5-3.5M25 12.5c4 0 6.5-1 7.5-3.5", wood, 1.8),
+    path("M15 9.5c-1.5 5-1 12 0 18h3.4c-.8-6-.8-12 .4-17.5z", ROSE, out({ "stroke-width": 1 })),
+    line("M15.5 24.5h3M15.4 26.3h3", PAPER, 0.8, { opacity: 0.8 }),
+    path("M31 10c3.5 0 6 2.5 6.5 6l1 15c-3 1.5-7.5 1.5-10.5 0l1-15c.2-3 .8-5 2-6z", DENIM, out()),
+    line("M33 13v17", LINE, 0.8, { opacity: 0.5 }),
+    circle(34.5, 18, 0.8, PAPER),
+    circle(34.5, 23, 0.8, PAPER),
+  ];
+}
+
+/** A floor lamp: a tall pole on a round stone foot, under a cloth shade lit from inside. */
+function floorLamp(): ArtShape[] {
+  const shade = BLOCK_COLORS.floor_lamp;
+  return [
+    shadow(10, 44),
+    circle(24, 13, 12, BLOCK_COLORS.lantern, { opacity: 0.2 }),
+    rect(22.8, 17, 2.4, 24, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    ellipse(24, 41.5, 7, 2.5, STONE_HI, out()),
+    ellipse(24, 18.5, 5.5, 1.6, "#fff3c4"),
+    path("M15.5 18.5 19.5 5h9l4 13.5z", shade, out()),
+    line("M16.3 16.8h15.4", CLAY, 1.2),
+    line("M28.5 19v4", LINE, 0.8),
+    circle(28.5, 23.6, 0.9, LID),
+    shine(21.3, 11, 1, 4, 14),
+  ];
+}
+
+/** A potted tree: a little oak grown from an acorn, in a hooped wooden tub. */
+function pottedTree(): ArtShape[] {
+  return [
+    shadow(13, 44),
+    rect(22.5, 19, 3, 14, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
+    circle(17, 19, 6.5, LEAF, out()),
+    circle(31, 19, 6.5, LEAF, out()),
+    circle(24, 13, 9.5, LEAF, out()),
+    circle(20.5, 10.5, 3, MOSS_LIGHT, { opacity: 0.55 }),
+    circle(19, 19.5, 1, CLAY_DEEP),
+    circle(29, 15.5, 1, CLAY_DEEP),
+    path("M14 32h20l-2 11H16z", WOOD, out()),
+    line("M14.8 37.5h18.4", IRON, 1.6),
+    rect(12.5, 30, 23, 4, 1.2, WOOD, out()),
+    line("M14.5 31.5h19", "#ffffff", 1, { opacity: 0.35 }),
+  ];
+}
+
 const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   sugar,
   jar,
@@ -3005,6 +3210,16 @@ const DRAWN: Readonly<Partial<Record<ItemKind, () => ArtShape[]>>> = {
   desk,
   side_table: sideTable,
   dresser,
+  wardrobe,
+  rocking_chair: rockingChair,
+  piano,
+  bathtub,
+  fireplace,
+  aquarium,
+  coffee_table: coffeeTable,
+  coat_rack: coatRack,
+  floor_lamp: floorLamp,
+  potted_tree: pottedTree,
   candle,
   table_lamp: tableLamp,
   book_stack: bookStack,

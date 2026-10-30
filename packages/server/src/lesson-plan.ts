@@ -9,14 +9,14 @@
  * card's (`townsfolk-lessons.test.ts` checks), never resident text.
  */
 export const SPECIALTIES = {
-  juniper: ["herb_sachet", "flower_wreath", "posy", "garden_salad"],
-  bram: ["barrel", "well", "pickles", "armchair"],
-  clem: ["lemonade", "tomato_sauce", "pumpkin_pie", "apple_cider"],
-  pip: ["signpost", "fried_minnows", "corn_bread", "sofa"],
-  otis: ["bookshelf", "pumpkin_soup", "harvest_soup", "bed"],
-  marlo: ["campfire", "fish_stew", "fruit_salad", "desk"],
-  sable: ["lamp_post", "cranberry_punch", "grape_juice", "side_table"],
-  ansel: ["flower_box", "dresser", "apple_pie", "berry_crumble"],
+  juniper: ["herb_sachet", "flower_wreath", "posy", "garden_salad", "potted_tree"],
+  bram: ["barrel", "well", "pickles", "armchair", "fireplace", "bathtub"],
+  clem: ["lemonade", "tomato_sauce", "pumpkin_pie", "apple_cider", "coffee_table"],
+  pip: ["signpost", "fried_minnows", "corn_bread", "sofa", "coat_rack", "wardrobe"],
+  otis: ["bookshelf", "pumpkin_soup", "harvest_soup", "bed", "rocking_chair"],
+  marlo: ["campfire", "fish_stew", "fruit_salad", "desk", "aquarium"],
+  sable: ["lamp_post", "cranberry_punch", "grape_juice", "side_table", "floor_lamp"],
+  ansel: ["flower_box", "dresser", "apple_pie", "berry_crumble", "piano"],
 } as const satisfies Record<string, readonly string[]>;
 
 /** A townsfolk's specialties, by its handle. None for a handle with no list above. */

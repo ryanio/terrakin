@@ -50,6 +50,7 @@ export const SURFACE_BLOCKS = [
   "desk",
   "side_table",
   "dresser",
+  "coffee_table",
 ] as const satisfies readonly BlockKind[];
 
 export const isSurface = (block: BlockKind | undefined): boolean =>
@@ -351,7 +352,7 @@ export function checkPutOn(
   if (!isSurface(blocksOn(state, floor)[tileKey(x, y)])) {
     return refuse(
       "not_a_surface",
-      "Small things go on a table, a bookshelf, a barrel, a kitchen, a desk, a side table or a dresser. Place one there first.",
+      "Small things go on a table, a bookshelf, a barrel, a kitchen, a desk, a side table, a dresser or a coffee table. Place one there first.",
     );
   }
   const key = topKey(x, y, floor);

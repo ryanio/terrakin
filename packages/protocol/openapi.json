@@ -5438,6 +5438,16 @@
                 "desk",
                 "side_table",
                 "dresser",
+                "wardrobe",
+                "rocking_chair",
+                "piano",
+                "bathtub",
+                "fireplace",
+                "aquarium",
+                "coffee_table",
+                "coat_rack",
+                "floor_lamp",
+                "potted_tree",
                 "acorn",
                 "pinecone",
                 "mushroom",
@@ -15736,6 +15746,16 @@
                 "desk",
                 "side_table",
                 "dresser",
+                "wardrobe",
+                "rocking_chair",
+                "piano",
+                "bathtub",
+                "fireplace",
+                "aquarium",
+                "coffee_table",
+                "coat_rack",
+                "floor_lamp",
+                "potted_tree",
                 "candy",
                 "candy_cane",
                 "gelt",
@@ -30566,7 +30586,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },
@@ -30751,7 +30781,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },
@@ -30878,7 +30918,17 @@
               "pot",
               "desk",
               "side_table",
-              "dresser"
+              "dresser",
+              "wardrobe",
+              "rocking_chair",
+              "piano",
+              "bathtub",
+              "fireplace",
+              "aquarium",
+              "coffee_table",
+              "coat_rack",
+              "floor_lamp",
+              "potted_tree"
             ]
           },
           "windows": {
@@ -30939,7 +30989,17 @@
               "pot",
               "desk",
               "side_table",
-              "dresser"
+              "dresser",
+              "wardrobe",
+              "rocking_chair",
+              "piano",
+              "bathtub",
+              "fireplace",
+              "aquarium",
+              "coffee_table",
+              "coat_rack",
+              "floor_lamp",
+              "potted_tree"
             ]
           },
           "path": {
@@ -32565,7 +32625,17 @@
           "bed",
           "desk",
           "side_table",
-          "dresser"
+          "dresser",
+          "wardrobe",
+          "rocking_chair",
+          "piano",
+          "bathtub",
+          "fireplace",
+          "aquarium",
+          "coffee_table",
+          "coat_rack",
+          "floor_lamp",
+          "potted_tree"
         ]
       },
       "GameKind": {
@@ -33417,6 +33487,16 @@
           "desk",
           "side_table",
           "dresser",
+          "wardrobe",
+          "rocking_chair",
+          "piano",
+          "bathtub",
+          "fireplace",
+          "aquarium",
+          "coffee_table",
+          "coat_rack",
+          "floor_lamp",
+          "potted_tree",
           "acorn",
           "pinecone",
           "mushroom",
@@ -34383,7 +34463,17 @@
               "pot",
               "desk",
               "side_table",
-              "dresser"
+              "dresser",
+              "wardrobe",
+              "rocking_chair",
+              "piano",
+              "bathtub",
+              "fireplace",
+              "aquarium",
+              "coffee_table",
+              "coat_rack",
+              "floor_lamp",
+              "potted_tree"
             ]
           },
           "item": {
@@ -34475,7 +34565,17 @@
               "bed",
               "desk",
               "side_table",
-              "dresser"
+              "dresser",
+              "wardrobe",
+              "rocking_chair",
+              "piano",
+              "bathtub",
+              "fireplace",
+              "aquarium",
+              "coffee_table",
+              "coat_rack",
+              "floor_lamp",
+              "potted_tree"
             ]
           }
         },
@@ -34637,7 +34737,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "1": {
@@ -34697,7 +34807,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "2": {
@@ -34757,7 +34877,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "3": {
@@ -34817,7 +34947,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "4": {
@@ -34877,7 +35017,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "5": {
@@ -34937,7 +35087,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "6": {
@@ -34997,7 +35157,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "7": {
@@ -35057,7 +35227,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "8": {
@@ -35117,7 +35297,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "9": {
@@ -35177,7 +35367,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               }
             },
@@ -35285,7 +35485,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "1": {
@@ -35345,7 +35555,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "2": {
@@ -35405,7 +35625,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "3": {
@@ -35465,7 +35695,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "4": {
@@ -35525,7 +35765,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "5": {
@@ -35585,7 +35835,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "6": {
@@ -35645,7 +35905,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "7": {
@@ -35705,7 +35975,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "8": {
@@ -35765,7 +36045,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "9": {
@@ -35825,7 +36115,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               }
             },
@@ -35944,7 +36244,17 @@
                         "pot",
                         "desk",
                         "side_table",
-                        "dresser"
+                        "dresser",
+                        "wardrobe",
+                        "rocking_chair",
+                        "piano",
+                        "bathtub",
+                        "fireplace",
+                        "aquarium",
+                        "coffee_table",
+                        "coat_rack",
+                        "floor_lamp",
+                        "potted_tree"
                       ]
                     }
                   },
@@ -36534,7 +36844,17 @@
           "recipe:teapot",
           "recipe:desk",
           "recipe:side_table",
-          "recipe:dresser"
+          "recipe:dresser",
+          "recipe:wardrobe",
+          "recipe:rocking_chair",
+          "recipe:piano",
+          "recipe:bathtub",
+          "recipe:fireplace",
+          "recipe:aquarium",
+          "recipe:coffee_table",
+          "recipe:coat_rack",
+          "recipe:floor_lamp",
+          "recipe:potted_tree"
         ]
       },
       "RecipeKind": {
@@ -36594,6 +36914,16 @@
           "desk",
           "side_table",
           "dresser",
+          "wardrobe",
+          "rocking_chair",
+          "piano",
+          "bathtub",
+          "fireplace",
+          "aquarium",
+          "coffee_table",
+          "coat_rack",
+          "floor_lamp",
+          "potted_tree",
           "candy",
           "candy_cane",
           "gelt",
@@ -36654,7 +36984,17 @@
           "pot_of_tea",
           "desk",
           "side_table",
-          "dresser"
+          "dresser",
+          "wardrobe",
+          "rocking_chair",
+          "piano",
+          "bathtub",
+          "fireplace",
+          "aquarium",
+          "coffee_table",
+          "coat_rack",
+          "floor_lamp",
+          "potted_tree"
         ]
       },
       "ReleaseAction": {
@@ -37239,7 +37579,8 @@
           "bench",
           "armchair",
           "sofa",
-          "bed"
+          "bed",
+          "rocking_chair"
         ]
       },
       "SellToTownAction": {
@@ -38060,6 +38401,16 @@
           "desk",
           "side_table",
           "dresser",
+          "wardrobe",
+          "rocking_chair",
+          "piano",
+          "bathtub",
+          "fireplace",
+          "aquarium",
+          "coffee_table",
+          "coat_rack",
+          "floor_lamp",
+          "potted_tree",
           "acorn",
           "pinecone",
           "mushroom",
@@ -39683,7 +40034,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "by": {
@@ -40617,7 +40978,17 @@
                   "pot",
                   "desk",
                   "side_table",
-                  "dresser"
+                  "dresser",
+                  "wardrobe",
+                  "rocking_chair",
+                  "piano",
+                  "bathtub",
+                  "fireplace",
+                  "aquarium",
+                  "coffee_table",
+                  "coat_rack",
+                  "floor_lamp",
+                  "potted_tree"
                 ]
               },
               "by": {
@@ -44626,7 +44997,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },
@@ -44754,7 +45135,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },
@@ -56570,7 +56961,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },
@@ -56633,7 +57034,17 @@
                     "pot",
                     "desk",
                     "side_table",
-                    "dresser"
+                    "dresser",
+                    "wardrobe",
+                    "rocking_chair",
+                    "piano",
+                    "bathtub",
+                    "fireplace",
+                    "aquarium",
+                    "coffee_table",
+                    "coat_rack",
+                    "floor_lamp",
+                    "potted_tree"
                   ]
                 }
               },

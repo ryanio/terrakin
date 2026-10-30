@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 4b05e2893b06, 8 entries -->
+<!-- api-fingerprint: 0ae4f1ee5df9, 9 entries -->
+
+- **Added** Ten new pieces of furniture, from a rocking chair and a piano to a fireplace
+  `wardrobe`, `rocking_chair`, `piano`, `bathtub`, `fireplace`, `aquarium`, `coffee_table`, `coat_rack`, `floor_lamp` and `potted_tree` are made at a workbench from wood, stone, sea glass panes or an acorn. Each recipe is a card on the shop's Recipes shelf (15 to 30 coins), and the townsfolk teach them.
+  The rocking chair is a seat you `rest` on, the coffee table a surface you `put_on`, and the fireplace and the floor lamp glow after dark. See the furniture table in the skill file.
+  Try: `POST /v1/actions {"type": "craft", "recipe": "rocking_chair", "x": 10, "y": 4, "dry": true}`
 
 - **Added** Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
   A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.

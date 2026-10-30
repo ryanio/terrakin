@@ -451,7 +451,7 @@ describe("renderer", () => {
     expect(roofed({ kind: "vane", x: 99, y: 2 })).not.toContain("M99");
   });
 
-  it("draws paths and flooring from their marks, and keeps them on the tile and in the palette", () => {
+  it("draws paths, flooring, and walls from their marks, kept on the tile and in the palette", () => {
     const hostile = '"/><script>x</script>';
     const base = samplePlot("Wren");
     const paved = (paving: PlotGround["paving"]) =>
@@ -470,6 +470,30 @@ describe("renderer", () => {
     expect(svg.match(/<ellipse/g)).toHaveLength(1);
     // A paved tile grows no tufts or flowers.
     expect(svg).not.toContain('stroke-width="0.045" stroke-linecap="round" fill="none"/>');
+    // A wall's surface is the same marks, scaled to its face, checked the same way, and capped.
+    const seam = { shape: "line", x1: 0, y1: 0.5, x2: 1, y2: 0.5, width: 0.04 } as const;
+    const walled = plotSvg(
+      {
+        ...base,
+        blocks: [
+          {
+            x: 2,
+            y: 2,
+            glass: false,
+            fill: "#b4593f",
+            marks: [
+              { ...seam, stroke: hostile },
+              { shape: "circle", cx: Number.NaN, cy: 0.5, r: 99, fill: "#ffffff" },
+              ...Array.from({ length: 40 }, () => ({ ...seam, stroke: "#123456" })),
+            ],
+          },
+        ],
+      },
+      420,
+    );
+    expect(walled).not.toMatch(/<script|NaN|r="99"/);
+    expect(walled).toContain('<path d="M2.05 2.5L2.95 2.5"');
+    expect(walled.match(/stroke="#123456"/g)?.length).toBeLessThan(40);
   });
 
   it("draws flooring upstairs over the ground floor's tiles, its shadow falling further than a block's (RFC 0028)", () => {

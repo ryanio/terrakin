@@ -122,6 +122,11 @@ export interface PlotBlock {
   water?: boolean | undefined;
   /** A lily pad floats on this tile of pond, as on the map. */
   lily?: boolean | undefined;
+  /**
+   * A wall's surface (bricks, beams, boards, panes) as the sim's `WALL_LOOK` gives it, in units of
+   * the block's face, drawn over `fill` as the map draws it.
+   */
+  marks?: readonly PlotMark[] | undefined;
 }
 
 /** Flooring laid on a floor above the ground floor (RFC 0028): its tile and its look. */
@@ -386,6 +391,8 @@ const FLOOR_SHADOW = 0.22;
 const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
 /** How dim what's under a floor plan shows where it has no flooring, as on the map. */
 const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
+/** Most surface marks one wall draws. */
+const MAX_WALL_MARKS = 16;
 /** Most roofs an area draws, so a wide picture of the town stays cheap. */
 const MAX_ROOFS = 12;
 /** A roof (RFC 0041): how far its shadow falls, the light on its ridge, and its eaves' ink. */
@@ -570,8 +577,8 @@ function surroundWash(a: PlotArea, cols: number, rows: number): string[] {
 }
 
 /**
- * Blocks standing on one floor: a ground shadow, the block, a bottom shade, and a top highlight,
- * as in the world, with decor and furniture as themselves. Fences and low walls join their
+ * Blocks standing on one floor: a ground shadow, the block and its surface's marks, a bottom shade,
+ * and a top highlight, as in the world, with decor and furniture as themselves. Fences and low walls join their
  * neighbors on the same floor. Ponds are drawn flat with the ground, so they're left out here.
  */
 function blocksSvg(
@@ -618,14 +625,13 @@ function blocksSvg(
     parts.push(
       `<rect x="${n(left + 0.03)}" y="${n(top + lip * 0.6)}" width="${size}" height="${size}" rx="${r}" fill="rgba(74, 52, 28, 0.2)"/>`,
       `<rect x="${n(left)}" y="${n(top)}" width="${size}" height="${size}" rx="${r}" fill="${safeColor(b.fill)}"/>`,
+    );
+    for (const m of (b.marks ?? []).slice(0, MAX_WALL_MARKS))
+      parts.push(...markSvg(m, left, top, size));
+    parts.push(
       `<path d="M${n(left)} ${n(top + size - lip)}h${size}v${n(lip - r)}a${r} ${r} 0 0 1 -${r} ${r}h-${n(size - 2 * r)}a${r} ${r} 0 0 1 -${r} -${r}z" fill="rgba(70, 40, 18, 0.22)"/>`,
       `<rect x="${n(left + r * 0.5)}" y="${n(top + 0.05)}" width="${n(size - r)}" height="0.09" rx="0.04" fill="${b.glass ? "rgba(255, 255, 255, 0.6)" : "rgba(255, 250, 235, 0.32)"}"/>`,
     );
-    if (b.glass) {
-      parts.push(
-        `<path d="M${n(left + size * 0.3)} ${n(top + size * 0.68)}L${n(left + size * 0.62)} ${n(top + size * 0.36)}" stroke="rgba(255, 255, 255, 0.75)" stroke-width="0.045" stroke-linecap="round"/>`,
-      );
-    }
   }
   return parts;
 }
@@ -1470,32 +1476,43 @@ function pavingSvg(p: PlotPaving, x: number, y: number): string[] {
   if (p.fill) {
     out.push(`<rect x="${x}" y="${y}" width="1.02" height="1.02" fill="${safeColor(p.fill)}"/>`);
   }
-  for (const m of p.marks) {
-    if (m.shape === "rect") {
-      out.push(
-        `<rect x="${n(x + unit(m.x))}" y="${n(y + unit(m.y))}" width="${unit(m.w)}" height="${unit(m.h)}" rx="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "circle") {
-      out.push(
-        `<circle cx="${n(x + unit(m.cx))}" cy="${n(y + unit(m.cy))}" r="${unit(m.r)}" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "ellipse") {
-      // A leaf: a turned oval, as a path, so the hearth's shadow stays the photo's only ellipse.
-      const cx = n(x + unit(m.cx));
-      const cy = n(y + unit(m.cy));
-      const rx = unit(m.rx);
-      const ry = unit(m.ry);
-      const turn = Number.isFinite(m.turn) ? Math.round(m.turn) % 360 : 0;
-      out.push(
-        `<path d="M${n(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${n(rx * 2)} 0a${rx} ${ry} 0 1 0 -${n(rx * 2)} 0z" transform="rotate(${turn} ${cx} ${cy})" fill="${safeColor(m.fill)}"/>`,
-      );
-    } else if (m.shape === "line") {
-      out.push(
-        `<path d="M${n(x + unit(m.x1))} ${n(y + unit(m.y1))}L${n(x + unit(m.x2))} ${n(y + unit(m.y2))}" stroke="${safeColor(m.stroke)}" stroke-width="${unit(m.width)}" stroke-linecap="round" fill="none"/>`,
-      );
-    }
-  }
+  for (const m of p.marks) out.push(...markSvg(m, x, y, 1));
   return out;
+}
+
+/**
+ * One of the sim's marks (a path's or a wall's), its tile-unit box `k` across with its top left at
+ * (x, y): numbers kept to the tile and checked colors only.
+ */
+function markSvg(m: PlotMark, x: number, y: number, k: number): string[] {
+  const at = (v: number) => n(k * unit(v));
+  if (m.shape === "rect") {
+    return [
+      `<rect x="${n(x + k * unit(m.x))}" y="${n(y + k * unit(m.y))}" width="${at(m.w)}" height="${at(m.h)}" rx="${at(m.r)}" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "circle") {
+    return [
+      `<circle cx="${n(x + k * unit(m.cx))}" cy="${n(y + k * unit(m.cy))}" r="${at(m.r)}" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "ellipse") {
+    // A turned oval, as a path, so the hearth's shadow stays the photo's only ellipse.
+    const cx = n(x + k * unit(m.cx));
+    const cy = n(y + k * unit(m.cy));
+    const rx = at(m.rx);
+    const ry = at(m.ry);
+    const turn = Number.isFinite(m.turn) ? Math.round(m.turn) % 360 : 0;
+    return [
+      `<path d="M${n(cx - rx)} ${cy}a${rx} ${ry} 0 1 0 ${n(rx * 2)} 0a${rx} ${ry} 0 1 0 -${n(rx * 2)} 0z" transform="rotate(${turn} ${cx} ${cy})" fill="${safeColor(m.fill)}"/>`,
+    ];
+  }
+  if (m.shape === "line") {
+    return [
+      `<path d="M${n(x + k * unit(m.x1))} ${n(y + k * unit(m.y1))}L${n(x + k * unit(m.x2))} ${n(y + k * unit(m.y2))}" stroke="${safeColor(m.stroke)}" stroke-width="${at(m.width)}" stroke-linecap="round" fill="none"/>`,
+    ];
+  }
+  return [];
 }
 
 const STONE_LO = "#8f887c";

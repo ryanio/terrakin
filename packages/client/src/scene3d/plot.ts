@@ -48,6 +48,7 @@ import {
   tileHash,
   underFootprint,
 } from "./layout";
+import { wallTextures } from "./materials";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometry, petMaterial } from "./pets";
 import { roofMesh } from "./roofs";
@@ -87,6 +88,7 @@ export function buildPlot(
   };
   // Kept as the cut moves: freed with the stage, never with the floors shown.
   const spare = new Set<Texture>([grain, surfaces.plank, surfaces.stone, surfaces.pool]);
+  const walls = { ...surfaces, wall: wallTextures(stage, spare) };
   let atlas: Texture | undefined;
   const atlasOnce = () => {
     if (!atlas) {
@@ -141,7 +143,7 @@ export function buildPlot(
     const group = new Group();
     const shown = cutAway(blocks, top);
     const flooring = cutAway(laid, top);
-    addAll(group, blockMeshes(scope, origin, shown, grain, surfaces));
+    addAll(group, blockMeshes(scope, origin, shown, grain, walls));
     if (flooring.length > 0) {
       const paved = groundTiles(origin, flooring, atlasOnce());
       if (paved) group.add(paved);

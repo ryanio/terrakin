@@ -5,6 +5,8 @@ import {
   FURNITURE_KINDS,
   holdsRoof,
   POND_LOOK,
+  WALL_LOOK,
+  type WallKind,
 } from "@terrakin/sim";
 import {
   AdditiveBlending,
@@ -35,15 +37,20 @@ import {
   plankTexture,
   type Stage,
   spotTexture,
-  stoneTexture,
   unindexed,
 } from "./art";
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
 import { FLOOR_HEIGHT, floorY, type LayoutBlock, paneTurn, stairsTurn, tileHash } from "./layout";
+import { materialTexture } from "./materials";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";
+
+/** The walls that stand as solid blocks wearing their surface: every wall kind but the see-through and the hedge. */
+const SOLID_WALLS = (Object.keys(WALL_LOOK) as WallKind[]).filter(
+  (k) => blockLook(k).form === "voxel" && blockLook(k).opacity === 1,
+);
 
 // ---------- blocks ----------
 
@@ -52,14 +59,14 @@ import { LAID_DEPTH_OFFSET } from "./paths";
  * to `origin` (the tile that sits at the scene's middle), with their pools of light after dark.
  * A block upstairs (RFC 0028) is one more instance of its kind, lifted by its floor's height, so
  * a loft adds no draws for kinds the ground floor already has. Shared by the plot and the world,
- * which passes one plank, stone, and pool texture for all its plots.
+ * which passes one plank, stone, and pool texture for all its plots, and its walls' textures.
  */
 export function blockMeshes(
   stage: Stage,
   origin: { x: number; y: number },
   blocks: readonly LayoutBlock[],
   grain: Texture,
-  shared?: { plank: Texture; stone: Texture; pool?: Texture },
+  shared?: { plank: Texture; stone: Texture; pool?: Texture; wall?: (kind: WallKind) => Texture },
 ): Object3D[] {
   const out: Object3D[] = [];
   const toX = (x: number) => x - origin.x;
@@ -82,24 +89,65 @@ export function blockMeshes(
     return mix(shade(base, jitter), fogColor, b.own ? 0 : 0.25 + b.fade * 0.6);
   };
 
-  for (const kind of ["wood", "stone"] as const) {
+  // Walls in wood, stone, and the made materials (RFC 0041), each wearing its own surface
+  // (`materialTexture`), one draw per kind. The free two stand a little wider than the made ones.
+  const wallTexture = (kind: WallKind) => shared?.wall?.(kind) ?? stage.keep(materialTexture(kind));
+  const wallGeometry = (kind: WallKind) => {
+    const look = blockLook(kind);
+    const wide = kind === "wood" || kind === "stone" ? 0.96 : 0.9;
+    const geo = bakeShade(
+      new RoundedBoxGeometry(wide, look.height, wide, 2, wide === 0.96 ? 0.09 : 0.08),
+      0.62,
+      1,
+    );
+    geo.translate(0, look.height / 2, 0);
+    return geo;
+  };
+  for (const kind of SOLID_WALLS) {
     const list = blocks.filter((b) => b.block === kind);
     if (list.length === 0) continue;
-    const tex =
-      shared?.[kind === "wood" ? "plank" : "stone"] ??
-      stage.keep(kind === "wood" ? plankTexture() : stoneTexture());
-    const look = blockLook(kind);
-    const geo = bakeShade(new RoundedBoxGeometry(0.96, look.height, 0.96, 2, 0.09), 0.62, 1);
-    geo.translate(0, look.height / 2, 0);
-    const mesh = new InstancedMesh(geo, paper(0xffffff, tex), list.length);
+    const mesh = new InstancedMesh(
+      wallGeometry(kind),
+      paper(0xffffff, wallTexture(kind)),
+      list.length,
+    );
     list.forEach((b, i) => {
       m.compose(spot(b), q, one);
       mesh.setMatrixAt(i, m);
-      mesh.setColorAt(i, lin(colorFor(look.color, b)));
+      mesh.setColorAt(i, lin(colorFor(0xffffff, b)));
     });
     mesh.castShadow = true;
     mesh.receiveShadow = true;
     out.push(mesh);
+  }
+
+  // Sea glass: leaded panes you see a little through, lit warm from inside after dark in a home
+  // someone's in, as glass is (decision 0098). One draw for each.
+  const seaGlass = blocks.filter((b) => b.block === "sea_glass_pane");
+  if (seaGlass.length > 0) {
+    const look = blockLook("sea_glass_pane");
+    const geo = wallGeometry("sea_glass_pane");
+    const tex = wallTexture("sea_glass_pane");
+    for (const lit of [false, true]) {
+      const list = seaGlass.filter((b) => Boolean(b.lit) === lit);
+      if (list.length === 0) continue;
+      const material = paper(0xffffff, tex, {
+        transparent: true,
+        opacity: look.opacity,
+        depthWrite: false,
+        ...(lit ? { emissive: WINDOW_LIGHT, emissiveMap: tex } : {}),
+      });
+      if (lit)
+        stage.glow({ kind: "window", material, strength: 1.1, opacity: [look.opacity, 0.92] });
+      const mesh = new InstancedMesh(geo, material, list.length);
+      list.forEach((b, i) => {
+        m.compose(spot(b), q, one);
+        mesh.setMatrixAt(i, m);
+        mesh.setColorAt(i, lin(colorFor(0xffffff, b)));
+      });
+      mesh.renderOrder = 2;
+      out.push(mesh);
+    }
   }
 
   // Stairs (RFC 0028): plank treads up to the floor above, one draw for every flight.
@@ -125,7 +173,7 @@ export function blockMeshes(
   // Planters, kitchens, workbenches, pedestals, and any other plain block: paper voxels in their
   // own color and height.
   const plain = BLOCK_KINDS.filter(
-    (k) => blockLook(k).form === "voxel" && k !== "wood" && k !== "stone" && k !== "glass",
+    (k) => blockLook(k).form === "voxel" && !Object.hasOwn(WALL_LOOK, k) && k !== "glass",
   );
   for (const kind of plain) {
     const list = blocks.filter((b) => b.block === kind);

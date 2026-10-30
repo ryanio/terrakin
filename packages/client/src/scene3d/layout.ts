@@ -41,7 +41,7 @@ import { hidesHair } from "@terrakin/ui/looks";
 import { dayPhase, nightAmount } from "../time";
 import { skyNow } from "../weather";
 import { eveningHoliday } from "./daylight";
-import { blockLook } from "./palette";
+import { blockLook, isWindow } from "./palette";
 
 /** Inclusive tile range. */
 export interface Bounds {
@@ -617,7 +617,7 @@ export function plotLayout(
       block: b.block,
       own: d === 0,
       fade: d / (margin + 1),
-      ...((home && b.block === "glass") || (b.block === "kiln" && firing.has(tileKey(b.x, b.y)))
+      ...((home && isWindow(b.block)) || (b.block === "kiln" && firing.has(tileKey(b.x, b.y)))
         ? { lit: true as const }
         : {}),
       ...(b.floor ? { floor: b.floor } : {}),

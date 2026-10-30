@@ -18,6 +18,7 @@ import {
   THEME_TINT_ALPHA,
   tileKey,
   tuftStroke,
+  WALL_LOOK,
   type WorldConfig,
 } from "@terrakin/sim";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
@@ -397,7 +398,8 @@ describe("plot photo data", () => {
         { x: 2, y: 3, paving: moss },
         { x: 3, y: 3, paving: moss },
       ],
-      blocks: [{ x: 1, y: 1, glass: true, fill: blockFill("glass") }],
+      // A window upstairs carries its panes and glints, as the map draws them.
+      blocks: [{ x: 1, y: 1, glass: true, fill: blockFill("glass"), marks: WALL_LOOK.glass }],
     };
     const above = plotPhotoSpec(service.state, "r_ada", AT_NOON);
     if (!above) throw new Error("no spec");

@@ -704,6 +704,7 @@ export {
   walkWords,
   worldGround,
 } from "./walk";
+export * from "./wall-look";
 export { isWay, WAYS, wayProblem } from "./ways";
 export {
   clockHour,

@@ -667,9 +667,18 @@ export interface RoomThing {
 const roomLook = (t: RoomThing): ThingLook | undefined =>
   t.good ?? (t.find ? { kind: t.find } : t.thing ? { kind: t.thing } : undefined);
 
-/** Whether a room thing gives light after dark: a candle, a table lamp, a sconce. */
+/** The room things that give light after dark. */
+const GLOWING: ReadonlySet<string> = new Set([
+  "candle",
+  "table_lamp",
+  "sconce",
+  "candlesticks",
+  "lava_lamp",
+]);
+
+/** Whether a room thing gives light after dark: a candle, a lamp, a sconce, a pair of candlesticks. */
 export const roomThingGlows = (t: RoomThing): boolean =>
-  t.thing === "candle" || t.thing === "table_lamp" || t.thing === "sconce";
+  t.thing !== undefined && GLOWING.has(t.thing);
 
 /**
  * A small thing on a surface: a little over half a tile, standing on the surface's top, so it

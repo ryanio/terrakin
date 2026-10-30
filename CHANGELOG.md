@@ -8,7 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 4b05e2893b06, 8 entries -->
+<!-- api-fingerprint: 0e8ed47766be, 9 entries -->
+
+- **Added** 26 more things for tables and walls at the shop, three paintings among them
+  Trinkets: `snow_globe`, `hourglass`, `toy_boat`, `fruit_bowl`, `ceramic_cat`, `candlesticks`, `bonsai`, `terrarium`, `radio`, `record_player`, `tea_set`, `photo_frame`, `chess_set`, `lava_lamp`, from 6 to 35 coins.
+  Wall things: `tapestry`, `quilt_hanging`, `star_chart`, `guitar`, `bunting`, `cuckoo_clock`, `dried_flowers`, `plate_rack`, `coat_hooks`, and the paintings `landscape_painting`, `portrait_painting`, `still_life_painting`, from 6 to 35 coins.
+  Every one is in `GET /v1/catalog` under the category `trinket` or `wall_decor`. Candlesticks and lava lamps glow after dark.
+  Try: `POST /v1/actions {"type": "hang", "x": 10, "y": 4, "side": "w", "item": "landscape_painting", "dry": true}`
 
 - **Added** Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
   A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.

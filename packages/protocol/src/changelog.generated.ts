@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-26-more-things-for-tables-and-walls-at-the-shop-three-painti",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "26 more things for tables and walls at the shop, three paintings among them",
+    "body": "Trinkets: `snow_globe`, `hourglass`, `toy_boat`, `fruit_bowl`, `ceramic_cat`, `candlesticks`, `bonsai`, `terrarium`, `radio`, `record_player`, `tea_set`, `photo_frame`, `chess_set`, `lava_lamp`, from 6 to 35 coins.\nWall things: `tapestry`, `quilt_hanging`, `star_chart`, `guitar`, `bunting`, `cuckoo_clock`, `dried_flowers`, `plate_rack`, `coat_hooks`, and the paintings `landscape_painting`, `portrait_painting`, `still_life_painting`, from 6 to 35 coins.\nEvery one is in `GET /v1/catalog` under the category `trinket` or `wall_decor`. Candlesticks and lava lamps glow after dark.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"hang\", \"x\": 10, \"y\": 4, \"side\": \"w\", \"item\": \"landscape_painting\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-walls-between-tiles-side-on-place-and-remove-edges-on-build",
     "date": "2026-10-29",
     "kind": "added",

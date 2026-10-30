@@ -1,6 +1,7 @@
 import { TRINKET_KINDS, type TrinketKind, WALL_DECOR_KINDS, type WallDecorKind } from "./catalog";
 import { refuse } from "./check";
 import { closed, fitsOne, holdAside, isShownFind, isShownGood, isShownThing } from "./display";
+import { edgeAt } from "./edges";
 import { blocksOn, groundOn, HOLDING_BLOCKS } from "./floors";
 import {
   addStack,
@@ -186,17 +187,54 @@ export function releaseHungOn(
   floor: number,
   actor: ResidentId,
 ): WorldEvent[] {
+  const faces = SIDES.map((side) => {
+    const [dx, dy] = SIDE_STEP[side];
+    return { x: x - dx, y: y - dy, side };
+  });
+  return releaseFaces(state, faces, floor, actor);
+}
+
+/**
+ * What a wall between tiles coming down takes with it (RFC 0050): the thing hung on each of its
+ * two faces, seen from the tiles on either side of its line, as `releaseHungOn` does for a block.
+ */
+export function releaseHungOnEdge(
+  state: WorldState,
+  x: number,
+  y: number,
+  side: "n" | "w",
+  floor: number,
+  actor: ResidentId,
+): WorldEvent[] {
+  const faces: { x: number; y: number; side: Side }[] =
+    side === "n"
+      ? [
+          { x, y: y - 1, side: "s" },
+          { x, y, side: "n" },
+        ]
+      : [
+          { x: x - 1, y, side: "e" },
+          { x, y, side: "w" },
+        ];
+  return releaseFaces(state, faces, floor, actor);
+}
+
+/** Each face's hung thing back to whoever hung it, held aside when they're full. */
+function releaseFaces(
+  state: WorldState,
+  faces: readonly { x: number; y: number; side: Side }[],
+  floor: number,
+  actor: ResidentId,
+): WorldEvent[] {
   const items = state.items;
   if (!items?.hung) return [];
   const events: WorldEvent[] = [];
-  for (const side of SIDES) {
-    const [dx, dy] = SIDE_STEP[side];
-    const from = { x: x - dx, y: y - dy };
-    const key = faceKey(from.x, from.y, side, floor);
+  for (const { x, y, side } of faces) {
+    const key = faceKey(x, y, side, floor);
     const shown = items.hung[key];
     if (!shown) continue;
     delete items.hung[key];
-    events.push({ type: "unhung", ...from, side, ...floorField(floor), by: actor });
+    events.push({ type: "unhung", x, y, side, ...floorField(floor), by: actor });
     events.push(...giveBack(state, items, shown));
   }
   if (Object.keys(items.hung).length === 0) delete items.hung;
@@ -383,6 +421,10 @@ function faceProblem(
   if (floor > 0 && groundOn(state, floor)[key] === undefined) {
     return refuse("no_floor", "There's no flooring to stand on there.");
   }
+  // A wall between tiles on that side (RFC 0050) holds a thing as a wall block beside it does. The
+  // where-check already put the tile on a plot `actor` builds on, and an edge stands only between
+  // two such tiles.
+  if (isHangingWall(edgeAt(state, x, y, side, floor))) return null;
   const [dx, dy] = SIDE_STEP[side];
   const wx = x + dx;
   const wy = y + dy;

@@ -1,4 +1,5 @@
 import { refuse } from "./check";
+import { edgeAt, edgeBlocks, hasEdges } from "./edges";
 import { tileKey } from "./keys";
 import { seaFrom } from "./lands";
 import type {
@@ -6,6 +7,7 @@ import type {
   Rejection,
   Resident,
   ResidentId,
+  Side,
   Tile,
   WorldConfig,
   WorldEvent,
@@ -48,13 +50,18 @@ export function directionOf(dx: number, dy: number): Direction | undefined {
 }
 
 /** What stops a walker on a tile. `no_flooring` is a tile upstairs with nothing to stand on (RFC 0028). */
-export type Obstacle = "block" | "town_hall" | "shop" | "no_flooring" | "sea";
+export type Obstacle = "block" | "town_hall" | "shop" | "no_flooring" | "sea" | "wall";
 
 /** What a walk needs to know: the world's size, and what stands where. */
 export interface Ground {
   readonly config: WorldConfig;
   /** What stops a walker on a tile, or undefined if they can stand there. */
   obstacle(x: number, y: number): Obstacle | undefined;
+  /**
+   * Whether a wall on the line on `side` of (x, y) stops a walker crossing it (RFC 0050). Absent
+   * in a world with no walls between tiles, so it walks exactly as it always did.
+   */
+  edge?(x: number, y: number, side: Side): boolean;
 }
 
 /**
@@ -79,6 +86,8 @@ export function groundOf(facts: {
    * a land, where there is none, so such a world walks exactly as it always did.
    */
   sea?: (x: number, y: number) => boolean;
+  /** A wall between tiles stops a walker crossing its line (RFC 0050). Left out with none. */
+  edge?: (x: number, y: number, side: Side) => boolean;
 }): Ground {
   const { config, hasBlock } = facts;
   const buildings = new Map<string, Obstacle>();
@@ -93,7 +102,20 @@ export function groundOf(facts: {
       if (facts.sea?.(x, y)) return "sea";
       return buildings.size > 0 ? buildings.get(tileKey(x, y)) : undefined;
     },
+    ...(facts.edge ? { edge: facts.edge } : {}),
   };
+}
+
+/**
+ * The world's walls between tiles on one floor as a ground's `edge` (RFC 0050), or nothing in a
+ * world that has none, so its ground is built exactly as it always was.
+ */
+export function withEdges(
+  state: WorldState,
+  floor: number,
+): { edge?: (x: number, y: number, side: Side) => boolean } {
+  if (!hasEdges(state)) return {};
+  return { edge: (x, y, side) => edgeBlocks(edgeAt(state, x, y, side, floor)) };
 }
 
 /**
@@ -114,6 +136,7 @@ export function worldGround(state: WorldState): Ground {
     townHall: townHallTiles(state),
     shop: state.shop ? shopTiles(state) : [],
     ...withSea(state),
+    ...withEdges(state, 0),
   });
 }
 
@@ -123,6 +146,7 @@ const IN_THE_WAY: Record<Obstacle, string> = {
   shop: "The shop is in the way.",
   no_flooring: "There's no flooring there.",
   sea: "That's open water. Cross by the bridge.",
+  wall: "A wall is in the way. Go round by a door.",
 };
 
 const CORNER: Record<Obstacle, string> = {
@@ -131,6 +155,7 @@ const CORNER: Record<Obstacle, string> = {
   shop: "The shop's corner is in the way. Step around it.",
   no_flooring: "The flooring's corner is in the way. Step around it.",
   sea: "Open water is at the corner. Step around it.",
+  wall: "A wall's corner is in the way. Step around it.",
 };
 
 /** Where a step lands, or why it can't be taken (what's in the way, and the tile it's on). */
@@ -171,7 +196,37 @@ export function stepFrom(ground: Ground, from: Tile, dir: Direction): Step {
       }
     }
   }
+  const wall = ground.edge ? wallCrossed(ground.edge, from, dx, dy) : false;
+  if (wall) {
+    const message = dx !== 0 && dy !== 0 ? CORNER.wall : IN_THE_WAY.wall;
+    return { ok: false, code: "blocked", message, obstacle: "wall", at: to };
+  }
   return { ok: true, to };
+}
+
+/** The side of a tile a step of (dx, dy) leaves by, across x and across y. */
+const ACROSS_X = (dx: number): Side => (dx > 0 ? "e" : "w");
+const ACROSS_Y = (dy: number): Side => (dy > 0 ? "s" : "n");
+
+/**
+ * Whether a step of (dx, dy) from `from` crosses a wall between tiles (RFC 0050). A straight step
+ * crosses one line. A diagonal is let through only when both straight two-step routes it cuts past
+ * are clear, the same rule as a block's corner, so nobody slips between two walls meeting there.
+ */
+function wallCrossed(
+  edge: (x: number, y: number, side: Side) => boolean,
+  from: Tile,
+  dx: number,
+  dy: number,
+): boolean {
+  if (dy === 0) return edge(from.x, from.y, ACROSS_X(dx));
+  if (dx === 0) return edge(from.x, from.y, ACROSS_Y(dy));
+  return (
+    edge(from.x, from.y, ACROSS_X(dx)) ||
+    edge(from.x + dx, from.y, ACROSS_Y(dy)) ||
+    edge(from.x, from.y, ACROSS_Y(dy)) ||
+    edge(from.x, from.y + dy, ACROSS_X(dx))
+  );
 }
 
 /** What a step with a direction the sim doesn't know is told. */

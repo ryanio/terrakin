@@ -26,6 +26,7 @@ import {
 import { blockMeshes, POOL_LIGHT } from "./blocks";
 import { cropPlants } from "./crops";
 import { createPictures, displayedThings } from "./displays";
+import { edgeMeshes } from "./edges";
 import { fadeFigure, figure, setUmbrella, sizeSign } from "./figure";
 import { border, ground } from "./ground";
 import { hearth, liftSmoke } from "./hearth";
@@ -144,6 +145,16 @@ export function buildPlot(
     const shown = cutAway(blocks, top);
     const flooring = cutAway(laid, top);
     addAll(group, blockMeshes(scope, origin, shown, grain, walls));
+    // Walls between tiles (RFC 0050), cut away by floor as the blocks are.
+    addAll(
+      group,
+      edgeMeshes(
+        scope,
+        origin,
+        layout.edges.filter((e) => (e.floor ?? 0) <= top),
+        walls,
+      ),
+    );
     if (flooring.length > 0) {
       const paved = groundTiles(origin, flooring, atlasOnce());
       if (paved) group.add(paved);

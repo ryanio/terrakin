@@ -9,9 +9,11 @@ import {
   type Direction,
   type DrawnGround,
   type FindKind,
+  FLOORS,
   type GroundKind,
   groundTile,
   type PickupKind,
+  parseEdgeKey,
   type Resident,
   type RoofShape,
   type Scenery,
@@ -29,6 +31,7 @@ import {
   type GroundLeaf,
   type LayoutCrop,
   type LayoutDisplay,
+  type LayoutEdge,
   plotBounds,
   potsOn,
   type RoomShown,
@@ -138,6 +141,8 @@ export interface PlotChunk {
   highest: number;
   /** Its roof (RFC 0041), drawn over the walls, or none while the plot is the one cut away. */
   roof?: RoofShape;
+  /** Walls between tiles on every floor shown (RFC 0050), each on a tile's `n` or `w` line. */
+  edges: LayoutEdge[];
   hearths: Tile[];
   /** What's on display on its pedestals and frames, and what grows in its planters. */
   displays: LayoutDisplay[];
@@ -200,6 +205,8 @@ export interface ChunkSource {
   roofAt?(px: number, py: number): RoofShape | undefined;
   /** Whether a tile is open water between lands (RFC 0038). Absent reads as none, as it is today. */
   isSea?(x: number, y: number): boolean;
+  /** Walls between tiles on a floor (RFC 0050), by the sim's `edgeKey`. Absent reads as none. */
+  edgesOn?(floor: number): ReadonlyMap<string, BlockKind>;
 }
 
 /** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
@@ -334,6 +341,8 @@ export function readChunk(
   // The roof lifts away on the plot you stand on, which is the one with a cut (RFC 0041).
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
+  const edges = edgesShown(source, bounds, cut);
+  for (const e of edges) parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
   return {
     px,
     py,
@@ -344,6 +353,7 @@ export function readChunk(
     ground,
     highest: up.highest,
     ...(roof ? { roof } : {}),
+    edges,
     hearths: homes,
     displays,
     crops,
@@ -439,7 +449,29 @@ export function chunkSignature(
   for (const p of pilesOn(source, bounds)) parts.push(`gift:${p.key}:${p.count}:${p.tree}`);
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
+  for (const e of edgesShown(source, bounds, cut)) {
+    parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
+  }
   return parts.join("|");
+}
+
+/**
+ * The walls between tiles a plot draws (RFC 0050): each line owned by one of its tiles, on the
+ * ground floor and every floor shown, so the floors above the cut on the plot you stand on stay
+ * away as their blocks do.
+ */
+function edgesShown(source: ChunkSource, bounds: Bounds, cut: number | undefined): LayoutEdge[] {
+  if (!source.edgesOn) return [];
+  const out: LayoutEdge[] = [];
+  for (let floor = 0; floor <= FLOORS.max; floor++) {
+    if (cut !== undefined && floor > cut) break;
+    for (const [key, block] of source.edgesOn(floor)) {
+      const { x, y, side } = parseEdgeKey(key);
+      if (x < bounds.x0 || x > bounds.x1 || y < bounds.y0 || y > bounds.y1) continue;
+      out.push({ x, y, side, block, ...(floor ? { floor } : {}) });
+    }
+  }
+  return out;
 }
 
 /** The pots set down on a plot's ground floor and the floors shown above it (RFC 0047). */

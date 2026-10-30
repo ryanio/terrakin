@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-walls-between-tiles-side-on-place-and-remove-edges-on-build",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`",
+    "body": "A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.\n`slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. See \"Rooms\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 2, \"py\": 1, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-things-on-tables-and-things-on-walls-put-on-take-off-hang-un",
     "date": "2026-10-29",
     "kind": "added",

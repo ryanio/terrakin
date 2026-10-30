@@ -357,6 +357,8 @@ describe("one plot of the world, read from the mirror", () => {
         presents: new Map([["capri", 2]]),
         tops: new Map([["11,13", { thing: "candle" as const }]]),
         hung: new Map([["8,9,n", { thing: "wall_clock" as const }]]),
+        edgesOn: (floor) =>
+          floor === 0 ? new Map<string, BlockKind>([["12,10,n", "stone"]]) : new Map(),
         roofAt: roof("gable"),
         isSea: () => false,
       },
@@ -405,6 +407,11 @@ describe("one plot of the world, read from the mirror", () => {
       // A thing on a surface, and one on a wall, draw as themselves (RFC 0050).
       tops: source({ tops: new Map([["11,13", { thing: "globe" }]]) }),
       hung: source({ hung: new Map([["8,9,n", { thing: "mirror" }]]) }),
+      // A wall between tiles draws as itself (RFC 0050).
+      edgesOn: source({
+        edgesOn: (floor) =>
+          floor === 0 ? new Map<string, BlockKind>([["12,10,n", "brickwork"]]) : new Map(),
+      }),
       roofAt: source({ roofAt: roof("hip") }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },

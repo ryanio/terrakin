@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 788fc93f4648, 7 entries -->
+<!-- api-fingerprint: 4b05e2893b06, 8 entries -->
+
+- **Added** Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
+  A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.
+  `slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. See "Rooms" in the skill file.
+  Try: `POST /v1/actions {"type": "slim_walls", "px": 2, "py": 1, "dry": true}`
 
 - **Added** Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`
   A surface (table, bookshelf, barrel, kitchen, or the new `desk`, `side_table`, `dresser`) holds one small thing, and each solid wall face holds one hung thing: a trinket or wall thing by kind, a find by kind, or a made thing by id. It goes back to whoever put it there. `tops` and `hung` in `GET /v1/world`.

@@ -53,6 +53,7 @@ import { doorNote } from "./door-notes";
 import { type GuestFacts, teaRefusal } from "./events";
 import { startFree } from "./games";
 import type { Moderation, ReviewContext, Surface } from "./moderation";
+import { slimPlan } from "./slim-plan";
 import { cleanMultiline, cleanText, nameKey } from "./text";
 import type { ActResult } from "./world-service";
 
@@ -214,6 +215,15 @@ export function performAction(
     return result;
   }
   if (action.type === "visit") return visit(ctx, residentId, action.px, action.py, dry);
+  // Slimming a home's walls (RFC 0050): the server plans it, and logs the plan's lists.
+  if (action.type === "slim_walls") {
+    const planned = slimPlan(ctx.state, action.px, action.py);
+    if ("problem" in planned) {
+      return { ok: false, error: { code: "invalid_plan", message: planned.problem } };
+    }
+    const command: Command = { type: "slim_walls", px: action.px, py: action.py, ...planned };
+    return ctx.run({ actor: residentId, command }, dry);
+  }
   if (action.type === "trick_or_treat") {
     const { px, py } = action;
     const refused = closedDoor(ctx, residentId, px, py, "You can't knock at this door.");

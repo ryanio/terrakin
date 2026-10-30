@@ -29,8 +29,10 @@ import {
   fireworkNight,
   floorField,
   type GroundKind,
+  holdsRoof,
   ITEM_INFO,
   inEventArea,
+  isEdgeKind,
   isGroundKind,
   isHangingWall,
   isHeldBlock,
@@ -207,6 +209,24 @@ const roofToggle = h("button", {
   attrs: { type: "button", id: "palette-roof" },
   on: { click: () => void openRoof() },
 });
+/**
+ * Whether a build tap puts a wall on the line by the tap rather than on the tile (RFC 0050), and
+ * the chip that turns it on and off.
+ */
+let betweenTiles = false;
+const linesToggle = h("button", {
+  class: "palette-notes-toggle",
+  attrs: { type: "button", id: "palette-lines", "aria-pressed": "false" },
+  on: {
+    click: () => {
+      betweenTiles = !betweenTiles;
+      floorsDrawn = "";
+      paintFloors();
+    },
+  },
+});
+/** Where in its tile the last tap on the map landed, -0.5 to 0.5 each way, for a wall's side. */
+let tapIn = { fx: 0, fy: 0 };
 /** Which floor taps build on, Add an upstairs, or the roof, on a plot you can build on. */
 const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
@@ -1393,7 +1413,14 @@ function liftPointer(e: PointerEvent, tap: boolean) {
   if (pressed.size > 0) return;
   const g = gesture;
   gesture = undefined;
-  if (tap && g?.tap) tapTile(screenToTile(cam, g.x, g.y));
+  if (tap && g?.tap) {
+    const tile = screenToTile(cam, g.x, g.y);
+    tapIn = {
+      fx: (g.x - cam.width / 2) / cam.scale + cam.cx - tile.x,
+      fy: (g.y - cam.height / 2) / cam.scale + cam.cy - tile.y,
+    };
+    tapTile(tile);
+  }
 }
 canvas.addEventListener("pointerup", (e) => liftPointer(e, true));
 canvas.addEventListener("pointercancel", (e) => liftPointer(e, false));
@@ -1684,6 +1711,12 @@ function tapTile(tile: { x: number; y: number }) {
       if (mirror.pavingOn(floor).has(key)) tryAct({ type: "lift", ...on });
       else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
       else showToast(groundLine(pick, holdings));
+    } else if (betweenTiles && isEdgeKind(pick)) {
+      // A wall between tiles (RFC 0050): on the line nearest the tap, or off it again.
+      const side = tappedSide();
+      if (mirror.edgeAt(tile.x, tile.y, side, floor)) tryAct({ type: "remove", ...on, side });
+      else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
+      else tryAct({ type: "place", ...on, side, block: pick });
     } else if (hasBlock) tryAct({ type: "remove", ...on });
     else if (pick === "pot") {
       // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
@@ -2373,7 +2406,7 @@ function paintFloors() {
   buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
   const roofNow = plot ? mirror?.roofs.get(plotKey(plot.px, plot.py)) : undefined;
   const drawn = plot
-    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""}`
+    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""},${betweenTiles},${hasWallBlocks(plot)}`
     : "";
   if (drawn === floorsDrawn) return;
   floorsDrawn = drawn;
@@ -2387,6 +2420,22 @@ function paintFloors() {
   roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
   roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
   floorRow.append(roofToggle);
+  // Walls on tiles, or on the lines between them (RFC 0050).
+  linesToggle.textContent = betweenTiles ? "Walls: between tiles" : "Walls: on tiles";
+  linesToggle.setAttribute("aria-pressed", String(betweenTiles));
+  floorRow.append(linesToggle);
+  // A home of wall blocks can turn its walls into walls between tiles, and gain their floor.
+  if (hasWallBlocks(plot)) {
+    const slim = h("button", {
+      attrs: { type: "button", id: "slim-walls" },
+      text: "Slim the walls",
+    });
+    const { px, py } = plot;
+    confirmTwice(slim, "Tap again: walls move between tiles", () =>
+      tryAct({ type: "slim_walls", px, py }),
+    );
+    floorRow.append(slim);
+  }
   if (notesToggle.textContent) floorRow.append(notesToggle);
   // An upstairs comes last: it's the one chip here that spends coins, and a lot of them.
   if (plot.floors < FLOORS.max) {
@@ -2403,6 +2452,23 @@ function paintFloors() {
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
+
+/** Whether a plot's ground floor has a wall block a slim could move between tiles (RFC 0050). */
+function hasWallBlocks(plot: { px: number; py: number }): boolean {
+  const m = mirror;
+  if (!m) return false;
+  const S = m.config.plotSize;
+  for (let y = plot.py * S; y < (plot.py + 1) * S; y++) {
+    for (let x = plot.px * S; x < (plot.px + 1) * S; x++) {
+      if (holdsRoof(m.blocks.get(tileKey(x, y)))) return true;
+    }
+  }
+  return false;
+}
+
+/** The side of a tile a tap nearest it means: whichever edge the tap landed closest to. */
+const tappedSide = (): Side =>
+  Math.abs(tapIn.fx) > Math.abs(tapIn.fy) ? (tapIn.fx > 0 ? "e" : "w") : tapIn.fy > 0 ? "s" : "n";
 
 /** Open the roof picker for the plot you're building on, loading it on its own. */
 async function openRoof() {

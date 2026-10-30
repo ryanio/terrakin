@@ -19,6 +19,7 @@ import {
   PET_BOX,
   PET_FEET,
   PET_TILES,
+  parseEdgeKey,
   parseFaceKey,
   parseKey,
   parseTopKey,
@@ -84,6 +85,7 @@ import {
   roomThingGlows,
 } from "./render/decor";
 import { lightBulbs, paintPresents } from "./render/decor-winter";
+import { paintEdge } from "./render/edges";
 import { type BurstMark, paintBurst } from "./render/fireworks";
 import { paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
@@ -710,6 +712,25 @@ export function render(
       }
     }
   };
+  /**
+   * Walls between tiles on one floor (RFC 0050), after its blocks: each a slab on its line. `place`
+   * turns a tile of that floor into the tile it's drawn on, or undefined when it isn't shown.
+   */
+  const paintEdges = (
+    floor: number,
+    place: (x: number, y: number) => readonly [number, number] | undefined,
+  ) => {
+    for (const [key, block] of mirror.edgesOn(floor)) {
+      const { x, y, side } = parseEdgeKey(key);
+      const at = place(x, y);
+      if (!at) continue;
+      const { sx, sy } = tileToScreen(cam, at[0], at[1]);
+      paintEdge(ctx, block, side, Math.round(sx - half), Math.round(sy - half), Math.round(scale));
+    }
+  };
+  if (!simple) {
+    paintEdges(0, (x, y) => (x < x0 || x > x1 || y < y0 || y > y1 ? undefined : [x, y]));
+  }
   // Zoomed out, a candle on a table is too small to see.
   if (!simple) {
     paintRoomThings(0, (x, y) => (x < x0 || x > x1 || y < y0 || y > y1 ? undefined : [x, y]));
@@ -873,7 +894,10 @@ export function render(
         const at = drawn(key);
         if (at) paintAt(layer.blocks, key, block, at[0], at[1], floor);
       }
-      if (!simple) paintRoomThings(floor, (x, y) => drawn(tileKey(x, y)));
+      if (!simple) {
+        paintEdges(floor, (x, y) => drawn(tileKey(x, y)));
+        paintRoomThings(floor, (x, y) => drawn(tileKey(x, y)));
+      }
     }
     // Flooring above you, cut away: a faint line where it ends, so you know it's overhead.
     if (cut) {

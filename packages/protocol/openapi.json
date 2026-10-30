@@ -30007,6 +30007,9 @@
             "$ref": "#/components/schemas/UnhangAction"
           },
           {
+            "$ref": "#/components/schemas/SlimWallsAction"
+          },
+          {
             "$ref": "#/components/schemas/AdmireAction"
           },
           {
@@ -30665,6 +30668,135 @@
               ]
             }
           },
+          "edges": {
+            "description": "Walls, windows, hedges and doors on the lines between tiles (RFC 0050): a tile on the plot and the side of it the line is on.",
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "side": {
+                  "$ref": "#/components/schemas/Side"
+                },
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                },
+                "block": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone",
+                    "glass",
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench",
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box",
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled",
+                    "pond",
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel",
+                    "stocking",
+                    "bird_bath",
+                    "beehive",
+                    "plaster",
+                    "brickwork",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed",
+                    "kiln",
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "side",
+                "block"
+              ]
+            }
+          },
+          "removeEdges": {
+            "description": "Walls to take off the lines between tiles (RFC 0050), the same way.",
+            "maxItems": 128,
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 7
+                },
+                "side": {
+                  "$ref": "#/components/schemas/Side"
+                },
+                "floor": {
+                  "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "side"
+              ]
+            }
+          },
           "map": {
             "description": "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
             "allOf": [
@@ -30962,7 +31094,9 @@
                     "remove",
                     "lift",
                     "block",
-                    "ground"
+                    "ground",
+                    "wall",
+                    "remove_wall"
                   ]
                 },
                 "why": {
@@ -32145,6 +32279,7 @@
           "invalid_piece",
           "no_display",
           "nothing_displayed",
+          "plot_border",
           "not_a_surface",
           "no_wall",
           "not_entitled",
@@ -34261,6 +34396,14 @@
               "flower",
               "sunflower",
               "tulip"
+            ]
+          },
+          "side": {
+            "description": "With place or remove: the wall on the line on this side of the tile, between it and the next (RFC 0050).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Side"
+              }
             ]
           },
           "dry": {
@@ -36557,6 +36700,14 @@
             "minimum": 0,
             "maximum": 9
           },
+          "side": {
+            "description": "With place or remove: the wall on the line on this side of the tile, between it and the next (RFC 0050).",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/Side"
+              }
+            ]
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -37782,6 +37933,36 @@
           "foraging",
           "hosting",
           "playing"
+        ]
+      },
+      "SlimWallsAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "slim_walls"
+            ]
+          },
+          "px": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "py": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "px",
+          "py"
         ]
       },
       "StackKind": {
@@ -40331,6 +40512,199 @@
             },
             "required": [
               "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "starter_edges_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "edge_placed"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "side": {
+                "type": "string",
+                "enum": [
+                  "n",
+                  "w"
+                ]
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "block": {
+                "type": "string",
+                "enum": [
+                  "wood",
+                  "stone",
+                  "glass",
+                  "leaf",
+                  "planter",
+                  "kitchen",
+                  "workbench",
+                  "lantern",
+                  "frame",
+                  "fence",
+                  "bench",
+                  "pedestal",
+                  "hay_bale",
+                  "scarecrow",
+                  "table",
+                  "chair",
+                  "bookshelf",
+                  "barrel",
+                  "signpost",
+                  "lamp_post",
+                  "well",
+                  "stone_wall",
+                  "campfire",
+                  "flower_box",
+                  "jack_o_lantern",
+                  "bat_bunting",
+                  "cauldron",
+                  "candy_bowl",
+                  "snowman",
+                  "string_lights",
+                  "little_fir",
+                  "sled",
+                  "pond",
+                  "stairs",
+                  "cornucopia",
+                  "leaf_garland",
+                  "menorah",
+                  "dreidel",
+                  "stocking",
+                  "bird_bath",
+                  "beehive",
+                  "plaster",
+                  "brickwork",
+                  "timber_frame",
+                  "driftwood_plank",
+                  "sea_glass_pane",
+                  "door",
+                  "armchair",
+                  "sofa",
+                  "bed",
+                  "kiln",
+                  "pot",
+                  "desk",
+                  "side_table",
+                  "dresser"
+                ]
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "side",
+              "block",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "edge_removed"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "side": {
+                "type": "string",
+                "enum": [
+                  "n",
+                  "w"
+                ]
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "side",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "home_slimmed"
+                ]
+              },
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "px",
+              "py",
+              "by"
             ]
           },
           {
@@ -44294,6 +44668,109 @@
                 "ground"
               ]
             }
+          },
+          "edges": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "x": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "y": {
+                  "type": "integer",
+                  "minimum": -9007199254740991,
+                  "maximum": 9007199254740991
+                },
+                "side": {
+                  "type": "string",
+                  "enum": [
+                    "n",
+                    "w"
+                  ]
+                },
+                "floor": {
+                  "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                  "type": "integer",
+                  "minimum": 1,
+                  "maximum": 9007199254740991
+                },
+                "block": {
+                  "type": "string",
+                  "enum": [
+                    "wood",
+                    "stone",
+                    "glass",
+                    "leaf",
+                    "planter",
+                    "kitchen",
+                    "workbench",
+                    "lantern",
+                    "frame",
+                    "fence",
+                    "bench",
+                    "pedestal",
+                    "hay_bale",
+                    "scarecrow",
+                    "table",
+                    "chair",
+                    "bookshelf",
+                    "barrel",
+                    "signpost",
+                    "lamp_post",
+                    "well",
+                    "stone_wall",
+                    "campfire",
+                    "flower_box",
+                    "jack_o_lantern",
+                    "bat_bunting",
+                    "cauldron",
+                    "candy_bowl",
+                    "snowman",
+                    "string_lights",
+                    "little_fir",
+                    "sled",
+                    "pond",
+                    "stairs",
+                    "cornucopia",
+                    "leaf_garland",
+                    "menorah",
+                    "dreidel",
+                    "stocking",
+                    "bird_bath",
+                    "beehive",
+                    "plaster",
+                    "brickwork",
+                    "timber_frame",
+                    "driftwood_plank",
+                    "sea_glass_pane",
+                    "door",
+                    "armchair",
+                    "sofa",
+                    "bed",
+                    "kiln",
+                    "pot",
+                    "desk",
+                    "side_table",
+                    "dresser"
+                  ]
+                }
+              },
+              "required": [
+                "x",
+                "y",
+                "side",
+                "block"
+              ]
+            }
+          },
+          "starterEdges": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
           },
           "day": {
             "type": "integer",

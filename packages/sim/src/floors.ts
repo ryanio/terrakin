@@ -1,5 +1,6 @@
 import { coinCount, isWhole, refuse } from "./check";
 import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { edgeKey, edgesOn, edgeTiles, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { own } from "./own";
@@ -14,12 +15,14 @@ import {
   type Rejection,
   type Resident,
   type ResidentId,
+  SIDES,
+  type Side,
   type Tile,
   type WorldConfig,
   type WorldEvent,
   type WorldState,
 } from "./types";
-import { type Ground, walkOrWhy, walkWords, worldGround } from "./walk";
+import { type Ground, walkOrWhy, walkWords, withEdges, worldGround } from "./walk";
 import {
   blocksWalkers,
   canBuildOn,
@@ -136,6 +139,7 @@ export function floorGround(state: WorldState, floor: number): Ground {
     block: (key) => blocks[key],
     flooring: (key) => flooring[key] !== undefined,
     below: (key) => below[key],
+    ...withEdges(state, floor),
   });
 }
 
@@ -149,6 +153,8 @@ export function upstairsGroundOf(facts: {
   block: (key: string) => BlockKind | undefined;
   flooring: (key: string) => boolean;
   below: (key: string) => BlockKind | undefined;
+  /** A wall between tiles on this floor stops a walker crossing its line (RFC 0050). */
+  edge?: (x: number, y: number, side: Side) => boolean;
 }): Ground {
   const { config, block, flooring, below } = facts;
   return {
@@ -159,6 +165,7 @@ export function upstairsGroundOf(facts: {
       if (!flooring(key) && below(key) !== "stairs") return "no_flooring";
       return undefined;
     },
+    ...(facts.edge ? { edge: facts.edge } : {}),
   };
 }
 
@@ -390,10 +397,14 @@ function flooringHeld(
   y: number,
   floor: number,
   without?: string,
+  withoutEdge?: string,
 ) {
   const { config } = state;
   const home = plotOf(config, x, y);
   const { span } = FLOORS;
+  // A wall between tiles (RFC 0050) holds up as a wall on each of its two tiles does.
+  const edges = edgesOn(state, floor - 1);
+  const walled = Object.keys(edges).length > 0;
   for (let ty = y - span; ty <= y + span; ty++) {
     for (let tx = x - span; tx <= x + span; tx++) {
       if (!inBounds(config, tx, ty)) continue;
@@ -401,9 +412,46 @@ function flooringHeld(
       if (p.px !== home.px || p.py !== home.py) continue;
       const key = tileKey(tx, ty);
       if (key !== without && holds(view.block(floor - 1, key))) return true;
+      if (!walled) continue;
+      for (const side of SIDES) {
+        const at = edgeKey(tx, ty, side);
+        if (at !== withoutEdge && holds(edges[at])) return true;
+      }
     }
   }
   return false;
+}
+
+/**
+ * Why the wall on the line on `side` of (x, y) on `floor` can't be taken away (RFC 0050), or null:
+ * it's the last wall within reach of flooring above it on the same plot.
+ */
+export function edgeRemoveProblem(
+  state: WorldState,
+  x: number,
+  y: number,
+  side: Side,
+  floor: number,
+): Rejection | null {
+  const above = floor + 1;
+  const key = edgeKey(x, y, side);
+  if (above > FLOORS.max || !holds(edgesOn(state, floor)[key])) return null;
+  const view = worldView(state);
+  const { config } = state;
+  const { span } = FLOORS;
+  for (let ty = y - span - 1; ty <= y + span + 1; ty++) {
+    for (let tx = x - span - 1; tx <= x + span + 1; tx++) {
+      if (!inBounds(config, tx, ty)) continue;
+      if (view.ground(above, tileKey(tx, ty)) === undefined) continue;
+      if (!flooringHeld(state, view, tx, ty, above, undefined, key)) {
+        return refuse(
+          "holds_up",
+          `That wall holds up the flooring above at x ${tx}, y ${ty}. Lift the flooring first.`,
+        );
+      }
+    }
+  }
+  return null;
 }
 
 /** Why flooring can't go on (x, y) on `floor`, or null. The ground floor holds any flooring. */
@@ -592,6 +640,13 @@ export function plotHasAnything(state: WorldState, px: number, py: number): bool
       for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
         const key = tileKey(x, y);
         if (blocks[key] !== undefined || ground[key] !== undefined) return true;
+      }
+    }
+    // A wall between tiles (RFC 0050) counts for the plot of either tile it runs between.
+    for (const key of Object.keys(edgesOn(state, floor))) {
+      const { x, y, side } = parseEdgeKey(key);
+      for (const t of edgeTiles(x, y, side)) {
+        if (Math.floor(t.x / plotSize) === px && Math.floor(t.y / plotSize) === py) return true;
       }
     }
   }

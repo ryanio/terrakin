@@ -58,6 +58,8 @@ import {
   payWelcome,
   welcomeDue,
 } from "./economy";
+import { checkEdge } from "./edge-actions";
+import { edgesFor, edgeTiles } from "./edges";
 import { checkSetEntitlements, unentitled } from "./entitlements";
 import {
   checkCancelEvent,
@@ -234,6 +236,7 @@ import {
   shopNewDay,
   stockHoliday,
 } from "./shop";
+import { checkSlimWalls, checkStarterEdges, edgeTaken, starterEdgeHut } from "./slim";
 import {
   checkHang,
   checkPutOn,
@@ -845,6 +848,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkKeepTableSpots(state));
       case "starter_doors":
         return town(checkStarterDoors(state));
+      case "starter_edges":
+        return town(checkStarterEdges(state));
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":
@@ -1338,6 +1343,11 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // Paths and flooring (RFC 0016) keep the same where-rules, and their own checks.
       if (command.type === "lay") return town(checkLay(state, actor, command, floor));
       if (command.type === "lift") return town(checkLift(state, actor, command, floor));
+      // A wall on the line between two tiles (RFC 0050) keeps the same where-rules, and its own.
+      if ((command.type === "place" || command.type === "remove") && command.side !== undefined) {
+        const edge = checkEdge(state, actor, command, floor);
+        return "code" in edge ? { ok: false, rejection: edge } : edge;
+      }
       // Things on surfaces and walls (RFC 0050) keep the same where-rules, and their own checks.
       if (command.type === "put_on") return town(checkPutOn(state, actor, command, floor));
       if (command.type === "take_off") return town(checkTakeOff(state, actor, command, floor));
@@ -1529,7 +1539,22 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // A public way holds no block, so the hut leaves a gap where one crosses its walls, as it
       // does for a block already there (RFC 0046). Every hut built before refused the whole home
       // on a way tile, so none in a log ever met one, and they replay as they were built.
-      let blocks = home.blocks.filter((b) => {
+      // From the server's `starter_edges` on (RFC 0050), the hut is walls between tiles round the
+      // same footprint: a line keeps an edge or a block already there, and never crosses a way.
+      const edges = state.starterEdges
+        ? starterEdgeHut(
+            config,
+            plot.px,
+            plot.py,
+            command.walls ?? "wood",
+            command.windows ?? "glass",
+          ).filter(
+            (e) =>
+              !edgeTaken(state, e) &&
+              !edgeTiles(e.x, e.y, e.side).every((t) => isWay(state, t.x, t.y)),
+          )
+        : [];
+      let blocks = (state.starterEdges ? [] : home.blocks).filter((b) => {
         const key = tileKey(b.x, b.y);
         return (
           onPlot(b) &&
@@ -1548,7 +1573,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         if (hearthFree) moveTo = home.hearth;
         else blocks = blocks.filter((b) => !sameTile(b, me));
       }
-      if (blocks.length === 0 && !moveTo && !setHearth) {
+      if (blocks.length === 0 && edges.length === 0 && !moveTo && !setHearth) {
         return reject("already_home", "Your starter home is already built. Add to it with place.");
       }
       return () => {
@@ -1561,6 +1586,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         for (const { x, y, block } of blocks) {
           state.blocks[tileKey(x, y)] = block;
           events.push({ type: "block_placed", x, y, block, by: actor });
+        }
+        for (const { x, y, side, block } of edges) {
+          edgesFor(state, 0)[`${tileKey(x, y)},${side}`] = block;
+          events.push({ type: "edge_placed", x, y, side, block, by: actor });
         }
         if (setHearth) {
           const { x, y } = home.hearth;
@@ -1575,6 +1604,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       const built = checkBuild(state, actor, command);
       return "code" in built ? { ok: false, rejection: built } : built;
     }
+
+    case "slim_walls":
+      return town(checkSlimWalls(state, actor, command));
 
     case "share_plot":
     case "unshare_plot": {

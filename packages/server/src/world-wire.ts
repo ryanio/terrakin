@@ -15,6 +15,7 @@ import {
   DAY_LENGTH_MS,
   type Direction,
   displaysOf,
+  edgesOn,
   eventOpen,
   type Finish,
   FLOORS,
@@ -37,6 +38,7 @@ import {
   type PickupKind,
   pageEditionOf,
   pageOn,
+  parseEdgeKey,
   parseKey,
   pickupLeft,
   plotAtTile,
@@ -497,6 +499,13 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
       return { x, y, ...floorField(floor), block };
     }),
   );
+  // Walls between tiles (RFC 0050), each on its `n` or `w` line, `floor` above the ground floor.
+  const edges = floors.flatMap((floor) =>
+    Object.entries(edgesOn(state, floor)).map(([key, block]) => {
+      const { x, y, side } = parseEdgeKey(key);
+      return { x, y, side, ...floorField(floor), block };
+    }),
+  );
   const ground = floors.flatMap((floor) =>
     Object.entries(groundOn(state, floor)).map(([key, kind]) => {
       const [x, y] = parseKey(key);
@@ -551,6 +560,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.solidBuildings ? { solidBuildings: true as const } : {}),
     ...(state.tableSpotsKept ? { tableSpotsKept: true as const } : {}),
     ...(state.starterDoors ? { starterDoors: true as const } : {}),
+    ...(edges.length > 0 ? { edges } : {}),
+    ...(state.starterEdges ? { starterEdges: true as const } : {}),
     ...(state.shop?.inPerson ? { shopInPerson: true as const } : {}),
     ...(state.proposeInPerson ? { proposeInPerson: true as const } : {}),
     ...(state.scheduleInPerson ? { scheduleInPerson: true as const } : {}),

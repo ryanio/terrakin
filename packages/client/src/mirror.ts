@@ -17,6 +17,8 @@ import {
   counterTiles,
   type Direction,
   type DrawnGround,
+  edgeBlocks,
+  edgeKey,
   type FindKind,
   FLOORS,
   faceKey,
@@ -41,6 +43,7 @@ import {
   type Resident,
   type RoofShape,
   roofShape,
+  type Side,
   type SpringFacts,
   type StepRoutine,
   squareOf,
@@ -163,6 +166,7 @@ export interface FloorLayer {
 }
 
 const NO_FLOOR: Readonly<FloorLayer> = { blocks: new Map(), paving: new Map() };
+const NO_EDGES: ReadonlyMap<string, BlockKind> = new Map();
 
 /** How long an away resident is out after a routine's step reaches us, before they sleep again. */
 export const OUT_MS = ROUTINE_LIMITS.awakeMinutes * MINUTE_MS;
@@ -215,6 +219,13 @@ export class Mirror {
   solidBuildings: boolean;
   /** The ground each floor's walkers step on, built once each (`ground`). */
   private walkable = new Map<number, Ground>();
+  /**
+   * Walls between tiles (RFC 0050), by floor and then the sim's `edgeKey`: a tile's `n` or `w`
+   * line, `"x,y,n"`. Empty until the world has one.
+   */
+  private edgeLayers = new Map<number, Map<string, BlockKind>>();
+  /** Whether starter homes are built from walls between tiles (`starter_edges_set`, RFC 0050). */
+  starterEdges = false;
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -335,6 +346,10 @@ export class Mirror {
       }
     }
     for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
+    for (const e of snapshot.edges ?? []) {
+      this.edgesAt(e.floor).set(edgeKey(e.x, e.y, e.side), e.block);
+    }
+    this.starterEdges = snapshot.starterEdges === true;
     for (const g of snapshot.ground ?? []) {
       this.pavingAt(g.floor).set(tileKey(g.x, g.y), g.ground);
     }
@@ -412,6 +427,28 @@ export class Mirror {
     return layer;
   }
 
+  /** The walls between tiles on a floor (absent or 0: the ground floor's), to change. */
+  edgesAt(floor: number | undefined): Map<string, BlockKind> {
+    const at = floor ?? 0;
+    let layer = this.edgeLayers.get(at);
+    if (!layer) {
+      layer = new Map();
+      this.edgeLayers.set(at, layer);
+    }
+    return layer;
+  }
+
+  /** The walls between tiles on any floor, to read: keyed by the sim's `edgeKey`. */
+  edgesOn(floor: number): ReadonlyMap<string, BlockKind> {
+    return this.edgeLayers.get(floor) ?? NO_EDGES;
+  }
+
+  /** What stands on the line on `side` of (x, y) on `floor`, if anything (RFC 0050). */
+  edgeAt(x: number, y: number, side: Side, floor = 0): BlockKind | undefined {
+    const layer = this.edgeLayers.get(floor);
+    return layer && layer.size > 0 ? layer.get(edgeKey(x, y, side)) : undefined;
+  }
+
   /** The blocks on a floor (absent or 0: the ground floor's), to change. */
   blocksAt(floor: number | undefined): Map<string, BlockKind> {
     return floor ? this.#layer(floor).blocks : this.blocks;
@@ -452,6 +489,13 @@ export class Mirror {
       roof: this.roofs.get(plotKey(px, py)),
       floors: this.floors.get(plotKey(px, py)) ?? 0,
       wall: (x, y, floor) => holdsRoof(this.blocksOn(floor).get(tileKey(x, y))),
+      // Walls between tiles (RFC 0050) carry a roof too; none in a world without them.
+      ...(this.edgeLayers.size > 0
+        ? {
+            edge: (x: number, y: number, side: "n" | "w", floor: number) =>
+              holdsRoof(this.edgeAt(x, y, side, floor)),
+          }
+        : {}),
     });
   }
 
@@ -581,12 +625,14 @@ export class Mirror {
             // Open water between lands, so a tap-to-walk route crosses by the bridge rather than
             // ending in a refusal (RFC 0038). Left out where there is none.
             ...(this.#sea ? { sea: this.#sea } : {}),
+            edge: (x, y, side) => edgeBlocks(this.edgeAt(x, y, side, 0)),
           })
         : upstairsGroundOf({
             config: this.config,
             block: (key) => this.floor(floor).blocks.get(key),
             flooring: (key) => this.floor(floor).paving.has(key),
             below: (key) => this.blocksOn(floor - 1).get(key),
+            edge: (x, y, side) => edgeBlocks(this.edgeAt(x, y, side, floor)),
           });
     this.walkable.set(floor, ground);
     return ground;
@@ -721,6 +767,16 @@ export class Mirror {
             by: event.by,
           });
         }
+        break;
+      // Walls between tiles (RFC 0050), each on its `n` or `w` line.
+      case "edge_placed":
+        this.edgesAt(event.floor).set(edgeKey(event.x, event.y, event.side), event.block);
+        break;
+      case "edge_removed":
+        this.edgesAt(event.floor).delete(edgeKey(event.x, event.y, event.side));
+        break;
+      case "starter_edges_set":
+        this.starterEdges = true;
         break;
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));

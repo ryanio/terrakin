@@ -289,6 +289,8 @@ export interface PlotCard {
   floorPlan?: boolean | undefined;
   /** The home's roof (RFC 0041), over everything standing in it, as the map draws it. */
   roofs?: PlotRoofing[] | undefined;
+  /** Walls between tiles on the ground floor (RFC 0050), each on a tile's `n` or `w` line. */
+  edges?: PlotEdge[] | undefined;
   /**
    * A photo taken to post on Terrakin, where the post's card frames it and may crop its sides: no
    * card border, the brand on the photo's own frame, and room all round the frame.
@@ -323,6 +325,8 @@ export interface PlotArea {
   /** Theme tints laid over parts of the area: each plot's owner's, over that plot. */
   tints?: { x: number; y: number; w: number; h: number; fill: string }[] | undefined;
   blocks: PlotBlock[];
+  /** Walls between tiles (RFC 0050), drawn over the blocks. */
+  edges?: PlotEdge[] | undefined;
   crops?: PlotCrop[] | undefined;
   hearths?: { x: number; y: number }[] | undefined;
   pets?: PlotPet[] | undefined;
@@ -354,6 +358,63 @@ export interface PlotArea {
 
 const n = (v: number) => Number(v.toFixed(3));
 
+/**
+ * A wall between tiles (RFC 0050) as a plot photo carries it: its tile in the drawn box, its `n` or
+ * `w` line, and its color. A `door` is drawn as a door, a `pane` as a window.
+ */
+export interface PlotEdge {
+  x: number;
+  y: number;
+  side: "n" | "w";
+  fill: string;
+  door?: true | undefined;
+  pane?: true | undefined;
+}
+
+/** How thick a wall between tiles is drawn, in tiles: the map's own share (`EDGE_THICKNESS`). */
+const EDGE_THICKNESS = 0.22;
+
+/**
+ * Walls between tiles: a slab on each line, past each end by half its thickness so walls meet at
+ * their corners. Only numbers kept to the box and checked colors go in. At most four per tile.
+ */
+function edgesSvg(
+  edges: readonly PlotEdge[],
+  inX: (x: number) => boolean,
+  inY: (y: number) => boolean,
+): string[] {
+  const t = EDGE_THICKNESS;
+  return edges.slice(0, 4096).flatMap((e) => {
+    if (!inX(e.x) || !inY(e.y) || (e.side !== "n" && e.side !== "w")) return [];
+    const x = n(e.x - t / 2);
+    const y = n(e.y - t / 2);
+    const w = e.side === "n" ? n(1 + t) : n(t);
+    const h = e.side === "n" ? n(t) : n(1 + t);
+    const fill = e.door ? DOOR_FRAME : e.pane ? PANE_FRAME : safeColor(e.fill);
+    const out = [
+      `<rect x="${n(x + 0.04)}" y="${n(y + 0.1)}" width="${w}" height="${h}" rx="0.05" fill="rgba(74, 52, 28, 0.2)"/>`,
+      `<rect x="${x}" y="${y}" width="${w}" height="${h}" rx="0.05" fill="${fill}"/>`,
+    ];
+    if (e.door || e.pane) {
+      const inner = e.door ? DOOR_PANEL : safeColor(e.fill);
+      const ix = e.side === "n" ? n(x + w * 0.25) : n(x + 0.03);
+      const iy = e.side === "n" ? n(y + 0.03) : n(y + h * 0.25);
+      const iw = e.side === "n" ? n(w * 0.5) : n(Math.max(0.02, w - 0.06));
+      const ih = e.side === "n" ? n(Math.max(0.02, h - 0.06)) : n(h * 0.5);
+      out.push(
+        `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="0.03" fill="${inner}"/>`,
+      );
+    }
+    return out;
+  });
+}
+
+/** A door's frame and panel, the map's `DOOR_LOOK` (kept in step by cards-copies.test.ts). */
+const DOOR_FRAME = "#b8834f";
+const DOOR_PANEL = "#a8483a";
+/** A window's frame between tiles. */
+const PANE_FRAME = "#8a6a4a";
+
 /** The plot as SVG markup, `px` pixels square. Our own markup only: numbers and checked colors. */
 export function plotSvg(c: PlotCard, px: number): string {
   const side = (v: number) => Math.max(1, Math.min(32, Math.floor(v)));
@@ -368,6 +429,7 @@ export function plotSvg(c: PlotCard, px: number): string {
     ground: c.ground,
     tints: c.tints,
     blocks: c.blocks,
+    edges: c.edges,
     crops: c.crops,
     hearths: [...(c.hearth ? [c.hearth] : []), ...(c.hearths ?? [])],
     pets: c.pet ? [c.pet] : [],
@@ -493,6 +555,7 @@ export function areaParts(a: PlotArea): string[] {
   }
 
   parts.push(...blocksSvg(a.blocks, inX, inY));
+  parts.push(...edgesSvg(a.edges ?? [], inX, inY));
 
   // What's growing, over its planter.
   for (const crop of a.crops ?? []) {

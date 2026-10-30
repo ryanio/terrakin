@@ -291,6 +291,11 @@ export interface Plot {
   py: number;
   ownerId: ResidentId;
   /**
+   * Set by the first `slim_walls` on this plot (RFC 0050), which the town tops up with any made
+   * material its walls between tiles need past the blocks it gave back. Absent until then.
+   */
+  slimmed?: true;
+  /**
    * Residents the owner shares this plot with (`share_plot`). They build here as if they owned it.
    * Present only when non-empty, so plots that were never shared hash exactly as they always have.
    */
@@ -347,6 +352,8 @@ export interface PlotRoof {
 export interface FloorLayer {
   blocks: Record<string, BlockKind>;
   ground: Record<string, GroundKind>;
+  /** Walls between tiles on this floor (RFC 0050), keyed by `edgeKey`. Absent until the first. */
+  edges?: Record<string, BlockKind>;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -407,6 +414,16 @@ export interface PlanBlock extends PlanTile {
 /** One path or flooring a `build` lays. */
 export interface PlanGround extends PlanTile {
   ground: GroundKind;
+}
+
+/** A line between tiles in a `build` (RFC 0050): a tile counted from the plot's corner, and a side. */
+export interface PlanEdgeSpot extends PlanTile {
+  side: Side;
+}
+
+/** One wall a `build` puts on a line between tiles (RFC 0050). */
+export interface PlanEdge extends PlanEdgeSpot {
+  block: BlockKind;
 }
 
 export interface Proposal {
@@ -504,6 +521,11 @@ export interface WorldState {
   /** Placed blocks, keyed by tileKey(x, y). */
   blocks: Record<string, BlockKind>;
   /**
+   * Walls, windows, hedges and doors on the lines between ground-floor tiles (RFC 0050), keyed by
+   * `edgeKey`: a tile and the `n` or `w` line it owns. Absent until the first.
+   */
+  edges?: Record<string, BlockKind>;
+  /**
    * The Town Hall and the shop stop walkers, from the server's `solid_buildings` on. Absent until
    * then, so older logs replay as they were made, when residents walked across both.
    */
@@ -520,6 +542,11 @@ export interface WorldState {
    * with an open doorway.
    */
   starterDoors?: true;
+  /**
+   * `build_starter_home` builds the hut from walls between tiles (RFC 0050), from the server's
+   * `starter_edges` on. Absent until then, so starter homes built before it replay as they were made.
+   */
+  starterEdges?: true;
   /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
@@ -1821,8 +1848,17 @@ export type Command =
       block: BlockKind;
       item?: string | undefined;
       flower?: string | undefined;
+      /** On the line on this side of the tile rather than on the tile (RFC 0050). */
+      side?: Side | undefined;
     }
-  | { type: "remove"; x: number; y: number; floor?: number | undefined }
+  | {
+      type: "remove";
+      x: number;
+      y: number;
+      floor?: number | undefined;
+      /** The wall on the line on this side of the tile (RFC 0050). */
+      side?: Side | undefined;
+    }
   /** Lay a path or flooring on a tile, within reach (RFC 0016). */
   | { type: "lay"; x: number; y: number; floor?: number | undefined; ground: GroundKind }
   /** Lift the path or flooring off a tile, within reach. What it took comes back. */
@@ -1856,7 +1892,18 @@ export type Command =
       ground?: PlanGround[];
       remove?: PlanTile[];
       lift?: PlanTile[];
+      /** Walls on the lines between tiles (RFC 0050), in plot coordinates. */
+      edges?: PlanEdge[];
+      /** Walls to take off the lines between tiles (RFC 0050), in plot coordinates. */
+      removeEdges?: PlanEdgeSpot[];
     }
+  /**
+   * A home's wall blocks turned into walls between tiles (RFC 0050): the server's plan, logged as
+   * a build's lists (`remove` for the blocks, `edges` for the lines), checked as that resident's
+   * `build`. The plot's first one tops up made material its lines need past the blocks it gave
+   * back, and marks the plot `slimmed`.
+   */
+  | { type: "slim_walls"; px: number; py: number; remove: PlanTile[]; edges: PlanEdge[] }
   | { type: "settle"; px: number; py: number }
   /**
    * A jump to the edge of someone else's plot (RFC 0020). Residents send `px` and `py`; the server
@@ -2140,6 +2187,8 @@ export type Command =
   | { type: "keep_table_spots" }
   /** From now on, a starter home has a door in its doorway (decision 0349). */
   | { type: "starter_doors" }
+  /** From now on a starter home is built from walls between tiles (RFC 0050). TOWN_ACTOR only. */
+  | { type: "starter_edges" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -2377,6 +2426,7 @@ export const SERVER_COMMANDS = [
   "close_table",
   "keep_table_spots",
   "starter_doors",
+  "starter_edges",
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
@@ -2453,6 +2503,18 @@ export type WorldEvent =
       pot?: Good;
     }
   | { type: "block_removed"; x: number; y: number; floor?: number; by: ResidentId }
+  /** A wall went up on the line on `side` of (x, y), `n` or `w` (RFC 0050). Public. */
+  | {
+      type: "edge_placed";
+      x: number;
+      y: number;
+      side: "n" | "w";
+      floor?: number;
+      block: BlockKind;
+      by: ResidentId;
+    }
+  /** The wall on the line on `side` of (x, y) came down (RFC 0050). Public. */
+  | { type: "edge_removed"; x: number; y: number; side: "n" | "w"; floor?: number; by: ResidentId }
   /** A path or flooring went down on a tile (RFC 0016). Public. */
   | {
       type: "ground_laid";
@@ -2594,6 +2656,10 @@ export type WorldEvent =
   | { type: "table_spots_kept" }
   /** `starter_doors` turned on: a starter home has a door in its doorway from now on. Public. */
   | { type: "starter_doors_set" }
+  /** From now on starter homes are built from walls between tiles (RFC 0050). Public. */
+  | { type: "starter_edges_set" }
+  /** A home's wall blocks became walls between tiles (RFC 0050), the first time on its plot. */
+  | { type: "home_slimmed"; px: number; py: number; by: ResidentId }
   | { type: "shop_opened" }
   | { type: "market_opened" }
   | { type: "plot_market_opened"; maxPlotsPerResident: number }
@@ -3146,6 +3212,8 @@ export const REJECTION_CODES = [
   "invalid_piece",
   "no_display",
   "nothing_displayed",
+  /** A wall between tiles on a plot's border, with ground that isn't yours beyond it (RFC 0050). */
+  "plot_border",
   /** Nothing on that tile holds a thing on top (RFC 0050). */
   "not_a_surface",
   /** No wall stands on that side of the tile to hang a thing on (RFC 0050). */

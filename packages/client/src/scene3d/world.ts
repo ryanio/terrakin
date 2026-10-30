@@ -90,6 +90,7 @@ import {
 import { cropPlants } from "./crops";
 import { eveningHoliday } from "./daylight";
 import { createPictures, displayedThings, foundThings } from "./displays";
+import { edgeMeshes } from "./edges";
 import {
   fadeFigure,
   figure,
@@ -495,6 +496,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       ...(data.lit && isWindow(b.block) ? { lit: true as const } : {}),
     }));
     addAll(group, blockMeshes(scope, origin, blocks, grain, walls));
+    // Walls between tiles (RFC 0050), one draw per kind.
+    addAll(group, edgeMeshes(scope, origin, data.edges, walls));
     if (data.ground.length) {
       const paved = groundTiles(origin, data.ground, groundAtlasOnce());
       if (paved) group.add(paved);

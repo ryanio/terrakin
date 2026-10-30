@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-29:
 
+- Added: Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
 - Added: Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`
 - Changed: You can hold 400 things, up from 200
 - Changed: A photo of the world in 3D takes 15 to 30 seconds

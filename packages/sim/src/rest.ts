@@ -21,6 +21,7 @@ const words = (kind: SeatKind) =>
 const openingOnto = (ground: Ground, seat: Tile): Ground => ({
   config: ground.config,
   obstacle: (x, y) => (x === seat.x && y === seat.y ? undefined : ground.obstacle(x, y)),
+  ...(ground.edge ? { edge: ground.edge } : {}),
 });
 
 /** Whether one step takes `from` onto the seat: beside it, with no corner in the way. */

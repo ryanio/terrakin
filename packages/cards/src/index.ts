@@ -15,6 +15,7 @@ export {
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
+  type PlotEdge,
   type PlotFloor,
   type PlotFlooring,
   type PlotFurniture,

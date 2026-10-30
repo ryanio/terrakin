@@ -657,6 +657,8 @@ export function checkPropose(
       lifted: now.lifted,
       placed: now.placed,
       laid: now.laid,
+      unwalled: [],
+      walled: [],
       changes: [],
       skipped: [],
     },

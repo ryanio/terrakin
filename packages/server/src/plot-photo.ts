@@ -5,6 +5,7 @@ import {
   type PlotBlock,
   type PlotCard,
   type PlotCrop,
+  type PlotEdge,
   type PlotFloor,
   type PlotFlooring,
   type PlotGround,
@@ -23,6 +24,7 @@ import {
   CROP_HEX,
   DAY_LENGTH_MS,
   dayPhase,
+  edgesOn,
   FLOORS,
   FLOWER_TONES,
   GLAZE_HEX,
@@ -45,6 +47,7 @@ import {
   PET_FEET,
   PET_TILES,
   POND_LOOK,
+  parseEdgeKey,
   petBed,
   petShapes,
   plotKey,
@@ -338,6 +341,7 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
     ground: area.ground,
     ...(tints.length > 0 ? { tints } : {}),
     blocks,
+    ...(area.edges.length > 0 ? { edges: area.edges } : {}),
     ...(shown.length > 0 ? { floors: shown } : {}),
     ...(roofs.length > 0 ? { roofs } : {}),
     ...(floor !== undefined && floor > 0 ? { floorPlan: true } : {}),
@@ -478,6 +482,7 @@ export function areaOf(
 ): {
   ground: PlotGround[];
   blocks: PlotBlock[];
+  edges: PlotEdge[];
   crops: PlotCrop[];
   floors: PlotFloor[];
   biomes: Map<Biome, number>;
@@ -572,7 +577,24 @@ export function areaOf(
     }
     floors.push({ flooring, blocks: standing });
   }
-  return { ground, blocks, crops, floors, biomes };
+  // Walls between tiles on the ground floor (RFC 0050), each on a line of the area's own tiles.
+  const edges: PlotEdge[] = Object.entries(edgesOn(state, 0)).flatMap(([key, block]) => {
+    const e = parseEdgeKey(key);
+    const x = e.x - x0;
+    const y = e.y - y0;
+    if (x < 0 || y < 0 || x >= cols || y >= rows) return [];
+    return [
+      {
+        x,
+        y,
+        side: e.side,
+        fill: blockFill(block, block === "glass" ? undefined : palette(e.x, e.y)),
+        ...(block === "door" ? { door: true as const } : {}),
+        ...(block === "glass" || block === "sea_glass_pane" ? { pane: true as const } : {}),
+      },
+    ];
+  });
+  return { ground, blocks, edges, crops, floors, biomes };
 }
 
 /**

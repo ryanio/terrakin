@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-walls-between-tiles-side-on-place-and-remove-edges-on-build</id>
+    <title>Added: Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`</title>
+    <updated>2026-10-29T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-29"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.
+`slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. See &quot;Rooms&quot; in the skill file.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;slim_walls&quot;, &quot;px&quot;: 2, &quot;py&quot;: 1, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-things-on-tables-and-things-on-walls-put-on-take-off-hang-un</id>
     <title>Added: Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`</title>
     <updated>2026-10-29T00:00:00Z</updated>

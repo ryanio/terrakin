@@ -518,6 +518,8 @@ export interface PlotLayout {
   top: number;
   /** The plot's roof, over the highest floor its walls reach (RFC 0041). Absent with none. */
   roof?: RoofShape;
+  /** Walls between tiles on the plot (RFC 0050), each on a tile's `n` or `w` line. */
+  edges: LayoutEdge[];
   hearth: { x: number; y: number } | null;
   figures: LayoutFigure[];
   /** What's on display on the plot's pedestals and frames. */
@@ -758,6 +760,15 @@ export function plotLayout(
   const walls = new Map(
     blocks.flatMap((b) => (b.own ? [[`${b.floor ?? 0}|${b.x},${b.y}`, b.block] as const] : [])),
   );
+  // Walls between tiles (RFC 0050) on the plot's own lines, and what a roof reads of them.
+  const edges: LayoutEdge[] = (snapshot.edges ?? []).flatMap((e) =>
+    inBounds(bounds, e.x, e.y)
+      ? [{ x: e.x, y: e.y, side: e.side, block: e.block, ...(e.floor ? { floor: e.floor } : {}) }]
+      : [],
+  );
+  const lines = new Map(
+    edges.map((e) => [`${e.floor ?? 0}|${e.x},${e.y},${e.side}`, e.block] as const),
+  );
   const roof = roofShape({
     plotSize,
     px: plot.px,
@@ -765,6 +776,12 @@ export function plotLayout(
     roof: here?.roof,
     floors: here?.floors ?? 0,
     wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
+    ...(lines.size > 0
+      ? {
+          edge: (x: number, y: number, side: "n" | "w", floor: number) =>
+            holdsRoof(lines.get(`${floor}|${x},${y},${side}`)),
+        }
+      : {}),
   });
   return {
     ownerId: owner.id,
@@ -779,6 +796,7 @@ export function plotLayout(
     ground,
     top,
     ...(roof ? { roof } : {}),
+    edges,
     hearth,
     figures,
     displays,
@@ -880,6 +898,15 @@ export function potsOn(
       },
     ];
   });
+}
+
+/** A wall between tiles as a chunk carries it (RFC 0050): its tile, its `n` or `w` line, its floor. */
+export interface LayoutEdge {
+  x: number;
+  y: number;
+  side: "n" | "w";
+  block: BlockKind;
+  floor?: number;
 }
 
 /** What stands on a surface or hangs on a wall (RFC 0050), as the snapshot and the mirror keep it. */

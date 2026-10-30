@@ -15,8 +15,8 @@ export function buildCommand(
   action: Omit<BuildAction, "dry">,
   plot: { size: number; now: PlotNow },
 ): { command: BuildCommand } | { problem: string } {
-  const { px, py, blocks, ground, remove, lift, map, design, replace } = action;
-  const lists = [blocks, ground, remove, lift].some((l) => l !== undefined);
+  const { px, py, blocks, ground, remove, lift, edges, removeEdges, map, design, replace } = action;
+  const lists = [blocks, ground, remove, lift, edges, removeEdges].some((l) => l !== undefined);
   const forms = [lists, map !== undefined, design !== undefined].filter(Boolean).length;
   if (forms > 1) {
     return { problem: "A plan is lists, a map, or a design. Send one of them." };
@@ -37,7 +37,9 @@ export function buildCommand(
   }
   const command = (
     plan: {
-      [K in "blocks" | "ground" | "remove" | "lift"]?: BuildCommand[K] | undefined;
+      [K in "blocks" | "ground" | "remove" | "lift" | "edges" | "removeEdges"]?:
+        | BuildCommand[K]
+        | undefined;
     },
   ): BuildCommand => ({
     type: "build",
@@ -47,6 +49,9 @@ export function buildCommand(
     ...(plan.ground ? { ground: plan.ground } : {}),
     ...(plan.remove ? { remove: plan.remove } : {}),
     ...(plan.lift ? { lift: plan.lift } : {}),
+    // Walls between tiles (RFC 0050) come only as lists.
+    ...(plan.edges ? { edges: plan.edges } : {}),
+    ...(plan.removeEdges ? { removeEdges: plan.removeEdges } : {}),
   });
   if (design !== undefined) {
     const found = DESIGNS.find((d) => d.id === design);
@@ -65,5 +70,5 @@ export function buildCommand(
     const read = mapToPlan(map, { size: plot.size, now: plot.now, replace });
     return "problem" in read ? read : { command: command(read.plan) };
   }
-  return { command: command({ blocks, ground, remove, lift }) };
+  return { command: command({ blocks, ground, remove, lift, edges, removeEdges }) };
 }

@@ -143,6 +143,19 @@ export {
   treasuryOf,
   treasuryShareOf,
 } from "./economy";
+export {
+  EDGE_KINDS,
+  type EdgeSide,
+  edgeAt,
+  edgeBlocks,
+  edgeKey,
+  edgeOf,
+  edgesOn,
+  edgeTiles,
+  hasEdges,
+  isEdgeKind,
+  parseEdgeKey,
+} from "./edges";
 export * from "./entitlements";
 export {
   type Area,

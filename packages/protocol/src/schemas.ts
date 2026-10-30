@@ -360,6 +360,18 @@ export const RestAction = z.object({
 });
 export const ClaimAction = z.object({ type: z.literal("claim"), ...dry });
 export const ReleaseAction = z.object({ type: z.literal("release"), ...dry });
+/** The side of a tile: a line between tiles (RFC 0050), or a wall seen from the tile. */
+export const Side = z.enum(SIDES);
+export type Side = z.infer<typeof Side>;
+/**
+ * A wall, a window, a hedge or a door on the line on this side of the tile, rather than on the
+ * tile (RFC 0050). It takes no floor from either tile.
+ */
+const onSide = {
+  side: Side.optional().describe(
+    "With place or remove: the wall on the line on this side of the tile, between it and the next (RFC 0050).",
+  ),
+};
 export const PlaceAction = z.object({
   type: z.literal("place"),
   x: coord,
@@ -370,6 +382,7 @@ export const PlaceAction = z.object({
   item: z.string().regex(ITEM_ID_PATTERN).optional(),
   /** With a vase only: a flower from your things to put in it, which stays with the vase. */
   flower: z.enum(FLOWER_KINDS as [FlowerKind, ...FlowerKind[]]).optional(),
+  ...onSide,
   ...dry,
 });
 export const RemoveAction = z.object({
@@ -377,6 +390,7 @@ export const RemoveAction = z.object({
   x: coord,
   y: coord,
   ...toFloor,
+  ...onSide,
   ...dry,
 });
 
@@ -527,6 +541,18 @@ export const BuildAction = z.object({
     .optional(),
   remove: z.array(planTile).max(PLAN_MAX).optional(),
   lift: z.array(planTile).max(PLAN_MAX).optional(),
+  edges: z
+    .array(z.object({ x: planCoord, y: planCoord, side: Side, ...toFloor, block: BlockKind }))
+    .max(PLAN_MAX)
+    .optional()
+    .describe(
+      "Walls, windows, hedges and doors on the lines between tiles (RFC 0050): a tile on the plot and the side of it the line is on.",
+    ),
+  removeEdges: z
+    .array(z.object({ x: planCoord, y: planCoord, side: Side, ...toFloor }))
+    .max(PLAN_MAX)
+    .optional()
+    .describe("Walls to take off the lines between tiles (RFC 0050), the same way."),
   map: PlotMapInput.optional().describe(
     "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
   ),
@@ -575,6 +601,17 @@ export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py:
  * front of its door when it has one. Plot coordinates, not tiles. The server picks the tile.
  */
 export const VisitAction = z.object({ type: z.literal("visit"), px: coord, py: coord, ...dry });
+/**
+ * Turn the wall blocks of the home on plot (px, py) into walls between tiles (RFC 0050), so its
+ * rooms gain the floor its walls took. The server plans it and logs it as a build of yours; the
+ * plot's first one tops up any made material the new walls need past what the blocks give back.
+ */
+export const SlimWallsAction = z.object({
+  type: z.literal("slim_walls"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
 export const BuildStarterHomeAction = z.object({
   type: z.literal("build_starter_home"),
@@ -901,9 +938,6 @@ export const TrinketKind = z.enum(
 export const WallDecorKind = z.enum(
   WALL_DECOR_KINDS as unknown as [WorldWallDecorKind, ...WorldWallDecorKind[]],
 );
-/** The side of a tile a wall is on, seen from the tile (RFC 0050). */
-export const Side = z.enum(SIDES);
-export type Side = z.infer<typeof Side>;
 
 /**
  * Put a small thing on the surface on (x, y) within reach, on your plot or one shared with you
@@ -1696,6 +1730,7 @@ export const Action = z.discriminatedUnion("type", [
   TakeOffAction,
   HangAction,
   UnhangAction,
+  SlimWallsAction,
   AdmireAction,
   SetGalleryAction,
   NamePlotAction,
@@ -1955,6 +1990,24 @@ export const WorldSnapshot = z.object({
   ground: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), ...onFloor, ground: GroundKind }))
     .optional(),
+  /**
+   * Walls between tiles (RFC 0050): each on the line on `side` of its tile, `n` (between it and
+   * the tile north) or `w` (between it and the tile west), on its floor. A walker never crosses one
+   * but a `door`. Absent when there are none.
+   */
+  edges: z
+    .array(
+      z.object({
+        x: z.number().int(),
+        y: z.number().int(),
+        side: z.enum(["n", "w"]),
+        ...onFloor,
+        block: BlockKind,
+      }),
+    )
+    .optional(),
+  /** Present once starter homes are built from walls between tiles (RFC 0050). */
+  starterEdges: z.literal(true).optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /**
@@ -2528,6 +2581,34 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("table_spots_kept") }),
   /** From now on, a starter home has a door in its doorway, walked through like an open tile. */
   z.object({ type: z.literal("starter_doors_set") }),
+  /** From now on a starter home is built from walls between tiles (RFC 0050). */
+  z.object({ type: z.literal("starter_edges_set") }),
+  /** A wall went up on the line on `side` (`n` or `w`) of (x, y) (RFC 0050). Public. */
+  z.object({
+    type: z.literal("edge_placed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    side: z.enum(["n", "w"]),
+    ...onFloor,
+    block: BlockKind,
+    by: z.string(),
+  }),
+  /** The wall on the line on `side` (`n` or `w`) of (x, y) came down (RFC 0050). Public. */
+  z.object({
+    type: z.literal("edge_removed"),
+    x: z.number().int(),
+    y: z.number().int(),
+    side: z.enum(["n", "w"]),
+    ...onFloor,
+    by: z.string(),
+  }),
+  /** A home's wall blocks became walls between tiles, the first time on its plot (RFC 0050). */
+  z.object({
+    type: z.literal("home_slimmed"),
+    px: z.number().int(),
+    py: z.number().int(),
+    by: z.string(),
+  }),
   /** The town shop opened (RFC 0008): `GET /v1/shop`. */
   z.object({ type: z.literal("shop_opened") }),
   /** The treasury's share of shop spending changed, in percent. The rest of each purchase is retired. */

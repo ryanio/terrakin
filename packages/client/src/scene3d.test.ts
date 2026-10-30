@@ -1018,6 +1018,8 @@ describe("three.js stays out of the main bundle", () => {
     "scene3d/marks.ts",
     "scene3d/materials.ts",
     "scene3d/sea.ts",
+    // Walls between tiles (RFC 0050).
+    "scene3d/edges.ts",
     "scene3d/world.ts",
     // The scene photo page (RFC 0049), reached only through import() from photo.ts.
     "photo-page.ts",

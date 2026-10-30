@@ -117,6 +117,7 @@ export function eventView(
     ticks: e.ticks,
     attended: e.status === "ended" ? (e.attended ?? []).map((id) => person(ctx, id)) : null,
     moves: viewer ? [...eventMoves(state, viewer, e), ...dishMove(state, viewer, e)] : [],
+    ...attendanceField(state, e, viewer),
     ...circleField(state, e, ctx.wordsHeld),
     ...(e.dishes?.length
       ? { dishes: e.dishes.map((d) => ({ by: person(ctx, d.by), kind: d.kind })) }
@@ -136,7 +137,7 @@ function teaField(
   return {
     tea: {
       served: servedTea(e),
-      stay: teaStay(e),
+      stay: teaStay(state, e),
       guests: teaGuests(state, e, ctx.guests).map((g) => ({
         resident: person(ctx, g.id),
         cup: g.cup,
@@ -323,7 +324,25 @@ export function countGuests(state: WorldState, e: HostedEvent, options: GuestFac
 }
 
 /** The samples a guest must be seen at by the end of `e` to have attended it. */
-const teaStay = (e: HostedEvent) => attendNeeded(lastSlot(e.minutes));
+const teaStay = (state: WorldState, e: HostedEvent) =>
+  attendNeeded(lastSlot(e.minutes), state.attendAtTen);
+
+/**
+ * A viewer's own attendance progress at a live event (issue #126): how many samples they've
+ * been seen at, and how many they need by the end. Nobody else's progress is shown. The host
+ * gets none (they never count as a guest; a circle night's host counts toward its circle).
+ */
+function attendanceField(
+  state: WorldState,
+  e: HostedEvent,
+  viewer: string | undefined,
+): { attendance?: NonNullable<EventView["attendance"]> } {
+  if (!viewer || e.status !== "live" || viewer === e.host) return {};
+  const seen = e.seen ?? {};
+  const count = Object.hasOwn(seen, viewer) ? (seen[viewer] ?? 0) : 0;
+  const needed = teaStay(state, e);
+  return { attendance: { seen: count, needed, counted: count >= needed } };
+}
 
 /** A resident at a live event, and why they wouldn't count when they wouldn't. */
 interface TeaGuest {
@@ -360,7 +379,7 @@ function teaGuests(state: WorldState, e: HostedEvent, facts: GuestFacts): TeaGue
   );
   const served = servedTea(e);
   const pouredFor = new Set(e.teaFor ?? []);
-  const stay = teaStay(e);
+  const stay = teaStay(state, e);
   // Those a cup would reach first, then the rest, each in id order.
   return ids
     .sort()

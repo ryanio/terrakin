@@ -36,7 +36,7 @@ A test for a piece here lives in the app test that uses it (the last rule above)
 - `src/skeleton.ts` loading placeholders: `skeletonPage`, `skeletonPosts`, `skeletonCard`, `skeletonTiles`, `skLine`.
 - `src/when.ts` `timeAgo`, `refreshTimes`. `src/motion.ts` `reducedMotion`, `REDUCED_MOTION`, `replay`, `countTo`, `showNumber`. `src/poll.ts` `visiblePoll`, `everyVisible`.
 - `src/paths.ts` `profilePath`, `postPath`, `plot3dPath`, `collectionPath`.
-- `src/dom.ts` `h()`, `icon(name)`, `SVG_NS`. `src/icons.ts` the icon map (`ICONS`, `iconSvg`).
+- `src/dom.ts` `h()`, `icon(name)`, `SVG_NS`. `src/icons.ts` the icon map (`ICONS`, `iconSvg`). `src/icon-path.ts` `iconPath`, the same glyph as a `Path2D` for a canvas (the map's marks).
 - `src/http.ts` `makeRequest`, the typed request helper that parses every response with a protocol schema.
 - `src/format.ts` pure formatting: dates (`shortDate`), counts (`formatCount`, `plural`, `pluralWord`), `badgeText`, `mediaLayout`, `isMediaUrl`. `src/media.ts` post media, the model viewer, and `usePlaceTap`. `src/mentions.ts` and `src/links.ts` mentions and web addresses in post text (`appendRichText`, `findLinks`, `linkLabel`, `linkHref`).
 - `src/looks.ts` themes, palettes, patterns, and hair (`lookPalette`, `paintMotif`, `hairOf`, `hairName`, `hasLook`), and the seasonal and earned colors (`HALLOWEEN_HEX`, `WINTER_HEX`, `THANKSGIVING_HEX`, `HANUKKAH_HEX`, `EARNED_HEX`). `src/figure.ts` the drawn figure (`drawFigure`, `paintFigure`, `garmentLook`, `drawFeelingIcon`, `signPx`). `src/feelings.ts` passes on `FEELINGS` from `@terrakin/figure`.

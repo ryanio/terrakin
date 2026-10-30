@@ -28,13 +28,14 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   // The world lives at /world; / is the feed. Someone with no character walks it as a guest
   // first (decision 0380), on this screen only, with Move in in Claim plot's place.
   await page.goto("/world");
-  await test.step("a guest sees only walking, Move in, Sign in, and the way back to the feed", async () => {
+  await test.step("a guest sees only walking, the map's own controls, Move in, Sign in, and the way back to the feed", async () => {
     await expect(page.locator("#hud")).toHaveAttribute("data-guest", "");
     await expect(page.locator("#world-join")).toBeHidden();
     await expect(page.locator(".dpad")).toBeVisible();
     await expect(page.locator("#claim")).toHaveText("Move in");
     await expect(page.locator("#hud-feed")).toBeVisible();
     await expect(page.locator("#hud-signin")).toBeVisible();
+    await expect(page.locator("#map-places")).toBeVisible();
     for (const id of ["chat-toggle", "build", "home", "hud-invite", "sound", "world-mode"])
       await expect(page.locator(`#${id}`)).toBeHidden();
   });

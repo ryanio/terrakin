@@ -4,7 +4,7 @@
  * so on. Labels and makers' names are other residents' words: textContent only.
  */
 import type { GiftView, GoodView, InventoryResponse } from "@terrakin/protocol";
-import { type Family, familyPath, type ItemKind } from "@terrakin/sim";
+import { type Family, familyPath, type ItemKind, type PastPlain } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
@@ -99,7 +99,7 @@ function familyHint(family: Family): string | undefined {
 function familyGroup(
   group: FamilyGroup<{
     kind: ItemKind;
-    stack?: { kind: ItemKind; count: number };
+    stack?: { kind: ItemKind; grade?: PastPlain | undefined; count: number };
     good?: GoodView;
   }>,
 ): HTMLElement {
@@ -118,8 +118,9 @@ function familyGroup(
             h(
               "li",
               { class: "pill things-stack has-art" },
-              itemArt(st.kind, { size: 24 }),
-              h("span", { text: thingCount(st.kind, st.count) }),
+              // A graded made material (RFC 0051) is a stack of its own, its picture marked.
+              itemArt(st.kind, { size: 24, grade: st.grade }),
+              h("span", { text: thingCount(st.kind, st.count, st.grade) }),
             ),
           ),
         )

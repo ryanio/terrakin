@@ -25,7 +25,9 @@ import {
   type Glaze,
   GROUND_INFO,
   GROUND_KINDS,
+  type Grade,
   type GroundKind,
+  gradedLabel,
   groundCostWords,
   groundShort,
   ITEM_INFO,
@@ -35,6 +37,8 @@ import {
   isMaterialKind,
   MATERIAL_KINDS,
   type MaterialKind,
+  PAST_PLAIN,
+  type PastPlain,
   type StackKind,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
@@ -109,6 +113,88 @@ export function withChanges(
 
 /** How many of a kind you hold. */
 export const heldOf = (holdings: Holdings, kind: string) => holdings.get(kind) ?? 0;
+
+/**
+ * The graded made materials you hold (RFC 0051), by `kind:grade`, apart from the plain holdings:
+ * `GET /v1/inventory` lists each grade as a stack of its own, and an event's graded change counts
+ * that grade.
+ */
+export type GradedHoldings = ReadonlyMap<string, number>;
+
+/** Graded holdings from your things' stacks. */
+export function gradedFromStacks(
+  stacks: readonly { kind: string; grade?: string | undefined; count: number }[],
+): GradedHoldings {
+  const out = new Map<string, number>();
+  for (const s of stacks) if (s.grade && s.count > 0) out.set(`${s.kind}:${s.grade}`, s.count);
+  return out;
+}
+
+/** Graded holdings after an event's changes, the same map back when no graded count moved. */
+export function withGradedChanges(
+  graded: GradedHoldings,
+  changes: readonly { kind: string; grade?: string | undefined; count: number }[] | undefined,
+): GradedHoldings {
+  const moved = (changes ?? []).filter(
+    (c) => c.grade !== undefined && (graded.get(`${c.kind}:${c.grade}`) ?? 0) !== c.count,
+  );
+  if (moved.length === 0) return graded;
+  const next = new Map(graded);
+  for (const c of moved) {
+    if (c.count > 0) next.set(`${c.kind}:${c.grade}`, c.count);
+    else next.delete(`${c.kind}:${c.grade}`);
+  }
+  return next;
+}
+
+/** How many of a made material you hold at a grade: the plain holdings for plain. */
+export const heldAt = (
+  holdings: Holdings,
+  graded: GradedHoldings,
+  kind: string,
+  grade: Grade,
+): number => (grade === "plain" ? heldOf(holdings, kind) : (graded.get(`${kind}:${grade}`) ?? 0));
+
+/** The grades past plain you hold of a made material, lowest first. */
+export const gradesHeld = (graded: GradedHoldings, kind: string): PastPlain[] =>
+  PAST_PLAIN.filter((g) => (graded.get(`${kind}:${g}`) ?? 0) > 0);
+
+/**
+ * The grade picker (RFC 0051): right after a picked made material you hold at a grade, a chip for
+ * plain and one for each grade you hold, each with how many, the grade's mark on it. Nothing when
+ * you hold none of it past plain, so a world without grades draws exactly as it did.
+ */
+export function paintGradeChips(
+  row: HTMLElement,
+  kind: string,
+  holdings: Holdings,
+  graded: GradedHoldings,
+  picked: Grade,
+): void {
+  if (!isMaterialKind(kind)) return;
+  const grades = gradesHeld(graded, kind);
+  const chip = row.querySelector(`[data-block="${kind}"]`);
+  if (grades.length === 0 || !chip) return;
+  const chips = (["plain", ...grades] as Grade[]).map((grade) => {
+    const n = heldAt(holdings, graded, kind, grade);
+    return choice(
+      { "data-grade": grade },
+      `${gradedLabel(kind, grade)}, ${n > 0 ? n : "none"} left`,
+      itemArt(kind, { size: 30, grade }),
+      { count: n, dim: n === 0, picked: grade === picked },
+    );
+  });
+  chip.after(...chips);
+}
+
+/** The line under the tabs for a made material at a grade past plain (RFC 0051). */
+export function gradedHeldLine(kind: MaterialKind, grade: PastPlain, n: number): string {
+  const name = gradedLabel(kind, grade);
+  if (n > 0) return `${name}: ${n} left.`;
+  return grade === "fine"
+    ? `${name}: none yet. Make some at a workbench with its fine recipe.`
+    : `${name}: none yet. Each fine craft at a workbench may come out masterwork.`;
+}
 
 /** "Paper lantern, 3 left", or "Table, none left". */
 export function heldLabel(kind: HeldKind, n: number): string {

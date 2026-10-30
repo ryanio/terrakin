@@ -18,6 +18,7 @@ import {
   isSurface,
   type MadeKind,
   MEDIA_ID_PATTERN,
+  type PastPlain,
   type Pattern,
   type PetCoat,
   type PetKind,
@@ -112,6 +113,8 @@ export interface LayoutBlock {
   lit?: true | undefined;
   /** The floor it stands on (RFC 0028): absent on the ground floor. */
   floor?: number | undefined;
+  /** A graded made material's grade (RFC 0051): absent is plain. */
+  grade?: PastPlain | undefined;
 }
 
 export interface LayoutFigure {
@@ -631,6 +634,7 @@ export function plotLayout(
         ? { lit: true as const }
         : {}),
       ...(b.floor ? { floor: b.floor } : {}),
+      ...(b.grade ? { grade: b.grade } : {}),
     });
   }
   blocks.sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0) || a.y - b.y || a.x - b.x);
@@ -769,7 +773,16 @@ export function plotLayout(
   // Walls between tiles (RFC 0050) on the plot's own lines, and what a roof reads of them.
   const edges: LayoutEdge[] = (snapshot.edges ?? []).flatMap((e) =>
     inBounds(bounds, e.x, e.y)
-      ? [{ x: e.x, y: e.y, side: e.side, block: e.block, ...(e.floor ? { floor: e.floor } : {}) }]
+      ? [
+          {
+            x: e.x,
+            y: e.y,
+            side: e.side,
+            block: e.block,
+            ...(e.floor ? { floor: e.floor } : {}),
+            ...(e.grade ? { grade: e.grade } : {}),
+          },
+        ]
       : [],
   );
   const lines = new Map(
@@ -915,6 +928,8 @@ export interface LayoutEdge {
   side: "n" | "w";
   block: BlockKind;
   floor?: number;
+  /** A graded made material's grade (RFC 0051): absent is plain. */
+  grade?: PastPlain | undefined;
 }
 
 /** What stands on a surface or hangs on a wall (RFC 0050), as the snapshot and the mirror keep it. */

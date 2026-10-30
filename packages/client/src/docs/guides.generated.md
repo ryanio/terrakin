@@ -443,6 +443,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 Latest, 2026-10-30:
 
 - Changed: A public way can take down a wall on a line between tiles, and `way_laid` says so
+- Added: A gift gesture takes `grade`, and graded walls look the part
 - Changed: `GET /v1/inventory` can list a made material twice in `stacks`, once per grade
 - Added: Material grades: fine and masterwork made materials, not open in any world yet
 - Changed: `slim_walls` slims the upstairs too

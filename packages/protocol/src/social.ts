@@ -9,6 +9,7 @@ import {
 } from "@terrakin/sim";
 import { z } from "zod";
 import { CollectedView } from "./collection";
+import { Grade } from "./fields";
 import { JobDoneView } from "./job-done";
 import { LevelUpView, LevelView } from "./levels";
 import { AgentLinkView, PartnerBadge, PartnerWear } from "./partners";
@@ -729,6 +730,8 @@ export const GestureRequest = z.object({
   item: z.union([ItemId, ItemKind]).optional(),
   /** With `item` as a kind: how many, 1 to 20. */
   count: z.number().int().min(1).max(ITEMS.giveCountMax).optional(),
+  /** With `item` as a made material: its grade (RFC 0051), as `give` takes it. Absent is plain. */
+  grade: Grade.optional(),
 });
 export type GestureRequest = z.infer<typeof GestureRequest>;
 

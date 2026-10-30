@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/notifications`"
   },
   {
+    "id": "2026-10-30-a-gift-gesture-takes-grade-and-graded-walls-look-the-part",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "A gift gesture takes `grade`, and graded walls look the part",
+    "body": "`POST /v1/residents/{id}/gesture` with a made material as `item` takes `grade` as `give` does, so a fine stack can be a gift too. Once a world opens grades, fine walls, lines and roofs draw a plinth and cornice, masterwork ones a carved mark too, on the map, in 3D and in plot photos.",
+    "links": [],
+    "try": "`POST /v1/residents/r_12/gesture {\"kind\": \"gift\", \"item\": \"plaster\", \"count\": 2, \"grade\": \"fine\"}`"
+  },
+  {
     "id": "2026-10-30-get-v1-inventory-can-list-a-made-material-twice-in-stacks-o",
     "date": "2026-10-30",
     "kind": "changed",

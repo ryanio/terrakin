@@ -28,6 +28,7 @@ import {
   faceKey,
   fireworkNight,
   floorField,
+  type Grade,
   type GroundKind,
   holdsRoof,
   ITEM_INFO,
@@ -36,8 +37,10 @@ import {
   isGroundKind,
   isHangingWall,
   isHeldBlock,
+  isMaterialKind,
   isSurface,
   onGreen,
+  type PastPlain,
   pageKnown,
   parseKey,
   pickupsInReach,
@@ -74,10 +77,15 @@ import {
   blockLine,
   blockShort,
   canLay,
+  type GradedHoldings,
+  gradedFromStacks,
+  gradedHeldLine,
   groundLine,
   HELD_KINDS,
+  type HeldKind,
   type HeldPot,
   type Holdings,
+  heldAt,
   heldLine,
   heldOf,
   holdingsFromStacks,
@@ -86,6 +94,7 @@ import {
   PALETTE_TAB_WORDS,
   PALETTE_TABS,
   type PaletteTab,
+  paintGradeChips,
   paintGroundRow,
   paintHeldRow,
   paintMaterialRow,
@@ -96,6 +105,7 @@ import {
   stairsLine,
   tabOf,
   withChanges,
+  withGradedChanges,
 } from "./build-palette";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import { claimOnJoin } from "./claim-on-join";
@@ -328,6 +338,18 @@ let potPick: string | undefined;
 let potFlower: string | undefined;
 /** What you hold that the build bar shows: decor and furniture counts, and what paths take. */
 let holdings: Holdings = new Map();
+/** The graded made materials you hold (RFC 0051), and the grade picked for a material. */
+let graded: GradedHoldings = new Map();
+let pickGrade: Grade = "plain";
+/** `grade` for a place of the pick: only a made material at a grade past plain. */
+const gradeOfPick = (): { grade?: PastPlain } =>
+  isMaterialKind(pick) && pickGrade !== "plain" ? { grade: pickGrade } : {};
+/** How many of the pick you hold at its grade, for a held block. */
+const pickHeld = () =>
+  isMaterialKind(pick) ? heldAt(holdings, graded, pick, pickGrade) : heldOf(holdings, pick);
+/** The line for a held pick you hold none of, at its grade. */
+const pickNoneLine = (p: HeldKind) =>
+  isMaterialKind(p) && pickGrade !== "plain" ? gradedHeldLine(p, pickGrade, 0) : heldLine(p, 0);
 /** The fishing rods you hold, by id (RFC 0023): with none, Fish says how to make one. */
 let rods: ReadonlySet<string> = new Set();
 /**
@@ -892,6 +914,15 @@ function onMessage(msg: ServerMessage) {
         if (msg.event.lost?.length || msg.event.gained?.length) {
           pots = potsAfter(pots, msg.event);
           if (potPick !== undefined && !pots.some((p) => p.id === potPick)) potPick = undefined;
+          paintPalette();
+        }
+        const nextGraded = withGradedChanges(graded, msg.event.changes);
+        if (nextGraded !== graded) {
+          graded = nextGraded;
+          // The last of a picked grade gone: back to plain.
+          if (isMaterialKind(pick) && pickGrade !== "plain" && pickHeld() === 0) {
+            pickGrade = "plain";
+          }
           paintPalette();
         }
         const next = withChanges(holdings, msg.event.changes);
@@ -1718,8 +1749,8 @@ function tapTile(tile: { x: number; y: number }) {
       // A wall between tiles (RFC 0050): on the line nearest the tap, or off it again.
       const side = tappedSide();
       if (mirror.edgeAt(tile.x, tile.y, side, floor)) tryAct({ type: "remove", ...on, side });
-      else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
-      else tryAct({ type: "place", ...on, side, block: pick });
+      else if (isHeldBlock(pick) && pickHeld() === 0) showToast(pickNoneLine(pick));
+      else tryAct({ type: "place", ...on, side, block: pick, ...gradeOfPick() });
     } else if (hasBlock) tryAct({ type: "remove", ...on });
     else if (pick === "pot") {
       // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
@@ -1729,8 +1760,8 @@ function tapTile(tile: { x: number; y: number }) {
         const flower = potFlower ? { flower: potFlower as FlowerKind } : {};
         tryAct({ type: "place", ...on, block: "pot", item: pot.id, ...flower });
       }
-    } else if (isHeldBlock(pick) && heldOf(holdings, pick) === 0) showToast(heldLine(pick, 0));
-    else if (blockShort(pick, holdings).length > 0) {
+    } else if (isHeldBlock(pick) && pickHeld() === 0) showToast(pickNoneLine(pick));
+    else if (!isHeldBlock(pick) && blockShort(pick, holdings).length > 0) {
       // A pond's stone, stairs' wood, or a kiln's stone, by the sim's own count.
       showToast(
         pick === "stairs"
@@ -1739,7 +1770,7 @@ function tapTile(tile: { x: number; y: number }) {
             ? kilnPlaceLine(holdings)
             : pondLine(holdings, mirror?.clayOpen === true),
       );
-    } else tryAct({ type: "place", ...on, block: pick });
+    } else tryAct({ type: "place", ...on, block: pick, ...gradeOfPick() });
     return;
   }
   const target = tapTarget(tile);
@@ -2280,6 +2311,13 @@ palette.addEventListener("click", (e) => {
     paintPalette();
     return;
   }
+  // A grade for the picked made material (RFC 0051).
+  const grade = target.closest<HTMLButtonElement>("button[data-grade]")?.dataset.grade;
+  if (grade === "plain" || grade === "fine" || grade === "masterwork") {
+    pickGrade = grade;
+    paintPalette();
+    return;
+  }
   const button = target.closest<HTMLButtonElement>("button[data-block], button[data-ground]");
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
@@ -2333,6 +2371,7 @@ function showTab(next: PaletteTab) {
 }
 
 function selectPick(next: BlockKind | GroundKind | "hearth") {
+  if (next !== pick) pickGrade = "plain";
   pick = next;
   paintPalette();
 }
@@ -2351,6 +2390,7 @@ function paintPalette() {
     );
   }
   paintMaterialRow(paletteRows.materials, holdings, pick);
+  paintGradeChips(paletteRows.materials, pick, holdings, graded, pickGrade);
   for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
   paletteLine.textContent = isGroundKind(pick)
@@ -2360,15 +2400,17 @@ function paintPalette() {
           pots.find((p) => p.id === potPick),
           potFlower,
         )
-      : isHeldBlock(pick)
-        ? heldLine(pick, heldOf(holdings, pick))
-        : pick === "pond"
-          ? pondLine(holdings, mirror?.clayOpen === true)
-          : pick === "stairs"
-            ? stairsLine(holdings)
-            : pick === "kiln"
-              ? kilnPlaceLine(holdings)
-              : blockLine(pick);
+      : isMaterialKind(pick) && pickGrade !== "plain"
+        ? gradedHeldLine(pick, pickGrade, pickHeld())
+        : isHeldBlock(pick)
+          ? heldLine(pick, heldOf(holdings, pick))
+          : pick === "pond"
+            ? pondLine(holdings, mirror?.clayOpen === true)
+            : pick === "stairs"
+              ? stairsLine(holdings)
+              : pick === "kiln"
+                ? kilnPlaceLine(holdings)
+                : blockLine(pick);
   // A kiln (RFC 0047) is on the bar only once pottery is open in this world.
   const kiln = paletteRows.blocks.querySelector<HTMLButtonElement>('[data-block="kiln"]');
   if (kiln) {
@@ -2599,6 +2641,7 @@ async function loadHoldings() {
   holdingsRead = true;
   if (!active || !r.ok) return;
   holdings = holdingsFromStacks(r.data.inventory?.stacks ?? []);
+  graded = gradedFromStacks(r.data.inventory?.stacks ?? []);
   pots = potsIn(r.data.inventory?.goods ?? []);
   rods = rodsIn(r.data.inventory?.goods ?? []);
   knownRecipes = new Set(r.data.inventory?.recipes ?? []);

@@ -8,12 +8,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: 89d46c3e7500, 16 entries -->
+<!-- api-fingerprint: 12941a6e3c84, 17 entries -->
 
 - **Changed** A public way can take down a wall on a line between tiles, and `way_laid` says so
   When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile.
   Try: `GET /v1/notifications`
 
+- **Added** A gift gesture takes `grade`, and graded walls look the part
+  `POST /v1/residents/{id}/gesture` with a made material as `item` takes `grade` as `give` does, so a fine stack can be a gift too. Once a world opens grades, fine walls, lines and roofs draw a plinth and cornice, masterwork ones a carved mark too, on the map, in 3D and in plot photos.
+  Try: `POST /v1/residents/r_12/gesture {"kind": "gift", "item": "plaster", "count": 2, "grade": "fine"}`
 - **Changed** `GET /v1/inventory` can list a made material twice in `stacks`, once per grade
   Once a world opens grades, a fine or masterwork material you hold is its own `stacks` entry, `{kind, grade, count}`, right after the plain one. Finding a stack by `kind` alone still finds the plain one, but summing every entry of a kind adds the grades together: read `grade`.
   A graded change in an `inventory` event has `grade` too, and its `count` is of that grade.

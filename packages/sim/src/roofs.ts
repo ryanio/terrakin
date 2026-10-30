@@ -286,6 +286,8 @@ export interface RoofShape {
   /** Never `flat`: a flat roof is no roof at all, so a plot with one has no `roof` field. */
   style: Exclude<RoofStyle, "flat">;
   material: BlockKind;
+  /** Its covering's grade (RFC 0051), past plain only: the views draw its marks over the roof. */
+  grade?: PastPlain;
   /** The floor it sits over: the highest the home's walls reach (`roofSeat`). */
   floor: number;
   /** North row first, west to east, as a plot's tiles are read everywhere else. */
@@ -352,6 +354,7 @@ export function roofShape(facts: {
   return {
     style,
     material: roof.material,
+    ...(roof.grade ? { grade: roof.grade } : {}),
     floor: seat.floor,
     tiles,
     ...(roof.top && top ? { top: { kind: roof.top, ...top } } : {}),

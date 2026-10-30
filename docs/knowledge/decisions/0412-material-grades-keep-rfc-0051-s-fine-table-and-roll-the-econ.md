@@ -39,7 +39,7 @@ Finds over the month, picked up by anyone (by graders) against spent by fine cra
 
 No find's stock falls toward where pedestals and the collection book go short: three quarters of the seashells and every other find picked up are still held at month end. The cost is the other way. A grader makes about one fine craft every two months, nowhere near the RFC's wall run a week, because a plank takes 3 driftwood and a pane 2 sea glass on top of the finishing find, and finds near any one home are few. At that pace a masterwork pair is a rare event, about one a month in a town of 300.
 
-The numbers stay as they are for now because grades are not open anywhere, the looks (slice 3) are not built, and a cheaper table is easy to choose while no live world has logged `open_grades`. When Ryan opens grades, the run says the lever is the finds a fine recipe takes, not the roll: the floor of 15 is never reached at this pace, and `masterwork: 800` only matters once people make more fine crafts.
+The numbers stay as they are for now because grades are not open anywhere and a cheaper table is easy to choose while no live world has logged `open_grades`. When Ryan opens grades, the run says the lever is the finds a fine recipe takes, not the roll: the floor of 15 is never reached at this pace, and `masterwork: 800` only matters once people make more fine crafts.
 
 Readings the RFC left open, chosen while building slice 1:
 
@@ -58,7 +58,15 @@ Readings chosen while building slice 2, the server and protocol:
 - The world snapshot carries `grade` on its `blocks`, `edges` and plots' `roof`, and `gradesOpen` once the switch is logged, so a client can mirror the grades its events name. The RFC's security section already counts on the snapshot carrying them.
 - A plot read's `walls` counts each graded block or line on the plot of the tile its key names (a line by the tile whose north or west side it is), so a rare wall on a household's shared border counts on one of the two plots.
 - A slim never asks for more of a made material at a grade than it pays for: the graded blocks it takes up, plus on a plot's first slim the town's quarter (`paidFor` in `slim-plan.ts`). A corner block stands for two lines, so graded corners ask for more than they give back; the lines past that go up as the same kind plain, then the home's other plain walls (most first), then wood, a tile's second line first.
-- The web's build bar holds plain material only and skips graded stacks and changes, so a graded stack never stands for the plain count before slice 3 brings a grade picker.
+
+Readings chosen while building slice 3, the looks:
+
+- `GRADE_LOOK` is one set of marks for every material, laid over its `WALL_LOOK` (`wallMarks`), so a fine plank and a fine plaster block read as the same grade. Fine is a plinth, a cornice line, side joints and a light catch under the cornice; masterwork adds a small carved diamond mid-face and a brighter catch along the top. The marks are light enough that a fine face stays close to its plain one in 3D (an average tone of 208 against 226 on a 16 by 16 sample of plaster).
+- A roof at a grade gets a dark band under its eaves (`ROOF_GRADE_LOOK`), and a masterwork roof a carved mark on its peak tile, on the map, in 3D, and in plot photos.
+- An item's picture marks its grade in the top right corner: a dot for fine, a small star for masterwork. Plain has no mark.
+- The build bar keeps a count per kind and grade, and its material row shows a chip per grade only while you hold some, with plain always first. The pick goes back to plain when its grade runs out. A pick with none held says how to make it.
+- Selling, giving, a gift gesture, and the build bar treat a graded stack as its own choice and send its `grade`. The room sheet leaves graded stacks out, since a surface or a wall face never takes a made material.
+- In 3D a graded wall is its own instanced draw and its own 128 pixel texture, one per kind and grade, shared by every chunk. Measured in the 3D world at 390 by 844 (headless Chromium, SwiftShader), standing by a home of fine and masterwork plaster lines and three blocks, one per grade: 69 draw calls and about 50,000 triangles a frame, shadow pass included, against 67 and the same triangles with the grades drawn plain. Textures in use: 27. The worst case is every one of the 15 kinds and grades in view in one chunk, which adds at most 10 textures (about 90 kB each with mipmaps, under 1 MB in all) and 2 draws (one for the shadow pass) per extra kind and grade per chunk. Both stay well inside decision 0060's 300 draws and 16 MB. A street where every home mixes many graded kinds was not measured.
 
 ## Consequences
 

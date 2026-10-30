@@ -18,6 +18,10 @@ const RISE = 0.62;
 /** How far a roof's eaves reach past the walls, so a home reads as sheltered rather than capped. */
 const EAVE = 0.08;
 
+/** How deep a graded roof's fascia hangs under its eaves (RFC 0051), and how dark it is lit. */
+const FASCIA = 0.07;
+const FASCIA_LIGHT = 0.4;
+
 /** A roof's surface, lit from the ridge down, in its covering's own color. */
 export function roofMesh(
   origin: { x: number; y: number },
@@ -76,6 +80,44 @@ export function roofMesh(
     if (!on(tile.x, tile.y + 1)) skirt(SW, SE, sw, se);
     if (!on(tile.x - 1, tile.y)) skirt(NW, SW, nw, sw);
     if (!on(tile.x + 1, tile.y)) skirt(SE, NE, se, ne);
+    // A graded covering (RFC 0051) wears a dark fascia under its eaves, as a graded wall wears
+    // its plinth: a narrow band hung from the edge, in the same geometry, so it costs no draw.
+    if (roof.grade) {
+      const band = (a: [number, number, number], b: [number, number, number]) => {
+        const da: [number, number, number] = [a[0], a[1] - FASCIA, a[2]];
+        const db: [number, number, number] = [b[0], b[1] - FASCIA, b[2]];
+        tri(a, da, db, [FASCIA_LIGHT, FASCIA_LIGHT, FASCIA_LIGHT]);
+        tri(a, db, b, [FASCIA_LIGHT, FASCIA_LIGHT, FASCIA_LIGHT]);
+      };
+      if (!on(tile.x, tile.y - 1)) band(NE, NW);
+      if (!on(tile.x, tile.y + 1)) band(SW, SE);
+      if (!on(tile.x - 1, tile.y)) band(NW, SW);
+      if (!on(tile.x + 1, tile.y)) band(SE, NE);
+    }
+  }
+  // A masterwork covering's carved mark (RFC 0051): a small bright diamond standing on its highest
+  // tile, unless something already stands on the ridge.
+  if (roof.grade === "masterwork" && !roof.top) {
+    let peak = roof.tiles[0];
+    for (const t of roof.tiles) if (peak && Math.max(...t.h) > Math.max(...peak.h)) peak = t;
+    if (peak) {
+      const y = base + Math.max(...peak.h) * rise;
+      const cx = peak.x - origin.x;
+      const cz = peak.y - origin.y;
+      const r = 0.11;
+      const light: [number, number, number] = [1.2, 1.2, 1.2];
+      for (const [dx, dz] of [
+        [r, 0],
+        [0, r],
+      ] as const) {
+        const left: [number, number, number] = [cx - dx, y + r, cz - dz];
+        const right: [number, number, number] = [cx + dx, y + r, cz + dz];
+        const low: [number, number, number] = [cx, y, cz];
+        const high: [number, number, number] = [cx, y + r * 2, cz];
+        tri(low, right, high, light);
+        tri(low, high, left, light);
+      }
+    }
   }
   // What stands on the ridge (RFC 0041), in the same geometry: it is the roof's own color taken
   // right down, so a mark costs no draw call, no material and no light of its own.

@@ -630,18 +630,21 @@ export function render(
       return;
     }
     const skin = block === "glass" ? null : skinOf(mirror.ownerAt(x, y));
+    // A made material's grade (RFC 0051), one sprite for each kind and grade.
+    const grade = mirror.gradeAt(key, floor);
     // A wall's surface and a theme's dress are drawn once per size and stamped after that.
-    if (!skin && wallMarks(block).length === 0) paintBlock(ctx, block, left, top, size, scale);
-    else {
+    if (!skin && wallMarks(block, grade).length === 0) {
+      paintBlock(ctx, block, left, top, size, scale);
+    } else {
       const w = size + 2;
       const h = size + lip + 2;
       const art = sprite(
-        `blk|${block}|${skin?.theme ?? ""}|${skin?.imageId ?? ""}|${size}|${scale.toFixed(2)}|${dpr}`,
+        `blk|${block}|${grade}|${skin?.theme ?? ""}|${skin?.imageId ?? ""}|${size}|${scale.toFixed(2)}|${dpr}`,
         w * dpr,
         h * dpr,
         (c) => {
           c.scale(dpr, dpr);
-          paintBlock(c, block, 0, 0, size, scale, skin ?? undefined);
+          paintBlock(c, block, 0, 0, size, scale, skin ?? undefined, grade);
         },
       );
       ctx.drawImage(art, left, top, w, h);
@@ -725,7 +728,15 @@ export function render(
       const at = place(x, y);
       if (!at) continue;
       const { sx, sy } = tileToScreen(cam, at[0], at[1]);
-      paintEdge(ctx, block, side, Math.round(sx - half), Math.round(sy - half), Math.round(scale));
+      paintEdge(
+        ctx,
+        block,
+        side,
+        Math.round(sx - half),
+        Math.round(sy - half),
+        Math.round(scale),
+        mirror.gradeAt(key, floor),
+      );
     }
   };
   if (!simple) {

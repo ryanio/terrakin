@@ -33,7 +33,7 @@ export function cardSize(card: Card): { width: number; height: number; scale: nu
 }
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 16;
+export const CARDS_VERSION = 17;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {

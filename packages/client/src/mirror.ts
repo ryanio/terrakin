@@ -22,6 +22,7 @@ import {
   type FindKind,
   FLOORS,
   faceKey,
+  type Grade,
   type Ground,
   type GroundKind,
   groundOf,
@@ -33,6 +34,7 @@ import {
   MINUTE_MS,
   mayGatherOn,
   onSpring,
+  type PastPlain,
   type Pet,
   type PickupKind,
   type PlotRoof,
@@ -224,6 +226,13 @@ export class Mirror {
    * line, `"x,y,n"`. Empty until the world has one.
    */
   private edgeLayers = new Map<number, Map<string, BlockKind>>();
+  /**
+   * The grades of graded walls on each floor (RFC 0051), keyed by the sim's `tileKey` for a block
+   * and `edgeKey` for a line, as the snapshot and the events carry them. Plain is never here.
+   */
+  private gradeLayers = new Map<number, Map<string, PastPlain>>();
+  /** Whether made materials come in grades here (`grades_opened`, RFC 0051). */
+  gradesOpen = false;
   /** Whether starter homes are built from walls between tiles (`starter_edges_set`, RFC 0050). */
   starterEdges = false;
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
@@ -349,9 +358,14 @@ export class Mirror {
         });
       }
     }
-    for (const b of snapshot.blocks) this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
+    this.gradeLayers.clear();
+    for (const b of snapshot.blocks) {
+      this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
+      this.#setGrade(b.floor, tileKey(b.x, b.y), b.grade);
+    }
     for (const e of snapshot.edges ?? []) {
       this.edgesAt(e.floor).set(edgeKey(e.x, e.y, e.side), e.block);
+      this.#setGrade(e.floor, edgeKey(e.x, e.y, e.side), e.grade);
     }
     this.starterEdges = snapshot.starterEdges === true;
     for (const g of snapshot.ground ?? []) {
@@ -388,6 +402,7 @@ export class Mirror {
     this.wayPickupsOpen = snapshot.wayPickupsOpen === true;
     this.findsOpen = snapshot.findsOpen === true;
     this.clayOpen = snapshot.clayOpen === true;
+    this.gradesOpen = snapshot.gradesOpen === true;
     this.clayByWater = snapshot.clayByWater === true;
     for (const k of snapshot.kilns ?? []) {
       this.kilns.set(tileKey(k.x, k.y), { by: k.by, readyDay: k.readyDay });
@@ -440,6 +455,29 @@ export class Mirror {
       this.edgeLayers.set(at, layer);
     }
     return layer;
+  }
+
+  /**
+   * The grade of the wall at `key` on `floor` (RFC 0051): a block's `tileKey` or a line's
+   * `edgeKey`, the keys the sim's `gradeAt` reads. Plain when nothing says otherwise.
+   */
+  gradeAt(key: string, floor = 0): Grade {
+    return this.gradeLayers.get(floor)?.get(key) ?? "plain";
+  }
+
+  /** Keep or drop a wall's grade as an event or the snapshot says it. */
+  #setGrade(floor: number | undefined, key: string, grade: PastPlain | undefined) {
+    const at = floor ?? 0;
+    if (!grade) {
+      this.gradeLayers.get(at)?.delete(key);
+      return;
+    }
+    let layer = this.gradeLayers.get(at);
+    if (!layer) {
+      layer = new Map();
+      this.gradeLayers.set(at, layer);
+    }
+    layer.set(key, grade);
   }
 
   /** The walls between tiles on any floor, to read: keyed by the sim's `edgeKey`. */
@@ -733,6 +771,8 @@ export class Mirror {
             style: event.style,
             material: event.material,
             ...(event.top ? { top: event.top } : {}),
+            // A graded covering (RFC 0051) keeps its grade.
+            ...(event.grade ? { grade: event.grade } : {}),
           });
         }
         break;
@@ -765,6 +805,7 @@ export class Mirror {
       // On the floor each names (RFC 0028): absent is the ground floor.
       case "block_placed":
         this.blocksAt(event.floor).set(tileKey(event.x, event.y), event.block);
+        this.#setGrade(event.floor, tileKey(event.x, event.y), event.grade);
         if (event.pot) {
           this.pots.set(potKey(event.x, event.y, event.floor ?? 0), {
             good: { ...event.pot },
@@ -775,15 +816,18 @@ export class Mirror {
       // Walls between tiles (RFC 0050), each on its `n` or `w` line.
       case "edge_placed":
         this.edgesAt(event.floor).set(edgeKey(event.x, event.y, event.side), event.block);
+        this.#setGrade(event.floor, edgeKey(event.x, event.y, event.side), event.grade);
         break;
       case "edge_removed":
         this.edgesAt(event.floor).delete(edgeKey(event.x, event.y, event.side));
+        this.#setGrade(event.floor, edgeKey(event.x, event.y, event.side), undefined);
         break;
       case "starter_edges_set":
         this.starterEdges = true;
         break;
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));
+        this.#setGrade(event.floor, tileKey(event.x, event.y), undefined);
         this.pots.delete(potKey(event.x, event.y, event.floor ?? 0));
         break;
       case "ground_laid":
@@ -887,6 +931,9 @@ export class Mirror {
       case "clay_opened":
         this.clayOpen = true;
         this.clayByWater = event.water === true;
+        break;
+      case "grades_opened":
+        this.gradesOpen = true;
         break;
       case "kiln_loaded":
         this.kilns.set(tileKey(event.x, event.y), { by: event.by, readyDay: event.readyDay });

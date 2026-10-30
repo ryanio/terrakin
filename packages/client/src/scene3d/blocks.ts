@@ -3,6 +3,8 @@ import {
   DECOR_KINDS,
   DOOR_LOOK,
   FURNITURE_KINDS,
+  GRADES,
+  type Grade,
   holdsRoof,
   POND_LOOK,
   WALL_LOOK,
@@ -43,7 +45,7 @@ import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
 import { FLOOR_HEIGHT, floorY, type LayoutBlock, paneTurn, stairsTurn, tileHash } from "./layout";
-import { materialTexture } from "./materials";
+import { materialTexture, type WallTextures } from "./materials";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";
 
@@ -66,7 +68,7 @@ export function blockMeshes(
   origin: { x: number; y: number },
   blocks: readonly LayoutBlock[],
   grain: Texture,
-  shared?: { plank: Texture; stone: Texture; pool?: Texture; wall?: (kind: WallKind) => Texture },
+  shared?: { plank: Texture; stone: Texture; pool?: Texture; wall?: WallTextures },
 ): Object3D[] {
   const out: Object3D[] = [];
   const toX = (x: number) => x - origin.x;
@@ -90,8 +92,10 @@ export function blockMeshes(
   };
 
   // Walls in wood, stone, and the made materials (RFC 0041), each wearing its own surface
-  // (`materialTexture`), one draw per kind. The free two stand a little wider than the made ones.
-  const wallTexture = (kind: WallKind) => shared?.wall?.(kind) ?? stage.keep(materialTexture(kind));
+  // (`materialTexture`), one draw per kind and grade (RFC 0051). The free two stand a little wider
+  // than the made ones.
+  const wallTexture = (kind: WallKind, grade: Grade = "plain") =>
+    shared?.wall?.(kind, grade) ?? stage.keep(materialTexture(kind, grade));
   const wallGeometry = (kind: WallKind) => {
     const look = blockLook(kind);
     const wide = kind === "wood" || kind === "stone" ? 0.96 : 0.9;
@@ -103,12 +107,12 @@ export function blockMeshes(
     geo.translate(0, look.height / 2, 0);
     return geo;
   };
-  for (const kind of SOLID_WALLS) {
-    const list = blocks.filter((b) => b.block === kind);
+  for (const [kind, grade] of SOLID_WALLS.flatMap((k) => GRADES.map((g) => [k, g] as const))) {
+    const list = blocks.filter((b) => b.block === kind && (b.grade ?? "plain") === grade);
     if (list.length === 0) continue;
     const mesh = new InstancedMesh(
       wallGeometry(kind),
-      paper(0xffffff, wallTexture(kind)),
+      paper(0xffffff, wallTexture(kind, grade)),
       list.length,
     );
     list.forEach((b, i) => {
@@ -123,11 +127,14 @@ export function blockMeshes(
 
   // Sea glass: leaded panes you see a little through, lit warm from inside after dark in a home
   // someone's in, as glass is (decision 0098). One draw for each.
-  const seaGlass = blocks.filter((b) => b.block === "sea_glass_pane");
-  if (seaGlass.length > 0) {
+  for (const grade of GRADES) {
+    const seaGlass = blocks.filter(
+      (b) => b.block === "sea_glass_pane" && (b.grade ?? "plain") === grade,
+    );
+    if (seaGlass.length === 0) continue;
     const look = blockLook("sea_glass_pane");
     const geo = wallGeometry("sea_glass_pane");
-    const tex = wallTexture("sea_glass_pane");
+    const tex = wallTexture("sea_glass_pane", grade);
     for (const lit of [false, true]) {
       const list = seaGlass.filter((b) => Boolean(b.lit) === lit);
       if (list.length === 0) continue;

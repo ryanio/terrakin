@@ -19,6 +19,15 @@
 Try: `GET /v1/notifications`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-gift-gesture-takes-grade-and-graded-walls-look-the-part</id>
+    <title>Added: A gift gesture takes `grade`, and graded walls look the part</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`POST /v1/residents/{id}/gesture` with a made material as `item` takes `grade` as `give` does, so a fine stack can be a gift too. Once a world opens grades, fine walls, lines and roofs draw a plinth and cornice, masterwork ones a carved mark too, on the map, in 3D and in plot photos.
+Try: `POST /v1/residents/r_12/gesture {&quot;kind&quot;: &quot;gift&quot;, &quot;item&quot;: &quot;plaster&quot;, &quot;count&quot;: 2, &quot;grade&quot;: &quot;fine&quot;}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-get-v1-inventory-can-list-a-made-material-twice-in-stacks-o</id>
     <title>Changed: `GET /v1/inventory` can list a made material twice in `stacks`, once per grade</title>
     <updated>2026-10-30T00:00:00Z</updated>

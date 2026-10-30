@@ -2,13 +2,22 @@ import {
   type BlockKind,
   blockFill,
   mixHex,
+  ROOF_GRADE_LOOK,
   type RoofShape,
   type RoofTop,
   roofTone,
   type Season,
   type ThemePalette,
 } from "@terrakin/sim";
+import { paintMarks } from "@terrakin/ui/ground-art";
 import { type Camera, tileToScreen } from "../camera";
+
+/** A roof's first highest tile, in the order its tiles are read, where a masterwork mark sits. */
+function roofPeakTile(roof: RoofShape): { x: number; y: number } | undefined {
+  let best: RoofShape["tiles"][number] | undefined;
+  for (const t of roof.tiles) if (!best || Math.max(...t.h) > Math.max(...best.h)) best = t;
+  return best ? { x: best.x, y: best.y } : undefined;
+}
 
 /**
  * A home's roof from above (RFC 0041). A roof is one field on the plot, and what it covers is read
@@ -141,24 +150,45 @@ export function paintRoof(
   const line = Math.max(1, scale / 22);
   // The eaves: an ink line wherever the roof ends.
   const edge = new Path2D();
+  // A graded covering's light line (RFC 0051), the same eaves drawn a little way inside.
+  const inner = new Path2D();
+  const d = Math.max(2, line * 2.6);
   for (const { x, y } of roof.tiles) {
     const b = box(x, y);
     if (!on(x, y - 1)) {
       edge.moveTo(b.left, b.top);
       edge.lineTo(b.left + b.w, b.top);
+      inner.moveTo(b.left, b.top + d);
+      inner.lineTo(b.left + b.w, b.top + d);
     }
     if (!on(x, y + 1)) {
       edge.moveTo(b.left, b.top + b.h);
       edge.lineTo(b.left + b.w, b.top + b.h);
+      inner.moveTo(b.left, b.top + b.h - d);
+      inner.lineTo(b.left + b.w, b.top + b.h - d);
     }
     if (!on(x - 1, y)) {
       edge.moveTo(b.left, b.top);
       edge.lineTo(b.left, b.top + b.h);
+      inner.moveTo(b.left + d, b.top);
+      inner.lineTo(b.left + d, b.top + b.h);
     }
     if (!on(x + 1, y)) {
       edge.moveTo(b.left + b.w, b.top);
       edge.lineTo(b.left + b.w, b.top + b.h);
+      inner.moveTo(b.left + b.w - d, b.top);
+      inner.lineTo(b.left + b.w - d, b.top + b.h);
     }
+  }
+  // A graded covering (RFC 0051): a deep band along its eaves with a light line inside it, as a
+  // graded wall wears its plinth, drawn under the ink so the eaves stay crisp.
+  if (roof.grade) {
+    ctx.strokeStyle = ROOF_GRADE_LOOK.eave;
+    ctx.lineWidth = Math.max(2, line * 3.4);
+    ctx.stroke(edge);
+    ctx.strokeStyle = ROOF_GRADE_LOOK.catch;
+    ctx.lineWidth = Math.max(1, line * 0.9);
+    ctx.stroke(inner);
   }
   ctx.strokeStyle = "rgba(61, 48, 36, 0.5)";
   ctx.lineWidth = line;
@@ -197,6 +227,14 @@ export function paintRoof(
     ctx.strokeStyle = "rgba(255, 247, 230, 0.7)";
     ctx.lineWidth = Math.max(1, line * 1.2);
     ctx.stroke(ridge);
+  }
+  // A masterwork covering's carved diamond on its highest tile, where the ridge shows it off.
+  if (roof.grade === "masterwork") {
+    const at = roof.top ?? roofPeakTile(roof);
+    if (at) {
+      const b = box(at.x, at.y);
+      paintMarks(ctx, ROOF_GRADE_LOOK.carving, b.left, b.top, b.w, b.h);
+    }
   }
   // What stands on the ridge, last of all, so nothing on the roof covers it.
   if (roof.top) {

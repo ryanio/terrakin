@@ -23,6 +23,8 @@ import {
   familyPath,
   type Glaze,
   type GoodKind,
+  type Grade,
+  gradedName,
   HOLIDAY_INFO,
   type Holiday,
   ITEM_INFO,
@@ -37,6 +39,7 @@ import {
   MONTH_NAMES,
   OTHERS_PLOT_GATHER,
   PANTRY_STAPLES,
+  type PastPlain,
   POND,
   POTTERY,
   potName,
@@ -347,13 +350,27 @@ export function holidayLine(holiday: string): string {
 }
 
 /** How many of a stack kind are in a list of stacks: 0 when it's absent. */
-export const stackCount = (stacks: readonly { kind: string; count: number }[], kind: string) =>
-  stacks.find((s) => s.kind === kind)?.count ?? 0;
+export const stackCount = (
+  stacks: readonly { kind: string; grade?: string | undefined; count: number }[],
+  kind: string,
+) => stacks.find((s) => s.kind === kind && s.grade === undefined)?.count ?? 0;
 
-/** "1 lemon", "3 lemons", "2 bunches of herbs". */
-export function thingCount(kind: ItemKind, n: number): string {
-  const info = ITEM_INFO[kind];
-  return `${n} ${(n === 1 ? info.name : info.plural).toLowerCase()}`;
+/** "1 lemon", "3 lemons", "2 bunches of herbs", and at a grade "3 fine plaster blocks" (RFC 0051). */
+export function thingCount(kind: ItemKind, n: number, grade?: Grade): string {
+  return `${n} ${gradedName(kind, grade ?? "plain", n !== 1)}`;
+}
+
+/**
+ * A stack in your things as a pick's value (RFC 0051): its kind, or `kind:grade` for a graded made
+ * material, so a fine stack is a choice of its own. `pickedStack` reads one back.
+ */
+export const stackPick = (s: { kind: string; grade?: string | undefined }) =>
+  s.grade ? `${s.kind}:${s.grade}` : s.kind;
+
+/** A pick's value read back as what an action names: `item`, and `grade` when it has one. */
+export function pickedStack(value: string): { item: string; grade?: PastPlain } {
+  const [item = value, grade] = value.split(":");
+  return grade === "fine" || grade === "masterwork" ? { item, grade } : { item };
 }
 
 /**

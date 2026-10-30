@@ -1891,6 +1891,14 @@ export class WorldService {
   }
 
   /**
+   * Material grades (RFC 0051), switched on now. Only the Node server's test route calls it, like
+   * `testOpenClay`, since no adapter logs `open_grades`. The sim refuses it before items.
+   */
+  testOpenGrades() {
+    return this.run({ actor: TOWN_ACTOR, command: { type: "open_grades" } });
+  }
+
+  /**
    * The next land (RFC 0038), opened now whatever the plots left say, so a test world has an
    * island to look at. Only the Node server's test route calls it, like `testGrant`; the count is
    * what opens one in a real world. With no name left in the town's table there is nothing to open.

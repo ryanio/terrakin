@@ -362,6 +362,7 @@ describe("one plot of the world, read from the mirror", () => {
           floor === 0 ? new Map<string, BlockKind>([["12,10,n", "stone"]]) : new Map(),
         roofAt: roof("gable"),
         isSea: () => false,
+        gradeAt: () => "plain",
       },
       hearths: new Set(["9,9"]),
       season: "summer",
@@ -414,6 +415,8 @@ describe("one plot of the world, read from the mirror", () => {
           floor === 0 ? new Map<string, BlockKind>([["12,10,n", "brickwork"]]) : new Map(),
       }),
       roofAt: source({ roofAt: roof("hip") }),
+      // A graded wall (RFC 0051) wears its grade.
+      gradeAt: source({ gradeAt: (key) => (key === "8,8" ? "fine" : "plain") }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },
       season: { ...base, season: "autumn" },

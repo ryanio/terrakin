@@ -5,6 +5,7 @@
  */
 
 import type { MaterialKind } from "./catalog";
+import type { Grade, PastPlain } from "./grades";
 import { BLOCK_COLORS, type GroundMark, markDot, markLine, markRect } from "./palette";
 import type { BlockKind, BuildingBlock } from "./types";
 
@@ -174,7 +175,66 @@ export const WALL_LOOK: Readonly<Record<WallKind, readonly GroundMark[]>> = {
   ],
 };
 
-/** A wall or window's surface marks (`WALL_LOOK`), or none for any other block. */
-export function wallMarks(block: BlockKind): readonly GroundMark[] {
-  return Object.hasOwn(WALL_LOOK, block) ? WALL_LOOK[block as WallKind] : [];
+/** A deeper shade for a fine wall's joints and its plinth and cornice, and the masterwork carving. */
+const FINE_JOINT = "rgba(46, 28, 14, 0.3)";
+const CARVED = "rgba(46, 28, 14, 0.5)";
+const BRIGHT = "rgba(255, 252, 240, 0.62)";
+
+/** A fine wall's marks (RFC 0051), which a masterwork wall wears too. */
+const FINE_MARKS: readonly GroundMark[] = [
+  // A plinth along the foot and a cornice along the top, each a dark band with a light edge.
+  markRect(0.03, 0.88, 0.94, 0.07, 0.01, FINE_JOINT),
+  markLine(0.04, 0.86, 0.96, 0.86, 0.014, CATCH),
+  markRect(0.03, 0.04, 0.94, 0.06, 0.01, FINE_JOINT),
+  markLine(0.04, 0.11, 0.96, 0.11, 0.014, CATCH),
+  // The joints at its ends drawn darker, so the wall reads as laid with more care.
+  markLine(0.035, 0.1, 0.035, 0.87, 0.02, FINE_JOINT),
+  markLine(0.965, 0.1, 0.965, 0.87, 0.02, FINE_JOINT),
+];
+
+/**
+ * The marks a grade adds over a made material's own surface (RFC 0051), the same for every
+ * material so a grade reads the same on brick as on driftwood. Fine has a plinth and a cornice and
+ * darker joints; masterwork has those, a small carved diamond in the middle of the face, and a
+ * lighter catch along its top, enough to pick out from across the street. Plain adds nothing.
+ */
+export const GRADE_LOOK: Readonly<Record<PastPlain, readonly GroundMark[]>> = {
+  fine: FINE_MARKS,
+  masterwork: [
+    ...FINE_MARKS,
+    markLine(0.5, 0.36, 0.62, 0.48, 0.035, CARVED),
+    markLine(0.62, 0.48, 0.5, 0.6, 0.035, CARVED),
+    markLine(0.5, 0.6, 0.38, 0.48, 0.035, CARVED),
+    markLine(0.38, 0.48, 0.5, 0.36, 0.035, CARVED),
+    markDot(0.5, 0.48, 0.03, CARVED),
+    markLine(0.05, 0.03, 0.95, 0.03, 0.022, BRIGHT),
+  ],
+};
+
+/**
+ * A graded roof's covering (RFC 0051), as the views draw it over the roof rather than on each
+ * tile: `eave` is the color of a band along its eaves and `catch` the light line just inside it,
+ * for both grades, and a masterwork roof also wears `carving` (the masterwork wall's carved
+ * diamond, in units of one tile) on its highest tile.
+ */
+export const ROOF_GRADE_LOOK = {
+  eave: FINE_JOINT,
+  catch: BRIGHT,
+  carving: [
+    markLine(0.5, 0.28, 0.72, 0.5, 0.07, CARVED),
+    markLine(0.72, 0.5, 0.5, 0.72, 0.07, CARVED),
+    markLine(0.5, 0.72, 0.28, 0.5, 0.07, CARVED),
+    markLine(0.28, 0.5, 0.5, 0.28, 0.07, CARVED),
+    markDot(0.5, 0.5, 0.06, CARVED),
+  ] as readonly GroundMark[],
+} as const;
+
+/**
+ * A wall or window's surface marks (`WALL_LOOK`), with its grade's (`GRADE_LOOK`) over them for a
+ * graded made material, or none for any other block.
+ */
+export function wallMarks(block: BlockKind, grade: Grade = "plain"): readonly GroundMark[] {
+  if (!Object.hasOwn(WALL_LOOK, block)) return [];
+  const own = WALL_LOOK[block as WallKind];
+  return grade === "plain" ? own : [...own, ...GRADE_LOOK[grade]];
 }

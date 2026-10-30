@@ -1,4 +1,4 @@
-import { WALL_LOOK, type WallKind } from "@terrakin/sim";
+import { type Grade, type WallKind, wallMarks } from "@terrakin/sim";
 import { paintMarks } from "@terrakin/ui/ground-art";
 import type { CanvasTexture, Texture } from "three";
 import { canvasTexture, type Stage } from "./art";
@@ -9,18 +9,18 @@ const SIZE = 128;
 
 /**
  * A wall's surface as a texture (decision 0030: drawn on a canvas, nothing loaded): its 3D color, the
- * marks `WALL_LOOK` gives it (the same the map and the plot photos draw), and a little paper fiber.
- * It carries its own color, so a wall drawn with it is tinted white. Kept apart from any shape, so
- * whatever form a wall takes can wear it.
+ * marks `WALL_LOOK` gives it with its grade's over them (`GRADE_LOOK`, RFC 0051: the same the map
+ * and the plot photos draw), and a little paper fiber. It carries its own color, so a wall drawn
+ * with it is tinted white. Kept apart from any shape, so whatever form a wall takes can wear it.
  */
-export function materialTexture(kind: WallKind): CanvasTexture {
+export function materialTexture(kind: WallKind, grade: Grade = "plain"): CanvasTexture {
   const c = document.createElement("canvas");
   c.width = SIZE;
   c.height = SIZE;
   const g = c.getContext("2d") as CanvasRenderingContext2D;
   g.fillStyle = `#${blockLook(kind).color.toString(16).padStart(6, "0")}`;
   g.fillRect(0, 0, SIZE, SIZE);
-  paintMarks(g, WALL_LOOK[kind], 0, 0, SIZE, SIZE);
+  paintMarks(g, wallMarks(kind, grade), 0, 0, SIZE, SIZE);
   // Paper fibers: specks a shade lighter and darker, the same every time.
   let s = 0x9e3779b9 ^ kind.length;
   const next = () => {
@@ -37,18 +37,22 @@ export function materialTexture(kind: WallKind): CanvasTexture {
 }
 
 /**
- * Each wall kind's texture, drawn the first time a wall of it is shown and then shared by every
- * plot on the stage. Each goes into `spare` so freeing one plot leaves it for the rest.
+ * Each wall kind's texture at each grade (RFC 0051), drawn the first time a wall of it is shown
+ * and then shared by every plot on the stage, so a graded wall costs one small texture per kind and
+ * grade on screen. Each goes into `spare` so freeing one plot leaves it for the rest.
  */
-export function wallTextures(stage: Stage, spare: Set<Texture>): (kind: WallKind) => Texture {
-  const made = new Map<WallKind, Texture>();
-  return (kind) => {
-    let t = made.get(kind);
+export function wallTextures(stage: Stage, spare: Set<Texture>): WallTextures {
+  const made = new Map<string, Texture>();
+  return (kind, grade = "plain") => {
+    let t = made.get(`${kind}:${grade}`);
     if (!t) {
-      t = stage.keep(materialTexture(kind));
+      t = stage.keep(materialTexture(kind, grade));
       spare.add(t);
-      made.set(kind, t);
+      made.set(`${kind}:${grade}`, t);
     }
     return t;
   };
 }
+
+/** A wall kind's texture at a grade, shared by everything a stage draws. */
+export type WallTextures = (kind: WallKind, grade?: Grade) => Texture;

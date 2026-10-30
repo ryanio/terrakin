@@ -4,7 +4,11 @@ import { describe, expect, it } from "vitest";
 import {
   blockShort,
   canLay,
+  gradedFromStacks,
+  gradedHeldLine,
+  gradesHeld,
   groundLine,
+  heldAt,
   heldLabel,
   heldLine,
   holdingsFromStacks,
@@ -13,6 +17,7 @@ import {
   stairsLine,
   tabOf,
   withChanges,
+  withGradedChanges,
 } from "./build-palette";
 import { CLAY_WHERE } from "./things";
 
@@ -51,6 +56,28 @@ describe("the build bar", () => {
     ]);
     expect([...held]).toEqual([["plaster", 3]]);
     expect(withChanges(held, [{ kind: "plaster", grade: "fine", count: 6 }])).toBe(held);
+  });
+
+  it("keeps graded material by grade, and the picker offers only the grades you hold", () => {
+    const stacks = [
+      { kind: "plaster", count: 3 },
+      { kind: "plaster", grade: "fine", count: 8 },
+      { kind: "brickwork", grade: "masterwork", count: 2 },
+    ];
+    const held = holdingsFromStacks(stacks);
+    const graded = gradedFromStacks(stacks);
+    expect(heldAt(held, graded, "plaster", "plain")).toBe(3);
+    expect(heldAt(held, graded, "plaster", "fine")).toBe(8);
+    expect(gradesHeld(graded, "plaster")).toEqual(["fine"]);
+    expect(gradesHeld(graded, "brickwork")).toEqual(["masterwork"]);
+    expect(gradesHeld(graded, "timber_frame")).toEqual([]);
+    // A plain change moves nothing graded; placing the last fine one takes its grade away.
+    expect(withGradedChanges(graded, [{ kind: "plaster", count: 2 }])).toBe(graded);
+    const after = withGradedChanges(graded, [{ kind: "plaster", grade: "fine", count: 0 }]);
+    expect(gradesHeld(after, "plaster")).toEqual([]);
+    expect(gradedHeldLine("plaster", "fine", 0)).toBe(
+      "Fine plaster block: none yet. Make some at a workbench with its fine recipe.",
+    );
   });
 
   it("says how many of a piece are left, and where to get one when none are", () => {

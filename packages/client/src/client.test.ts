@@ -56,6 +56,73 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
+  it("carries a wall's and a roof's grade from the snapshot and the events (RFC 0051)", () => {
+    const m = new Mirror({
+      ...snapshot,
+      plots: [{ px: 0, py: 0, ownerId: "a" }],
+      blocks: [{ x: 1, y: 1, block: "plaster", grade: "fine" }],
+      edges: [{ x: 2, y: 1, side: "n", block: "brickwork", grade: "masterwork" }],
+      gradesOpen: true,
+    });
+    expect(m.gradesOpen).toBe(true);
+    expect(m.gradeAt("1,1")).toBe("fine");
+    expect(m.gradeAt("2,1,n")).toBe("masterwork");
+    const events = [
+      { seq: 4, event: { type: "block_removed", x: 1, y: 1, by: "a" } },
+      { seq: 5, event: { type: "block_placed", x: 1, y: 1, block: "plaster", by: "a" } },
+      { seq: 6, event: { type: "edge_removed", x: 2, y: 1, side: "n", by: "a" } },
+      {
+        seq: 7,
+        event: {
+          type: "edge_placed",
+          x: 3,
+          y: 1,
+          side: "w",
+          block: "plaster",
+          grade: "fine",
+          by: "a",
+        },
+      },
+      {
+        seq: 8,
+        event: {
+          type: "block_placed",
+          x: 1,
+          y: 2,
+          floor: 1,
+          block: "plaster",
+          grade: "masterwork",
+          by: "a",
+        },
+      },
+      {
+        seq: 9,
+        event: {
+          type: "roof_set",
+          px: 0,
+          py: 0,
+          style: "gable",
+          material: "plaster",
+          grade: "fine",
+          by: "a",
+        },
+      },
+    ] as const;
+    for (const e of events) expect(m.apply(e)).toBe("applied");
+    // A wall placed plain where a fine one stood is plain; a removed line keeps no grade.
+    expect(m.gradeAt("1,1")).toBe("plain");
+    expect(m.gradeAt("2,1,n")).toBe("plain");
+    expect(m.gradeAt("3,1,w")).toBe("fine");
+    expect(m.gradeAt("1,2", 1)).toBe("masterwork");
+    expect(m.roofs.get("0,0")).toEqual({ style: "gable", material: "plaster", grade: "fine" });
+    const changed = {
+      seq: 10,
+      event: { type: "roof_changed", px: 0, py: 0, style: "hip", material: "plaster", by: "a" },
+    } as const;
+    expect(m.apply(changed)).toBe("applied");
+    expect(m.roofs.get("0,0")).toEqual({ style: "hip", material: "plaster" });
+  });
+
   it("keeps each floor's blocks and flooring apart, and who stands upstairs (RFC 0028)", () => {
     const [ada] = snapshot.residents;
     if (!ada) throw new Error("fixture");

@@ -140,8 +140,10 @@ export function openRoomSheet(o: RoomSheetOptions) {
     }
     const kinds = kindsFor(onWall);
     const goods = r.data.inventory?.goods ?? [];
+    // Only plain stacks: a graded stack is a made material (RFC 0051), which nothing puts on a
+    // surface or hangs on a wall, so its own entry is never one to offer here.
     const stacks = (r.data.inventory?.stacks ?? []).filter(
-      (st) => kinds.includes(st.kind) || isFindKind(st.kind),
+      (st) => st.grade === undefined && (kinds.includes(st.kind) || isFindKind(st.kind)),
     );
     hint.textContent =
       goods.length + stacks.length > 0

@@ -1,6 +1,6 @@
-import { GRADING, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import { GRADING, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
-import { createApp } from "./app";
+import { createApp, TEST_OPEN_GRADES_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -62,16 +62,15 @@ async function start(open: boolean) {
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
     onResponse,
+    testClock: { advanceDay: () => service.state.day ?? null },
   });
   const base = await listenOnFreePort(server, cleanups);
   const call = jsonCaller(base);
   service.tick();
-  // No adapter logs `open_grades` yet: a test logs it as the town would.
+  // No adapter logs `open_grades`: a test world opens it by its route, from this machine only.
   if (open) {
-    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
-    expect(
-      run.call(service, { actor: TOWN_ACTOR, command: { type: "open_grades" } }),
-    ).toMatchObject({ ok: true });
+    expect((await call("POST", TEST_OPEN_GRADES_PATH)).body).toEqual({ ok: true });
+    expect((await call("POST", TEST_OPEN_GRADES_PATH)).body.ok).toBe(false);
   }
   const { body } = await call("POST", "/v1/session", { name: "Ada", kind: "agent" });
   const ada = { id: body.residentId as string, token: body.token as string };

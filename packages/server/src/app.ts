@@ -110,7 +110,8 @@ export interface AppOptions {
    * (`TEST_GRANT_PATH`), `POST /v1/test/open-land` (`TEST_OPEN_LAND_PATH`, the next land now,
    * RFC 0038),
    * `POST /v1/test/open-plot-market` (`TEST_OPEN_PLOT_MARKET_PATH`, plots for sale now, RFC 0039), and
-   * `POST /v1/test/open-clay` (`TEST_OPEN_CLAY_PATH`, pottery now, RFC 0047) from
+   * `POST /v1/test/open-clay` (`TEST_OPEN_CLAY_PATH`, pottery now, RFC 0047), and
+   * `POST /v1/test/open-grades` (`TEST_OPEN_GRADES_PATH`, material grades now, RFC 0051) from
    * this machine. It's deliberately outside
    * the route table, so it never appears in the API docs, and the Cloudflare adapter has no way to
    * turn it on.
@@ -145,6 +146,12 @@ export const TEST_OPEN_PLOT_MARKET_PATH = "/v1/test/open-plot-market";
  * how a Node world gets pottery.
  */
 export const TEST_OPEN_CLAY_PATH = "/v1/test/open-clay";
+/**
+ * Tests only, with the test clock, from this machine: logs `open_grades` now (RFC 0051), so a spec
+ * or a `pnpm dev:test` world makes fine and masterwork materials. No adapter logs it, so this is
+ * the only way a world gets grades until the owner switches them on.
+ */
+export const TEST_OPEN_GRADES_PATH = "/v1/test/open-grades";
 
 /**
  * How long an idle keep-alive connection stays open (decision 0130). A client that reuses a
@@ -370,8 +377,8 @@ export function createApp(options: AppOptions): Server {
       });
     }
     // The switches a test turns on now, which no Node world logs on its own: the next land
-    // (RFC 0038), plots for sale (RFC 0039), and pottery (RFC 0047). Only from this machine, like
-    // the grant.
+    // (RFC 0038), plots for sale (RFC 0039), pottery (RFC 0047), and material grades (RFC 0051).
+    // Only from this machine, like the grant.
     const openNow =
       url.pathname === TEST_OPEN_LAND_PATH
         ? () => options.service.testOpenLand()
@@ -379,7 +386,9 @@ export function createApp(options: AppOptions): Server {
           ? () => options.service.testOpenPlotMarket()
           : url.pathname === TEST_OPEN_CLAY_PATH
             ? () => options.service.testOpenClay()
-            : undefined;
+            : url.pathname === TEST_OPEN_GRADES_PATH
+              ? () => options.service.testOpenGrades()
+              : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
       if (!isLoopback(req.socket.remoteAddress)) {

@@ -1,9 +1,9 @@
-import { type BlockKind, DOOR_LOOK, WALL_LOOK, type WallKind } from "@terrakin/sim";
-import { InstancedMesh, Matrix4, type Object3D, Quaternion, type Texture, Vector3 } from "three";
+import { type BlockKind, DOOR_LOOK, type Grade, WALL_LOOK, type WallKind } from "@terrakin/sim";
+import { InstancedMesh, Matrix4, type Object3D, Quaternion, Vector3 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { bakeShade, paper, type Stage } from "./art";
 import { FLOOR_HEIGHT, floorY, type LayoutEdge } from "./layout";
-import { materialTexture } from "./materials";
+import { materialTexture, type WallTextures } from "./materials";
 import { blockLook, hex } from "./palette";
 
 /**
@@ -25,7 +25,7 @@ export function edgeMeshes(
   stage: Stage,
   origin: { x: number; y: number },
   edges: readonly LayoutEdge[],
-  shared?: { wall?: (kind: WallKind) => Texture },
+  shared?: { wall?: WallTextures },
 ): Object3D[] {
   const out: Object3D[] = [];
   if (edges.length === 0) return out;
@@ -38,9 +38,11 @@ export function edgeMeshes(
     e.side === "n"
       ? new Vector3(e.x - origin.x, floorY(e.floor), e.y - 0.5 - origin.y)
       : new Vector3(e.x - 0.5 - origin.x, floorY(e.floor), e.y - origin.y);
-  const kinds = [...new Set(edges.map((e) => e.block))];
-  for (const kind of kinds) {
-    const list = edges.filter((e) => e.block === kind);
+  // One draw per kind and grade (RFC 0051), each grade wearing its own texture.
+  const units = [...new Set(edges.map((e) => `${e.block}:${e.grade ?? "plain"}`))];
+  for (const unit of units) {
+    const [kind, grade] = unit.split(":") as [BlockKind, Grade];
+    const list = edges.filter((e) => e.block === kind && (e.grade ?? "plain") === grade);
     // A door is a door's height, with a wooden lintel over it up to the walls' height.
     const height = kind === "door" ? FLOOR_HEIGHT * 0.78 : blockLook(kind).height || FLOOR_HEIGHT;
     const geo = bakeShade(
@@ -60,7 +62,10 @@ export function edgeMeshes(
               depthWrite: false,
             })
           : isWallKind(kind)
-            ? paper(0xffffff, shared?.wall?.(kind) ?? stage.keep(materialTexture(kind)))
+            ? paper(
+                0xffffff,
+                shared?.wall?.(kind, grade) ?? stage.keep(materialTexture(kind, grade)),
+              )
             : paper(blockLook(kind).color, null);
     stage.keep(material);
     const mesh = new InstancedMesh(geo, material, list.length);

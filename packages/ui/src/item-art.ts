@@ -22,6 +22,7 @@ import {
   type FishLook,
   GLAZE_HEX,
   type Glaze,
+  type Grade,
   growth,
   ITEM_KINDS,
   type ItemKind,
@@ -4160,6 +4161,41 @@ export interface ItemArtOptions {
   size?: number;
   /** Extra classes beside `item-art`. */
   className?: string;
+  /**
+   * A made material's grade (RFC 0051): a mark in the top right corner, a dot for fine and a small
+   * star for masterwork, the same on every surface that shows the thing. Plain marks nothing.
+   */
+  grade?: Grade | undefined;
+}
+
+/** A grade's corner mark: ink outlined in paper, so it reads on any picture behind it. */
+const GRADE_INK = "#3d3024";
+const GRADE_PAPER = "#fff7e6";
+const GRADE_GOLD = "#e0a83a";
+
+/** The corner mark a graded thing's picture wears (RFC 0051), or none for plain. */
+function gradeMark(grade: Grade | undefined): ArtShape[] {
+  if (grade === "fine") {
+    return [
+      { tag: "circle", attrs: { cx: 40, cy: 8, r: 6, fill: GRADE_PAPER } },
+      { tag: "circle", attrs: { cx: 40, cy: 8, r: 4, fill: GRADE_INK } },
+    ];
+  }
+  if (grade === "masterwork") {
+    // A five-pointed star round (40, 8).
+    const points: string[] = [];
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 === 0 ? 7 : 3;
+      const a = -Math.PI / 2 + (i * Math.PI) / 5;
+      points.push(`${(40 + r * Math.cos(a)).toFixed(2)} ${(8 + r * Math.sin(a)).toFixed(2)}`);
+    }
+    const d = `M${points.join("L")}Z`;
+    return [
+      { tag: "path", attrs: { d, fill: GRADE_PAPER, stroke: GRADE_PAPER, "stroke-width": 3 } },
+      { tag: "path", attrs: { d, fill: GRADE_GOLD, stroke: GRADE_INK, "stroke-width": 1 } },
+    ];
+  }
+  return [];
 }
 
 function build(shape: ArtShape): SVGElement {
@@ -4174,7 +4210,7 @@ function build(shape: ArtShape): SVGElement {
  * which case it's an image with that name. The title goes in as text, never as markup.
  */
 export function itemArt(kind: ArtKind, opts: ItemArtOptions = {}): SVGSVGElement {
-  return shapesArt(kind, itemShapes(kind), opts);
+  return shapesArt(kind, [...itemShapes(kind), ...gradeMark(opts.grade)], opts);
 }
 
 /** An SVG of `shapes`, named `kind` in its `data-kind`, with `itemArt`'s options. */
@@ -4312,7 +4348,7 @@ export function piecePictureUrl(thing: ThingLook): string | undefined {
  */
 export function thingPicture(thing: ThingLook, opts: ItemArtOptions = {}): Element {
   const url = piecePictureUrl(thing);
-  if (!url) return shapesArt(thing.kind, thingShapes(thing), opts);
+  if (!url) return shapesArt(thing.kind, [...thingShapes(thing), ...gradeMark(opts.grade)], opts);
   const size = opts.size ?? 28;
   const img = document.createElement("img");
   img.className = opts.className ? `thing-picture ${opts.className}` : "thing-picture";

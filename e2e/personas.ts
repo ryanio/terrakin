@@ -321,6 +321,20 @@ export async function openClayOver(http: Http): Promise<void> {
 }
 
 /**
+ * Let made materials come in grades in this world now (RFC 0051). No adapter logs the switch, so
+ * this is how a test world gets fine and masterwork walls; once per world, so in a world where it's
+ * already on this does nothing. Test servers only (`POST /v1/test/open-grades`).
+ */
+export async function openGradesOver(http: Http): Promise<void> {
+  const world = (await http.call("GET", "/v1/world")).body as { gradesOpen?: boolean };
+  if (world.gradesOpen) return;
+  await expectOk(
+    "open grades (is the server running with TERRAKIN_TEST_CLOCK=1?)",
+    http.call("POST", "/v1/test/open-grades"),
+  );
+}
+
+/**
  * The most days `jobDayOver` moves the clock. Every job that isn't held to a season or a holiday
  * comes up sooner: within 23 days from any day in the second edition, which a Node world reads.
  */

@@ -76,7 +76,14 @@ import { postCard } from "./post-card";
 import { coins, refreshPurse } from "./purse";
 import { openReportSheet } from "./report-sheet";
 import { openRoutines } from "./routines-view";
-import { canTeachLine, collectedLine, thingCount, thingName } from "./things";
+import {
+  canTeachLine,
+  collectedLine,
+  pickedStack,
+  stackPick,
+  thingCount,
+  thingName,
+} from "./things";
 import { type GestureInfo, gestureChoices, gestureInfo, sentLine, streakLine } from "./together";
 import { errorCard, notFoundCard, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
@@ -1410,9 +1417,15 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         const text = g.label ? `${thingName(g.kind)} “${g.label}”` : thingName(g.kind);
         pick.append(h("option", { attrs: { value: g.id }, text }));
       }
+      // A graded made material (RFC 0051) is a choice of its own, given at its grade.
       for (const s of inv?.stacks ?? []) {
-        stacked.add(s.kind);
-        pick.append(h("option", { attrs: { value: s.kind }, text: thingCount(s.kind, s.count) }));
+        stacked.add(stackPick(s));
+        pick.append(
+          h("option", {
+            attrs: { value: stackPick(s) },
+            text: thingCount(s.kind, s.count, s.grade),
+          }),
+        );
       }
       const empty = pick.options.length === 0;
       give.toggleAttribute("disabled", empty);
@@ -1429,10 +1442,13 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
     });
     form.addEventListener("submit", async (e) => {
       e.preventDefault();
-      const item = pick.value;
-      if (!item) return;
+      if (!pick.value) return;
+      const { item, grade } = pickedStack(pick.value);
       const n = Number(count.value);
-      const many = stacked.has(item) && Number.isInteger(n) && n > 1 ? { count: n } : {};
+      const many = {
+        ...(stacked.has(pick.value) && Number.isInteger(n) && n > 1 ? { count: n } : {}),
+        ...(grade ? { grade } : {}),
+      };
       const text = note.value.trim();
       if (!wrap.el.hidden && wrap.input.checked) {
         // A present: a plain give, so nothing tells them what's in it before they open it.

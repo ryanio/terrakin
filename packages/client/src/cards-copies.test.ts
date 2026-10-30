@@ -5,7 +5,15 @@
  */
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { BATH_WATER, BLOCK_COLORS, DOOR_LOOK, PET_BOX, PET_FEET, WEATHERS } from "@terrakin/sim";
+import {
+  BATH_WATER,
+  BLOCK_COLORS,
+  DOOR_LOOK,
+  PET_BOX,
+  PET_FEET,
+  ROOF_GRADE_LOOK,
+  WEATHERS,
+} from "@terrakin/sim";
 import {
   BRAND_HEX,
   LINEN,
@@ -60,6 +68,10 @@ const PLOT_COPIES: Record<string, unknown> = {
   DOOR_FRAME: DOOR_LOOK.frame,
   DOOR_PANEL: DOOR_LOOK.panel,
   EDGE_THICKNESS: EDGES.get("EDGE_THICKNESS"),
+  // A graded wall's and roof's marks (RFC 0051): the plinth band, the light catch, the carving.
+  GRADE_BAND: ROOF_GRADE_LOOK.eave,
+  GRADE_CATCH: ROOF_GRADE_LOOK.catch,
+  GRADE_CARVED: (ROOF_GRADE_LOOK.carving[0] as { stroke: string }).stroke,
   PET_BOX,
   PET_FEET,
   WOOD_DARK,

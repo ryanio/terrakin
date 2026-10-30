@@ -99,6 +99,7 @@ export function togetherHandlers(api: Api): Pick<Handlers, AreaRouteIds["togethe
           to: params.id,
           ...(body.count === undefined ? {} : { count: body.count }),
           ...(note ? { note } : {}),
+          ...(body.grade === undefined ? {} : { grade: body.grade }),
         });
         if (!given.ok) return fail(given.error.code, given.error.message);
         item = givenItem(given.events, viewer);

@@ -30,6 +30,9 @@ import {
   GLAZE_HEX,
   type Glaze,
   GROUND_LOOK,
+  type Grade,
+  gradeAt,
+  gradeField,
   groundOn,
   groundTile,
   growth,
@@ -460,6 +463,8 @@ export function roofsIn(
           season(state),
         ),
         tiles: shape.tiles.map((t) => ({ x: t.x - bx, y: t.y - by, h: t.h })),
+        // A graded covering (RFC 0051) draws its marks.
+        ...(shape.grade ? { grade: shape.grade } : {}),
         // What stands on its ridge, counted from the box like its tiles.
         ...(shape.top
           ? { top: { kind: shape.top.kind, x: shape.top.x - bx, y: shape.top.y - by } }
@@ -546,7 +551,18 @@ export function areaOf(
           ...(onVine(planting.crop) ? { vine: true } : {}),
         });
       }
-      blocks.push(plotBlock(block, x, y, wx, wy, palette, potAt(state, wx, wy)?.good.glaze));
+      blocks.push(
+        plotBlock(
+          block,
+          x,
+          y,
+          wx,
+          wy,
+          palette,
+          potAt(state, wx, wy)?.good.glaze,
+          gradeAt(state, key),
+        ),
+      );
     }
   }
   // Each floor above the ground floor, read over the area's own tiles like the ground floor.
@@ -571,7 +587,9 @@ export function areaOf(
         const block = upBlocks[key];
         if (block) {
           const glaze = potAt(state, x0 + x, y0 + y, floor)?.good.glaze;
-          standing.push(plotBlock(block, x, y, x0 + x, y0 + y, palette, glaze));
+          standing.push(
+            plotBlock(block, x, y, x0 + x, y0 + y, palette, glaze, gradeAt(state, key, floor)),
+          );
         }
       }
     }
@@ -591,6 +609,8 @@ export function areaOf(
         fill: blockFill(block, block === "glass" ? undefined : palette(e.x, e.y)),
         ...(block === "door" ? { door: true as const } : {}),
         ...(block === "glass" || block === "sea_glass_pane" ? { pane: true as const } : {}),
+        // A graded wall (RFC 0051) wears its grade along the slab.
+        ...gradeField(gradeAt(state, key)),
       },
     ];
   });
@@ -610,6 +630,7 @@ function plotBlock(
   wy: number,
   palette: (x: number, y: number) => ThemePalette | undefined,
   glaze?: Glaze,
+  grade: Grade = "plain",
 ): PlotBlock {
   const pond = block === "pond";
   return {
@@ -624,7 +645,8 @@ function plotBlock(
     ...(isFurnitureKind(block) ? { furniture: block } : {}),
     ...(pond ? { water: true } : {}),
     ...(pond && tileHash(wx, wy) % 3 === 0 ? { lily: true } : {}),
-    ...(wallMarks(block).length > 0 ? { marks: wallMarks(block) } : {}),
+    // A wall's surface, and a graded made material's grade over it (RFC 0051).
+    ...(wallMarks(block, grade).length > 0 ? { marks: wallMarks(block, grade) } : {}),
   };
 }
 

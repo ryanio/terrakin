@@ -3,6 +3,7 @@ import {
   blockFill,
   type Crop,
   DOOR_LOOK,
+  type Grade,
   KILN_GLOW,
   mixHex,
   THEME_INFO,
@@ -32,8 +33,9 @@ function skinnedColor(block: BlockKind, skin: BlockSkin | undefined): string {
 
 /**
  * One raised block with its ground shadow, at (left, top), `size` across, a wall or window with its
- * surface (`WALL_LOOK`). A wall costs a clip and a dozen marks, so the map draws each wall once per
- * size into a sprite and stamps that, rather than calling this every frame.
+ * surface (`WALL_LOOK`) and a made material's grade (`GRADE_LOOK`, RFC 0051) over it. A wall costs
+ * a clip and a dozen marks, so the map draws each wall once per size and grade into a sprite and
+ * stamps that, rather than calling this every frame.
  */
 export function paintBlock(
   ctx: CanvasRenderingContext2D,
@@ -43,6 +45,7 @@ export function paintBlock(
   size: number,
   scale: number,
   skin?: BlockSkin,
+  grade: Grade = "plain",
 ) {
   const inset = Math.max(1, Math.round(scale * 0.05));
   const radius = Math.max(2, scale * 0.14);
@@ -56,7 +59,7 @@ export function paintBlock(
   ctx.roundRect(left, top, size, size, radius);
   ctx.fill();
   const walls = block === "wood" || block === "stone";
-  const marks = skin?.image && walls ? [] : wallMarks(block);
+  const marks = skin?.image && walls ? [] : wallMarks(block, grade);
   if (marks.length > 0) {
     // The wall's surface (bricks, beams, boards, panes), the same marks the 3D views and the plot
     // photos draw, over its color, so a theme's wood keeps its planks.

@@ -47389,6 +47389,14 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 20
+          },
+          "grade": {
+            "type": "string",
+            "enum": [
+              "plain",
+              "fine",
+              "masterwork"
+            ]
           }
         },
         "required": [

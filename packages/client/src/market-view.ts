@@ -20,6 +20,7 @@ import {
   BUY_ORDERS,
   CUP,
   type Finish,
+  gradedLabel,
   ITEM_INFO,
   type ItemKind,
   isPotKind,
@@ -57,7 +58,7 @@ import { drawsAPlot, plotMarketSection } from "./plot-market-section";
 import { balanceLine, coins } from "./purse";
 import { earnCoinsLink } from "./purse-view";
 import { reportMenu } from "./report-sheet";
-import { lotWords, madeName, thingName } from "./things";
+import { lotWords, madeName, pickedStack, stackPick } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
 
 /**
@@ -260,7 +261,7 @@ export function listingRow(
     className: "market-listing",
     attrs: { "data-listing": l.id },
     // A piece shows its own picture; everything else its drawn one.
-    lead: thingPicture({ kind: l.kind, ...l.goods?.[0] }, { size: 32 }),
+    lead: thingPicture({ kind: l.kind, ...l.goods?.[0] }, { size: 32, grade: l.grade }),
     name: l.name,
     lines,
     trail: more ? h("span", { class: "cluster listing-trail" }, trail, more) : trail,
@@ -289,9 +290,10 @@ function choices(inv: InventoryResponse["inventory"]): {
         stack: false,
         ...(g.finish ? { finish: g.finish } : {}),
       })),
+    // A graded made material (RFC 0051) is a choice of its own, sold at its grade.
     ...inv.stacks.map((s) => ({
-      value: s.kind,
-      text: `${thingName(s.kind)} (you have ${s.count})`,
+      value: stackPick(s),
+      text: `${gradedLabel(s.kind as ItemKind, s.grade)} (you have ${s.count})`,
       max: s.count,
       kind: s.kind as ItemKind,
       stack: true,
@@ -455,7 +457,7 @@ export function marketView(ctx: ViewContext): View {
         submit,
         {
           type: "list_item",
-          item: o.value,
+          ...pickedStack(o.value),
           price: p,
           ...(o.stack ? { count: n } : {}),
         },

@@ -11,6 +11,7 @@ import {
   edgeKey,
   type FindKind,
   FLOORS,
+  type Grade,
   type GroundKind,
   groundTile,
   type PickupKind,
@@ -208,7 +209,12 @@ export interface ChunkSource {
   isSea?(x: number, y: number): boolean;
   /** Walls between tiles on a floor (RFC 0050), by the sim's `edgeKey`. Absent reads as none. */
   edgesOn?(floor: number): ReadonlyMap<string, BlockKind>;
+  /** A wall's grade (RFC 0051) by its tile or edge key (`Mirror.gradeAt`). Absent reads as plain. */
+  gradeAt?(key: string, floor?: number): Grade;
 }
+
+/** A graded wall's part of a chunk's signature, so a regraded wall redraws: empty for plain. */
+const gradePart = (grade: Grade | undefined) => (grade && grade !== "plain" ? `:${grade}` : "");
 
 /** The piles of presents (RFC 0034) on one plot, by tile key, with the words for its signature. */
 function pilesOn(source: ChunkSource, bounds: Bounds): ({ key: string } & PresentPile)[] {
@@ -252,7 +258,8 @@ function tileThings(
   // A kiln firing a pot (RFC 0047) glows, so its plot is built again when it's loaded or emptied.
   const firing = block === "kiln" && source.kilns?.has(key) === true;
   const shining = (lit && block === "glass") || firing;
-  if (block) parts.push(`${key}:${block}${shining ? ":lit" : ""}`);
+  const grade = block ? (source.gradeAt?.(key) ?? "plain") : "plain";
+  if (block) parts.push(`${key}:${block}${gradePart(grade)}${shining ? ":lit" : ""}`);
   if (ground) parts.push(`${key}:on:${ground}`);
   if (hearth) parts.push(`${key}:hearth`);
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
@@ -261,7 +268,7 @@ function tileThings(
   // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
   const pickup = source.pickupAt?.(x, y) ?? null;
   if (pickup) parts.push(`${key}:${pickup}`);
-  return { block, ground, hearth, display, crop, pickup, parts, firing };
+  return { block, grade, ground, hearth, display, crop, pickup, parts, firing };
 }
 
 /**
@@ -297,7 +304,13 @@ export function readChunk(
       const at = tileThings(source, x, y, hearths, lit);
       parts.push(...at.parts);
       if (at.block)
-        blocks.push({ x, y, block: at.block, ...(at.firing ? { lit: true as const } : {}) });
+        blocks.push({
+          x,
+          y,
+          block: at.block,
+          ...(at.firing ? { lit: true as const } : {}),
+          ...(at.grade !== "plain" ? { grade: at.grade } : {}),
+        });
       if (at.ground) ground.push({ x, y, ground: at.ground });
       if (at.hearth) homes.push({ x, y });
       if (at.display) displays.push(at.display);
@@ -343,7 +356,9 @@ export function readChunk(
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
   const edges = edgesShown(source, bounds, cut);
-  for (const e of edges) parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
+  for (const e of edges) {
+    parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}${gradePart(e.grade)}`);
+  }
   return {
     px,
     py,
@@ -403,8 +418,11 @@ function upstairsOf(
         highest = Math.max(highest, floor);
         if (!shown) continue;
         if (block) {
-          blocks.push({ x, y, block, floor });
-          parts.push(`${key}@${floor}:${block}${lit && block === "glass" ? ":lit" : ""}`);
+          const grade = source.gradeAt?.(key, floor) ?? "plain";
+          blocks.push({ x, y, block, floor, ...(grade !== "plain" ? { grade } : {}) });
+          parts.push(
+            `${key}@${floor}:${block}${gradePart(grade)}${lit && block === "glass" ? ":lit" : ""}`,
+          );
         }
         if (laid) {
           ground.push({ x, y, ground: laid, floor });
@@ -425,7 +443,7 @@ function upstairsOf(
  */
 function roofPart(roof: RoofShape): string {
   const top = roof.top ? `${roof.top.kind}@${roof.top.x},${roof.top.y}` : "";
-  return `roof:${roof.style}:${roof.material}:${roof.floor}:${top}`;
+  return `roof:${roof.style}:${roof.material}${gradePart(roof.grade)}:${roof.floor}:${top}`;
 }
 
 /** Just the signature of a plot, cheap enough to check on every change to the mirror. */
@@ -451,7 +469,7 @@ export function chunkSignature(
   const roof = cut === undefined ? source.roofAt?.(px, py) : undefined;
   if (roof) parts.push(roofPart(roof));
   for (const e of edgesShown(source, bounds, cut)) {
-    parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}`);
+    parts.push(`edge:${e.x},${e.y},${e.side},${e.floor ?? 0}:${e.block}${gradePart(e.grade)}`);
   }
   return parts.join("|");
 }
@@ -469,7 +487,15 @@ function edgesShown(source: ChunkSource, bounds: Bounds, cut: number | undefined
     for (const [key, block] of source.edgesOn(floor)) {
       const { x, y, side } = parseEdgeKey(key);
       if (x < bounds.x0 || x > bounds.x1 || y < bounds.y0 || y > bounds.y1) continue;
-      out.push({ x, y, side, block, ...(floor ? { floor } : {}) });
+      const grade = source.gradeAt?.(key, floor) ?? "plain";
+      out.push({
+        x,
+        y,
+        side,
+        block,
+        ...(floor ? { floor } : {}),
+        ...(grade !== "plain" ? { grade } : {}),
+      });
     }
   }
   return out;

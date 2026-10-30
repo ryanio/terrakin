@@ -1,4 +1,5 @@
-import { BLOCK_COLORS, type BlockKind, DOOR_LOOK } from "@terrakin/sim";
+import { BLOCK_COLORS, type BlockKind, DOOR_LOOK, GRADE_LOOK, type Grade } from "@terrakin/sim";
+import { paintMarks } from "@terrakin/ui/ground-art";
 import { withAlpha } from "@terrakin/ui/looks";
 
 /**
@@ -16,6 +17,7 @@ const isPane = (block: BlockKind) => block === "glass" || block === "sea_glass_p
  * tile at `left`, `top`) or `w` (down its left side), reaching past each end by half its thickness
  * so walls meet at their corners. A window is a pale pane in a frame, a door a frame round the door,
  * and every other kind its own color with a light top and a shaded lip, as a wall block is drawn.
+ * A graded made material (RFC 0051) wears its grade's marks along the slab (`GRADE_LOOK`).
  */
 export function paintEdge(
   ctx: CanvasRenderingContext2D,
@@ -24,6 +26,7 @@ export function paintEdge(
   left: number,
   top: number,
   size: number,
+  grade: Grade = "plain",
 ) {
   const t = Math.max(3, Math.round(size * EDGE_THICKNESS));
   const half = t / 2;
@@ -66,6 +69,7 @@ export function paintEdge(
     ctx.fillStyle = "rgba(255, 255, 255, 0.45)";
     if (side === "n") ctx.fillRect(x + w * 0.2, y + 2, w * 0.18, Math.max(1, h * 0.25));
     else ctx.fillRect(x + 2, y + h * 0.2, Math.max(1, w * 0.25), h * 0.18);
+    paintGrade(ctx, grade, side, x, y, w, h, radius);
     ctx.restore();
     return;
   }
@@ -83,5 +87,34 @@ export function paintEdge(
     w - 2,
     Math.max(1, h * (side === "n" ? 0.3 : 0.08)),
   );
+  paintGrade(ctx, grade, side, x, y, w, h, radius);
+  ctx.restore();
+}
+
+/**
+ * A grade's marks along a slab, laid as on a wall's face: along a `n` slab as drawn, and turned a
+ * quarter for a `w` slab, so the plinth and cornice run its length either way.
+ */
+function paintGrade(
+  ctx: CanvasRenderingContext2D,
+  grade: Grade,
+  side: "n" | "w",
+  x: number,
+  y: number,
+  w: number,
+  h: number,
+  radius: number,
+) {
+  if (grade === "plain") return;
+  ctx.save();
+  ctx.beginPath();
+  ctx.roundRect(x, y, w, h, radius);
+  ctx.clip();
+  if (side === "n") paintMarks(ctx, GRADE_LOOK[grade], x, y, w, h);
+  else {
+    ctx.translate(x + w, y);
+    ctx.rotate(Math.PI / 2);
+    paintMarks(ctx, GRADE_LOOK[grade], 0, 0, h, w);
+  }
   ctx.restore();
 }

@@ -175,6 +175,11 @@ type PlotRoofTop = "vane" | "flag" | "nest";
 export interface PlotRoofing {
   /** The block it's covered in, as a color. */
   fill: string;
+  /**
+   * A graded covering (RFC 0051): a deep band along its eaves with a light line inside it, and for
+   * a masterwork one a carved diamond on its highest tile, as the map draws them.
+   */
+  grade?: PlotGrade | undefined;
   /** What stands on its ridge and the tile it stands on, absent while the ridge is bare. */
   top?: { kind: PlotRoofTop; x: number; y: number } | undefined;
   tiles: {
@@ -380,7 +385,24 @@ export interface PlotEdge {
   fill: string;
   door?: true | undefined;
   pane?: true | undefined;
+  /** A graded made material (RFC 0051): its plinth and cornice along the slab, as the map has it. */
+  grade?: PlotGrade | undefined;
 }
+
+/**
+ * A made material's grade past plain (RFC 0051). The names are the sim's `GRADES`; this package
+ * depends on nothing in the repo, so they're written out, and an unknown one draws nothing.
+ */
+type PlotGrade = "fine" | "masterwork";
+
+/**
+ * A grade's colors, the sim's `GRADE_LOOK` and `ROOF_GRADE_LOOK` (kept in step by
+ * cards-copies.test.ts): the deep plinth band, the light catch, and the masterwork carving.
+ */
+const GRADE_BAND = "rgba(46, 28, 14, 0.3)";
+const GRADE_CATCH = "rgba(255, 252, 240, 0.62)";
+const GRADE_CARVED = "rgba(46, 28, 14, 0.5)";
+const isGrade = (g: unknown): g is PlotGrade => g === "fine" || g === "masterwork";
 
 /** How thick a wall between tiles is drawn, in tiles: the map's own share (`EDGE_THICKNESS`). */
 const EDGE_THICKNESS = 0.22;
@@ -415,6 +437,25 @@ function edgesSvg(
       out.push(
         `<rect x="${ix}" y="${iy}" width="${iw}" height="${ih}" rx="0.03" fill="${inner}"/>`,
       );
+    }
+    if (isGrade(e.grade) && !e.door) {
+      // A plinth band along one long side and a light catch along the other, and for masterwork
+      // a carved mark in the middle, so a graded wall reads in a photo as on the map.
+      const band = n(t * 0.24);
+      const plinth =
+        e.side === "n"
+          ? `<rect x="${x}" y="${n(y + h - band)}" width="${w}" height="${band}" fill="${GRADE_BAND}"/>`
+          : `<rect x="${x}" y="${y}" width="${band}" height="${h}" fill="${GRADE_BAND}"/>`;
+      const light =
+        e.side === "n"
+          ? `<rect x="${x}" y="${y}" width="${w}" height="${n(band * 0.6)}" fill="${GRADE_CATCH}"/>`
+          : `<rect x="${n(x + w - band * 0.6)}" y="${y}" width="${n(band * 0.6)}" height="${h}" fill="${GRADE_CATCH}"/>`;
+      out.push(plinth, light);
+      if (e.grade === "masterwork") {
+        out.push(
+          `<circle cx="${n(x + w / 2)}" cy="${n(y + h / 2)}" r="${n(t * 0.28)}" fill="${GRADE_CARVED}"/>`,
+        );
+      }
     }
     return out;
   });
@@ -469,7 +510,7 @@ const FLOOR_SHADE = "rgba(43, 30, 18, 0.24)";
 /** How dim what's under a floor plan shows where it has no flooring, as on the map. */
 const UNDER_DIM = "rgba(43, 38, 32, 0.38)";
 /** Most surface marks one wall draws. */
-const MAX_WALL_MARKS = 16;
+const MAX_WALL_MARKS = 32;
 /** Most roofs an area draws, so a wide picture of the town stays cheap. */
 const MAX_ROOFS = 12;
 /** A roof (RFC 0041): how far its shadow falls, the light on its ridge, and its eaves' ink. */
@@ -827,9 +868,27 @@ function roofSvg(
     if (ne >= top && se >= top && falls(t.x + 1, t.y)) line(NE, SE, ridges);
   }
   if (eaves.length > 0) {
+    // A graded covering (RFC 0051): a deep band under the eaves' ink, as the map draws it.
+    if (isGrade(roof.grade)) {
+      parts.push(
+        `<path d="${eaves.join("")}" fill="none" stroke="${GRADE_BAND}" stroke-width="0.16"/>`,
+      );
+    }
     parts.push(
       `<path d="${eaves.join("")}" fill="none" stroke="${ROOF_EDGE}" stroke-width="0.05"/>`,
     );
+  }
+  if (roof.grade === "masterwork" && !roof.top) {
+    // A masterwork covering's carved diamond on its first highest tile.
+    const peak = whole.find((t) => Math.max(...corners(t.h)) >= top);
+    if (peak && inX(peak.x) && inY(peak.y)) {
+      const cx = peak.x + 0.5;
+      const cy = peak.y + 0.5;
+      parts.push(
+        `<path d="M${n(cx)} ${n(cy - 0.22)}L${n(cx + 0.22)} ${n(cy)}L${n(cx)} ${n(cy + 0.22)}L${n(cx - 0.22)} ${n(cy)}Z" fill="none" stroke="${GRADE_CARVED}" stroke-width="0.07"/>`,
+        `<circle cx="${n(cx)}" cy="${n(cy)}" r="0.06" fill="${GRADE_CARVED}"/>`,
+      );
+    }
   }
   if (ridges.length > 0) {
     parts.push(

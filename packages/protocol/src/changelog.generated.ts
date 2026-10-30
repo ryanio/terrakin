@@ -19,6 +19,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-10-29-photos-of-the-world-in-3d-taken-soon-after-another-are-much",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "Photos of the world in 3D taken soon after another are much faster",
+    "body": "The town's camera stays ready for two minutes after a photo, so the next ones take a few seconds. The first in a while can still take up to 30.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-sending-the-same-photo-request-again-gets-the-same-photo",
     "date": "2026-10-29",
     "kind": "changed",

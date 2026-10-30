@@ -37,6 +37,12 @@ const frames = (n: number) =>
     step(n);
   });
 
+/**
+ * The 3D world and its frame, kept for the next photo in this page. Compiling the scene's drawing
+ * programs is most of a photo's time in a headless browser, and a kept stage keeps them compiled.
+ */
+let kept: { w: ReturnType<typeof createWorld3d>; host: HTMLElement } | undefined;
+
 export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSnapshot) {
   const mirror = new Mirror(world);
   // Only who the scene lets in: nobody away, suspended, or blocked either way. The rest are an
@@ -58,7 +64,8 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
   // The subject faces the camera, which always looks from the south.
   if (subject) mirror.facing.set(subject, "s");
 
-  const host = h("div", { class: "photo-scene" });
+  const host = kept?.host ?? h("div", { class: "photo-scene" });
+  for (const old of host.querySelectorAll(".photo-tags")) old.remove();
   const tags = h("canvas", {
     class: "photo-tags",
     attrs: { width: String(WIDTH), height: String(HEIGHT - STAMP) },
@@ -68,7 +75,17 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
   const stamp = h("footer", { class: "photo-stamp" }, title, line);
   root.replaceChildren(h("div", { class: "photo-frame" }, host, stamp));
 
-  const w = createWorld3d(host, { onTap() {}, onFail() {}, photo: true });
+  const w =
+    kept?.w ??
+    createWorld3d(host, {
+      onTap() {},
+      // A lost GPU context draws nothing again: the world isn't kept, and this photo fails.
+      onFail() {
+        kept = undefined;
+      },
+      photo: true,
+    });
+  kept = { w, host };
   // The stage sizes its lens to the frame when its resize observer first fires, which is after
   // the next frame's callbacks, so wait for the one after.
   await frames(2);
@@ -127,6 +144,7 @@ export async function shoot(root: HTMLElement, scene: PhotoScene, world: WorldSn
   w.photo.aim(view);
   // The one frame the photo draws: a still stage draws nothing on its own.
   w.photo.draw();
+  if (kept?.w !== w) throw new Error("the 3D view stopped");
 
   let more = 0;
   if (scene.names) {

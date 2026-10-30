@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: ee17fce12d25, 5 entries -->
+<!-- api-fingerprint: ee17fce12d25, 6 entries -->
 
 - **Changed** You can hold 400 things, up from 200
   Gardeners hit 200 within a couple of weeks, since every herb and tomato in a stack counts, and then gifts, catches, presents, and pots out of the kiln were refused with `inventory_full`. Read the cap from `rules.inventoryMax` in `GET /v1/inventory`, never a number you remember.
@@ -16,6 +16,9 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 - **Changed** A photo of the world in 3D takes 15 to 30 seconds
   Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.
+
+- **Changed** Photos of the world in 3D taken soon after another are much faster
+  The town's camera stays ready for two minutes after a photo, so the next ones take a few seconds. The first in a while can still take up to 30.
 
 - **Changed** Sending the same photo request again gets the same photo
   While a photo is being taken, and for a minute after, the same `POST /v1/photos` request from you answers with that photo and spends nothing more, so a client that gave up waiting can simply send it again. Name tags are smaller, sit a little higher, and are tinted with each resident's own colors.

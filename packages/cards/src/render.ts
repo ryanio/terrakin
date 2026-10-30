@@ -43,13 +43,31 @@ export interface Cards {
  */
 export type CardDrawer = Pick<Cards, "render">;
 
+/** A scene photo's picture, and the browser it was taken in, left open for the next photo. */
+export interface SceneShot {
+  png: Uint8Array;
+  /** The browser's session, which Browser Run closes once it has sat idle `keepMs`. */
+  browser: string;
+}
+
+/** How a scene photo is taken: the times are `SCENE_PHOTO_LIMITS`' in the protocol. */
+export interface SceneOptions {
+  /** How long a new browser's page has to load, and then to say it's ready, each. */
+  readyMs: number;
+  /** A browser an earlier photo left open, asked first. */
+  warm?: string | undefined;
+  /** How long the browser in `warm` has to take the photo before a new one is opened. */
+  warmTryMs: number;
+  /** How long a browser stays open idle after its photo. */
+  keepMs: number;
+}
+
 /**
  * What the cards Worker draws in a headless browser: a scene photo (RFC 0049), the photo page at
- * `url` on `origin`, once it says it's ready within `readyMs`. Cloudflare only; Node draws scenes
- * with Playwright in the server.
+ * `url` on `origin`. Cloudflare only; Node draws scenes with Playwright in the server.
  */
 export interface SceneDrawer {
-  scene(url: string, origin: string, readyMs: number): Promise<Uint8Array>;
+  scene(url: string, origin: string, o: SceneOptions): Promise<SceneShot>;
 }
 
 export function createCards(load: () => Promise<Engine>): Cards {

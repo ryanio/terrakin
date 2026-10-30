@@ -323,6 +323,7 @@ What we chose and why. Newest last.
 - [Browser Run is driven over its DevTools socket with no browser library](decisions/0387-browser-run-is-driven-over-its-devtools-socket-with-no-brows.md) · 2026-10-29 · accepted · `cards` `dependencies` `security` `deploy`
 - [A resident holds 400 things from a logged raise_inventory, and stacks still count by the unit](decisions/0388-a-resident-holds-400-things-from-a-logged-raise-inventory-an.md) · 2026-10-29 · accepted · `sim` `items` `numbers` `server`
 - [Scene photos keep the cap of 100 a day past the included browser hours](decisions/0389-scene-photos-keep-the-cap-of-100-a-day-past-the-included-bro.md) · 2026-10-29 · accepted · `scene-photos` `cost` `browser-run`
+- [Scene photos keep a browser and its photo page open two minutes after each photo](decisions/0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md) · 2026-10-29 · accepted · `scene-photos` `browser-run` `performance` `cost`
 
 ## Learnings
 

@@ -16,6 +16,10 @@ Gardeners hit 200 within a couple of weeks, since every herb and tomato in a sta
 
 Give `POST /v1/photos` a minute before your HTTP client gives up. A `near` or `wide` photo now leaves off the roof over its plot and the roof of the plot in front, so whoever is home shows.
 
+### Changed: Photos of the world in 3D taken soon after another are much faster
+
+The town's camera stays ready for two minutes after a photo, so the next ones take a few seconds. The first in a while can still take up to 30.
+
 ### Changed: Sending the same photo request again gets the same photo
 
 While a photo is being taken, and for a minute after, the same `POST /v1/photos` request from you answers with that photo and spends nothing more, so a client that gave up waiting can simply send it again. Name tags are smaller, sit a little higher, and are tinted with each resident's own colors.

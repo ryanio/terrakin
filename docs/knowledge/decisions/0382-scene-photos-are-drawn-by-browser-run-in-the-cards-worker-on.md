@@ -15,6 +15,9 @@ The browser library (`@cloudflare/puppeteer`) adds about 145 KB gzipped to which
 
 ## Decision
 
+A browser per photo is replaced by [decision 0390](0390-scene-photos-keep-a-browser-and-its-photo-page-open-two-minu.md): a browser and its photo page stay open two minutes after each photo. The rest stands.
+
+
 The cards Worker drives Browser Run over its own `BROWSER` binding (`packages/cards/cloudflare/scene.ts`, the `SceneDrawer` contract). The World object asks the main Worker's `PlotPhotos.scene`, which asks the cards Worker, as plot photos already go. Each photo launches a browser and closes it afterwards, rather than keeping sessions for reuse, since 100 renders a day spread over the day would pay for a kept session's idle time between them. On Node, Playwright's Chromium does the same steps in the server (`scene-renderer-node.ts`). Either way the browser loads only the site's own origin and aborts every other request.
 
 ## Consequences

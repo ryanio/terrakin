@@ -26,7 +26,7 @@ A browser stays open two minutes after its photo (`SCENE_PHOTO_LIMITS.warmMs`), 
 
 ## Consequences
 
-- Locally, the first photo through the route takes about 6 s with a fresh browser and the next ones 0.4 to 1.1 s. On Browser Run a reconnect to an open browser and a new screenshot took 1.7 to 1.9 s from a laptop. The live numbers are to be read from Sentry's `photo.scene` spans once photos are taken.
-- The first photo after a quiet spell is as slow as before.
+- Locally, the first photo through the route takes about 6 s with a fresh browser and the next ones 0.4 to 1.1 s. On Browser Run a reconnect to an open browser and a new screenshot took 1.7 to 1.9 s from a laptop. On terrakin.org on 2026-10-30, by Sentry's `photo.scene` spans, a first photo took 10.0 s and one taken seconds after it 5.2 s, about four times the local times, as Browser Run's machines were for a fresh browser.
+- The first photo after a quiet spell still opens a new browser and compiles the drawing programs.
 - Browser time grows by up to two minutes per photo that comes alone: at the cap of 100 a day, all alone, about $9.50 a month past the included hours. Photos that come in bursts share their minutes.
 - The photo page is now long lived, so anything it keeps between photos (the 3D world, its stage) has to come out of each photo the same as from a fresh page. The QA was five photos in a row of different subjects and framings, each drawn as a fresh page draws it.

@@ -23,6 +23,7 @@ import {
 import { eventsApi } from "./api/events";
 import { actProblem, worldApi } from "./api/world";
 import {
+  attendanceLine,
   defaultStart,
   dishesLine,
   fromLocalInput,
@@ -168,6 +169,9 @@ export function eventRow(e: EventView, o: EventRowOptions): HTMLLIElement {
       : e.dishes?.length
         ? h("p", { class: "event-dishes", text: dishesLine(e.dishes) })
         : null,
+    e.attendance
+      ? h("p", { class: "event-dishes event-attendance", text: attendanceLine(e.attendance) })
+      : null,
     actions.childElementCount > 0 ? actions : null,
   );
 }

@@ -350,6 +350,12 @@ export interface WorldServiceOptions {
    */
   scheduleInPerson?: boolean;
   /**
+   * Attendance at 10 minutes (issue #126): append `attend_at_ten` if it never has, after which
+   * an event counts a resident seen at 2 samples, however long it runs. Both adapters turn it
+   * on, like `scheduleInPerson`.
+   */
+  attendAtTen?: boolean;
+  /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
    * (`levelFirsts`). Both adapters turn it on (decision 0373), so every world they run logs it once.
@@ -636,6 +642,7 @@ interface TownSwitch {
     | "shopInPerson"
     | "proposeInPerson"
     | "scheduleInPerson"
+    | "attendAtTen"
     | "levels"
     | "jobs"
     | "circles"
@@ -801,6 +808,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "schedule_in_person" },
     label: "send hosts to the place they book",
   },
+  // Attendance at 10 minutes (issue #126) needs nothing open first either: its flag is top
+  // level, like booking's, rather than on the events state the first event creates.
+  {
+    option: "attendAtTen",
+    due: (s) => !s.attendAtTen,
+    command: { type: "attend_at_ten" },
+    label: "count attendance at 10 minutes",
+  },
   // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
   // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
   // throws is reported and leaves it for a later tick: levels never open without their credit.
@@ -908,6 +923,7 @@ export class WorldService {
   private readonly shopInPerson: boolean;
   private readonly proposeInPerson: boolean;
   private readonly scheduleInPerson: boolean;
+  private readonly attendAtTen: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
@@ -1018,6 +1034,7 @@ export class WorldService {
     this.shopInPerson = options.shopInPerson ?? false;
     this.proposeInPerson = options.proposeInPerson ?? false;
     this.scheduleInPerson = options.scheduleInPerson ?? false;
+    this.attendAtTen = options.attendAtTen ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;

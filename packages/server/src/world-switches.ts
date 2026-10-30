@@ -23,6 +23,7 @@ export const WORLD_SWITCHES = {
   shopInPerson: true,
   proposeInPerson: true,
   scheduleInPerson: true,
+  attendAtTen: true,
   recipes: true,
   holidayPrices: true,
   raisedInventory: true,

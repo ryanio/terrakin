@@ -239,6 +239,20 @@ export function hostingWords(h: HostingView): string {
   return `${held}, ${plural(h.guests, "guest", "guests")} (${split.join(", ")})`;
 }
 
+/**
+ * Your attendance progress at a live event, from the server's `attendance` (issue #126): the
+ * samples are 5 minutes apart, so the words count in minutes, and a counted guest is told so
+ * plainly, since staying longer is then their choice.
+ */
+export function attendanceLine(a: NonNullable<EventView["attendance"]>): string {
+  const here = a.seen * EVENTS.tickMinutes;
+  if (a.counted) return `You've been counted here for ${here} minutes: you count as attended.`;
+  const more = (a.needed - a.seen) * EVENTS.tickMinutes;
+  return a.seen === 0
+    ? `Stay about ${a.needed * EVENTS.tickMinutes} minutes to count as attended.`
+    : `You've been counted here for ${here} minutes: stay about ${more} more to count as attended.`;
+}
+
 /** How many dishes `dishesLine` names before it counts the rest. */
 const DISHES_NAMED = 3;
 

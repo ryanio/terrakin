@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
+import { ATTENDANCE_CONFIG, ATTENDANCE_HASH, ATTENDANCE_LOG } from "./fixtures/attendance-log";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
@@ -370,6 +371,56 @@ describe("an event's life", () => {
     ]);
   });
 
+  it("counts attendance at 10 minutes once attend_at_ten is logged, and not before (issue #126)", () => {
+    // Before the switch: Bob is seen at 3 of a 60-minute event's 11 samples and does not attend.
+    const before = world();
+    ok(act(before, "ada", schedule()));
+    ok(town(before, { type: "event_start", event: "e_1" }));
+    ok(act(before, "bob", { type: "join_event", event: "e_1" }));
+    sample(before, "e_1", 1, 3);
+    ok(act(before, "bob", { type: "leave" }));
+    sample(before, "e_1", 4, 11);
+    expect(ok(town(before, { type: "event_end", event: "e_1" }))).toMatchObject([{ attended: [] }]);
+
+    // The switch is the town's alone, and it lands once.
+    const state = world();
+    expect(code(act(state, "ada", { type: "attend_at_ten" } as Command))).toBe("server_only");
+    expect(state.attendAtTen).toBeUndefined();
+    expect(ok(town(state, { type: "attend_at_ten" }))).toEqual([{ type: "attendance_at_ten_set" }]);
+    expect(code(town(state, { type: "attend_at_ten" }))).toBe("already_open");
+
+    // After it: 2 samples, a 10-minute visit like Cocoa's at the playtest, count, at a
+    // 60-minute event and at a 9-hour town event alike.
+    ok(act(state, "ada", schedule()));
+    ok(town(state, { type: "event_start", event: "e_1" }));
+    ok(act(state, "bob", { type: "join_event", event: "e_1" }));
+    sample(state, "e_1", 1, 2);
+    ok(act(state, "bob", { type: "leave" }));
+    sample(state, "e_1", 3, 11);
+    expect(ok(town(state, { type: "event_end", event: "e_1" }))).toMatchObject([
+      { attended: ["bob"] },
+    ]);
+
+    ok(
+      town(state, {
+        type: "schedule_town_event",
+        key: "harvest-night",
+        kind: "gathering",
+        title: "Harvest night",
+        startsAt: at(TODAY, 18),
+        minutes: 540,
+      }),
+    );
+    ok(town(state, { type: "event_start", event: "e_2" }));
+    ok(act(state, "cy", { type: "join_event", event: "e_2" }));
+    sample(state, "e_2", 1, 2);
+    ok(act(state, "cy", { type: "leave" }));
+    sample(state, "e_2", 3, 40);
+    expect(ok(town(state, { type: "event_end", event: "e_2" }))).toMatchObject([
+      { attended: ["cy"] },
+    ]);
+  });
+
   it("gives a Commons deposit back when 3 come from outside the host's household, and burns it otherwise", () => {
     const run = (pairs: [string, string][]) => {
       const state = world();
@@ -726,6 +777,16 @@ describe("booking in person (RFC 0042)", () => {
 });
 
 describe("the events fixture", () => {
+  it("replays the attendance fixture on both sides of attend_at_ten", () => {
+    const state = replay(ATTENDANCE_CONFIG, ATTENDANCE_LOG);
+    expect(hashWorld(state)).toBe(ATTENDANCE_HASH);
+    expect(state.attendAtTen).toBe(true);
+    // Dee was seen at 2 of the late gathering's 11 samples and attended under the new rule.
+    expect(findEvent(state, "e_5")).toMatchObject({ status: "ended", ticks: 11 });
+    expect(findEvent(state, "e_5")?.attended).toContain("dee");
+    expectSupplyHolds(state);
+  });
+
   it("replays to its pinned hash with the coins adding up", () => {
     const state = replay(EVENTS_CONFIG, EVENTS_LOG);
     expect(hashWorld(state)).toBe(EVENTS_HASH);

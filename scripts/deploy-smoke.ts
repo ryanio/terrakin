@@ -186,6 +186,7 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   shopInPerson: "shopInPerson",
   proposeInPerson: "proposeInPerson",
   scheduleInPerson: "scheduleInPerson",
+  attendAtTen: "attendAtTen",
   levels: "levelsOpen",
   jobs: "jobsOpen",
   circles: "circlesOpen",

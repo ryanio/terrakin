@@ -62,6 +62,7 @@ import { checkEdge } from "./edge-actions";
 import { edgesFor, edgeTiles, isEdgeKind } from "./edges";
 import { checkSetEntitlements, unentitled } from "./entitlements";
 import {
+  checkAttendAtTen,
   checkCancelEvent,
   checkEventEnd,
   checkEventStart,
@@ -877,6 +878,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkProposeInPerson(state));
       case "schedule_in_person":
         return town(checkScheduleInPerson(state));
+      case "attend_at_ten":
+        return town(checkAttendAtTen(state));
       case "open_land":
         return town(checkOpenLand(state, command));
       case "open_market":

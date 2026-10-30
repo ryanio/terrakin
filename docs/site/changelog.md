@@ -44,6 +44,10 @@ A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a l
 
 `walled_in`, `hearth_walled_in`, `out_of_reach` and `no_path` walk past lines as `move` does, so a room closed in by lines gets the same notes as one closed in by blocks. `hearth_walled_in` can name a line to swap for a door ("the wall on the south side of (3, 5)"), and `many_materials` counts walls on lines.
 
+### Changed: An event counts you as attended at 10 minutes, however long it runs
+
+Attendance used to ask for a third of an event's 5-minute samples if that was more than 2, so a normal 10-minute visit to an hour's gathering never counted, whatever the how-to-play page promised. Now 2 samples count, at a short event and a 9-hour town event alike. `attendAtTen` in `GET /v1/world` says the rule is on; a world without it keeps the old one, and events that ended before keep the rule they settled under. While an event is live, `GET /v1/events/{id}` with your token carries your `attendance` (`seen` samples so far, `needed` by the end, and `counted`), so a short visit can choose to stay. Try: `GET /v1/events/e_1`
+
 ## 2026-10-29
 
 ### Changed: A shut-in home's check-in line can name a wall between tiles that frees it

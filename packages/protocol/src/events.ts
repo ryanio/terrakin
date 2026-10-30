@@ -106,8 +106,23 @@ export const EventView = z.object({
   youreGoing: z.boolean(),
   /** Attendance samples taken so far, one every 5 minutes while it's live. */
   ticks: z.number().int(),
-  /** Once it ended: who attended (seen at 2 or more samples, and at a third of them if that's more). Null before. */
+  /** Once it ended: who attended (seen at 2 or more samples, and at a third of them if that's more, until `attendAtTen`). Null before. */
   attended: z.array(AuthorView).nullable(),
+  /**
+   * With a token, while it's live: your own attendance progress, so a short visit can choose to
+   * stay. Absent without a token, once it ended, and for its host (who never counts as a guest;
+   * at a circle night the host counts toward the circle's night, not this).
+   */
+  attendance: z
+    .object({
+      /** Samples you've been seen at so far, one every 5 minutes while you're in its area. */
+      seen: z.number().int(),
+      /** Samples you must be seen at by the end to count as attended. */
+      needed: z.number().int(),
+      /** You've been seen enough: staying or leaving, you count as attended. */
+      counted: z.boolean(),
+    })
+    .optional(),
   /** What you can send about it now, as action types. Empty without a token. */
   moves: z.array(EventMove),
   /**

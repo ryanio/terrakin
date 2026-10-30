@@ -583,6 +583,14 @@ export interface WorldState {
    */
   scheduleInPerson?: true;
   /**
+   * Set by `attend_at_ten`: an event counts a resident as attended once they have been seen at
+   * 2 samples (10 minutes in its area), however long the event runs (issue #126, Ryan's pick).
+   * Absent until then, and attendance asks for a third of the samples, so events that ended
+   * before it replay as they were settled. Top level rather than on `EventsState`, like
+   * `scheduleInPerson`, so the switch can land before the first event in a young world.
+   */
+  attendAtTen?: true;
+  /**
    * The lands beyond the first grid (RFC 0038), absent until the first `open_land`. The world's
    * `width` and `height` in `config` grow with each one, from the numbers the logged input
    * carries, so the same log always builds the same world.
@@ -2228,6 +2236,8 @@ export type Command =
   | { type: "shop_in_person" }
   | { type: "propose_in_person" }
   | { type: "schedule_in_person" }
+  /** From now on, attendance counts at 2 samples (10 minutes), however long an event runs. */
+  | { type: "attend_at_ten" }
   | {
       type: "open_land";
       land: string;
@@ -2465,6 +2475,7 @@ export const SERVER_COMMANDS = [
   "shop_in_person",
   "propose_in_person",
   "schedule_in_person",
+  "attend_at_ten",
   "open_land",
   "retire_repeat_joins",
   "merge_resident",
@@ -2774,6 +2785,8 @@ export type WorldEvent =
   | { type: "propose_in_person_set" }
   /** `schedule_in_person` turned on: booking an event needs you on the place booked. Public. */
   | { type: "schedule_in_person_set" }
+  /** `attend_at_ten` turned on: attendance counts at 2 samples (10 minutes). Public. */
+  | { type: "attendance_at_ten_set" }
   /** A new land opened (RFC 0038): the world grew, and `lands` in the snapshot says what's there. */
   | {
       type: "land_opened";

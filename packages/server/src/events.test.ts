@@ -57,6 +57,7 @@ async function start(
     townEvents?: (now: number) => readonly TownEvent[];
     at?: number;
     scheduleInPerson?: boolean;
+    attendAtTen?: boolean;
   } = {},
 ) {
   let now = options.at ?? Date.UTC(2026, 9, 6, 9);
@@ -69,6 +70,7 @@ async function start(
     economy: true,
     presence: true,
     ...(options.scheduleInPerson ? { scheduleInPerson: true } : {}),
+    ...(options.attendAtTen ? { attendAtTen: true } : {}),
     townEvents: options.townEvents ?? (() => []),
   });
   const sql = options.sql ?? nodeSql();
@@ -1031,5 +1033,49 @@ describe("booking in person on the server (RFC 0042)", () => {
       ok: true,
     });
     expect(await t.act(bob.token, listening(t, todayAt(t, 19)))).toMatchObject({ ok: true });
+  });
+});
+
+describe("attendance at 10 minutes on the server (issue #126)", () => {
+  /** Ada hosts at noon; Bob goes and stays two samples; each viewer's event view, by token. */
+  async function liveViews(attendAtTen: boolean) {
+    const t = await start(attendAtTen ? { attendAtTen: true } : {});
+    const { ada, bob } = await hosts(t);
+    const noon = todayAt(t, 12);
+    expect(await t.act(ada.token, listening(t, noon))).toMatchObject({ ok: true });
+    t.later(noon + MINUTE - t.now());
+    expect(t.service.state.events?.list[0]?.status).toBe("live");
+    expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
+      ok: true,
+    });
+    const before = (await t.call("GET", "/v1/events/e_1", undefined, bob.token)).body.event;
+    for (let i = 0; i < 2; i++) {
+      t.later(5 * MINUTE);
+      expect(await t.act(bob.token, { type: "join_event", event: "e_1" })).toMatchObject({
+        ok: true,
+      });
+    }
+    const bobView = (await t.call("GET", "/v1/events/e_1", undefined, bob.token)).body.event;
+    const adaView = (await t.call("GET", "/v1/events/e_1", undefined, ada.token)).body.event;
+    const anonView = (await t.call("GET", "/v1/events/e_1")).body.event;
+    return { t, before, bobView, adaView, anonView };
+  }
+
+  it("logs the switch, says so on the snapshot, and a guest's progress counts at 2 samples", async () => {
+    const { t, before, bobView, adaView, anonView } = await liveViews(true);
+    expect(t.service.state.attendAtTen).toBe(true);
+    expect((await t.call("GET", "/v1/world")).body.attendAtTen).toBe(true);
+    expect(before.attendance).toEqual({ seen: 0, needed: 2, counted: false });
+    expect(bobView.attendance).toEqual({ seen: 2, needed: 2, counted: true });
+    // The host's and a stranger's views carry no progress.
+    expect(adaView.attendance).toBeUndefined();
+    expect(anonView.attendance).toBeUndefined();
+  });
+
+  it("asks for a third of the samples in a world that never turned it on", async () => {
+    const { t, bobView } = await liveViews(false);
+    expect(t.service.state.attendAtTen).toBeUndefined();
+    expect((await t.call("GET", "/v1/world")).body.attendAtTen).toBeUndefined();
+    expect(bobView.attendance).toEqual({ seen: 2, needed: 4, counted: false });
   });
 });

@@ -2,8 +2,8 @@
  * Downtown's public ways as a dry run ([RFC 0046](../docs/rfcs/0046-streets.md), Option 1). It reads
  * the live world from the public `GET /v1/world`, no token, plans the network that joins every
  * claimed plot and the bridge landing to the Commons with the server's own `planWays`, and prints
- * it: the tiles on each plot, the blocks the town would clear and give back, the homes it would
- * rebuild, and who would hear about it.
+ * it: the tiles on each plot, the blocks and walls between tiles the town would clear and give
+ * back, the homes it would rebuild, and who would hear about it.
  *
  *   node --import ./scripts/resolve-ts.mjs scripts/ways.ts [--base https://terrakin.org]
  *                                                          [--file world.json] [--keep-free] [--json]
@@ -25,6 +25,8 @@ import {
 } from "../packages/server/src/way-plan.ts";
 import {
   type BlockKind,
+  edgeBlocks,
+  edgeKey,
   openingFactsFrom,
   plotKey,
   type Tile,
@@ -42,6 +44,8 @@ export interface WaysRead extends WorldRead {
   displays?: Tile[];
   /** Paths and flooring, the floors above with `floor`. */
   ground?: (Tile & { floor?: number })[];
+  /** Walls between tiles (RFC 0050), each on the `n` or `w` line of its tile, by floor. */
+  edges?: (Tile & { side: "n" | "w"; floor?: number; block: BlockKind })[];
   /**
    * Plots for sale. The snapshot doesn't carry listings (the plot market is dark), so the dry run
    * reads none and the staff route, which reads the world, is what routes around them.
@@ -57,15 +61,32 @@ export function wayFactsOf(world: WaysRead): WayFacts {
   const hearths = [...world.residents, ...(world.townsfolkResidents ?? [])].flatMap((r) =>
     r.hearth ? [r.hearth] : [],
   );
+  const lines = new Map<string, BlockKind>();
+  for (const e of world.edges ?? []) {
+    if ((e.floor ?? 0) === 0) lines.set(edgeKey(e.x, e.y, e.side), e.block);
+  }
+  const openings = openingFactsFrom(world);
   return {
     config: world.config,
-    openings: openingFactsFrom(world),
+    // The snapshot's opening facts leave walls between tiles out, so the planner's walks get them
+    // here, as the server's facts do from the world.
+    openings:
+      lines.size > 0
+        ? {
+            ...openings,
+            ground: {
+              ...openings.ground,
+              edge: (x, y, side) => edgeBlocks(lines.get(edgeKey(x, y, side))),
+            },
+          }
+        : openings,
     downtown,
     commons: world.commons,
     plots: world.plots,
     townsfolk: new Set(world.townsfolk ?? []),
     hearths,
     blocks,
+    lines,
     fixed: new Set(
       [...(world.crops ?? []), ...(world.displays ?? [])].map((t) => tileKey(t.x, t.y)),
     ),
@@ -82,15 +103,25 @@ export function wayFactsOf(world: WaysRead): WayFacts {
 
 /**
  * The world as the plan would leave it, as far as the snapshot can say: the blocks on way tiles
- * gone, the rebuilt homes' blocks up, and the ways laid. The sim checks the real inputs when the
- * staff route lays them; this is for reading the plan's effect on ways out.
+ * and the walls between them gone, the rebuilt homes' blocks up, and the ways laid. The sim checks
+ * the real inputs when the staff route lays them; this is for reading the plan's effect on ways
+ * out.
  */
 export function afterPlan(world: WaysRead, plan: WayPlan): WaysRead {
   const gone = new Set(plan.blocks.map((b) => tileKey(b.x, b.y)));
   const blocks = world.blocks.filter((b) => (b.floor ?? 0) !== 0 || !gone.has(tileKey(b.x, b.y)));
   for (const h of plan.homes)
     for (const b of h.rebuild) blocks.push({ x: b.x, y: b.y, block: b.block });
-  return { ...world, blocks, ways: [...(world.ways ?? []), ...plan.tiles] };
+  const down = new Set(plan.lines.map((l) => edgeKey(l.x, l.y, l.side)));
+  const edges = world.edges?.filter(
+    (e) => (e.floor ?? 0) !== 0 || !down.has(edgeKey(e.x, e.y, e.side)),
+  );
+  return {
+    ...world,
+    blocks,
+    ...(edges ? { edges } : {}),
+    ways: [...(world.ways ?? []), ...plan.tiles],
+  };
 }
 
 /**
@@ -126,7 +157,7 @@ export function planLines(
   const tiles = (list: readonly Tile[]) => list.map((t) => `(${t.x}, ${t.y})`).join(" ");
   return [
     `${plan.tiles.length} way tiles: ${count(residents)} on ${residents.length} residents' plots (at most ${most} from one), ${count(townsfolk)} on ${townsfolk.length} townsfolk plots, ${plan.free.length} on free slots. ${claimed} plots are claimed.`,
-    `${plan.blocks.length} blocks to clear and give back, ${plan.homes.length} homes to rebuild, ${new Set(plan.plots.map((p) => p.ownerId)).size} owners to tell.`,
+    `${plan.blocks.length} blocks and ${plan.lines.length} walls between tiles to clear and give back, ${plan.homes.length} homes to rebuild, ${new Set(plan.plots.map((p) => p.ownerId)).size} owners to tell.`,
     ...(before !== undefined && after !== undefined
       ? [`Plots with no way out (decision 0351): ${before} now, ${after} once it is laid.`]
       : []),
@@ -150,6 +181,14 @@ export function planLines(
     ...(plan.blocks.length > 0
       ? plan.blocks.map(
           (b) => `  (${b.x}, ${b.y}) ${b.block} on (${b.px}, ${b.py}), back to ${b.ownerId}`,
+        )
+      : ["  none"]),
+    "",
+    "Walls between tiles to clear:",
+    ...(plan.lines.length > 0
+      ? plan.lines.map(
+          (l) =>
+            `  (${l.x}, ${l.y}) ${l.side} ${l.block} on (${l.px}, ${l.py}), back to ${l.ownerId}`,
         )
       : ["  none"]),
     "",

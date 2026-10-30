@@ -1,7 +1,11 @@
 import {
   type BlockKind,
+  type EdgeSide,
+  edgeKey,
+  edgeTiles,
   HOLDING_BLOCKS,
   type OpeningFacts,
+  parseEdgeKey,
   placeOf,
   placeWalk,
   plotKey,
@@ -26,11 +30,12 @@ import {
  * and repeats. A better search may find a smaller network.
  *
  * Every step is side on (north, south, east or west), never diagonal, so no block at a corner, on
- * anyone's land, can ever close a way, and no step crosses a wall on the line between two tiles
- * (RFC 0050). A plot is joined when a tile its hearth's walk reaches on its place has a side,
- * with no such wall on it, on a tile of the network off the place, which is decision 0351's way
- * out with the step taken square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a
- * corner step inside it may pass a neighbour's open tile, as walking does.
+ * anyone's land, can ever close a way. A wall on the line between two tiles (RFC 0050) is a price,
+ * as a block is: a step across one plans taking it down, since the sim opens no way across a line.
+ * A plot is joined when a tile its hearth's walk reaches on its place has a side, with no wall on
+ * it, on a tile of the network off the place, which is decision 0351's way out with the step taken
+ * square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a corner step
+ * inside it may pass a neighbour's open tile, as walking does.
  */
 
 /** What the planner reads, which both the world and the public snapshot carry. */
@@ -46,6 +51,11 @@ export interface WayFacts {
   hearths: readonly Tile[];
   /** The ground floor's blocks, by tile key. */
   blocks: ReadonlyMap<string, BlockKind>;
+  /**
+   * The ground floor's walls between tiles (RFC 0050), by the sim's `edgeKey`: doors too, since
+   * the sim opens no way across any line.
+   */
+  lines: ReadonlyMap<string, BlockKind>;
   /**
    * Tiles whose block the town can't clear: a planter with a crop in it, a kiln with a pot in it,
    * or under a display.
@@ -102,6 +112,11 @@ const WAY_COST = {
    * wall elsewhere on a plot, a garden's or a yard's.
    */
   wall: 40,
+  /**
+   * A step across a wall on a line between tiles, which the town takes down and gives back: what
+   * a wall block elsewhere on a plot costs on top of its tile (`block` and a quarter of `wall`).
+   */
+  line: 13,
 } as const;
 
 export interface WayPlanOptions {
@@ -124,6 +139,20 @@ export interface WayPlan {
   free: Tile[];
   /** Blocks standing on way tiles, which the town clears and gives back to the plot's owner. */
   blocks: { x: number; y: number; block: BlockKind; ownerId: string; px: number; py: number }[];
+  /**
+   * Walls between tiles (RFC 0050) standing between two tiles of the way, which the town takes
+   * down and gives back to the plot's owner: each on the line on `side` of its tile, `n` or `w`
+   * (the sim's `edgeKey` form), north to south, then west to east.
+   */
+  lines: {
+    x: number;
+    y: number;
+    side: EdgeSide;
+    block: BlockKind;
+    ownerId: string;
+    px: number;
+    py: number;
+  }[];
   /**
    * Homes the network cuts through: a wall of the room its hearth stands in is on a way tile. The
    * town rebuilds each so it still closes, with a door onto the way.
@@ -190,9 +219,30 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   }
   const laid = new Set(facts.ways);
   const ways = new Set<string>();
-  // A way never crosses a wall on a line between tiles (RFC 0050): two tiles with one between them
-  // are never joined, side on.
+  // A wall on a line between tiles (RFC 0050) stops a walker but for a door, which is what a
+  // place's walk and its exits read.
   const walled = (x: number, y: number, side: Side) => openings.ground.edge?.(x, y, side) ?? false;
+  // Lines the plan takes down so far. Between two tiles of the network any line stands in the way,
+  // a door too, since the sim opens no way across one.
+  const down = new Set<string>();
+  const standing = (x: number, y: number, side: Side) => {
+    const key = edgeKey(x, y, side);
+    return facts.lines.has(key) && !down.has(key);
+  };
+  /**
+   * What a side-on step from (x, y) costs on top of the tile it reaches: nothing with no line
+   * between, `line` for one the town can take down, and undefined for one it can't, a wall
+   * holding up an upstairs, as for a block.
+   */
+  const cross = (x: number, y: number, side: Side): number | undefined => {
+    if (!standing(x, y, side)) return 0;
+    const block = facts.lines.get(edgeKey(x, y, side)) as BlockKind;
+    const { px, py } = plotOf(config, x, y);
+    const plot = owners.get(plotKey(px, py));
+    if (!plot) return undefined;
+    if ((plot.floors ?? 0) > 0 && HOLDING_BLOCKS.includes(block)) return undefined;
+    return W.line;
+  };
 
   /** Open public ground: the Commons, a free slot (unless laid), or a way, with nothing in the way. */
   const isPublic = (x: number, y: number) => {
@@ -263,7 +313,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
         const x = at.x + dx;
         const y = at.y + dy;
         if (!inDowntown(x, y) || joined.has(tileKey(x, y)) || !isPublic(x, y)) continue;
-        if (walled(at.x, at.y, side)) continue;
+        if (standing(at.x, at.y, side)) continue;
         joined.add(tileKey(x, y));
         start.push({ x, y });
       }
@@ -307,7 +357,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   flood();
   let open = targets.filter((t) => !done(t));
   while (open.length > 0) {
-    const { dist, prev } = search(joined, cost, inDowntown, walled);
+    const { dist, prev } = search(joined, cost, inDowntown, cross);
     let best: { target: Target; goal: string; d: number } | undefined;
     for (const target of open) {
       for (const goal of target.goals) {
@@ -327,12 +377,24 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
       const { px, py } = plotOf(config, x, y);
       const onPlot = owners.has(plotKey(px, py));
       if ((onPlot || layFree) && !isCommons(px, py) && !laid.has(at)) ways.add(at);
+      // The line the step onto this tile crossed comes down, so the flood walks past it.
+      const from = prev.get(at);
+      if (from) down.add(lineBetween(from, at));
     }
     flood();
     open = open.filter((t) => !done(t));
   }
 
   return describe(facts, ways, laid, owners, unjoined);
+}
+
+/** The key of the line between two tiles that share a side. */
+function lineBetween(a: string, b: string): string {
+  const [ax, ay] = a.split(",").map(Number) as [number, number];
+  const [bx, by] = b.split(",").map(Number) as [number, number];
+  const step = STEPS.find(([dx, dy]) => ax + dx === bx && ay + dy === by);
+  if (!step) throw new Error(`${a} and ${b} share no side`);
+  return edgeKey(ax, ay, step[2]);
 }
 
 /** The tiles a starter hut takes on plot (`px`, `py`): its walls, its windows, and its door. */
@@ -388,7 +450,8 @@ function homeOf(facts: WayFacts, hearth: Tile): Set<string> {
  * How the town rebuilds a home a way cuts through. Each tile of the home on its hearth's side of
  * the way, beside it, with nothing standing there and no hearth, gets a wall, so the home closes again along the way;
  * and the middle one is a door, so it opens onto the way. The walls are the home's own kind: the
- * most common of the free walls the way took down (wood, stone, or a hedge), or wood.
+ * most common of the free walls the way took down (wood, stone, or a hedge), blocks and walls
+ * between tiles alike (`taken`), or wood.
  */
 function rebuildOf(
   facts: WayFacts,
@@ -396,6 +459,7 @@ function rebuildOf(
   home: ReadonlySet<string>,
   onWay: ReadonlySet<string>,
   cut: readonly { x: number; y: number; block: BlockKind }[],
+  taken: readonly BlockKind[],
 ): Pick<WayPlan["homes"][number], "walls" | "rebuild" | "left"> {
   const { config, openings } = facts;
   const hearths = new Set(facts.hearths.map((h) => tileKey(h.x, h.y)));
@@ -423,9 +487,9 @@ function rebuildOf(
     ).map((n) => tileKey(n.x, n.y)),
   );
   const counts = new Map<BlockKind, number>();
-  for (const b of cut) {
-    if (b.block === "wood" || b.block === "stone" || b.block === "leaf") {
-      counts.set(b.block, (counts.get(b.block) ?? 0) + 1);
+  for (const block of taken) {
+    if (block === "wood" || block === "stone" || block === "leaf") {
+      counts.set(block, (counts.get(block) ?? 0) + 1);
     }
   }
   const kind = ([...counts.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? "wood") as BlockKind;
@@ -491,7 +555,7 @@ function search(
   joined: ReadonlySet<string>,
   cost: (x: number, y: number) => number | undefined,
   inside: (x: number, y: number) => boolean,
-  walled: (x: number, y: number, side: Side) => boolean,
+  cross: (x: number, y: number, side: Side) => number | undefined,
 ): { dist: Map<string, number>; prev: Map<string, string> } {
   const dist = new Map<string, number>();
   const prev = new Map<string, string>();
@@ -539,11 +603,13 @@ function search(
     for (const [dx, dy, side] of STEPS) {
       const nx = x + dx;
       const ny = y + dy;
-      if (!inside(nx, ny) || walled(x, y, side)) continue;
+      if (!inside(nx, ny)) continue;
+      const line = cross(x, y, side);
+      if (line === undefined) continue;
       const step = cost(nx, ny);
       if (step === undefined) continue;
       const nk = tileKey(nx, ny);
-      const nd = d + step + 0.001;
+      const nd = d + step + line + 0.001;
       if (nd < (dist.get(nk) ?? Number.POSITIVE_INFINITY)) {
         dist.set(nk, nd);
         prev.set(nk, key);
@@ -605,12 +671,28 @@ function describe(
     const block = facts.blocks.get(tileKey(t.x, t.y));
     if (block) blocks.push({ x: t.x, y: t.y, block, ownerId: plot.ownerId, px, py });
   }
+  // Every line between two tiles of the way with a new tile on one side comes down, crossed by the
+  // search or not: the sim opens no way with a line between two of its tiles.
+  const onWay = new Set([...laid, ...tiles.map((t) => tileKey(t.x, t.y))]);
+  const lines: WayPlan["lines"] = [];
+  for (const [key, block] of facts.lines) {
+    const { x, y, side } = parseEdgeKey(key);
+    const [a, b] = edgeTiles(x, y, side);
+    const ka = tileKey(a.x, a.y);
+    const kb = tileKey(b.x, b.y);
+    if (!onWay.has(ka) || !onWay.has(kb) || (!ways.has(ka) && !ways.has(kb))) continue;
+    const { px, py } = plotOf(config, x, y);
+    const plot = owners.get(plotKey(px, py));
+    // A line off every claimed plot can't stand; the sim's refusal names it if one does.
+    if (!plot) continue;
+    lines.push({ x, y, side, block, ownerId: plot.ownerId, px, py });
+  }
+  lines.sort((p, q) => p.y - q.y || p.x - q.x || (p.side < q.side ? -1 : p.side > q.side ? 1 : 0));
   // A home is cut through when a way, new or laid before, crosses one of its tiles (`homeOf`) and
   // leaves its hearth's side open onto it. Reading the ways laid before too is what lets a plan
   // that stopped partway be run again to finish: a home already rebuilt is closed, so nothing is
   // done to it twice.
   const homes: WayPlan["homes"] = [];
-  const onWay = new Set([...laid, ...tiles.map((t) => tileKey(t.x, t.y))]);
   const done = new Set<string>();
   for (const h of facts.hearths) {
     const { px, py } = plotOf(config, h.x, h.y);
@@ -620,11 +702,16 @@ function describe(
     const home = homeOf(facts, h);
     if (![...home].some((key) => onWay.has(key))) continue;
     const cut = blocks.filter((b) => home.has(tileKey(b.x, b.y)) && isWall(b.block));
-    const rebuilt = rebuildOf(facts, h, home, onWay, cut);
-    if (rebuilt.rebuild.length === 0 && rebuilt.left.length === 0 && cut.length === 0) continue;
+    const cutLines = lines.filter((l) => {
+      const [a, b] = edgeTiles(l.x, l.y, l.side);
+      return home.has(tileKey(a.x, a.y)) || home.has(tileKey(b.x, b.y));
+    });
+    const taken = [...cut, ...cutLines].map((w) => w.block);
+    const rebuilt = rebuildOf(facts, h, home, onWay, cut, taken);
+    if (rebuilt.rebuild.length === 0 && rebuilt.left.length === 0 && taken.length === 0) continue;
     homes.push({ px, py, ownerId: plot.ownerId, ...rebuilt });
   }
   homes.sort((a, b) => a.py - b.py || a.px - b.px);
   const plots = [...byPlot.values()].sort((a, b) => a.py - b.py || a.px - b.px);
-  return { tiles, plots, free, blocks, homes, unjoined };
+  return { tiles, plots, free, blocks, lines, homes, unjoined };
 }

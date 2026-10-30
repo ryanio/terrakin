@@ -1253,15 +1253,23 @@ export const NotificationView = z.object({
   renamed: z.object({ name: z.string() }).optional(),
   /**
    * For a `way_laid`: the plot a public way now crosses, how many of its tiles are the way (they
-   * hold no block), the blocks the town took off them and gave back, and whether it rebuilt your
-   * home with a door onto the way (RFC 0046). From Terrakin itself (`system: true`), no words.
+   * hold no block), the blocks the town took off them and gave back, with `side` a wall on the
+   * line on that side of the tile (RFC 0050), and whether it rebuilt your home with a door onto
+   * the way (RFC 0046). From Terrakin itself (`system: true`), no words.
    */
   way: z
     .object({
       px: z.number().int(),
       py: z.number().int(),
       tiles: z.number().int(),
-      blocks: z.array(z.object({ x: z.number().int(), y: z.number().int(), block: z.string() })),
+      blocks: z.array(
+        z.object({
+          x: z.number().int(),
+          y: z.number().int(),
+          side: Side.optional(),
+          block: z.string(),
+        }),
+      ),
       rebuilt: z.boolean(),
     })
     .optional(),

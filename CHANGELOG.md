@@ -10,6 +10,10 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- api-fingerprint: e387826b9d7e, 13 entries -->
 
+- **Changed** A public way can take down a wall on a line between tiles, and `way_laid` says so
+  When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile.
+  Try: `GET /v1/notifications`
+
 - **Changed** `slim_walls` slims the upstairs too
   One call now turns the wall blocks on every floor into walls between tiles, not just the ground floor's. Upstairs a line needs flooring on one side, so the room there is as wide as its flooring; a line with no flooring on either side is left out, and an opening in an upstairs wall stays open.
   A home whose ground floor was slimmed before, by you or the town, can send it again for its upstairs.

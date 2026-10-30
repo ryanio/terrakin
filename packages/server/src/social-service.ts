@@ -3352,12 +3352,22 @@ const PotSoldDetail = z.object({
 });
 type PotSoldDetail = z.infer<typeof PotSoldDetail>;
 
-/** What a way-laid notice keeps (RFC 0046): the plot, counts, tiles and kinds, and no words. */
+/**
+ * What a way-laid notice keeps (RFC 0046): the plot, counts, tiles, sides and kinds, and no
+ * words.
+ */
 const WayLaidDetail = z.object({
   px: z.number().int(),
   py: z.number().int(),
   tiles: z.number().int(),
-  blocks: z.array(z.object({ x: z.number().int(), y: z.number().int(), block: z.string() })),
+  blocks: z.array(
+    z.object({
+      x: z.number().int(),
+      y: z.number().int(),
+      side: Side.optional(),
+      block: z.string(),
+    }),
+  ),
   rebuilt: z.boolean(),
 });
 type WayLaidDetail = z.infer<typeof WayLaidDetail>;

@@ -745,6 +745,17 @@ describe("the notice when the town lays a way across your plot (RFC 0046)", () =
       { px: 8, py: 3, tiles: 2, blocks: [{ block: "chair" }], rebuilt: true },
       /rebuilt it with a door onto the way\.$/,
     ],
+    // Walls on the lines between tiles (RFC 0050) are named as walls, apart from the blocks.
+    [
+      {
+        px: 3,
+        py: 2,
+        tiles: 3,
+        blocks: [{ block: "fence" }, { side: "n" as const, block: "wood" }],
+        rebuilt: false,
+      },
+      /^The block that stood there is .* The wall that stood between two of its tiles is/,
+    ],
   ])("names the plot and the tiles, and says what moved", (way, next) => {
     const said = wayLine(way);
     expect(said.line).toContain(`your plot at ${way.px}, ${way.py}`);

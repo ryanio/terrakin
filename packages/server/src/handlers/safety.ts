@@ -41,7 +41,7 @@ import { staffKeyId, staffKeyView, staffOwner } from "../staff-keys";
 import { report } from "../telemetry";
 import { cleanText, nameKey } from "../text";
 import { planWays } from "../way-plan";
-import { WayNotices, wayClose, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
+import { clearedBy, WayNotices, wayClose, wayConflicts, wayFactsFrom, wayInputs } from "../ways";
 import {
   DAILY_CAP_RETRY_SECONDS,
   type Failure,
@@ -650,8 +650,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         }
       };
       for (const [i, command] of inputs.entries()) {
-        const block =
-          command.type === "clear_block" ? state.blocks[tileKey(command.x, command.y)] : undefined;
+        const block = clearedBy(state, command);
         const done = service.wayInput(command);
         if (!done.ok) {
           tell();

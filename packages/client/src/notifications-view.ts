@@ -407,26 +407,34 @@ export function clearedLine(c: { x: number; y: number; side?: Side | undefined; 
 }
 
 /**
- * A way-laid notice in plain words (RFC 0046): which plot, how many tiles, what came back, and
- * whether the town rebuilt the home. Built from the notice's fields only. Pure, so tests pin it.
+ * A way-laid notice in plain words (RFC 0046): which plot, how many tiles, what came back (blocks,
+ * and walls on the lines between tiles, RFC 0050), and whether the town rebuilt the home. Built
+ * from the notice's fields only. Pure, so tests pin it.
  */
 export function wayLine(w: {
   px: number;
   py: number;
   tiles: number;
-  blocks: readonly { block: string }[];
+  blocks: readonly { side?: Side | undefined; block: string }[];
   rebuilt: boolean;
 }): { line: string; next: string } {
   const tiles = plural(w.tiles, "tile", "tiles");
   const parts = [
     `The town laid a public way across your plot at ${w.px}, ${w.py}, so everyone has a walk to town that nobody can wall off. ${tiles} along it hold no block now, and you can still lay a path there or build upstairs over it.`,
   ];
-  if (w.blocks.length > 0) {
+  const walls = w.blocks.filter((b) => b.side).length;
+  const blocks = w.blocks.length - walls;
+  if (blocks > 0) {
     const n =
-      w.blocks.length === 1
-        ? "The block that stood there is"
-        : `The ${w.blocks.length} blocks that stood there are`;
+      blocks === 1 ? "The block that stood there is" : `The ${blocks} blocks that stood there are`;
     parts.push(`${n} back in your things, or gone if it was a free block.`);
+  }
+  if (walls > 0) {
+    const n =
+      walls === 1
+        ? "The wall that stood between two of its tiles is"
+        : `The ${walls} walls that stood between its tiles are`;
+    parts.push(`${n} back in your things, or gone if it was a free wall.`);
   }
   if (w.rebuilt)
     parts.push("The way crossed your home, so the town rebuilt it with a door onto the way.");

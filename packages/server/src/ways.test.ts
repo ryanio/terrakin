@@ -355,14 +355,54 @@ describe("one household's touching plots are one place to the planner (decision 
 });
 
 describe("a wall on the line between two tiles (RFC 0050)", () => {
-  it("is never crossed by a way, so a plot only beyond one stays unjoined", () => {
-    // Walls on the lines down x = 12's west side, the whole height of plot (1, 0): the way west
-    // from the Commons can't go on past them to plot (0, 0).
+  /**
+   * Walls on the lines down x = 12's west side, the whole height of plot (1, 0), so the way west
+   * from the Commons reaches plot (0, 0) only by taking one down. With `door`, the line on row 3
+   * is a door, which a walker passes but the sim opens no way across.
+   */
+  const fenced = (door: boolean) => {
     const state = rowWorld(["p0", "p1", "p2"]);
     state.edges = {};
-    for (let y = 0; y < 8; y++) state.edges[edgeKey(12, y, "w")] = "wood";
+    for (let y = 0; y < 8; y++)
+      state.edges[edgeKey(12, y, "w")] = door && y === 3 ? "door" : "wood";
+    return state;
+  };
+
+  it.each([
+    ["walls", false],
+    ["walls and a door", true],
+  ])("in the way is taken down and given back, so a plot only beyond %s is joined", (_, door) => {
+    const state = fenced(door);
+    expect(landlocked(state).map((p) => `${p.px},${p.py}`)).toContain("0,0");
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.unjoined).toEqual([]);
+    // One line comes down, on the way's own row, back to the owner of the plot it stands on.
+    expect(plan.lines).toEqual([
+      expect.objectContaining({ x: 12, side: "w", ownerId: "p1", px: 1, py: 0 }),
+    ]);
+    const [line] = plan.lines;
+    if (!line) throw new Error("no line");
+    expect(plan.tiles).toEqual(
+      expect.arrayContaining([
+        { x: 11, y: line.y },
+        { x: 12, y: line.y },
+      ]),
+    );
+    const inputs = wayInputs(plan, 8);
+    expect(inputs).toContainEqual({ type: "clear_block", x: 12, y: line.y, side: "w" });
+    expect(wayConflicts(state, inputs)).toEqual([]);
+    for (const command of inputs)
+      expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+    expect(landlocked(state)).toEqual([]);
+    expect(wayInputs(planWays(wayFactsFrom(state)), 8)).toEqual([]);
+  });
+
+  it("holding up an upstairs stays, so a plot only beyond it stays unjoined", () => {
+    const state = fenced(false);
+    Object.assign(state.plots["1,0"] ?? {}, { floors: 1 });
     const plan = planWays(wayFactsFrom(state));
     expect(plan.unjoined.map((u) => u.target)).toContain("plot 0,0");
+    expect(plan.lines).toEqual([]);
     expect(plan.tiles.filter((t) => t.x < 12)).toEqual([]);
   });
 });

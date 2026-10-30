@@ -458,6 +458,13 @@ export const StaffWaysResponse = z.object({
   ),
   free: z.array(TileXY),
   blocks: z.array(TileXY.extend({ block: z.string(), ownerId: z.string() })),
+  /**
+   * Walls between tiles (RFC 0050) standing between two tiles of the way, which the town takes
+   * down and gives back to the plot's owner: each on the line on `side` of its tile, `n` or `w`.
+   */
+  lines: z.array(
+    TileXY.extend({ side: z.enum(["n", "w"]), block: z.string(), ownerId: z.string() }),
+  ),
   homes: z.array(
     z.object({
       px: z.number().int(),
@@ -483,6 +490,8 @@ export const StaffWaysResponse = z.object({
       ownerId: z.string().optional(),
       x: z.number().int().optional(),
       y: z.number().int().optional(),
+      /** For a wall between tiles: the side of (`x`, `y`) its line is on. */
+      side: Side.optional(),
     }),
   ),
   laid: z.boolean(),

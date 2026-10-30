@@ -5,11 +5,15 @@ import {
   cloneWorld,
   commonsPlot,
   displayAt,
+  edgeAt,
+  edgeKey,
+  edgesOn,
   landlocked,
   type OpeningFacts,
   openingFacts,
   plotKey,
   plotOf,
+  type Side,
   type Tile,
   TOWN_ACTOR,
   tileKey,
@@ -75,6 +79,7 @@ export function wayFactsFrom(state: WorldState): WayFacts {
     townsfolk: new Set(state.townsfolk ?? []),
     hearths: Object.values(state.residents).flatMap((r) => (r.hearth ? [r.hearth] : [])),
     blocks,
+    lines: new Map(Object.entries(edgesOn(state, 0))),
     fixed: new Set([...crops, ...firing, ...shown, ...ownedThings]),
     facing: new Set(
       Object.keys(state.items?.hung ?? {}).flatMap((key) => {
@@ -92,13 +97,15 @@ export function wayFactsFrom(state: WorldState): WayFacts {
 
 /**
  * The town's inputs that lay a plan, in the order they must go: each block on a way tile cleared
- * and given back to its plot's owner (`clear_block`, decision 0343), the way opened, then each home
+ * and given back to its plot's owner (`clear_block`, decision 0343), then each wall on a line
+ * between two way tiles (`clear_block` with its side, RFC 0050), the way opened, then each home
  * it cut through rebuilt as its owner would build it, in plot tiles. A plan read again after a run
  * that stopped partway holds only what is left to do.
  */
 export function wayInputs(plan: WayPlan, plotSize: number): WayCommand[] {
   return [
     ...plan.blocks.map((b): WayCommand => ({ type: "clear_block", x: b.x, y: b.y })),
+    ...plan.lines.map((l): WayCommand => ({ type: "clear_block", x: l.x, y: l.y, side: l.side })),
     ...(plan.tiles.length > 0
       ? [
           {
@@ -168,6 +175,7 @@ export function wayClose(
       plots: [...plots.values()].sort((a, b) => a.py - b.py || a.px - b.px),
       free,
       blocks: [],
+      lines: [],
       homes: [],
       unjoined: [],
     },
@@ -184,6 +192,8 @@ export interface WayConflict {
   ownerId?: string;
   x?: number;
   y?: number;
+  /** For a wall between tiles: the side of (`x`, `y`) its line is on. */
+  side?: Side;
 }
 
 /**
@@ -209,11 +219,13 @@ export function wayConflicts(state: WorldState, inputs: readonly WayCommand[]): 
         message,
         x: command.x,
         y: command.y,
+        ...(command.side ? { side: command.side } : {}),
         ...(ownerId ? { ownerId } : {}),
       });
       // Read the rest as if staff had cleared it by hand, so one full inventory names itself
       // rather than every input after it.
-      delete copy.blocks[tileKey(command.x, command.y)];
+      if (command.side) delete copy.edges?.[edgeKey(command.x, command.y, command.side)];
+      else delete copy.blocks[tileKey(command.x, command.y)];
       return;
     }
     out.push({ input, code, message: `${command.type}: ${message}` });
@@ -250,12 +262,20 @@ export function wayConflicts(state: WorldState, inputs: readonly WayCommand[]): 
   return out;
 }
 
+/** What stands where a `clear_block` of a plan takes it from: a block, or the wall on a line. */
+export function clearedBy(state: WorldState, command: WayCommand): BlockKind | undefined {
+  if (command.type !== "clear_block") return undefined;
+  const { x, y, side } = command;
+  return side ? edgeAt(state, x, y, side) : state.blocks[tileKey(x, y)];
+}
+
 /** What one owner hears about a plot of theirs a way crossed. */
 export interface WayNotice {
   px: number;
   py: number;
   tiles: number;
-  blocks: { x: number; y: number; block: string }[];
+  /** What the town took off the plot: blocks, and with `side` walls on lines between tiles. */
+  blocks: { x: number; y: number; side?: Side; block: string }[];
   rebuilt: boolean;
 }
 
@@ -284,8 +304,9 @@ export class WayNotices {
   committed(command: WayCommand, block?: BlockKind) {
     const { config } = this.state;
     if (command.type === "clear_block") {
-      const { px, py } = plotOf(config, command.x, command.y);
-      if (block) this.#row(px, py)?.notice.blocks.push({ x: command.x, y: command.y, block });
+      const { x, y, side } = command;
+      const { px, py } = plotOf(config, x, y);
+      if (block) this.#row(px, py)?.notice.blocks.push({ x, y, ...(side ? { side } : {}), block });
     } else if (command.type === "open_way") {
       for (const [x, y] of command.tiles) {
         const { px, py } = plotOf(config, x, y);

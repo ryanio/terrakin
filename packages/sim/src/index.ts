@@ -450,12 +450,14 @@ export {
 export * from "./looks";
 export {
   MAP_BLOCKS,
+  MAP_EDGE_MARKS,
   MAP_GROUND,
   MAP_LEGEND_MAX,
   MAP_MARKS,
   type MapFloor,
   type PlotMap,
   type PlotTiles,
+  plotLines,
   plotMap,
 } from "./map";
 export {

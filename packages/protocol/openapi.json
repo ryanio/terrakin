@@ -830,7 +830,7 @@
       "get": {
         "operationId": "getDesigns",
         "summary": "Whole homes to build by name, each drawn as a map with materials to choose.",
-        "description": "Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"turn\": 90, \"dry\": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `\"replace\": true`. Every design leaves the plot's middle four tiles open, so the hearth goes at its center whichever way it turns.",
+        "description": "Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{\"type\": \"build\", \"px\": 2, \"py\": 1, \"design\": \"greenhouse\", \"walls\": \"stone\", \"turn\": 90, \"dry\": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `\"replace\": true`. Every design leaves the plot's middle four tiles open, so the hearth goes at its center whichever way it turns. Once this world builds starter homes from walls between tiles (RFC 0050), each design also has `roomy`: the same home with its walls on the lines between tiles, built with `\"roomy\": true`.",
         "tags": [
           "World"
         ],
@@ -30864,7 +30864,7 @@
             }
           },
           "map": {
-            "description": "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
+            "description": "The plan drawn as a map (RFC 0032), in place of the lists. Letters place, `x` clears, `.` leaves a tile alone, and a floor's `edges` grid does the same for the lines between tiles.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/PlotMapInput"
@@ -30885,6 +30885,10 @@
               "hill_house",
               "atelier"
             ]
+          },
+          "roomy": {
+            "description": "With a design: build its roomy version, its walls on the lines between tiles (RFC 0050). Only where `GET /v1/designs` lists `roomy`.",
+            "type": "boolean"
           },
           "walls": {
             "description": "A design's walls: one its `options.walls` lists.",
@@ -34752,6 +34756,14 @@
                     "type": "string",
                     "maxLength": 64
                   }
+                },
+                "edges": {
+                  "maxItems": 129,
+                  "type": "array",
+                  "items": {
+                    "type": "string",
+                    "maxLength": 129
+                  }
                 }
               }
             }
@@ -35495,6 +35507,13 @@
                     "type": "string"
                   },
                   "description": "Paths and flooring, the same way."
+                },
+                "edges": {
+                  "description": "The lines between tiles (RFC 0050), two characters per tile plus one each way: `+` at the corners, a wall's letter (`D` for a door) on a line with a wall, a space on one without, and each tile's block character between. Absent on a floor with no wall on a line.",
+                  "type": "array",
+                  "items": {
+                    "type": "string"
+                  }
                 }
               },
               "required": [
@@ -36373,6 +36392,116 @@
                     "x",
                     "y",
                     "ground"
+                  ]
+                }
+              },
+              "edges": {
+                "description": "Walls between tiles (RFC 0050) as `build`'s `edges` takes them: each tile's `n` and `w` lines, and `s` and `e` on the plot's south and east borders. Absent when there are none.",
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "properties": {
+                    "x": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "y": {
+                      "type": "integer",
+                      "minimum": -9007199254740991,
+                      "maximum": 9007199254740991
+                    },
+                    "side": {
+                      "type": "string",
+                      "enum": [
+                        "n",
+                        "e",
+                        "s",
+                        "w"
+                      ]
+                    },
+                    "floor": {
+                      "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                      "type": "integer",
+                      "minimum": 1,
+                      "maximum": 9007199254740991
+                    },
+                    "block": {
+                      "type": "string",
+                      "enum": [
+                        "wood",
+                        "stone",
+                        "glass",
+                        "leaf",
+                        "planter",
+                        "kitchen",
+                        "workbench",
+                        "lantern",
+                        "frame",
+                        "fence",
+                        "bench",
+                        "pedestal",
+                        "hay_bale",
+                        "scarecrow",
+                        "table",
+                        "chair",
+                        "bookshelf",
+                        "barrel",
+                        "signpost",
+                        "lamp_post",
+                        "well",
+                        "stone_wall",
+                        "campfire",
+                        "flower_box",
+                        "jack_o_lantern",
+                        "bat_bunting",
+                        "cauldron",
+                        "candy_bowl",
+                        "snowman",
+                        "string_lights",
+                        "little_fir",
+                        "sled",
+                        "pond",
+                        "stairs",
+                        "cornucopia",
+                        "leaf_garland",
+                        "menorah",
+                        "dreidel",
+                        "stocking",
+                        "bird_bath",
+                        "beehive",
+                        "plaster",
+                        "brickwork",
+                        "timber_frame",
+                        "driftwood_plank",
+                        "sea_glass_pane",
+                        "door",
+                        "armchair",
+                        "sofa",
+                        "bed",
+                        "kiln",
+                        "pot",
+                        "desk",
+                        "side_table",
+                        "dresser",
+                        "wardrobe",
+                        "rocking_chair",
+                        "piano",
+                        "bathtub",
+                        "fireplace",
+                        "aquarium",
+                        "coffee_table",
+                        "coat_rack",
+                        "floor_lamp",
+                        "potted_tree"
+                      ]
+                    }
+                  },
+                  "required": [
+                    "x",
+                    "y",
+                    "side",
+                    "block"
                   ]
                 }
               },
@@ -57259,6 +57388,14 @@
           },
           "map": {
             "description": "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes.",
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/PlotMapView"
+              }
+            ]
+          },
+          "roomy": {
+            "description": "The same home with its walls on the lines between tiles (RFC 0050), drawn in its floor's `edges` grid, so the room keeps the floor they took. `build` takes it with `roomy: true`. Present once this world builds starter homes that way.",
             "allOf": [
               {
                 "$ref": "#/components/schemas/PlotMapView"

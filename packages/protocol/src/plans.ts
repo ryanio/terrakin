@@ -6,14 +6,15 @@ import { mapToPlan, type PlotNow } from "./maps";
 type BuildCommand = Extract<Command, { type: "build" }>;
 
 /**
- * A `build` as the sim takes it (RFC 0032): its four lists as sent, or the lists a map or a design
+ * A `build` as the sim takes it (RFC 0032): its lists as sent, or the lists a map or a design
  * expands to, or why not, as `invalid_plan`. The sim never sees a map or a design, so the log holds
  * lists and every plan is checked, priced, and skipped the same way. `plot` is the plot as it
- * stands, which `replace` reads to clear only what differs.
+ * stands, which `replace` reads to clear only what differs, and whether the world offers roomy
+ * designs (`starter_edges`, RFC 0050).
  */
 export function buildCommand(
   action: Omit<BuildAction, "dry">,
-  plot: { size: number; now: PlotNow },
+  plot: { size: number; now: PlotNow; roomy?: boolean | undefined },
 ): { command: BuildCommand } | { problem: string } {
   const { px, py, blocks, ground, remove, lift, edges, removeEdges, map, design, replace } = action;
   const lists = [blocks, ground, remove, lift, edges, removeEdges].some((l) => l !== undefined);
@@ -21,7 +22,7 @@ export function buildCommand(
   if (forms > 1) {
     return { problem: "A plan is lists, a map, or a design. Send one of them." };
   }
-  const chosen = (["walls", "windows", "path", "turn"] as const).filter(
+  const chosen = (["walls", "windows", "path", "turn", "roomy"] as const).filter(
     (k) => action[k] !== undefined,
   );
   if (design === undefined && chosen.length > 0) {
@@ -49,7 +50,7 @@ export function buildCommand(
     ...(plan.ground ? { ground: plan.ground } : {}),
     ...(plan.remove ? { remove: plan.remove } : {}),
     ...(plan.lift ? { lift: plan.lift } : {}),
-    // Walls between tiles (RFC 0050) come only as lists.
+    // Walls between tiles (RFC 0050): sent as lists, or read from a map's `edges` grid.
     ...(plan.edges ? { edges: plan.edges } : {}),
     ...(plan.removeEdges ? { removeEdges: plan.removeEdges } : {}),
   });
@@ -59,6 +60,12 @@ export function buildCommand(
     if (plot.size !== DESIGN_SIZE) {
       return {
         problem: `Designs are drawn for plots of ${DESIGN_SIZE} tiles, and this world's are ${plot.size}. Send a map or lists instead.`,
+      };
+    }
+    if (action.roomy && !plot.roomy) {
+      return {
+        problem:
+          "This world doesn't build roomy designs yet: a design has one only when GET /v1/designs lists its roomy. Send the design without roomy.",
       };
     }
     const drawn = designToPlan(found, action);

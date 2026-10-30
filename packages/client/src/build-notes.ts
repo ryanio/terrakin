@@ -25,6 +25,7 @@ function mirrorTiles(m: Mirror, px: number, py: number): PlotTiles {
     floors: Array.from({ length: added + 1 }, (_, i) => i),
     block: (floor, x, y) => m.blocksOn(floor).get(tileKey(x0 + x, y0 + y)),
     ground: (floor, x, y) => m.pavingOn(floor).get(tileKey(x0 + x, y0 + y)),
+    edge: (floor, x, y, side) => m.edgeAt(x0 + x, y0 + y, side, floor),
     hearths,
     standing: [],
   };

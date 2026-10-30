@@ -278,10 +278,23 @@ const planTile = z.object({ x: planCoord, y: planCoord, ...toFloor });
  */
 const mapGrid = z.array(z.string().max(64)).max(64);
 
-/** A plot drawn as a map, as `build` takes it: a grid of blocks and a grid of ground per floor. */
+/** The lines between tiles of a map (RFC 0050): two characters per tile plus one, each way. */
+const edgeGrid = z.array(z.string().max(129)).max(129);
+
+/**
+ * A plot drawn as a map, as `build` takes it: a grid of blocks, a grid of ground, and a grid of
+ * the lines between tiles per floor.
+ */
 export const PlotMapInput = z.object({
   floors: z
-    .array(z.object({ ...toFloor, blocks: mapGrid.optional(), ground: mapGrid.optional() }))
+    .array(
+      z.object({
+        ...toFloor,
+        blocks: mapGrid.optional(),
+        ground: mapGrid.optional(),
+        edges: edgeGrid.optional(),
+      }),
+    )
     .min(1)
     .max(FLOORS.max + 1),
   legend: MapLegend.optional(),
@@ -325,12 +338,18 @@ export const BuildAction = z.object({
     .optional()
     .describe("Walls to take off the lines between tiles (RFC 0050), the same way."),
   map: PlotMapInput.optional().describe(
-    "The plan drawn as a map (RFC 0032), in place of the four lists. Letters place, `x` clears, `.` leaves a tile alone.",
+    "The plan drawn as a map (RFC 0032), in place of the lists. Letters place, `x` clears, `.` leaves a tile alone, and a floor's `edges` grid does the same for the lines between tiles.",
   ),
   design: z
     .enum(DESIGN_IDS)
     .optional()
     .describe("A whole home by name, from `GET /v1/designs`, in place of the lists or a map."),
+  roomy: z
+    .boolean()
+    .optional()
+    .describe(
+      "With a design: build its roomy version, its walls on the lines between tiles (RFC 0050). Only where `GET /v1/designs` lists `roomy`.",
+    ),
   walls: BlockKind.optional().describe("A design's walls: one its `options.walls` lists."),
   windows: BlockKind.optional().describe("A design's windows: one its `options.windows` lists."),
   path: GroundKind.optional().describe("A design's path: one its `options.path` lists."),

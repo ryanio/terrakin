@@ -137,8 +137,17 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
     ...(map.floors.length > 1 ? [f.floor === 0 ? "ground floor" : `floor ${f.floor}`] : []),
     `${"blocks".padEnd(f.blocks[0]?.length ?? 0)}    ground`,
     ...f.blocks.map((row, y) => `${row}    ${f.ground[y] ?? ""}`),
+    // Walls between tiles (RFC 0050), drawn on the lines of a grid twice as fine.
+    ...(f.edges ? ["", "walls between tiles", ...f.edges] : []),
   ]);
-  const used = new Set(map.floors.flatMap((f) => [...f.blocks.join(""), ...f.ground.join("")]));
+  const lined = map.floors.some((f) => f.edges);
+  const used = new Set(
+    map.floors.flatMap((f) => [
+      ...f.blocks.join(""),
+      ...f.ground.join(""),
+      ...(f.edges ?? []).join("").replace(/[+D ]/g, ""),
+    ]),
+  );
   const key = [...used]
     .filter((c) => MAP_WORDS[c])
     .map((c) => `\`${c}\` ${MAP_WORDS[c]}`)
@@ -150,6 +159,12 @@ function mapSection(state: WorldState, px: number, py: number, title: string): s
     `## ${title}`,
     "",
     `Each row is a row of tiles, north at the top, \`.\` open${key.length > 0 ? `: ${key.join(", ")}` : ""}.`,
+    ...(lined
+      ? [
+          "",
+          "Under walls between tiles, each tile is the character between two lines and `+` marks a corner: a letter on a line is a wall there, `D` a door, and a space no wall.",
+        ]
+      : []),
     "",
     "```text",
     ...rows,

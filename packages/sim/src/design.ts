@@ -1,8 +1,9 @@
 import type { BuildPlan } from "./build";
+import { edgeBlocks, edgeOf } from "./edges";
 import { plotKey } from "./keys";
-import { type PlotTiles, plotTiles } from "./map";
+import { type PlotTiles, plotLines, plotTiles } from "./map";
 import { claimExitsIn, nearestFreePlot, plotOpenings } from "./openings";
-import type { BlockKind, Direction, Tile, WorldConfig, WorldState } from "./types";
+import type { BlockKind, Direction, Side, Tile, WorldConfig, WorldState } from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { isWay } from "./ways";
 import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
@@ -11,7 +12,8 @@ import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./worl
  * Notes about a home (RFC 0032): what the server says about a plot after reading it, facts and
  * suggestions, never refusals. `designNotes` reads one plot's ground floor, as it stands or as a
  * plan leaves it, and changes nothing. "Can be walked to" means what `move` means: the sim's own
- * step rule (`stepFrom`) over the plot, entered from any open tile on its edge.
+ * step rule (`stepFrom`) over the plot, walls between tiles and all (RFC 0050), entered from any
+ * open tile on its edge whose side facing off the plot has no wall on it.
  *
  * A note's words are the fixed strings here with numbers and coordinates (plan coordinates, from
  * the plot's north-west corner) in them, and never a name or anything a resident wrote.
@@ -63,7 +65,9 @@ const STATIONS: Partial<Record<BlockKind, "reach" | "beside">> = {
 const WALL_MATERIALS: readonly BlockKind[] = ["wood", "stone", "leaf"];
 
 /** Steps along the grid, for the path a note suggests: straight paths read better. */
-const ALONG: readonly Direction[] = ["n", "e", "s", "w"];
+const ALONG: readonly Side[] = ["n", "e", "s", "w"];
+
+const SIDE_WORDS: Record<Side, string> = { n: "north", e: "east", s: "south", w: "west" };
 
 const words = (t: Tile) => `(${t.x}, ${t.y})`;
 const key = (t: Tile) => `${t.x},${t.y}`;
@@ -218,23 +222,45 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   const all: Tile[] = [];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) all.push({ x, y });
   const blockAt = (t: Tile) => plot.block(0, t.x, t.y);
-  if (all.every((t) => blockAt(t) === undefined)) return [];
+  const lines = plotLines(plot, 0);
+  if (all.every((t) => blockAt(t) === undefined) && lines.length === 0) return [];
+  /** What stands on the line on `side` of plan tile `t`, on the ground floor. */
+  const lineAt = (t: Tile, side: Side) => {
+    const e = edgeOf(t.x, t.y, side);
+    return plot.edge(0, e.x, e.y, e.side);
+  };
+  const lineKey = (t: Tile, side: Side) => {
+    const e = edgeOf(t.x, t.y, side);
+    return `${e.x},${e.y},${e.side}`;
+  };
 
-  // The sim's walking ground on this plot, with everything off it in the way.
-  const open = (t: Tile, removed?: Tile) =>
+  // The sim's walking ground on this plot, with everything off it in the way. `removed` is a
+  // block or a line the notes ask about taking away.
+  type Taken = { tile: Tile; side?: Side };
+  const open = (t: Tile, removed?: Taken) =>
     t.x >= 0 &&
     t.y >= 0 &&
     t.x < S &&
     t.y < S &&
-    (!blocksWalkers(blockAt(t)) || sameTile(t, removed));
-  const groundFor = (removed?: Tile): Ground =>
-    groundOf({
+    (!blocksWalkers(blockAt(t)) || (removed?.side === undefined && sameTile(t, removed?.tile)));
+  const groundFor = (removed?: Taken): Ground => {
+    const gone = removed?.side === undefined ? undefined : lineKey(removed.tile, removed.side);
+    return groundOf({
       config: facts.config,
       hasBlock: (x, y) => !open({ x: x - x0, y: y - y0 }, removed),
       solidBuildings: facts.solidBuildings,
       townHall: facts.townHall,
       shop: facts.shop,
+      ...(lines.length > 0
+        ? {
+            edge: (x: number, y: number, side: Side) => {
+              const t = { x: x - x0, y: y - y0 };
+              return lineKey(t, side) !== gone && edgeBlocks(lineAt(t, side));
+            },
+          }
+        : {}),
     });
+  };
   /** Every tile a walk reaches from `from` over `dirs`, keeping to tiles `ok` allows. */
   const walk = (
     from: Tile[],
@@ -263,7 +289,14 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
     return came;
   };
   const ground = groundFor();
-  const edge = all.filter((t) => isEdgeKey(key(t), S));
+  // A tile on the plot's edge is a way in when a side of it facing off the plot has no wall.
+  const edge = all.filter((t) =>
+    ALONG.some((side) => {
+      const [dx, dy] = STEP[side];
+      const off = t.x + dx < 0 || t.y + dy < 0 || t.x + dx >= S || t.y + dy >= S;
+      return off && !edgeBlocks(lineAt(t, side));
+    }),
+  );
   const reached = walk(edge, ground, DIRECTIONS);
 
   const notes: DesignNote[] = [];
@@ -273,31 +306,47 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
     if (reached.has(key(hearth))) continue;
     const inside = walk([hearth], ground, DIRECTIONS);
     for (const k of inside.keys()) shut.add(k);
-    // A wall beside the hearth's room whose removal opens the way, one with a path beside it first.
-    const walls = all.filter((t) => {
-      const block = blockAt(t);
-      return (
-        block !== undefined &&
-        (block === "glass" || WALL_MATERIALS.includes(block)) &&
-        [...inside.keys()].map(tileOf).some((s) => Math.abs(s.x - t.x) + Math.abs(s.y - t.y) === 1)
-      );
-    });
-    const pathBeside = (t: Tile) =>
-      ALONG.some((dir) => {
+    // A wall beside the hearth's room whose removal opens the way, one with a path beside it first:
+    // a wall block, or a wall on a line between the room and a tile outside it.
+    const walls: Taken[] = all
+      .filter((t) => {
+        const block = blockAt(t);
+        return (
+          block !== undefined &&
+          (block === "glass" || WALL_MATERIALS.includes(block)) &&
+          [...inside.keys()]
+            .map(tileOf)
+            .some((s) => Math.abs(s.x - t.x) + Math.abs(s.y - t.y) === 1)
+        );
+      })
+      .map((tile) => ({ tile }));
+    for (const tile of [...inside.keys()].map(tileOf)) {
+      for (const side of ALONG) {
+        const [dx, dy] = STEP[side];
+        const past = { x: tile.x + dx, y: tile.y + dy };
+        if (inside.has(key(past)) || !edgeBlocks(lineAt(tile, side))) continue;
+        walls.push({ tile, side });
+      }
+    }
+    const pathBeside = ({ tile: t, side }: Taken) =>
+      ALONG.filter((dir) => side === undefined || dir === side).some((dir) => {
         const [dx, dy] = STEP[dir];
         return (
           !inside.has(key({ x: t.x + dx, y: t.y + dy })) &&
           plot.ground(0, t.x + dx, t.y + dy) !== undefined
         );
       });
-    const opens = (wall: Tile) => walk(edge, groundFor(wall), DIRECTIONS).has(key(hearth));
+    const opens = (wall: Taken) => walk(edge, groundFor(wall), DIRECTIONS).has(key(hearth));
     const door = walls.find((w) => pathBeside(w) && opens(w)) ?? walls.find(opens);
     notes.push(
       door
         ? {
             code: "hearth_walled_in",
-            text: `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no door or gap. Swap one for a door, like the wall at ${words(door)}: remove it, then place a door there.`,
-            tiles: [door],
+            text:
+              door.side === undefined
+                ? `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no door or gap. Swap one for a door, like the wall at ${words(door.tile)}: remove it, then place a door there.`
+                : `Nobody can walk to the hearth at ${words(hearth)}: the walls around it have no door or gap. Swap one for a door, like the wall on the ${SIDE_WORDS[door.side]} side of ${words(door.tile)}: take it down, then put a door on that line.`,
+            tiles: [door.tile],
           }
         : {
             code: "hearth_walled_in",
@@ -399,9 +448,13 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
     });
   }
 
-  // Walls in one or two materials, with glass for windows.
+  // Walls in one or two materials, with glass for windows, on tiles or on the lines between them.
   const materials = WALL_MATERIALS.filter((m) =>
-    plot.floors.some((floor) => all.some((t) => plot.block(floor, t.x, t.y) === m)),
+    plot.floors.some(
+      (floor) =>
+        all.some((t) => plot.block(floor, t.x, t.y) === m) ||
+        plotLines(plot, floor).some((l) => l.block === m),
+    ),
   );
   if (materials.length >= DESIGN.wallMaterials) {
     notes.push({

@@ -7,7 +7,14 @@ import {
   RATE_LIMITS,
   REPEAT_WINDOW_MS,
 } from "@terrakin/protocol";
-import { FLOORS, HAIR_STYLES, POTTERY, type WorldConfig } from "@terrakin/sim";
+import {
+  FLOORS,
+  HAIR_STYLES,
+  type Input,
+  POTTERY,
+  TOWN_ACTOR,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
@@ -487,6 +494,23 @@ describe("action links", () => {
     // Diagonals walk too, and say which way.
     const diagonal = await wren.act("move?dir=ne");
     expect(diagonal.text).toContain("You walked 1 of 1 step northeast. You're at (4, 2)");
+  });
+
+  it("draws a home of walls between tiles from above with its lines (RFC 0050)", async () => {
+    const { joinByLink, service } = await start({
+      world: { days: true, economy: true, items: true },
+    });
+    // No adapter logs the switch yet, so the test logs it as the town would.
+    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
+    expect(run.call(service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } })).toEqual(
+      expect.objectContaining({ ok: true }),
+    );
+    const wren = await joinByLink("Wren");
+    await wren.act("settle?px=0&py=0");
+    const built = await wren.act("build-home?walls=stone");
+    expect(built.text).toContain("walls between tiles\n+ + + + + + + + +\n");
+    expect(built.text).toContain("\n+ +S+S+D+S+S+ + +\n");
+    expect(built.text).toContain("`D` a door");
   });
 
   it("climbs stairs by link, through the world's own move, and offers the way up and down (RFC 0028)", async () => {

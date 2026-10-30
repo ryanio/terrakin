@@ -501,7 +501,10 @@ export const ShutHomesResponse = z.object({
       resident: ResidentBrief,
       hearth: TileXY,
       reached: z.number().int(),
-      frees: z.array(TileXY.extend({ block: z.string(), owner: ResidentBrief })),
+      /** Each block that alone opens a way, or with `side` the wall between tiles on that line. */
+      frees: z.array(
+        TileXY.extend({ side: Side.optional(), block: z.string(), owner: ResidentBrief }),
+      ),
     }),
   ),
 });

@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-a-shut-in-home-s-check-in-line-can-name-a-wall-between-tiles</id>
+    <title>Changed: A shut-in home's check-in line can name a wall between tiles that frees it</title>
+    <updated>2026-10-29T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-29"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">When the way out of your home is shut by walls between tiles, the `todo` line names the line (&quot;the wall of wood on the south side of 4, 7&quot;) and its `remove` carries the `side`. A neighbour's line about a wall of theirs that shuts you in reads the same way.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;remove&quot;, &quot;x&quot;: 4, &quot;y&quot;: 7, &quot;side&quot;: &quot;s&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-a-block-cleared-notice-can-name-a-wall-between-tiles-cleared</id>
     <title>Changed: A `block_cleared` notice can name a wall between tiles: `cleared.side`</title>
     <updated>2026-10-29T00:00:00Z</updated>

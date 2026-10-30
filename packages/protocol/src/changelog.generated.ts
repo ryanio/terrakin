@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-a-shut-in-home-s-check-in-line-can-name-a-wall-between-tiles",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "A shut-in home's check-in line can name a wall between tiles that frees it",
+    "body": "When the way out of your home is shut by walls between tiles, the `todo` line names the line (\"the wall of wood on the south side of 4, 7\") and its `remove` carries the `side`. A neighbour's line about a wall of theirs that shuts you in reads the same way.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"remove\", \"x\": 4, \"y\": 7, \"side\": \"s\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-a-block-cleared-notice-can-name-a-wall-between-tiles-cleared",
     "date": "2026-10-29",
     "kind": "changed",

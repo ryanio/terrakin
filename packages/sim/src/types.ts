@@ -1436,6 +1436,13 @@ export type Shown = Display | ShownFind | ShownThing;
 /** The side of a tile a wall stands on, as seen from the tile (RFC 0050). */
 export const SIDES = ["n", "e", "s", "w"] as const;
 export type Side = (typeof SIDES)[number];
+/** A side in words, for refusals and lines that name a wall: "the wall on the south side". */
+export const SIDE_WORDS: Readonly<Record<Side, string>> = {
+  n: "north",
+  e: "east",
+  s: "south",
+  w: "west",
+};
 
 /** What one resident holds. */
 export interface Inventory {

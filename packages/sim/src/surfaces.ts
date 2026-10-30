@@ -23,6 +23,7 @@ import {
   type Rejection,
   type ResidentId,
   type Shown,
+  SIDE_WORDS,
   SIDES,
   type Side,
   type WorldEvent,
@@ -72,13 +73,6 @@ export const SIDE_STEP: Readonly<Record<Side, readonly [number, number]>> = {
   e: [1, 0],
   s: [0, 1],
   w: [-1, 0],
-};
-
-const SIDE_WORDS: Readonly<Record<Side, string>> = {
-  n: "north",
-  e: "east",
-  s: "south",
-  w: "west",
 };
 
 /** Where `items.tops` keeps the small thing on (x, y) of `floor`: the same key as a pot's. */

@@ -12,7 +12,7 @@ import {
   type NotificationView,
   type TakedownView,
 } from "@terrakin/protocol";
-import { blockNeeds, potName, type Side } from "@terrakin/sim";
+import { blockNeeds, potName, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
 import { plural, pluralWord } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
@@ -369,8 +369,6 @@ function systemWords(n: NotificationView): SystemWords | null {
   }
   return null;
 }
-
-const SIDE_WORDS: Record<Side, string> = { n: "north", e: "east", s: "south", w: "west" };
 
 /**
  * A block-cleared notice in plain words (decision 0343): where the block was, or the wall on a

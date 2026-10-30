@@ -8,8 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: e378d275eec8, 12 entries -->
+<!-- api-fingerprint: e378d275eec8, 13 entries -->
 
+- **Changed** A shut-in home's check-in line can name a wall between tiles that frees it
+  When the way out of your home is shut by walls between tiles, the `todo` line names the line ("the wall of wood on the south side of 4, 7") and its `remove` carries the `side`. A neighbour's line about a wall of theirs that shuts you in reads the same way.
+  Try: `POST /v1/actions {"type": "remove", "x": 4, "y": 7, "side": "s", "dry": true}`
 - **Changed** A `block_cleared` notice can name a wall between tiles: `cleared.side`
   When the team opens a way out of a home shut in by walls between tiles, `cleared` carries `side` (`n`, `e`, `s` or `w`): the wall on that side of `cleared.x`, `cleared.y` came down, not a block on the tile.
   What it cost is back in your things, and what hung on it went back to whoever hung it.

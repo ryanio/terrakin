@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-29:
 
+- Changed: A shut-in home's check-in line can name a wall between tiles that frees it
 - Changed: A `block_cleared` notice can name a wall between tiles: `cleared.side`
 - Added: Ten new pieces of furniture, from a rocking chair and a piano to a fireplace
 - Added: Six floorings for inside a home, from carpet to parquet

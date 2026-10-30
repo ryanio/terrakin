@@ -479,7 +479,7 @@ The result includes `heard`: how many other residents received it. `0` means nob
 
 ### take_off
 
-`{"type": "take_off", "x": 10, "y": 3}`. Takes the small thing off that surface, within reach. It goes back to whoever put it there (`inventory` with reason `taken_off`), and everyone gets `taken_off {x, y, floor?, by}`. Anyone who can build on the plot can take it off; when that isn't whoever put it there and they have no room, it's held for them, as a display is (see [take_down](#take_down)). `nothing_displayed` means nothing stands there.
+`{"type": "take_off", "x": 10, "y": 3}`. Takes the small thing off that surface, within reach. It goes back to whoever put it there (`inventory` with reason `taken_off`), and everyone gets `taken_off {x, y, floor?, by}`. Whoever put it there can take it off, even once they can't build on the plot, and so can anyone who can build on it; when that isn't whoever put it there and they have no room, it's held for them, as a display is (see [take_down](#take_down)). A made thing on a surface or a wall can be reported as a display, and if the Terrakin team takes it down everyone sees `taken_off` or `unhung` with `by` set to the town. `nothing_displayed` means nothing stands there.
 
 ### hang
 

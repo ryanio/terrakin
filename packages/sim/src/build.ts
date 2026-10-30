@@ -558,8 +558,6 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     for (const { x, y } of plan.removed.filter((t) => level(t) === floor)) {
       delete blocksFor(floor)[tileKey(x, y)];
       events.push({ type: "block_removed", x, y, ...floorField(floor), by: actor });
-      // What hung on a wall that came down goes back to whoever hung it (RFC 0050).
-      events.push(...releaseHungOn(state, x, y, floor, actor));
     }
     for (const { x, y } of plan.lifted.filter((t) => level(t) === floor)) {
       delete groundFor(floor)[tileKey(x, y)];
@@ -579,6 +577,11 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     const mine = inventory(state.items, actor);
     const changes = plan.changes.map((c) => addStack(mine, c.kind, c.amount));
     events.push(inventoryEvent(actor, "built", changes));
+  }
+  // What hung on a wall that came down goes back to whoever hung it (RFC 0050), after the plan's
+  // own change, so it's held aside rather than pushed past the cap when there's no room left.
+  for (const { x, y, floor } of plan.removed) {
+    events.push(...releaseHungOn(state, x, y, floor ?? 0, actor));
   }
   return events;
 }

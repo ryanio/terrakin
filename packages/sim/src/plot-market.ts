@@ -6,6 +6,7 @@ import { plotKey } from "./keys";
 import { landOfPlot } from "./lands";
 import { MARKET, marketFee } from "./market";
 import { potsOf } from "./pottery";
+import { isSide, SIDE_STEP } from "./surfaces";
 import type {
   Command,
   EconomyState,
@@ -314,10 +315,16 @@ function displayOnPlot(state: WorldState, px: number, py: number): boolean {
     ...Object.keys(items?.tops ?? {}),
     ...Object.keys(items?.hung ?? {}),
   ];
+  const on = (x: number, y: number) =>
+    Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  // A wall face is seen from one tile and hangs on the next, so either one on the plot counts.
   return keys.some((key) => {
     const tile = key.includes(":") ? (key.split(":")[1] as string) : key;
-    const [x, y] = tile.split(",").map(Number) as [number, number];
-    return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+    const [x, y, side] = tile.split(",") as [string, string, string | undefined];
+    const tx = Number(x);
+    const ty = Number(y);
+    const [dx, dy] = isSide(side) ? SIDE_STEP[side] : [0, 0];
+    return on(tx, ty) || on(tx + dx, ty + dy);
   });
 }
 

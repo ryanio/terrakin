@@ -18,7 +18,7 @@ Slice 1 of [RFC 0050](../../rfcs/0050-roomier-homes.md) lets a surface hold one 
 3. A spot's key is the tile with its floor, as a pot's is (`topKey` is `potKey`), and for a wall the tile you stand on plus the side the wall is on (`faceKey`), so one key works for a wall block and, later, for a wall between tiles.
 4. A wall that comes down by `remove`, a plan, the town's `clear_block` or a rebuild gives back what hung on its faces in the same input, held aside when the owner is full. A surface with something on it refuses to come up, as a pedestal does. A tile with something hung facing it takes no block, so the face stays seen.
 
-Each of `put_on`, `take_off`, `hang` and `unhang` goes through the same where-checks as `place` (reach, a plot you can build on, not listed, the floor), and joins `reach.test.ts`, `own.test.ts` and `plot-market.test.ts`. Merging a record and listing a plot refuse while it has something on a surface or wall. `src/fixtures/surfaces-log.ts` pins a log with all four.
+Each of `put_on`, `take_off`, `hang` and `unhang` goes through the same where-checks as `place` (reach, a plot you can build on, not listed, the floor), and joins `reach.test.ts`, `own.test.ts` and `plot-market.test.ts`. Whoever put a thing there takes it back from within reach even once they can't build on the plot, as a display is taken down. `hang` also refuses a wall on a plot for sale, and staff's `remove_display` takes a reported made thing off a surface or a wall as it does off a pedestal (`shownOfItem`). Merging a record and listing a plot refuse while it has something on a surface or wall. `src/fixtures/surfaces-log.ts` pins a log with all four.
 
 ## Consequences
 

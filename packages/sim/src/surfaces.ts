@@ -13,6 +13,7 @@ import {
   isFindKind,
 } from "./items";
 import { tileKey } from "./keys";
+import { tileListedProblem } from "./plot-market";
 import { potKey } from "./pottery";
 import {
   type BlockKind,
@@ -111,6 +112,25 @@ export const hungAt = (
   side: Side,
   floor = 0,
 ): Shown | undefined => state.items?.hung?.[faceKey(x, y, side, floor)];
+
+/**
+ * Who put up what a `take_off` or `unhang` names, if anything is there. Read before the where-check,
+ * so whoever put it there can take it back once they can't build on the plot.
+ */
+export function shownBy(
+  state: WorldState,
+  command: Extract<Command, { type: "take_off" | "unhang" }>,
+): ResidentId | undefined {
+  const floor =
+    command.floor === undefined || (Number.isInteger(command.floor) && command.floor >= 0)
+      ? (command.floor ?? 0)
+      : undefined;
+  if (floor === undefined) return undefined;
+  if (command.type === "take_off")
+    return state.items?.tops?.[topKey(command.x, command.y, floor)]?.by;
+  if (!isSide(command.side)) return undefined;
+  return state.items?.hung?.[faceKey(command.x, command.y, command.side, floor)]?.by;
+}
 
 /** Whether anything hangs on a wall seen from (x, y) of `floor`, on any side. */
 export const hungFrom = (state: WorldState, x: number, y: number, floor = 0): boolean =>
@@ -376,7 +396,8 @@ function faceProblem(
   if (!canBuildOn(plotAtTile(state, wx, wy), actor)) {
     return refuse("not_your_plot", "That wall is on a plot you can't build on.");
   }
-  return null;
+  // A plot for sale is frozen, the wall's as much as the tile's (RFC 0039).
+  return tileListedProblem(state, wx, wy);
 }
 
 /** `hang {x, y, side, floor?, item}`, after `apply`'s checks for where. */

@@ -6,11 +6,11 @@ import {
   type GalleryView,
 } from "@terrakin/protocol";
 import {
-  displayOfItem,
   displaysOf,
   goodById,
   ITEM_INFO,
   parseKey,
+  shownOfItem,
   type WorldState,
 } from "@terrakin/sim";
 import { goodView } from "./items";
@@ -80,7 +80,8 @@ export function madeThingForReport(
   kind: "display" | "piece",
   id: string,
 ): { owner: string; text: string; media?: string; onDisplay: boolean } | undefined {
-  const on = displayOfItem(state, id);
+  // On a pedestal or in a frame, or on a surface or a wall (RFC 0050): staff take it down anywhere.
+  const on = shownOfItem(state, id);
   const found =
     kind === "display"
       ? on && { good: on.shown.good, owner: on.shown.by }

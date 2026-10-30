@@ -17,6 +17,7 @@ import {
 import { parseKey, plotKey, tileKey } from "./keys";
 import { MEDIA_ID_PATTERN } from "./looks";
 import { plotListedProblem, tileListedProblem } from "./plot-market";
+import { parseFaceKey, parseTopKey } from "./surfaces";
 import type {
   BlockKind,
   Command,
@@ -28,9 +29,11 @@ import type {
   Shown,
   ShownFind,
   ShownThing,
+  Side,
   WorldEvent,
   WorldState,
 } from "./types";
+import { TOWN_ACTOR } from "./types";
 import { canBuildOn, inBounds, plotAtTile } from "./world";
 
 /**
@@ -91,6 +94,31 @@ export function displayOfItem(
     if (shown.good.id !== item) continue;
     const [x, y] = parseKey(key);
     return { x, y, key, shown };
+  }
+  return undefined;
+}
+
+/** Where a made thing is shown: on display, on a surface, or on a wall (RFC 0050). */
+export type ShownSpot = { x: number; y: number; key: string; shown: Display } & (
+  | { place: "display" }
+  | { place: "top"; floor: number }
+  | { place: "hung"; floor: number; side: Side }
+);
+
+/**
+ * Where a made thing is shown, by its id: on a pedestal or in a frame, on a surface, or on a wall.
+ * Staff take a reported one down wherever it is (`remove_display`).
+ */
+export function shownOfItem(state: WorldState, item: string): ShownSpot | undefined {
+  const on = displayOfItem(state, item);
+  if (on) return { ...on, place: "display" };
+  for (const [key, shown] of Object.entries(state.items?.tops ?? {})) {
+    if (!isShownGood(shown) || shown.good.id !== item) continue;
+    return { ...parseTopKey(key), key, shown, place: "top" };
+  }
+  for (const [key, shown] of Object.entries(state.items?.hung ?? {})) {
+    if (!isShownGood(shown) || shown.good.id !== item) continue;
+    return { ...parseFaceKey(key), key, shown, place: "hung" };
   }
   return undefined;
 }
@@ -404,7 +432,7 @@ export function checkRemoveDisplay(
   if (typeof item !== "string" || !ITEM_ID_PATTERN.test(item)) {
     return refuse("unknown_item", "Name a made thing by its id (i_...).");
   }
-  const on = displayOfItem(state, item);
+  const on = shownOfItem(state, item);
   let media: string | undefined;
   if (picture) {
     const good = on?.shown.good ?? goodById(state, item)?.good;
@@ -431,8 +459,24 @@ export function checkRemoveDisplay(
     if (!on) return events;
     const { x, y, key, shown } = on;
     const { good, by } = shown;
-    delete (items.displays as Record<string, Shown>)[key];
-    events.push({ type: "display_removed", x, y, item, by });
+    if (on.place === "display") {
+      delete (items.displays as Record<string, Shown>)[key];
+      events.push({ type: "display_removed", x, y, item, by });
+    } else {
+      // On a surface or a wall (RFC 0050): it comes off as the town takes it, the way it went up.
+      const floor = on.floor === 0 ? {} : { floor: on.floor };
+      const record = (on.place === "top" ? items.tops : items.hung) as Record<string, Shown>;
+      delete record[key];
+      if (Object.keys(record).length === 0) {
+        if (on.place === "top") delete items.tops;
+        else delete items.hung;
+      }
+      events.push(
+        on.place === "top"
+          ? { type: "taken_off", x, y, ...floor, by: TOWN_ACTOR }
+          : { type: "unhung", x, y, side: on.side, ...floor, by: TOWN_ACTOR },
+      );
+    }
     if (!room) {
       holdAside(items, shown);
       return events;

@@ -124,6 +124,8 @@ export {
   isShownGood,
   isShownThing,
   pieceShowingMedia,
+  type ShownSpot,
+  shownOfItem,
 } from "./display";
 export { nearestCounter, nearestPark } from "./doors";
 export {

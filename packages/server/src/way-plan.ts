@@ -50,6 +50,11 @@ export interface WayFacts {
    */
   fixed: ReadonlySet<string>;
   /**
+   * Ground-floor tiles something hangs facing (RFC 0050), which take no block: a rebuild leaves
+   * them open, as it does a hearth. Absent reads as none.
+   */
+  facing?: ReadonlySet<string>;
+  /**
    * Tiles with anything on a floor above them (RFC 0028): a way never runs under an upstairs,
    * where the walls below may be holding it up.
    */
@@ -429,8 +434,9 @@ function rebuildOf(
     if (!STEPS.some(([dx, dy]) => onWay.has(tileKey(t.x + dx, t.y + dy)))) continue;
     // Something standing there closes it already.
     if (facts.blocks.has(key)) continue;
-    // A hearth stays a hearth, and the home stays open there for staff to look at.
-    if (hearths.has(key)) {
+    // A hearth stays a hearth, and the home stays open there for staff to look at. So does a tile
+    // something hangs facing, which the sim would refuse a wall on.
+    if (hearths.has(key) || facts.facing?.has(key)) {
       left.push(t);
       continue;
     }

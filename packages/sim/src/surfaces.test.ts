@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { SURFACES_CONFIG, SURFACES_HASH, SURFACES_LOG } from "./fixtures/surfaces-log";
 import { hashWorld } from "./hash";
-import { held } from "./items";
+import { held, inventoryMaxOf, inventorySize } from "./items";
 import { replay } from "./replay";
 import { faceKey, hungAt, SURFACE_BLOCKS, topAt } from "./surfaces";
 import { stock } from "./test-support";
@@ -249,6 +249,67 @@ describe("hanging", () => {
     const cleared = w.ok(TOWN_ACTOR, { type: "clear_block", x: 2, y: 1 });
     expect(cleared).toContainEqual({ type: "unhung", x: 2, y: 2, side: "n", by: TOWN_ACTOR });
     expect(w.stack("wall_clock")).toBe(1);
+  });
+});
+
+describe("what the review found", () => {
+  it("holds a hung thing aside, never past the cap, when a plan takes its wall down", () => {
+    const w = world();
+    stock(w.state, "ada", { plaster: 1 });
+    w.ok("ada", { type: "place", x: 6, y: 3, block: "plaster" });
+    w.ok("ada", { type: "hang", x: 6, y: 2, side: "s", item: "mirror" });
+    // Fill her things to one short of the cap: the plaster coming back takes the last place.
+    const max = inventoryMaxOf(w.state);
+    stock(w.state, "ada", { seashell: max - 1 - inventorySize(w.state.items?.inventories.ada) });
+    w.ok("ada", { type: "build", px: 0, py: 0, remove: [{ x: 6, y: 3 }] });
+    expect(inventorySize(w.state.items?.inventories.ada)).toBe(max);
+    expect(w.state.items?.heldAside).toEqual([{ thing: "mirror", by: "ada", day: 20_000 }]);
+  });
+
+  it("lets whoever put a thing there take it back once they can't build on the plot", () => {
+    const w = world();
+    w.ok("ada", { type: "place", x: 2, y: 2, block: "table" });
+    w.ok("ada", { type: "share_plot", with: "bob" });
+    stock(w.state, "bob", { candle: 1 });
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("no bob");
+    bob.x = 3;
+    bob.y = 4;
+    w.ok("bob", { type: "put_on", x: 2, y: 2, item: "candle" });
+    w.ok("ada", { type: "unshare_plot", with: "bob" });
+    w.ok("bob", { type: "take_off", x: 2, y: 2 });
+    expect(held(w.state.items?.inventories.bob, "candle")).toBe(1);
+    // Someone else's thing still needs the plot.
+    w.ok("ada", { type: "put_on", x: 2, y: 2, item: "candle" });
+    expect(w.refused("bob", { type: "take_off", x: 2, y: 2 }).code).toBe("not_your_plot");
+  });
+
+  it("keeps a starter home off a tile something hangs facing", () => {
+    // Bob has no hut yet: his would have its west wall on x 17, from (17, 1) to (17, 5).
+    const w = world();
+    stock(w.state, "bob", { mirror: 1 });
+    const bob = w.state.residents.bob;
+    if (!bob) throw new Error("no bob");
+    bob.x = 18;
+    bob.y = 3;
+    w.ok("bob", { type: "place", x: 16, y: 2, block: "wood" });
+    w.ok("bob", { type: "hang", x: 17, y: 2, side: "w", item: "mirror" });
+    w.ok("bob", { type: "build_starter_home" });
+    expect(w.state.blocks["17,1"]).toBe("wood");
+    expect(w.state.blocks["17,2"]).toBeUndefined();
+  });
+
+  it("lets staff take a reported made thing off a surface, back to whoever put it there", () => {
+    const w = world();
+    w.ok("ada", { type: "make_piece", media: "m_0123456789abcdef", title: "Moss" });
+    const piece = w.state.items?.inventories.ada?.goods[0];
+    if (!piece) throw new Error("no piece");
+    w.ok("ada", { type: "place", x: 2, y: 2, block: "table" });
+    w.ok("ada", { type: "put_on", x: 2, y: 2, item: piece.id });
+    const taken = w.ok(TOWN_ACTOR, { type: "remove_display", item: piece.id });
+    expect(taken).toContainEqual({ type: "taken_off", x: 2, y: 2, by: TOWN_ACTOR });
+    expect(w.state.items?.tops).toBeUndefined();
+    expect(w.state.items?.inventories.ada?.goods.map((g) => g.id)).toContain(piece.id);
   });
 });
 

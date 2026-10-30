@@ -239,8 +239,10 @@ import {
   checkPutOn,
   checkTakeOff,
   checkUnhang,
+  hungFrom,
   hungPlaceProblem,
   releaseHungOn,
+  shownBy,
   topRemoveProblem,
 } from "./surfaces";
 import { checkTestGrant } from "./test-grant";
@@ -1307,7 +1309,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       const far = outOfBuildReach(state, me, { x, y });
       if (far) return { ok: false, rejection: far };
       const plot = plotAtTile(state, x, y);
-      if (!canBuildOn(plot, actor)) {
+      // Whoever put a thing on a surface or a wall takes it back from anywhere in reach, even once
+      // they can't build there, as a display is taken down (RFC 0050).
+      const theirs =
+        (command.type === "take_off" || command.type === "unhang") &&
+        shownBy(state, command) === actor;
+      if (!canBuildOn(plot, actor) && !theirs) {
         const slot = plotOf(config, x, y);
         // An island street is everyone's to walk, like a public way (RFC 0046).
         if (isStreet(state, slot.px, slot.py)) {
@@ -1529,7 +1536,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           !blockAt(b) &&
           !hearths.has(key) &&
           !others.has(key) &&
-          !isWay(state, b.x, b.y)
+          !isWay(state, b.x, b.y) &&
+          // A tile something hangs facing stays open (RFC 0050). No older log hung anything.
+          !hungFrom(state, b.x, b.y)
         );
       });
       // The builder steps onto the hearth tile rather than get walled in. If that tile holds a

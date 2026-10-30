@@ -84,6 +84,44 @@ describe("a plot's drawing", () => {
     ]);
   });
 
+  it("draws walls between tiles on their floor, and roofs a home walled only by them (RFC 0050)", () => {
+    // Plots of 6 tiles, so plot (1, 0) is x 6 to 11: a 3 by 3 room of lines round x 7 to 9,
+    // y 1 to 3, with a door on the south.
+    const edges: NonNullable<WorldSnapshot["edges"]> = [];
+    for (const i of [7, 8, 9]) {
+      edges.push({ x: i, y: 1, side: "n", block: "wood" });
+      edges.push({ x: i, y: 4, side: "n", block: i === 8 ? "door" : "wood" });
+    }
+    for (const j of [1, 2, 3]) {
+      edges.push({ x: 7, y: j, side: "w", block: "wood" });
+      edges.push({ x: 10, y: j, side: "w", block: "wood" });
+    }
+    const lined: WorldSnapshot = {
+      ...world,
+      config: { ...world.config, width: 18, height: 18, plotSize: 6 },
+      residents: [],
+      crops: [],
+      ground: [],
+      blocks: [],
+      plots: [{ px: 1, py: 0, ownerId: "ivy", roof: { style: "gable", material: "wood" } }],
+      // One upstairs, and one on the plot next door.
+      edges: [
+        ...edges,
+        { x: 8, y: 2, side: "w", floor: 1, block: "wood" },
+        { x: 5, y: 1, side: "n", block: "stone" },
+      ],
+    };
+    const drawn = plotMarks(lined, 1, 0).marks.filter((m) => m.kind === "edge");
+    expect(drawn).toHaveLength(13);
+    expect(drawn).toContainEqual({ x: 2, y: 4, kind: "edge", side: "n", block: "door" });
+    // The upstairs line comes after the ground floor's, and next door's isn't drawn.
+    expect(drawn.at(-1)).toEqual({ x: 2, y: 2, kind: "edge", side: "w", block: "wood" });
+    expect(drawn.some((m) => m.x < 0)).toBe(false);
+    // The roof covers the room the lines close, as the map's does.
+    const roof = plotMarks(lined, 1, 0, { roof: true }).marks.filter((m) => m.kind === "roof");
+    expect(roof.map((m) => `${m.x},${m.y}`)).toContain("2,2");
+  });
+
   it("draws whoever is standing there now, once a tile, and nobody who is away (RFC 0020)", () => {
     const sam = { ...IVY, id: "sam", name: "Sam", x: 7, y: 0 };
     const here = (residents: WorldSnapshot["residents"]) =>

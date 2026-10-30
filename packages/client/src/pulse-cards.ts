@@ -22,7 +22,7 @@ import {
 import { everyVisible } from "@terrakin/ui/poll";
 import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
-import { plotThumb } from "./plot-thumb";
+import { lazyPlotThumb } from "./plot-thumb-slot";
 import { type PulseStats, phaseName, statTiles, type WallItem, weatherReport } from "./pulse";
 import { dayPhase, nightAmount } from "./time";
 import { closesIn, tallyBar } from "./town-format";
@@ -561,7 +561,7 @@ export function plotsCard(o: { me: string | null; navigate: (path: string) => vo
               o.me,
               o.navigate,
               "plots-strip-visit",
-              world ? plotThumb(world, p, `${title}, from above`, 176) : null,
+              world ? lazyPlotThumb(world, p, `${title}, from above`, 176) : null,
               h(
                 "span",
                 { class: "plots-strip-words" },

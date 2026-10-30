@@ -10,6 +10,7 @@
 import { everyoneIn, type WorldSnapshot } from "@terrakin/protocol";
 import {
   alphaHex,
+  type BlockKind,
   blockFill,
   CROP_HEX,
   FLOORS,
@@ -34,6 +35,7 @@ import { BRAND_HEX } from "@terrakin/ui/brand";
 import { h } from "@terrakin/ui/dom";
 import { paintGround } from "@terrakin/ui/ground-art";
 import { bridgeOf, seaOf } from "./lands";
+import { paintEdge } from "./render/edges";
 import { paintRoofTop, roofShade } from "./render/roofs";
 
 /** One tile's worth of a plot drawing, in tiles from the plot's north-west corner. */
@@ -48,6 +50,8 @@ export type PlotMark =
   | { x: number; y: number; kind: "roof"; fill: string; high: number }
   /** What stands on that roof's ridge (RFC 0041), over the roof and under the people. */
   | { x: number; y: number; kind: "roofTop"; top: RoofTop }
+  /** A wall between tiles (RFC 0050) on the `side` line of its tile. */
+  | { x: number; y: number; kind: "edge"; side: "n" | "w"; block: BlockKind }
   /** An online resident standing there (RFC 0020). It says someone is here, never who. */
   | { x: number; y: number; kind: "here" };
 
@@ -59,8 +63,8 @@ const GROWING = "#7fae55";
 
 /**
  * What to paint for plot (px, py), back to front: the ground in its season, then paths and flooring,
- * blocks, crops, displays, and hearths, then the flooring and blocks of each floor above the ground
- * floor (RFC 0028), and last whoever is standing there online. `tint` is the owner's theme over the
+ * blocks and walls between tiles (RFC 0050), crops, displays, and hearths, then the same of each
+ * floor above the ground floor (RFC 0028), and last whoever is standing there online. `tint` is the owner's theme over the
  * ground, under the paths. Pure, so tests pin it.
  *
  * `roof` draws the home's roof over all of it (RFC 0041), which only a plot drawn as a neighbor
@@ -123,6 +127,10 @@ export function plotMarks(
         decor: isDecorKind(b.block) || b.block === "pot",
       });
     }
+    for (const e of world.edges ?? []) {
+      if (floorOf(e) !== floor || !here(e)) continue;
+      marks.push({ x: e.x - x0, y: e.y - y0, kind: "edge", side: e.side, block: e.block });
+    }
   };
   build(0);
   for (const c of world.crops ?? []) {
@@ -153,6 +161,9 @@ export function plotMarks(
     const walls = new Map(
       world.blocks.map((b) => [`${floorOf(b)}|${b.x},${b.y}`, b.block] as const),
     );
+    const lines = new Map(
+      (world.edges ?? []).map((e) => [`${floorOf(e)}|${e.x},${e.y},${e.side}`, e.block] as const),
+    );
     roof = roofShape({
       plotSize: size,
       px,
@@ -160,6 +171,12 @@ export function plotMarks(
       roof: plot?.roof,
       floors: plot?.floors ?? 0,
       wall: (x, y, floor) => holdsRoof(walls.get(`${floor}|${x},${y}`)),
+      ...(lines.size > 0
+        ? {
+            edge: (x: number, y: number, side: "n" | "w", floor: number) =>
+              holdsRoof(lines.get(`${floor}|${x},${y},${side}`)),
+          }
+        : {}),
     });
   }
   if (roof) {
@@ -258,6 +275,9 @@ export function paint(
       ctx.fillRect(left + t * 0.42, top + t * 0.62, t * 0.16, t * 0.25);
       return;
     }
+    case "edge":
+      paintEdge(ctx, mark.block, mark.side, left, top, t);
+      return;
     case "roofTop":
       paintRoofTop(ctx, mark.top, left + t / 2, top + t / 2, t);
       return;
@@ -300,6 +320,17 @@ export function plotThumb(
     class: "plot-thumb",
     attrs: { role: "img", "aria-label": label, width: px, height: px },
   });
+  return paintThumb(canvas, world, plot, label, px);
+}
+
+/** Paint plot (px, py) onto a `plot-thumb` canvas `px` CSS pixels square (`plotThumb`). */
+export function paintThumb(
+  canvas: HTMLCanvasElement,
+  world: WorldSnapshot,
+  plot: { px: number; py: number },
+  label: string,
+  px: number,
+): HTMLCanvasElement {
   const dpr = Math.min(window.devicePixelRatio || 1, 2);
   canvas.width = Math.round(px * dpr);
   canvas.height = Math.round(px * dpr);

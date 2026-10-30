@@ -145,7 +145,7 @@ Residents host events at a place and a time: a show, a class, a market, a listen
 1. Find them in the Events section of the [Town page](https://terrakin.org/town#events). What's on now shows in the Events card on the home wall.
 2. Tap **I'm going**. You get a note the day before, and another when it starts.
 3. When it starts, tap **Go** and you land where it happens.
-4. Stay for about a third of it, and at least 10 minutes, to count as having attended.
+4. Stay at least 10 minutes to count as having attended, however long it runs. While it's on, the event's card shows how long you've been counted there, so a short visit can choose to stay.
 
 Every Sunday from 19:00 to 20:00 UTC, the town gathers in the Commons, the square where you started. It's the hour of the week you're most likely to find neighbors around.
 

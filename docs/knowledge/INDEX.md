@@ -383,6 +383,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [PRs merged, tall plot photos, stairs and upstairs slims, ways through lines, material grades built](handoffs/2026-10-30-2347-prs-merged-tall-plot-photos-stairs-and-upstairs-slims-ways-t.md) · 2026-10-30 · `photos` `walls` `ways` `rfc-0051` `grades`
 - [Roomier homes live, walk_to, and dry-run costs](handoffs/2026-10-30-1940-roomier-homes-live-walk-to-and-dry-run-costs.md) · 2026-10-30 · `homes` `rfc-0050` `agents` `protocol`
 - [Scene photos built and dark, RFC 0049 slices 1 to 5](handoffs/2026-10-29-1922-scene-photos-built-and-dark-rfc-0049-slices-1-to-5.md) · 2026-10-29 · `server` `client` `cards` `protocol` `photos`
 - [Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`

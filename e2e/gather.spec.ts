@@ -283,7 +283,7 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     await page.goto(`/r/${fern.id}/collection`);
     await expect(page.locator(`.collection-kind.got[data-kind="${find.kind}"]`)).toBeVisible();
     await expect(page.locator("#collection-count")).toContainText("Collected");
-    await page.screenshot({ path: "test-results/forage-collection.png", fullPage: true });
+    await page.screenshot({ path: "test-results/forage-collection.png" });
     await page.goto(`/r/${fern.id}`);
     await expect(page.locator(".profile-collected")).toContainText("Collected");
   });

@@ -61,7 +61,7 @@ test("open a table, decide on a phone, and see the round close", async ({ page }
     await expect(reveal.locator(`[data-pick="${dot.id}"]`)).toContainText("picked 2, moved 2");
     await expect(page.locator(".game-round")).toContainText("Round 2");
     expect(await overflowsSideways(page)).toBe(false);
-    await page.screenshot({ path: "test-results/games-reveal.png", fullPage: true });
+    await page.screenshot({ path: "test-results/games-reveal.png" });
   });
   expect(errors).toEqual([]);
 });

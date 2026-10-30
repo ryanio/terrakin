@@ -136,7 +136,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await expect(page.locator(".state-chip").first()).toHaveText("Off");
   await expect(page.getByRole("heading", { name: "Latest" })).toBeVisible();
   expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/admin-townsfolk.png", fullPage: true });
+  await page.screenshot({ path: "test-results/admin-townsfolk.png" });
 
   // The newcomer funnel: counts by the week residents joined, and never a name.
   await page.getByRole("link", { name: "Newcomers" }).click();
@@ -147,7 +147,7 @@ test("a resident reports a post from a phone, and a maintainer hides it and dele
   await expect(allTime.getByRole("rowheader", { name: "Claimed a plot" })).toBeVisible();
   await expect(page.locator(".newcomers-page")).not.toContainText("Pebble");
   expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/admin-newcomers.png", fullPage: true });
+  await page.screenshot({ path: "test-results/admin-newcomers.png" });
 
   // Gone for everyone.
   expect((await page.request.get(`/v1/posts/${post.id}`)).status()).toBe(404);
@@ -194,7 +194,7 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     await expect(page.locator(".rekey-made .copy-text")).toContainText(`"code": "${code}"`);
     await expect(page.getByRole("button", { name: "Make re-key code" })).toBeEnabled();
     expect(await overflowsSideways(page)).toBe(false);
-    await page.screenshot({ path: "test-results/admin-agents.png", fullPage: true });
+    await page.screenshot({ path: "test-results/admin-agents.png" });
     const traded = await page.request.post("/v1/owner/rekey", { data: { code } });
     expect(traded.status()).toBe(200);
     expect((await traded.json()).residentId).toBe(wisteria.id);
@@ -272,7 +272,7 @@ test("a maintainer helps an agent and a person back in and makes a key for their
     expect(key).toMatch(/^tks_/);
     await expect(made.locator(".copy-text").nth(1)).toContainText("staff-agents.md");
     expect(await overflowsSideways(page)).toBe(false);
-    await page.screenshot({ path: "test-results/admin-keys.png", fullPage: true });
+    await page.screenshot({ path: "test-results/admin-keys.png" });
 
     // The AI calls the API from outside the browser.
     const auth = { authorization: `Bearer ${key}` };

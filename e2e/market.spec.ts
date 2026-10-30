@@ -48,7 +48,7 @@ test("list a jar that a neighbor buys from the stall; a reported listing taken d
     await expect(row).toContainText("Jar");
     await expect(row.getByRole("button", { name: /Take back/ })).toBeVisible();
     expect(await overflowsSideways(page)).toBe(false);
-    await page.screenshot({ path: "test-results/market-listed.png", fullPage: true });
+    await page.screenshot({ path: "test-results/market-listed.png" });
 
     await signIn(page, nils);
     await page.goto(`/r/${mara.id}`);

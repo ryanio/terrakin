@@ -7,6 +7,7 @@ import { everyoneIn, type WorldSnapshot } from "@terrakin/protocol";
 import {
   type BlockKind,
   type Crop,
+  edgeOf,
   type FindKind,
   type Finish,
   faceKey,
@@ -681,6 +682,11 @@ export function plotLayout(
       ),
       (x, y) => inBounds(bounds, x, y),
       new Set([0, ...blocks.flatMap((b) => (b.floor ? [b.floor] : []))]),
+      (x, y, side, floor) =>
+        (snapshot.edges ?? []).some((e) => {
+          const at = edgeOf(x, y, side);
+          return e.x === at.x && e.y === at.y && e.side === at.side && (e.floor ?? 0) === floor;
+        }),
     ),
   );
 
@@ -850,6 +856,8 @@ export interface LayoutDisplay {
   top?: number;
   /** On a wall: the side of its tile the wall is on, seen from the tile (RFC 0050). */
   side?: Side;
+  /** On a wall that stands between tiles rather than a wall block (RFC 0050). */
+  lined?: true;
   good: ShownGood;
   /** The floor a pot set down stands on (RFC 0028). Absent: the ground floor. */
   floor?: number;
@@ -937,6 +945,8 @@ export function roomThingsOn(
   hung: ReadonlyMap<string, RoomShown> | undefined,
   inside: (x: number, y: number) => boolean,
   floors: ReadonlySet<number>,
+  /** Whether the wall on `side` of (x, y) on `floor` stands between tiles (RFC 0050). */
+  lined: (x: number, y: number, side: Side, floor: number) => boolean = () => false,
 ): LayoutDisplay[] {
   const out: LayoutDisplay[] = [];
   if (tops && tops.size > 0) {
@@ -966,6 +976,8 @@ export function roomThingsOn(
       side: at.side,
       good,
       ...(at.floor ? { floor: at.floor } : {}),
+      // On a wall between tiles its face is nearer the tile than a wall block's.
+      ...(lined(at.x, at.y, at.side, at.floor) ? { lined: true as const } : {}),
     });
   }
   return out;

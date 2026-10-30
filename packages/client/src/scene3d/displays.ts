@@ -288,7 +288,9 @@ export function displayedThings(
             new MeshBasicMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }),
           );
           const [dx, dz] = SIDE_OUT[d.side ?? "n"];
-          shown.position.copy(at(d)).add(new Vector3(dx * 0.49, floorY(d.floor) + 0.72, dz * 0.49));
+          // Just in front of its wall's face: a wall block's, or the nearer face of a line (RFC 0050).
+          const out = d.lined ? 0.37 : 0.49;
+          shown.position.copy(at(d)).add(new Vector3(dx * out, floorY(d.floor) + 0.72, dz * out));
           shown.rotation.y = SIDE_TURN[d.side ?? "n"];
         } else if (d.on === "surface") {
           // A small thing standing on the surface's top, facing you.

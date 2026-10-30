@@ -8,6 +8,7 @@ import {
   type Crop,
   type Direction,
   type DrawnGround,
+  edgeKey,
   type FindKind,
   FLOORS,
   type GroundKind,
@@ -508,6 +509,7 @@ function roomShown(
     source.hung,
     (x, y) => x >= bounds.x0 && x <= bounds.x1 && y >= bounds.y0 && y <= bounds.y1,
     floors,
+    (x, y, side, floor) => source.edgesOn?.(floor).get(edgeKey(x, y, side)) !== undefined,
   );
 }
 

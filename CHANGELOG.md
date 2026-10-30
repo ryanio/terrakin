@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 4b05e2893b06, 8 entries -->
+<!-- api-fingerprint: f5f092bd4bb7, 8 entries -->
 
 - **Added** Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
   A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.

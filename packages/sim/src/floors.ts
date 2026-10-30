@@ -1,6 +1,6 @@
 import { coinCount, isWhole, refuse } from "./check";
 import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
-import { edgeKey, edgesOn, edgeTiles, parseEdgeKey } from "./edges";
+import { edgeKey, edgesOn, edgeTiles, hasEdges, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
 import { own } from "./own";
@@ -377,13 +377,20 @@ const holds = (block: BlockKind | undefined) =>
 export interface FloorView {
   block(floor: number, key: string): BlockKind | undefined;
   ground(floor: number, key: string): GroundKind | undefined;
+  /** The wall on a line between tiles (RFC 0050), by `edgeKey`. Absent reads the world's. */
+  edge?(floor: number, key: string): BlockKind | undefined;
 }
 
 /** The world's floors as they are. */
 const worldView = (state: WorldState): FloorView => ({
   block: (floor, key) => blocksOn(state, floor)[key],
   ground: (floor, key) => groundOn(state, floor)[key],
+  edge: (floor, key) => edgesOn(state, floor)[key],
 });
+
+/** The wall on a line in `view`, or the world's when the view doesn't say. */
+const edgeIn = (state: WorldState, view: FloorView, floor: number, key: string) =>
+  view.edge ? view.edge(floor, key) : edgesOn(state, floor)[key];
 
 /**
  * Whether flooring at (x, y) on `floor` (1 and up) is held up: a wall or window on the floor
@@ -402,9 +409,9 @@ function flooringHeld(
   const { config } = state;
   const home = plotOf(config, x, y);
   const { span } = FLOORS;
-  // A wall between tiles (RFC 0050) holds up as a wall on each of its two tiles does.
-  const edges = edgesOn(state, floor - 1);
-  const walled = Object.keys(edges).length > 0;
+  // A wall between tiles (RFC 0050) holds up as a wall on each of its two tiles does. A world
+  // with none never reads one, so it holds up exactly as it always did.
+  const walled = hasEdges(state) || view.edge !== undefined;
   for (let ty = y - span; ty <= y + span; ty++) {
     for (let tx = x - span; tx <= x + span; tx++) {
       if (!inBounds(config, tx, ty)) continue;
@@ -415,7 +422,7 @@ function flooringHeld(
       if (!walled) continue;
       for (const side of SIDES) {
         const at = edgeKey(tx, ty, side);
-        if (at !== withoutEdge && holds(edges[at])) return true;
+        if (at !== withoutEdge && holds(edgeIn(state, view, floor - 1, at))) return true;
       }
     }
   }
@@ -432,11 +439,11 @@ export function edgeRemoveProblem(
   y: number,
   side: Side,
   floor: number,
+  view: FloorView = worldView(state),
 ): Rejection | null {
   const above = floor + 1;
   const key = edgeKey(x, y, side);
-  if (above > FLOORS.max || !holds(edgesOn(state, floor)[key])) return null;
-  const view = worldView(state);
+  if (above > FLOORS.max || !holds(edgeIn(state, view, floor, key))) return null;
   const { config } = state;
   const { span } = FLOORS;
   for (let ty = y - span - 1; ty <= y + span + 1; ty++) {
@@ -625,6 +632,19 @@ export function liftProblem(
   const block = view.block(floor, key);
   if (block !== undefined && (block === "stairs" || !holds(view.block(floor - 1, key)))) {
     return refuse("holds_up", "That flooring holds up the block on it. Take the block away first.");
+  }
+  // A wall between tiles upstairs (RFC 0050) stands on flooring on one side of its line at least.
+  for (const side of SIDES) {
+    const line = edgeKey(x, y, side);
+    if (edgeIn(state, view, floor, line) === undefined) continue;
+    const [dx, dy] =
+      side === "n" ? [0, -1] : side === "s" ? [0, 1] : side === "e" ? [1, 0] : [-1, 0];
+    if (view.ground(floor, tileKey(x + dx, y + dy)) === undefined) {
+      return refuse(
+        "holds_up",
+        "That flooring holds up the wall beside it. Take the wall down first.",
+      );
+    }
   }
   return null;
 }

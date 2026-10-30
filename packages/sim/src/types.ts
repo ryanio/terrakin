@@ -290,11 +290,7 @@ export interface Plot {
   px: number;
   py: number;
   ownerId: ResidentId;
-  /**
-   * Set by the first `slim_walls` on this plot (RFC 0050), which the town tops up with any made
-   * material its walls between tiles need past the blocks it gave back. Absent until then.
-   */
-  slimmed?: true;
+
   /**
    * Residents the owner shares this plot with (`share_plot`). They build here as if they owned it.
    * Present only when non-empty, so plots that were never shared hash exactly as they always have.
@@ -547,6 +543,12 @@ export interface WorldState {
    * `starter_edges` on. Absent until then, so starter homes built before it replay as they were made.
    */
   starterEdges?: true;
+  /**
+   * Plots whose walls the town has helped slim (RFC 0050), by plot key: the first `slim_walls` on a
+   * plot tops up the made material its lines need, once for good, whoever holds the plot later.
+   * Kept on the world, not the plot, so releasing and settling again never earns it twice.
+   */
+  slimmed?: Record<string, true>;
   /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).

@@ -391,6 +391,8 @@ describe("Action", () => {
       removed: 0,
       laid: 0,
       lifted: 0,
+      walled: 0,
+      unwalled: 0,
       uses: [],
       returns: [],
       skipped: [skipped, { x: 2, y: 2, what: "ground", why: "unsupported" }],

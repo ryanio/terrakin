@@ -1,5 +1,13 @@
 import { refuse } from "./check";
-import { edgeKey, edgeOf, edgePlaceProblem, edgesFor, edgesOn, tidyEdges } from "./edges";
+import {
+  edgeKey,
+  edgeOf,
+  edgePlaceProblem,
+  edgesFor,
+  edgesOn,
+  edgeWhereProblem,
+  tidyEdges,
+} from "./edges";
 import { edgeRemoveProblem, floorField, groundOn } from "./floors";
 import { blockPlaceProblem, blockRemoveProblem, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
@@ -29,6 +37,8 @@ export function checkEdge(
   if (command.type === "remove") {
     const taken = edgesOn(state, floor)[key];
     if (taken === undefined) return refuse("no_block", "No wall stands on that line.");
+    const where = edgeWhereProblem(state, actor, x, y, side);
+    if (where) return where;
     const holding = edgeRemoveProblem(state, x, y, side, floor);
     if (holding) return holding;
     const full = blockRemoveProblem(state, actor, taken);

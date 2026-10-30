@@ -31027,6 +31027,16 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "walled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "unwalled": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "uses": {
             "type": "array",
             "items": {
@@ -31099,6 +31109,15 @@
                     "remove_wall"
                   ]
                 },
+                "side": {
+                  "type": "string",
+                  "enum": [
+                    "n",
+                    "e",
+                    "s",
+                    "w"
+                  ]
+                },
                 "why": {
                   "type": "string",
                   "enum": [
@@ -31145,6 +31164,8 @@
           "removed",
           "laid",
           "lifted",
+          "walled",
+          "unwalled",
           "uses",
           "returns",
           "skipped"

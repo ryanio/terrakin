@@ -8,6 +8,8 @@ import {
   edgePlaceProblem,
   edgesFor,
   edgesOn,
+  edgeWhereProblem,
+  hasEdges,
   isEdgeKind,
   tidyEdges,
 } from "./edges";
@@ -121,6 +123,8 @@ export interface BuildSkipped {
   floor?: number;
   what: BuildPart;
   why: BuildSkip;
+  /** For a line between tiles (RFC 0050): the side of the tile it's on, as the plan gave it. */
+  side?: Side;
 }
 
 /** A world tile a plan changes, with `floor` only above the ground floor. */
@@ -151,6 +155,9 @@ export interface BuildSummary {
   removed: number;
   laid: number;
   lifted: number;
+  /** Walls put up and taken off lines between tiles (RFC 0050). */
+  walled: number;
+  unwalled: number;
   /** What it takes from your things, net. */
   uses: { kind: StackKind; count: number }[];
   /** What it gives back to your things, net. */
@@ -426,6 +433,12 @@ export function planBuild(
   }
   const blocksNow = new Map<string, BlockKind | undefined>();
   const groundNow = new Map<string, GroundKind | undefined>();
+  // Walls between tiles (RFC 0050) as the plan leaves them so far, read before anything below.
+  const edgesNow = new Map<string, BlockKind | undefined>();
+  const edgeNow = (floor: number, key: string) => {
+    const at = spotKey(floor, key);
+    return edgesNow.has(at) ? edgesNow.get(at) : edgesOn(state, floor)[key];
+  };
   const view: FloorView = {
     block: (floor, key) => {
       const at = spotKey(floor, key);
@@ -435,11 +448,10 @@ export function planBuild(
       const at = spotKey(floor, key);
       return groundNow.has(at) ? groundNow.get(at) : groundOn(state, floor)[key];
     },
-  };
-  const edgesNow = new Map<string, BlockKind | undefined>();
-  const edgeNow = (floor: number, key: string) => {
-    const at = spotKey(floor, key);
-    return edgesNow.has(at) ? edgesNow.get(at) : edgesOn(state, floor)[key];
+    // Only once the world or the plan has one, so a plan in a world without them reads as before.
+    ...(hasEdges(state) || wallSpots.edges.length > 0 || wallSpots.removeEdges.length > 0
+      ? { edge: edgeNow }
+      : {}),
   };
   const delta = new Map<StackKind, number>();
   const add = (kind: StackKind, n: number) => delta.set(kind, (delta.get(kind) ?? 0) + n);
@@ -455,8 +467,15 @@ export function planBuild(
     changes: [],
     skipped: [],
   };
-  const skip = (t: PlanSpot, what: BuildPart, why: BuildSkip) =>
-    plan.skipped.push({ x: t.x, y: t.y, ...floorField(t.floor), what, why });
+  const skip = (t: PlanSpot & { side?: Side }, what: BuildPart, why: BuildSkip) =>
+    plan.skipped.push({
+      x: t.x,
+      y: t.y,
+      ...floorField(t.floor),
+      what,
+      why,
+      ...(t.side ? { side: t.side } : {}),
+    });
   /** A plan's entries on one floor, with their index in the list. */
   const on = (list: PlanSpot[], floor: number) =>
     [...list.entries()].filter(([, t]) => t.floor === floor);
@@ -530,21 +549,26 @@ export function planBuild(
       }
     }
   };
-  const unwallOn = (floor: number) => {
+  const unwallOn = (floor: number): Rejection | null => {
     for (const t of wallSpots.removeEdges.filter((w) => w.floor === floor)) {
       const x = x0 + t.x;
       const y = y0 + t.y;
       const key = edgeKey(x, y, t.side);
       const there = edgeNow(floor, key);
       if (there === undefined) skip(t, "remove_wall", "empty");
-      else if (edgeRemoveProblem(state, x, y, t.side, floor)) skip(t, "remove_wall", "holds_up");
-      else {
+      else if (edgeWhereProblem(state, actor, x, y, t.side)) {
+        // A line on the border with someone else's ground is theirs as much as yours.
+        return edgeWhereProblem(state, actor, x, y, t.side) as Rejection;
+      } else if (edgeRemoveProblem(state, x, y, t.side, floor, view)) {
+        skip(t, "remove_wall", "holds_up");
+      } else {
         const e = edgeOf(x, y, t.side);
         plan.unwalled.push({ x: e.x, y: e.y, side: e.side, ...floorField(floor) });
         edgesNow.set(spotKey(floor, key), undefined);
         for (const [kind, n] of blockNeeds(there, clayRule(state))) add(kind, n);
       }
     }
+    return null;
   };
   const wallOn = (floor: number): Rejection | null => {
     for (const t of wallSpots.edges.filter((w) => w.floor === floor)) {
@@ -598,7 +622,8 @@ export function planBuild(
     }
   };
   for (const floor of DOWN) {
-    unwallOn(floor);
+    const border = unwallOn(floor);
+    if (border) return border;
     removeOn(floor);
     liftOn(floor);
   }
@@ -773,6 +798,8 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
     removed: plan.removed.length,
     laid: plan.laid.length,
     lifted: plan.lifted.length,
+    walled: plan.walled.length,
+    unwalled: plan.unwalled.length,
     uses: plan.changes.filter((c) => c.amount < 0).map((c) => ({ kind: c.kind, count: -c.amount })),
     returns: plan.changes
       .filter((c) => c.amount > 0)

@@ -121,6 +121,36 @@ export function tidyEdges(state: WorldState, floor: number) {
 }
 
 /**
+ * Why `actor` can't change the line on `side` of (x, y) at all, or null: both of its tiles are in
+ * the world, on plots `actor` can build on (one plot, or two of one household), and neither is for
+ * sale. Putting a wall up and taking one down both ask it, so a neighbour can't take down a line on
+ * the border once a plot changes hands.
+ */
+export function edgeWhereProblem(
+  state: WorldState,
+  actor: ResidentId,
+  x: number,
+  y: number,
+  side: Side,
+): Rejection | null {
+  const e = edgeOf(x, y, side);
+  const [a, b] = edgeTiles(e.x, e.y, e.side);
+  if (!inBounds(state.config, a.x, a.y) || !inBounds(state.config, b.x, b.y)) {
+    return refuse("out_of_bounds", "That line is the edge of the world.");
+  }
+  if (
+    !canBuildOn(plotAtTile(state, a.x, a.y), actor) ||
+    !canBuildOn(plotAtTile(state, b.x, b.y), actor)
+  ) {
+    return refuse(
+      "plot_border",
+      "That line is your plot's border, with ground that isn't yours on the other side. Put the wall one tile in.",
+    );
+  }
+  return tileListedProblem(state, a.x, a.y) ?? tileListedProblem(state, b.x, b.y);
+}
+
+/**
  * Why an edge can't stand on the line on `side` of (x, y) on `floor` for `actor`, or null. Both
  * tiles are in the world, on plots `actor` can build on (one plot, or two of one household), not
  * listed, and not both public ways. Upstairs, at least one of its tiles has flooring. A door stays
@@ -145,22 +175,10 @@ export function edgePlaceProblem(
   if (block === "door" && floor !== 0) {
     return refuse("ground_floor_only", "Doors stay on the ground floor.");
   }
+  const where = edgeWhereProblem(state, actor, x, y, side);
+  if (where) return where;
   const e = edgeOf(x, y, side);
   const [a, b] = edgeTiles(e.x, e.y, e.side);
-  if (!inBounds(state.config, a.x, a.y) || !inBounds(state.config, b.x, b.y)) {
-    return refuse("out_of_bounds", "That line is the edge of the world.");
-  }
-  if (
-    !canBuildOn(plotAtTile(state, a.x, a.y), actor) ||
-    !canBuildOn(plotAtTile(state, b.x, b.y), actor)
-  ) {
-    return refuse(
-      "plot_border",
-      "That line is your plot's border, with ground that isn't yours on the other side. Put the wall one tile in.",
-    );
-  }
-  const listed = tileListedProblem(state, a.x, a.y) ?? tileListedProblem(state, b.x, b.y);
-  if (listed) return listed;
   if (floor === 0 && isWay(state, a.x, a.y) && isWay(state, b.x, b.y)) {
     return refuse(
       "public_ground",

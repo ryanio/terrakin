@@ -209,7 +209,7 @@ describe("slim_walls", () => {
     expect(events).toContainEqual({ type: "home_slimmed", px: 0, py: 0, by: "ada" });
     expect(w.state.blocks).toEqual({});
     expect(Object.keys(w.state.edges ?? {})).toHaveLength(20);
-    expect(w.state.plots["0,0"]?.slimmed).toBe(true);
+    expect(w.state.slimmed).toEqual({ "0,0": true });
   });
 
   it("tops up the made material its lines need on the plot's first slim only", () => {
@@ -254,6 +254,134 @@ describe("slim_walls", () => {
     ).toBe("invalid_plan");
     expect(w.refused("bob", { type: "slim_walls", px: 0, py: 0, remove: [], edges: [] }).code).toBe(
       "not_your_plot",
+    );
+  });
+});
+
+describe("what the review found", () => {
+  it("tops a plot up once for good, even after it's released and settled again", () => {
+    const w = world();
+    const slim = (): Command => ({
+      type: "slim_walls",
+      px: 2,
+      py: 0,
+      remove: [
+        { x: 2, y: 2 },
+        { x: 3, y: 2 },
+      ],
+      edges: [
+        { x: 2, y: 2, side: "n", block: "plaster" },
+        { x: 3, y: 2, side: "n", block: "plaster" },
+        { x: 4, y: 2, side: "n", block: "plaster" },
+      ],
+    });
+    stock(w.state, "bob", { plaster: 2 });
+    w.ok("bob", { type: "place", x: 18, y: 2, block: "plaster" });
+    w.ok("bob", { type: "place", x: 19, y: 2, block: "plaster" });
+    w.ok("bob", slim());
+    // Take the lines down (3 plaster back), give the plot up, and settle it again.
+    w.ok("bob", {
+      type: "build",
+      px: 2,
+      py: 0,
+      removeEdges: [
+        { x: 2, y: 2, side: "n" },
+        { x: 3, y: 2, side: "n" },
+        { x: 4, y: 2, side: "n" },
+      ],
+    });
+    w.ok("bob", { type: "release" });
+    w.ok("bob", { type: "settle", px: 2, py: 0 });
+    Object.assign(w.state.residents.bob ?? {}, { x: 18, y: 3 });
+    w.ok("bob", { type: "place", x: 18, y: 2, block: "plaster" });
+    w.ok("bob", { type: "place", x: 19, y: 2, block: "plaster" });
+    expect(held(w.state.items?.inventories.bob, "plaster")).toBe(1);
+    const again = w.ok("bob", slim());
+    // No gift the second time: the third line comes out of Bob's own plaster.
+    expect(again.some((e) => e.type === "home_slimmed")).toBe(false);
+    expect(held(w.state.items?.inventories.bob, "plaster")).toBe(0);
+  });
+
+  it("tops up at most a quarter of what came back, so a shape can't be drawn to win more", () => {
+    const w = world();
+    stock(w.state, "bob", { plaster: 4 });
+    for (const x of [18, 19, 20, 21]) w.ok("bob", { type: "place", x, y: 2, block: "plaster" });
+    // Four blocks back, six lines up: the gift is one, so two are short.
+    const refused = w.refused("bob", {
+      type: "slim_walls",
+      px: 2,
+      py: 0,
+      remove: [2, 3, 4, 5].map((x) => ({ x, y: 2 })),
+      edges: [1, 2, 3, 4, 5, 6].map((x) => ({
+        x,
+        y: 2,
+        side: "n" as const,
+        block: "plaster" as const,
+      })),
+    });
+    expect(refused.code).toBe("not_enough_items");
+  });
+
+  it("keep one line holding flooring up when a plan takes both, and the flooring under a line", () => {
+    const w = world();
+    // An upstairs on Bob's plot, held by two lines round (18, 3).
+    const plot = w.state.plots["2,0"];
+    if (!plot) throw new Error("no plot");
+    plot.floors = 1;
+    w.state.floors = { "1": { blocks: {}, ground: {} } };
+    stock(w.state, "bob", { wood: 1 });
+    w.ok("bob", { type: "place", x: 18, y: 3, side: "n", block: "stone" });
+    w.ok("bob", { type: "place", x: 18, y: 3, side: "w", block: "stone" });
+    w.ok("bob", { type: "lay", x: 18, y: 3, floor: 1, ground: "planks" });
+    const plan = w.ok("bob", {
+      type: "build",
+      px: 2,
+      py: 0,
+      removeEdges: [
+        { x: 2, y: 3, side: "n" },
+        { x: 2, y: 3, side: "w" },
+      ],
+    });
+    expect(plan.filter((e) => e.type === "edge_removed")).toHaveLength(1);
+    // A line upstairs on that flooring keeps it down.
+    w.ok("bob", { type: "place", x: 18, y: 3, side: "e", floor: 1, block: "wood" });
+    expect(w.refused("bob", { type: "lift", x: 18, y: 3, floor: 1 }).code).toBe("holds_up");
+    // And an upstairs home waits to be slimmed.
+    expect(w.refused("bob", { type: "slim_walls", px: 2, py: 0, remove: [], edges: [] }).code).toBe(
+      "holds_up",
+    );
+  });
+
+  it("keep a plot from being released, and a way from crossing them", () => {
+    const w = world();
+    w.ok("bob", { type: "place", x: 18, y: 3, side: "e", block: "wood" });
+    expect(w.refused("bob", { type: "release" }).code).toBe("plot_has_blocks");
+    expect(
+      w.refused(TOWN_ACTOR, {
+        type: "open_way",
+        tiles: [
+          [18, 3],
+          [19, 3],
+        ],
+      }).code,
+    ).toBe("tile_occupied");
+    w.ok(TOWN_ACTOR, {
+      type: "open_way",
+      tiles: [
+        [18, 5],
+        [19, 5],
+      ],
+    });
+    expect(w.refused("bob", { type: "place", x: 18, y: 5, side: "e", block: "wood" }).code).toBe(
+      "public_ground",
+    );
+  });
+
+  it("build a starter hut of lines only from kinds that stand between tiles", () => {
+    const w = world();
+    w.ok(TOWN_ACTOR, { type: "starter_edges" });
+    expect(w.refused("bob", { type: "build_starter_home", walls: "kitchen" }).code).toBe(
+      "unknown_item",
     );
   });
 });

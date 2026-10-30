@@ -1,4 +1,4 @@
-import { checkBuild } from "./build";
+import { type BuildPlan, checkBuild } from "./build";
 import type { StackKind } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { EDGE_KINDS, edgeKey, edgesOn, edgeTiles } from "./edges";
@@ -79,9 +79,11 @@ function slimGift(
   }
   const gift: Partial<Record<StackKind, number>> = {};
   for (const [kind, n] of uses) {
-    // Only a kind the home's own walls were made of: a slim never yields another material.
+    // Only a kind the home's own walls were made of, and at most a quarter more than they gave
+    // back, which is what a ring of walls needs: a slim never yields another material, and an odd
+    // shape can't be drawn to win more.
     const had = back.get(kind) ?? 0;
-    if (had > 0 && n > had) gift[kind] = n - had;
+    if (had > 0 && n > had) gift[kind] = Math.min(n - had, Math.ceil(had / 4));
   }
   return gift;
 }
@@ -96,7 +98,7 @@ export function checkSlimWalls(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "slim_walls" }>,
-): Mutation | Rejection {
+): { plan: BuildPlan; commit: Mutation } | Rejection {
   const { px, py } = command;
   const plot =
     Number.isInteger(px) && Number.isInteger(py) ? state.plots[plotKey(px, py)] : undefined;
@@ -112,7 +114,17 @@ export function checkSlimWalls(
   if (command.edges.some((w) => !(EDGE_KINDS as readonly unknown[]).includes(w?.block))) {
     return refuse("invalid_plan", "A slim puts up only walls, windows, hedges and doors.");
   }
-  const gift = plot.slimmed ? {} : slimGift(state, command);
+  // A home with an upstairs waits: its walls may hold the floor above, and a slim that left some
+  // standing would leave the home half done.
+  if ((plot.floors ?? 0) > 0) {
+    return refuse(
+      "holds_up",
+      "Slimming waits for homes with one floor for now: its walls may hold the upstairs up.",
+    );
+  }
+  const key = plotKey(px, py);
+  const first = state.slimmed?.[key] === undefined;
+  const gift = first ? slimGift(state, command) : {};
   const built = checkBuild(
     state,
     actor,
@@ -120,14 +132,16 @@ export function checkSlimWalls(
     gift,
   );
   if ("code" in built) return built;
-  const first = !plot.slimmed;
-  return () => {
-    const events = built.commit();
-    if (first) {
-      plot.slimmed = true;
-      events.push({ type: "home_slimmed", px, py, by: actor });
-    }
-    return events;
+  return {
+    plan: built.plan,
+    commit: () => {
+      const events = built.commit();
+      if (first) {
+        state.slimmed = { ...state.slimmed, [key]: true };
+        events.push({ type: "home_slimmed", px, py, by: actor });
+      }
+      return events;
+    },
   };
 }
 

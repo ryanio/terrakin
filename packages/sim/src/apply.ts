@@ -59,7 +59,7 @@ import {
   welcomeDue,
 } from "./economy";
 import { checkEdge } from "./edge-actions";
-import { edgesFor, edgeTiles } from "./edges";
+import { edgesFor, edgeTiles, isEdgeKind } from "./edges";
 import { checkSetEntitlements, unentitled } from "./entitlements";
 import {
   checkCancelEvent,
@@ -1541,6 +1541,16 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // on a way tile, so none in a log ever met one, and they replay as they were built.
       // From the server's `starter_edges` on (RFC 0050), the hut is walls between tiles round the
       // same footprint: a line keeps an edge or a block already there, and never crosses a way.
+      // A hut of lines takes only kinds that stand between tiles (RFC 0050).
+      if (
+        state.starterEdges &&
+        (!isEdgeKind(command.walls ?? "wood") || !isEdgeKind(command.windows ?? "glass"))
+      ) {
+        return reject(
+          "unknown_item",
+          "A starter home's walls and windows stand between tiles: wood, stone, glass or leaf.",
+        );
+      }
       const edges = state.starterEdges
         ? starterEdgeHut(
             config,
@@ -1605,8 +1615,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return "code" in built ? { ok: false, rejection: built } : built;
     }
 
-    case "slim_walls":
-      return town(checkSlimWalls(state, actor, command));
+    case "slim_walls": {
+      const slim = checkSlimWalls(state, actor, command);
+      return "code" in slim ? { ok: false, rejection: slim } : slim;
+    }
 
     case "share_plot":
     case "unshare_plot": {

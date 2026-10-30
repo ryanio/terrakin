@@ -1,4 +1,5 @@
 import { refuse } from "./check";
+import { edgeTiles, parseEdgeKey } from "./edges";
 import { tileKey } from "./keys";
 import { isStreet, onLand } from "./lands";
 import { tileListedProblem } from "./plot-market";
@@ -113,6 +114,21 @@ export function checkOpenWay(
     if (hearths.has(key)) return refuse("tile_occupied", `${x},${y} is someone's hearth.`);
     const listed = tileListedProblem(state, x, y);
     if (listed) return listed;
+  }
+  // A way never runs across a wall between tiles (RFC 0050): no line may stand between two tiles
+  // that would both be ways. A world without walls between tiles has none to check.
+  if (state.edges) {
+    const way = new Set([
+      ...tiles.map(([x, y]) => tileKey(x, y)),
+      ...Object.keys(state.ways ?? {}),
+    ]);
+    for (const key of Object.keys(state.edges)) {
+      const { x, y, side } = parseEdgeKey(key);
+      const [a, b] = edgeTiles(x, y, side);
+      if (way.has(tileKey(a.x, a.y)) && way.has(tileKey(b.x, b.y))) {
+        return refuse("tile_occupied", `A wall stands between ${a.x},${a.y} and ${b.x},${b.y}.`);
+      }
+    }
   }
   return () => {
     state.ways ??= {};

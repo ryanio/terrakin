@@ -2415,6 +2415,9 @@ export const BuildPlanSummary = z.object({
   removed: z.number().int(),
   laid: z.number().int(),
   lifted: z.number().int(),
+  /** Walls it puts up on lines between tiles, and takes off them (RFC 0050). */
+  walled: z.number().int(),
+  unwalled: z.number().int(),
   /** What it takes from your things, net of what its removals and lifts give back. */
   uses: kindCounts,
   /** What it gives back to your things, net. */
@@ -2426,6 +2429,8 @@ export const BuildPlanSummary = z.object({
       ...onFloor,
       /** Which list the tile came from. */
       what: z.enum(BUILD_PARTS),
+      /** For a line between tiles (RFC 0050): the side of the tile it's on. */
+      side: z.enum(SIDES).optional(),
       /** `same` it's already that; `occupied` something else is there; `standing` someone is; `hearth`; `empty` nothing to take away; `growing` a crop; `on_display` a display; `unsupported` nothing would hold it up; `holds_up` taking it away would leave something above it with nothing holding it up (RFC 0028). */
       why: z.enum(BUILD_SKIPS),
     }),

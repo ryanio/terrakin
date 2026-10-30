@@ -865,6 +865,26 @@ export function unindexed(geometry: BufferGeometry): BufferGeometry {
   return geometry.index ? geometry.toNonIndexed() : geometry;
 }
 
+/**
+ * A shape in one color, its shade baked from bottom to top, for merging into a many-colored part
+ * drawn with a white `paper` material: furniture, and the Town Hall and the shop.
+ */
+export function colored(geometry: BufferGeometry, color: number, bottom = 0.72): BufferGeometry {
+  const g = unindexed(geometry);
+  g.computeBoundingBox();
+  const pos = g.getAttribute("position");
+  const y0 = g.boundingBox?.min.y ?? 0;
+  const span = Math.max(1e-6, (g.boundingBox?.max.y ?? 1) - y0);
+  const c = lin(color);
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const k = bottom + (1 - bottom) * Math.sqrt((pos.getY(i) - y0) / span);
+    colors.set([c.r * k, c.g * k, c.b * k], i * 3);
+  }
+  g.setAttribute("color", new BufferAttribute(colors, 3));
+  return g;
+}
+
 /** Plain white vertex colors, for geometry that should show its material color as is. */
 export function noShade(geometry: BufferGeometry): BufferGeometry {
   return bakeShade(geometry, 1, 1);

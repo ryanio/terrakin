@@ -40,13 +40,17 @@ export function onStreet(lands: LandsView | undefined, px: number, py: number): 
   return (lands?.list ?? []).some((l) => (l.streets ?? []).some((p) => p.px === px && p.py === py));
 }
 
-/** The name of the land a plot slot is on, or undefined downtown and in the water. */
+/**
+ * The name of the land a plot slot is on, one of its plots or its own square, or undefined
+ * downtown and in the water.
+ */
 export function landNameAt(
   lands: LandsView | undefined,
   px: number,
   py: number,
 ): string | undefined {
-  return (lands?.list ?? []).find((l) => l.plots.some((p) => p.px === px && p.py === py))?.name;
+  const here = (p: { px: number; py: number }) => p.px === px && p.py === py;
+  return (lands?.list ?? []).find((l) => here(l.square) || l.plots.some(here))?.name;
 }
 
 /** Every bridge tile, by tileKey, so a view draws planks where the crossing runs. */

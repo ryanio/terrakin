@@ -1,7 +1,10 @@
 import { type BlockKind, type DrawnGround, GROUND_KINDS } from "@terrakin/sim";
 
-/** Every kind the atlas holds: each path and flooring, then a public way's look (RFC 0046). */
-const ATLAS_KINDS: readonly DrawnGround[] = [...GROUND_KINDS, "way"];
+/**
+ * Every kind the atlas holds: each path and flooring, then a public way's look (RFC 0046) and a
+ * town square's plaza.
+ */
+const ATLAS_KINDS: readonly DrawnGround[] = [...GROUND_KINDS, "way", "plaza"];
 
 import { paintGround } from "@terrakin/ui/ground-art";
 import {

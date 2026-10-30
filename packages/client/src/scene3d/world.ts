@@ -55,6 +55,7 @@ import {
 } from "three";
 import type { Feelings, Shown } from "../feelings";
 import { type Cutaway, cutaway } from "../floors";
+import { landNameAt } from "../lands";
 import type { Mirror } from "../mirror";
 import { awayPose, type Motion } from "../motion";
 import { bubbleSize, drawBubble, stackBubbles } from "../overhead";
@@ -106,7 +107,7 @@ import {
   turnHead,
 } from "./figure";
 import { fireworkSparks } from "./fireworks";
-import { border, groundGrid } from "./ground";
+import { border, groundGrid, plazaKerb } from "./ground";
 import { HEARTH_LIGHT, hearth, liftSmoke } from "./hearth";
 import {
   cornerLight,
@@ -422,6 +423,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   const petAt = new Matrix4();
   /** Each hall and each counter, by its kind and the square it stands on ("shop:4,2"). */
   const buildings = new Map<string, Building>();
+  /** Each town square's kerb, by its plot slot. */
+  const kerbs = new Map<string, Mesh>();
   let ground: { mesh: Mesh; signature: string } | undefined;
   let mirrorSeen: Mirror | undefined;
   let seqSeen = -1;
@@ -680,13 +683,36 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     for (const [kind, all] of kinds) {
       for (const tiles of bySquare(mirror.config, all)) updateBuilding(mirror, kind, tiles);
     }
+    updateKerbs(mirror);
+  }
+
+  /** A kerb round every town square's plaza, kept apart from the buildings so it takes no tap. */
+  function updateKerbs(mirror: Mirror) {
+    const S = mirror.config.plotSize;
+    const wanted = new Set(mirror.squares().map((q) => `${q.px},${q.py}`));
+    for (const [key, mesh] of kerbs) {
+      if (wanted.has(key)) continue;
+      scene.remove(mesh);
+      disposeTree(mesh, shared);
+      kerbs.delete(key);
+    }
+    for (const { px, py } of mirror.squares()) {
+      const key = `${px},${py}`;
+      if (kerbs.has(key)) continue;
+      const mesh = plazaKerb(S, grain);
+      mesh.position.set(px * S + (S - 1) / 2, 0, py * S + (S - 1) / 2);
+      scene.add(mesh);
+      kerbs.set(key, mesh);
+    }
   }
 
   function updateBuilding(mirror: Mirror, kind: "hall" | "shop", tiles: readonly Tile[]) {
     const at = plotOf(mirror.config, tiles[0]?.x ?? 0, tiles[0]?.y ?? 0);
     const name = `${kind}:${at.px},${at.py}`;
     const fp = footprintOf(tiles);
-    const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth}` : "";
+    // A land's hall carries a sign with the land's name; downtown's has none.
+    const land = kind === "hall" ? landNameAt(mirror.lands, at.px, at.py) : undefined;
+    const signature = fp ? `${fp.x},${fp.y},${fp.width},${fp.depth},${land ?? ""}` : "";
     const have = buildings.get(name);
     if (have?.signature === signature) return;
     if (have) {
@@ -696,10 +722,11 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       buildings.delete(name);
     }
     if (!fp) return;
-    const group = kind === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain);
+    const group =
+      kind === "shop" ? shop(fp, grain, surfaces.pool) : townHall(fp, grain, surfaces.pool, land);
     group.position.set(fp.x, 0, fp.y);
     scene.add(group);
-    // The shop's windows light up after dark, as on the map.
+    // The windows light up after dark, as on the map.
     const stops = buildingGlows(group).map((g) => stage.glow(g));
     buildings.set(name, {
       group,

@@ -457,31 +457,35 @@ export class Mirror {
    * own, which the snapshot carries beside its plots (RFC 0038, decision 0332).
    */
   isSquare(px: number, py: number): boolean {
-    if (this.commons.px === px && this.commons.py === py) return true;
-    return (this.lands?.list ?? []).some((l) => l.square.px === px && l.square.py === py);
+    return this.squares().some((q) => q.px === px && q.py === py);
+  }
+
+  /** Every town square's plot slot: downtown's Commons, then each open land's own (RFC 0038). */
+  squares(): { px: number; py: number }[] {
+    return [this.commons, ...(this.lands?.list ?? []).map((l) => l.square)];
   }
 
   /**
    * The ground floor's paths and flooring as the map and the 3D world draw them: what residents
-   * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): an island's
-   * streets drawn as cobbles, downtown's public ways in a look of their own (`WAY_LOOK`), so a way
-   * never reads as a path someone laid. Drawing only: walking,
-   * building and lifting read `paving`, where neither is.
+   * laid, and under it a look for the town's own ground that nobody laid (RFC 0046): every town
+   * square paved as a plaza (`PLAZA_LOOK`), an island's streets drawn as cobbles, downtown's
+   * public ways in a look of their own (`WAY_LOOK`), so a way never reads as a path someone laid.
+   * Drawing only: walking, building and lifting read `paving`, where none of them is.
    */
   get drawnPaving(): ReadonlyMap<string, DrawnGround> {
     if (this.#drawn) return this.#drawn;
     const streets = (this.lands?.list ?? []).flatMap((l) => l.streets ?? []);
-    if (streets.length === 0 && this.ways.size === 0) {
-      this.#drawn = this.paving;
-      return this.paving;
-    }
     const S = this.config.plotSize;
     const drawn = new Map<string, DrawnGround>();
-    for (const { px, py } of streets) {
-      for (let y = py * S; y < (py + 1) * S; y++) {
-        for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), "cobble");
+    const pave = (slots: readonly { px: number; py: number }[], kind: DrawnGround) => {
+      for (const { px, py } of slots) {
+        for (let y = py * S; y < (py + 1) * S; y++) {
+          for (let x = px * S; x < (px + 1) * S; x++) drawn.set(tileKey(x, y), kind);
+        }
       }
-    }
+    };
+    pave(this.squares(), "plaza");
+    pave(streets, "cobble");
     for (const key of this.ways) drawn.set(key, "way");
     for (const [key, laid] of this.paving) drawn.set(key, laid);
     this.#drawn = drawn;

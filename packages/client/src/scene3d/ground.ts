@@ -12,7 +12,8 @@ import {
   Vector3,
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
-import { bakeShade, lin, paper } from "./art";
+import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { bakeShade, lin, paper, unindexed } from "./art";
 import { type Bounds, cornerLight, type PlotLayout, tileHash } from "./layout";
 import { BRAND, hex, mix, SKY } from "./palette";
 
@@ -102,6 +103,36 @@ export function ground(layout: PlotLayout, solid: ReadonlySet<string>): Mesh {
     },
   );
 }
+
+/**
+ * A town square's kerb: a low run of stone just inside its edge, framing the plaza's setts the
+ * way the map's `drawPlazaEdges` does. `size` tiles a side, centered on the square's middle, in
+ * one draw.
+ */
+export function plazaKerb(size: number, grain: Texture): Mesh {
+  const half = size / 2 - 0.08;
+  const long = size - 0.16;
+  const sides = [
+    [0, -half, long, 0.14],
+    [0, half, long, 0.14],
+    [-half, 0, 0.14, long],
+    [half, 0, 0.14, long],
+  ] as const;
+  const pieces = sides.map(([x, z, w, d]) => {
+    const g = new RoundedBoxGeometry(w, 0.05, d, 1, 0.02);
+    g.translate(x, 0.025, z);
+    return unindexed(g);
+  });
+  const geo = bakeShade(mergeGeometries(pieces), 0.75, 1);
+  for (const p of pieces) p.dispose();
+  const mesh = new Mesh(geo, paper(KERB, grain));
+  mesh.receiveShadow = true;
+  mesh.name = "plaza kerb";
+  return mesh;
+}
+
+/** The kerb's stone, the map's kerb color. */
+const KERB = hex("#9a8462");
 
 /** A plot's edge as a dashed line of little clay stepping stones, like the 2D map's border. */
 export function border(

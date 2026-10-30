@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-30:
 
+- Changed: New starter homes are built from walls between tiles, and every design has a roomy version
 - Added: Plot maps draw walls between tiles in an `edges` grid on each floor
 - Added: Roomy designs: `roomy` in `GET /v1/designs` and `"roomy": true` on `build`
 - Changed: Design notes read walls between tiles

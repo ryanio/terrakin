@@ -3,7 +3,7 @@
  * Only `design-picks.ts` imports it, so it loads with the designs and never with the first page;
  * the marks and their painting are `plot-thumb.ts`'s, so a design looks like a plot does.
  */
-import type { PlotMapView } from "@terrakin/protocol";
+import { mapEdges, type PlotMapView } from "@terrakin/protocol";
 import {
   type BlockKind,
   blockFill,
@@ -19,8 +19,8 @@ import { type PlotMark, paint } from "./plot-thumb";
 
 /**
  * What to paint for a map of a home (RFC 0032), as if it stood on plot (`px`, `py`): that plot's
- * ground in its season, then the map's paths and flooring, its blocks, and the hearth its `h`
- * marks, ground floor first. A design is drawn this way before it's built. Pure, so tests pin it.
+ * ground in its season, then the map's paths and flooring, its blocks, the hearth its `h` marks,
+ * and its walls between tiles (RFC 0050), ground floor first. A design is drawn this way before it's built. Pure, so tests pin it.
  */
 export function mapMarks(
   where: { config: WorldConfig; season?: Season | undefined },
@@ -37,6 +37,7 @@ export function mapMarks(
     }
   }
   const floors = [...map.floors].sort((a, b) => a.floor - b.floor);
+  const lines = mapEdges(map, size);
   for (const floor of floors) {
     for (const [y, row] of floor.ground.entries()) {
       for (const [x, c] of [...row].entries()) {
@@ -65,6 +66,10 @@ export function mapMarks(
           decor: isDecorKind(block),
         });
       }
+    }
+    for (const e of lines) {
+      if (e.floor !== floor.floor) continue;
+      marks.push({ x: e.x, y: e.y, kind: "edge", side: e.side, block: e.block });
     }
   }
   return { size, marks };

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-new-starter-homes-are-built-from-walls-between-tiles-and-eve",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "New starter homes are built from walls between tiles, and every design has a roomy version",
+    "body": "`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.\n`GET /v1/designs` lists `roomy` on each design: build it with `\"roomy\": true` beside `design` for a first home, since it holds far more.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 3, \"py\": 2, \"design\": \"greenhouse\", \"roomy\": true, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each",
     "date": "2026-10-30",
     "kind": "added",

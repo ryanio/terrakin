@@ -335,6 +335,7 @@ What we chose and why. Newest last.
 - [A townsfolk teaches up to six recipe cards, and ten new pieces of furniture are spread across them](decisions/0399-a-townsfolk-teaches-up-to-six-recipe-cards-and-ten-new-piece.md) · 2026-10-30 · accepted · `server` `townsfolk` `items` `numbers`
 - [A furnished home counts furniture and seats as pieces and what is on surfaces, walls and display as on show](decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `homes`
 - [A plot map draws walls between tiles in a per-floor edges grid, and each design's roomy version is built with roomy: true](decisions/0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md) · 2026-10-30 · accepted · `protocol` `sim` `server` `design`
+- [Starter homes are built from walls between tiles in every world, and the home sheet builds roomy designs](decisions/0402-starter-homes-are-built-from-walls-between-tiles-in-every-wo.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
 
 ## Learnings
 

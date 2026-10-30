@@ -829,7 +829,11 @@ function onMessage(msg: ServerMessage) {
             plot: { px, py },
             say: showToast,
             buildMyself: buildFromHearth,
-            where: { config: m.config, season: m.day === undefined ? undefined : seasonOf(m.day) },
+            where: {
+              config: m.config,
+              season: m.day === undefined ? undefined : seasonOf(m.day),
+              roomy: m.starterEdges,
+            },
             standing: () => self(),
             hearth: () => (me ? m.residents.get(me)?.hearth : undefined),
             walkNear: (tile, near) =>

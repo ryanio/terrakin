@@ -137,6 +137,40 @@ function readEdges(
   return { lines };
 }
 
+/**
+ * The walls between tiles a map's `edges` grids draw (RFC 0050), every floor, each keyed by the
+ * `n` or `w` line of its tile as the world's snapshot lists them, so a picture of a map draws them
+ * as it draws a plot's. A grid that can't be read draws none; `x` and a space draw nothing.
+ */
+export function mapEdges(
+  map: Pick<MapInput, "floors" | "legend">,
+  size: number,
+): { x: number; y: number; floor: number; side: "n" | "w"; block: BlockKind }[] {
+  const out: { x: number; y: number; floor: number; side: "n" | "w"; block: BlockKind }[] = [];
+  for (const entry of map.floors) {
+    if (!entry.edges) continue;
+    const floor = entry.floor ?? 0;
+    const read = readEdges(entry.edges, floor, size, map.legend ?? {});
+    if ("problem" in read) continue;
+    for (const line of read.lines) {
+      if (line.char === MAP_MARKS.clear) continue;
+      const block =
+        line.char === MAP_EDGE_MARKS.door
+          ? "door"
+          : ((MAP_BLOCKS as Record<string, BlockKind>)[line.char] ?? map.legend?.[line.char]);
+      if (!block) continue;
+      const at =
+        line.side === "s"
+          ? { x: line.x, y: line.y + 1, side: "n" as const }
+          : line.side === "e"
+            ? { x: line.x + 1, y: line.y, side: "w" as const }
+            : { x: line.x, y: line.y, side: line.side as "n" | "w" };
+      out.push({ ...at, floor, block });
+    }
+  }
+  return out;
+}
+
 /** A line's key, with `s` and `e` read as the next tile's `n` and `w`. */
 function lineKey(l: { x: number; y: number; floor?: number | undefined; side: Side }): string {
   const [x, y, side] =

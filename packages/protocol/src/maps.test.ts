@@ -15,7 +15,7 @@ import { describe, expect, it } from "vitest";
 import { Action } from "./actions";
 import { DESIGN_TURNS } from "./design-ids";
 import { DESIGNS, designViews } from "./designs";
-import { mapToPlan } from "./maps";
+import { mapEdges, mapToPlan } from "./maps";
 import { buildCommand } from "./plans";
 
 const S = DEFAULT_CONFIG.plotSize;
@@ -440,5 +440,13 @@ describe("designs (RFC 0032)", () => {
     ok("ivy", { type: "build_starter_home" });
     expect(plotPlan(state, 2, 1)?.edges).toHaveLength(20);
     expect(plotPlan(state, 2, 1)?.edges).toEqual(plotPlan(state, 3, 1)?.edges);
+    // A picture of the roomy hut's map reads the same lines out of its grid.
+    const hut = roomy.find((d) => d.id === "hut")?.roomy;
+    if (!hut) throw new Error("no roomy hut");
+    const key = (e: { x: number; y: number; side: string; block: string }) =>
+      `${e.x},${e.y},${e.side},${e.block}`;
+    expect(mapEdges(hut, 8).map(key).sort()).toEqual(
+      (plotPlan(state, 3, 1)?.edges ?? []).map(key).sort(),
+    );
   });
 });

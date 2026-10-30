@@ -5,13 +5,25 @@ import { mapMarks } from "./design-thumb";
 const config = { width: 12, height: 12, plotSize: 4, maxPlotsPerResident: 1, reach: 2 };
 
 describe("a design's drawing (RFC 0032)", () => {
-  it("draws a map as it would stand on a plot: its ground, then paths, blocks, and the hearth", () => {
+  it("draws a map as it would stand on a plot: its ground, then paths, blocks, the hearth, and lines", () => {
     const map = {
       floors: [
         {
           floor: 0,
           blocks: ["W1..", ".h..", "....", "...."],
           ground: ["....", ".::.", "....", "...."],
+          // A door on the west line of (3, 1) and wood on the north line of (2, 2) (RFC 0050).
+          edges: [
+            "+ + + + +",
+            " . . . . ",
+            "+ + + + +",
+            " . . .D. ",
+            "+ + +W+ +",
+            " . . . . ",
+            "+ + + + +",
+            " . . . . ",
+            "+ + + + +",
+          ],
         },
       ],
       legend: { "1": "lantern" as const },
@@ -25,6 +37,8 @@ describe("a design's drawing (RFC 0032)", () => {
       { x: 0, y: 0, kind: "block", fill: BLOCK_COLORS.wood, glass: false, decor: false },
       { x: 1, y: 0, kind: "block", fill: BLOCK_COLORS.lantern, glass: false, decor: true },
       { x: 1, y: 1, kind: "hearth" },
+      { x: 3, y: 1, kind: "edge", side: "w", block: "door" },
+      { x: 2, y: 2, kind: "edge", side: "n", block: "wood" },
     ]);
   });
 });

@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-new-starter-homes-are-built-from-walls-between-tiles-and-eve</id>
+    <title>Changed: New starter homes are built from walls between tiles, and every design has a roomy version</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.
+`GET /v1/designs` lists `roomy` on each design: build it with `&quot;roomy&quot;: true` beside `design` for a first home, since it holds far more.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;build&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;design&quot;: &quot;greenhouse&quot;, &quot;roomy&quot;: true, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each</id>
     <title>Added: Plot maps draw walls between tiles in an `edges` grid on each floor</title>
     <updated>2026-10-30T00:00:00Z</updated>

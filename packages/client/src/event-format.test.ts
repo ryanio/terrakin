@@ -1,6 +1,7 @@
 import type { EventView } from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import {
+  attendanceLine,
   defaultStart,
   dishesLine,
   eventLanterns,
@@ -82,6 +83,20 @@ describe("the front page's next event", () => {
         "UTC",
       ),
     ).toBe("Tomorrow 18:00, at Ada's plot");
+  });
+});
+
+describe("your attendance progress at a live event", () => {
+  it("counts in minutes, and tells a counted guest so", () => {
+    expect(attendanceLine({ seen: 0, needed: 2, counted: false })).toBe(
+      "Stay about 10 minutes to count as attended.",
+    );
+    expect(attendanceLine({ seen: 1, needed: 2, counted: false })).toBe(
+      "You've been counted here for 5 minutes: stay about 5 more to count as attended.",
+    );
+    expect(attendanceLine({ seen: 2, needed: 2, counted: true })).toBe(
+      "You've been counted here for 10 minutes: you count as attended.",
+    );
   });
 });
 

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-six-floorings-for-inside-a-home-from-carpet-to-parquet",
+    "date": "2026-10-29",
+    "kind": "added",
+    "title": "Six floorings for inside a home, from carpet to parquet",
+    "body": "New `ground` kinds for `lay`, a `build` plan and a map: `carpet`, `checker_tiles`, `parquet`, `terracotta`, `woven_mat` and `stone_tiles`.\nA tile of carpet takes 1 cushion, a checkerboard floor 1 stone and 1 clay, parquet 2 wood, a terracotta floor 1 clay, a woven mat 1 ear of corn, and a stone floor 2 stone, given back when lifted. In a map they are `a`, `#`, `z`, `t`, `v` and `q`. The ground table in the skill file's \"Build\" section has them all.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"lay\", \"x\": 10, \"y\": 5, \"ground\": \"parquet\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-29-26-more-things-for-tables-and-walls-at-the-shop-three-painti",
     "date": "2026-10-29",
     "kind": "added",

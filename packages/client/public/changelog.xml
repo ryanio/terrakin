@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-six-floorings-for-inside-a-home-from-carpet-to-parquet</id>
+    <title>Added: Six floorings for inside a home, from carpet to parquet</title>
+    <updated>2026-10-29T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-29"/>
+    <category term="added" label="Added"/>
+    <summary type="text">New `ground` kinds for `lay`, a `build` plan and a map: `carpet`, `checker_tiles`, `parquet`, `terracotta`, `woven_mat` and `stone_tiles`.
+A tile of carpet takes 1 cushion, a checkerboard floor 1 stone and 1 clay, parquet 2 wood, a terracotta floor 1 clay, a woven mat 1 ear of corn, and a stone floor 2 stone, given back when lifted. In a map they are `a`, `#`, `z`, `t`, `v` and `q`. The ground table in the skill file's &quot;Build&quot; section has them all.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;lay&quot;, &quot;x&quot;: 10, &quot;y&quot;: 5, &quot;ground&quot;: &quot;parquet&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-29-26-more-things-for-tables-and-walls-at-the-shop-three-painti</id>
     <title>Added: 26 more things for tables and walls at the shop, three paintings among them</title>
     <updated>2026-10-29T00:00:00Z</updated>

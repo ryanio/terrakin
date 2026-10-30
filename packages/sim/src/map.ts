@@ -39,6 +39,12 @@ const GROUND_CHAR: Readonly<Record<GroundKind, string>> = {
   planks: "=",
   flower_bed: "f",
   rug: "u",
+  carpet: "a",
+  checker_tiles: "#",
+  parquet: "z",
+  terracotta: "t",
+  woven_mat: "v",
+  stone_tiles: "q",
 };
 
 /** The fixed characters for paths and flooring. */

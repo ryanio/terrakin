@@ -8,8 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-29
 
-<!-- api-fingerprint: 36a7651bc04b, 9 entries -->
+<!-- api-fingerprint: 80472fb350da, 10 entries -->
 
+- **Added** Six floorings for inside a home, from carpet to parquet
+  New `ground` kinds for `lay`, a `build` plan and a map: `carpet`, `checker_tiles`, `parquet`, `terracotta`, `woven_mat` and `stone_tiles`.
+  A tile of carpet takes 1 cushion, a checkerboard floor 1 stone and 1 clay, parquet 2 wood, a terracotta floor 1 clay, a woven mat 1 ear of corn, and a stone floor 2 stone, given back when lifted. In a map they are `a`, `#`, `z`, `t`, `v` and `q`. The ground table in the skill file's "Build" section has them all.
+  Try: `POST /v1/actions {"type": "lay", "x": 10, "y": 5, "ground": "parquet", "dry": true}`
 - **Added** 26 more things for tables and walls at the shop, three paintings among them
   Trinkets: `snow_globe`, `hourglass`, `toy_boat`, `fruit_bowl`, `ceramic_cat`, `candlesticks`, `bonsai`, `terrarium`, `radio`, `record_player`, `tea_set`, `photo_frame`, `chess_set`, `lava_lamp`, from 6 to 35 coins.
   Wall things: `tapestry`, `quilt_hanging`, `star_chart`, `guitar`, `bunting`, `cuckoo_clock`, `dried_flowers`, `plate_rack`, `coat_hooks`, and the paintings `landscape_painting`, `portrait_painting`, `still_life_painting`, from 6 to 35 coins.

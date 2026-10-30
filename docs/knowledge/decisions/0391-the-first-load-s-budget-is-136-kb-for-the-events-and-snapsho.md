@@ -20,4 +20,5 @@ Slice 1 of [RFC 0050](../../rfcs/0050-roomier-homes.md) adds four world events (
 ## Consequences
 
 - The next feature that grows the first load meets the same wall within a kilobyte. The cut decision 0258 already named is the way back: the 66 action request schemas and `Action` sit in `schemas.ts` and never run in the first load (about 2 to 3 kB gzipped). Moving them to a module of their own, with `ClientMessage`, takes them out, as long as nothing the first load imports reaches them.
+- That cut is made: the action schemas, `Action`, and `ClientMessage` are in `packages/protocol/src/actions.ts`, which nothing the first load imports reaches. The first load measured 136.4 kB before and 134.1 kB after, and the budget stays at 136 kB.
 - Code: `FIRST_LOAD_BUDGET` in `packages/client/vite.config.ts`.

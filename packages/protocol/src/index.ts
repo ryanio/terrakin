@@ -1,3 +1,4 @@
+export * from "./actions";
 export * from "./bounties";
 export * from "./catalog";
 export * from "./changelog";

@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { ClientMessage } from "./actions";
 import { parseChangelog } from "./changelog";
 import { FIRST_VISIT_SECTIONS, firstVisitFile } from "./first-visit";
 import {
@@ -11,7 +12,7 @@ import {
   slugify,
 } from "./guides";
 import { buildOpenApi } from "./openapi";
-import { ClientMessage, ServerMessage } from "./schemas";
+import { ServerMessage } from "./schemas";
 import { LINKS } from "./site";
 
 const read = (path: string) => readFileSync(new URL(path, import.meta.url), "utf8");

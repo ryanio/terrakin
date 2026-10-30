@@ -1,6 +1,6 @@
+import { Action } from "../actions";
 import { DesignsResponse } from "../designs";
 import {
-  Action,
   ActionResponse,
   CreateSessionRequest,
   CreateSessionResponse,

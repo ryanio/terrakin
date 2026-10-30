@@ -1,4 +1,5 @@
 import { z } from "zod";
+import * as actions from "./actions";
 import * as bounties from "./bounties";
 import * as catalog from "./catalog";
 import * as changelog from "./changelog";
@@ -132,8 +133,13 @@ const IF_NONE_MATCH = {
 function namedSchemas() {
   const registry = z.registry<{ id: string }>();
   const names = new Map<z.ZodType, string>();
+  // The world's schemas and its actions are one alphabetical run, the order a module's own
+  // namespace has, so which of the two files a schema is in doesn't move it in the document.
+  const world = Object.entries({ ...schemas, ...actions }).sort(([a], [b]) =>
+    a < b ? -1 : a > b ? 1 : 0,
+  );
   for (const [name, value] of Object.entries({
-    ...schemas,
+    ...Object.fromEntries(world),
     ...social,
     ...town,
     ...changelog,
@@ -210,7 +216,7 @@ export function buildOpenApi() {
     const name = names.get(schema);
     if (!name)
       throw new Error(
-        `${where} uses a schema that isn't exported from schemas.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, plot-market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, designs.ts, or scene-photos.ts`,
+        `${where} uses a schema that isn't exported from schemas.ts, actions.ts, social.ts, town.ts, changelog.ts, reports.ts, safety.ts, checkin.ts, coins.ts, galleries.ts, games.ts, items.ts, market.ts, plot-market.ts, bounties.ts, events.ts, partners.ts, plots.ts, shop.ts, snapshots.ts, routines.ts, catalog.ts, levels.ts, jobs.ts, job-done.ts, circles.ts, signin.ts, devlog.ts, designs.ts, or scene-photos.ts`,
       );
     return ref(name);
   };

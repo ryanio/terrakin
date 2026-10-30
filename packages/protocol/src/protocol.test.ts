@@ -67,6 +67,7 @@ import {
   WEATHERS,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { ACTION_TYPES, Action, ClientMessage, MOVE_MAX_STEPS, MoveAction } from "./actions";
 import { CATALOG_VIEW } from "./catalog";
 import {
   catalogBlock,
@@ -97,15 +98,10 @@ import {
 } from "./routes";
 import { TakedownRequest } from "./safety";
 import {
-  ACTION_TYPES,
-  Action,
   BuildPlanSummary,
-  ClientMessage,
   CreateSessionRequest,
   ERROR_CODES,
   JobId,
-  MOVE_MAX_STEPS,
-  MoveAction,
   PlotPlanResponse,
   WorldEvent,
   WorldSnapshot,

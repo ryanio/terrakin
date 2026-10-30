@@ -2,6 +2,7 @@ import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { claimNotes, designNotes } from "./design";
+import { edgeKey, parseEdgeKey } from "./edges";
 import { LANDS_ISLAND } from "./fixtures/lands-log";
 import { hashWorld } from "./hash";
 import {
@@ -12,12 +13,21 @@ import {
   landlocked,
   landlockedFrom,
   nearestFreePlot,
+  type OpeningSnapshot,
   openingFacts,
+  openingFactsFrom,
   openingsOf,
 } from "./openings";
 import { replay } from "./replay";
-import { type BlockKind, type Command, type Input, TOWN_ACTOR, type WorldConfig } from "./types";
-import { createWorld } from "./world";
+import {
+  type BlockKind,
+  type Command,
+  type Input,
+  TOWN_ACTOR,
+  type WorldConfig,
+  type WorldState,
+} from "./types";
+import { createWorld, townHallTiles } from "./world";
 
 // 7 by 7 plots of 8 tiles, so the Commons is (3, 3) and plot (1, 1) has eight neighbours that
 // aren't it. Plot (1, 1) is x 8 to 15, y 8 to 15.
@@ -251,6 +261,47 @@ describe("with one plot a resident, a household only ever clears a plot (decisio
     expect(added).toEqual([]);
     // Dee's plot (1, 0) reaches the town only across (0, 0), which Cy, Dee's owner pair, shares.
     expect(cleared).toEqual(["autumn-log.ts 1,0", "halloween-log.ts 1,0", "winter-log.ts 1,0"]);
+  });
+});
+
+describe("the snapshot's openings", () => {
+  /** What `GET /v1/world` carries that `openingFactsFrom` reads, for a world with no land open. */
+  const snapshot = (state: WorldState): OpeningSnapshot => ({
+    config: state.config,
+    commons: { px: 3, py: 3 },
+    plots: Object.values(state.plots),
+    blocks: Object.entries(state.blocks).map(([key, block]) => {
+      const [x, y] = key.split(",").map(Number) as [number, number];
+      return { x, y, block };
+    }),
+    edges: Object.entries(state.edges ?? {}).map(([key, block]) => ({
+      ...parseEdgeKey(key),
+      block,
+    })),
+    townHall: townHallTiles(state),
+  });
+
+  it("reads walls between tiles as the world does, so a hearth shut in by lines is walled", () => {
+    const t = town(AROUND.filter(([x, y]) => !(x === 2 && y === 2)));
+    t.settle("me", 1, 1);
+    Object.assign(t.state.residents.me ?? {}, { x: 11, y: 11 });
+    t.ok("me", { type: "set_hearth", x: 11, y: 11 });
+    const hearths = [{ x: 11, y: 11 }];
+    const fromSnapshot = (state: WorldState) =>
+      landlockedFrom(openingFactsFrom(snapshot(state)), Object.values(state.plots), hearths)
+        .filter((p) => p.px === 1 && p.py === 1)
+        .map((p) => p.why);
+    expect(fromSnapshot(t.state)).toEqual([]);
+    // Four lines round the hearth's tile, as a slimmed hut with no door would stand.
+    t.state.edges = Object.fromEntries(
+      (["n", "w", "s", "e"] as const).map((side) => [edgeKey(11, 11, side), "stone" as BlockKind]),
+    );
+    expect(at(t.state)).toContain("1,1 walled");
+    expect(fromSnapshot(t.state)).toEqual(["walled"]);
+    // A door on one of them lets the hearth out again, in both views.
+    (t.state.edges as Record<string, BlockKind>)[edgeKey(11, 11, "s")] = "door";
+    expect(at(t.state).filter((p) => p.startsWith("1,1 "))).toEqual([]);
+    expect(fromSnapshot(t.state)).toEqual([]);
   });
 });
 

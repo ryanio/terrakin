@@ -322,6 +322,10 @@ export interface OpeningSnapshot {
     coOwners?: readonly string[] | undefined;
   }[];
   blocks: readonly { x: number; y: number; block: BlockKind; floor?: number | undefined }[];
+  /** Walls between tiles (RFC 0050), each on its tile's `n` or `w` line. */
+  edges?:
+    | readonly { x: number; y: number; side: Side; block: BlockKind; floor?: number | undefined }[]
+    | undefined;
   ways?: readonly Tile[] | undefined;
   lands?: SnapshotLands | undefined;
   solidBuildings?: boolean | undefined;
@@ -341,6 +345,12 @@ export function openingFactsFrom(world: OpeningSnapshot): OpeningFacts {
       .filter((b) => (b.floor ?? 0) === 0 && blocksWalkers(b.block))
       .map((b) => tileKey(b.x, b.y)),
   );
+  // Walls between tiles close a way out as wall blocks do, as `openingFacts` reads them.
+  const lines = new Map(
+    (world.edges ?? [])
+      .filter((e) => (e.floor ?? 0) === 0)
+      .map((e) => [edgeKey(e.x, e.y, e.side), e.block]),
+  );
   const sea = seaFrom(world.config, world.lands && landsFromSnapshot(world.lands));
   const holders = new Map(
     world.plots.map((p) => [
@@ -356,6 +366,9 @@ export function openingFactsFrom(world: OpeningSnapshot): OpeningFacts {
       townHall: world.townHall,
       shop: world.shop ?? [],
       ...(sea ? { sea } : {}),
+      ...(lines.size > 0
+        ? { edge: (x: number, y: number, side: Side) => edgeBlocks(lines.get(edgeKey(x, y, side))) }
+        : {}),
     }),
     claimed: (px, py) => holders.has(plotKey(px, py)),
     together: (a, b) => {

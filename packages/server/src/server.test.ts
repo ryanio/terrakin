@@ -1,8 +1,8 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RATE_LIMITS, type ServerMessage } from "@terrakin/protocol";
-import { CROPS, familyRecipeMiss, GROUND_KINDS, type WorldConfig } from "@terrakin/sim";
+import { RATE_LIMITS, type ServerMessage, WALK_TO_MAX_STEPS } from "@terrakin/protocol";
+import { CROPS, familyRecipeMiss, GROUND_KINDS, tileKey, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
@@ -305,6 +305,103 @@ describe("REST", () => {
     for (let i = 0; i < 4; i++)
       codes.push((await api(base, "POST", "/v1/actions", { type: "claim" }, token)).status);
     expect(codes).toContain(429);
+  });
+
+  describe("walk_to (decision 0405)", () => {
+    const at = (service: WorldService, id: string) => {
+      const r = service.state.residents[id];
+      if (!r) throw new Error("no resident");
+      return { x: r.x, y: r.y };
+    };
+    const moves = (body: { events: { type: string }[] }) =>
+      body.events.filter((e) => e.type === "moved").length;
+
+    it("walks round what's in the way to the tile, after showing the route on a dry run", async () => {
+      const { base, service } = await start();
+      const { token, residentId } = await join_(base, "Wren");
+      const from = at(service, residentId);
+      // A stone wall down x 9 with one gap, on the bottom row. Setup only, never logged.
+      for (let y = 0; y < 11; y++) service.state.blocks[tileKey(9, y)] = "stone";
+      const to = { x: 10, y: from.y };
+      const walkTo = (extra: object = {}) =>
+        api(base, "POST", "/v1/actions", { type: "walk_to", ...to, ...extra }, token);
+
+      const dry = await walkTo({ dry: true });
+      expect(dry.body).toMatchObject({ ok: true, dry: true, arrived: false });
+      const steps = dry.body.route.reduce((n: number, leg: { steps: number }) => n + leg.steps, 0);
+      // Round by the gap, longer than the straight line through the wall.
+      expect(steps).toBeGreaterThan(to.x - from.x);
+      expect(at(service, residentId)).toEqual(from);
+
+      const walked = await walkTo();
+      expect(walked.body).toMatchObject({ ok: true, arrived: true });
+      expect(walked.body.moved).toBeUndefined();
+      expect(moves(walked.body)).toBe(steps);
+      expect(at(service, residentId)).toEqual(to);
+      expect((await walkTo()).body.error.code).toBe("already_there");
+    });
+
+    it("says when nothing gets there, and stops beside it with near", async () => {
+      const { base, service } = await start();
+      const { token } = await join_(base, "Wren");
+      // (1, 1) walled in on every side. Setup only, never logged.
+      for (const [x, y] of [
+        [0, 0],
+        [1, 0],
+        [2, 0],
+        [0, 1],
+        [2, 1],
+        [0, 2],
+        [1, 2],
+        [2, 2],
+      ] as const)
+        service.state.blocks[tileKey(x, y)] = "stone";
+      const walkTo = (body: object) =>
+        api(base, "POST", "/v1/actions", { type: "walk_to", ...body }, token);
+      const shut = await walkTo({ x: 1, y: 1 });
+      expect(shut.body.error.code).toBe("blocked");
+      expect(shut.body.error.message).toContain('"near": 1');
+      expect((await walkTo({ x: 1, y: 1, near: 2 })).body).toMatchObject({
+        ok: true,
+        arrived: true,
+      });
+      expect((await walkTo({ x: 500, y: 1 })).body.error.code).toBe("out_of_bounds");
+    });
+
+    it("walks at most WALK_TO_MAX_STEPS tiles a call, and stops when the actions run out", async () => {
+      const wide = { ...CONFIG, width: 120, height: 12 };
+      const { base, service } = await start(new MemoryStore(), { config: wide });
+      const { token, residentId } = await join_(base, "Wren");
+      const far = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "walk_to", x: 119, y: at(service, residentId).y },
+        token,
+      );
+      // Longer than one call goes: how far it got, and no refusal to report.
+      expect(far.body).toMatchObject({ ok: true, arrived: false, moved: WALK_TO_MAX_STEPS });
+      expect(far.body.stopped).toBeUndefined();
+
+      // With 4 tokens in the bucket the walk pays for 3 tiles after the first, then stops.
+      const slow = new WorldService({ store: new MemoryStore(), config: wide });
+      const server = createApp({ service: slow, actionsPerSecond: 2, onResponse });
+      const slowBase = await listenOnFreePort(server, cleanups);
+      const wren = await join_(slowBase, "Wren");
+      const short = await api(
+        slowBase,
+        "POST",
+        "/v1/actions",
+        { type: "walk_to", x: 119, y: at(slow, wren.residentId).y },
+        wren.token,
+      );
+      expect(short.body).toMatchObject({
+        ok: true,
+        arrived: false,
+        stopped: { code: "rate_limited" },
+      });
+      expect(short.body.moved).toBeLessThan(10);
+    });
   });
 
   describe("a move with steps", () => {

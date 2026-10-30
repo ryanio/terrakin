@@ -104,7 +104,7 @@ export const WORLD_ROUTES = [
     auth: "none",
     summary: "Whole homes to build by name, each drawn as a map with materials to choose.",
     description:
-      'Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{"type": "build", "px": 2, "py": 1, "design": "greenhouse", "walls": "stone", "turn": 90, "dry": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `"replace": true`. Every design leaves the plot\'s middle four tiles open, so the hearth goes at its center whichever way it turns. Once this world builds starter homes from walls between tiles (RFC 0050), each design also has `roomy`: the same home with its walls on the lines between tiles, built with `"roomy": true`.',
+      'Designs to start a home from (RFC 0032). Each is a map of an 8-tile plot with the walls, windows, and path it lets you choose. Build one with `{"type": "build", "px": 2, "py": 1, "design": "greenhouse", "walls": "stone", "turn": 90, "dry": true}`: it builds, prices, and skips tiles as any plan does, and a design only places, so on a plot that already has a home most of it is skipped as `occupied` unless the plan says `"replace": true`. Every design leaves the plot\'s middle four tiles open, so the hearth goes at its center whichever way it turns. Each design\'s walls stand on the lines between tiles (RFC 0050), drawn in its map\'s `edges` grid.',
     tags: ["World"],
     responses: { 200: json(DesignsResponse) },
     errors: [],

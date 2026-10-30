@@ -3,7 +3,7 @@ import {
   DESIGNS,
   type DesignId,
   type DesignTurn,
-  designToPlan,
+  designOnTiles,
 } from "@terrakin/protocol";
 import {
   type BlockKind,
@@ -46,9 +46,7 @@ export function doorNote(
   const turn = how === "starter_home" ? 0 : (how.turn ?? 0);
   const design = DESIGNS.find((d) => d.id === id);
   if (!design || state.config.plotSize !== design.blocks.length) return undefined;
-  const drawn = designToPlan(design, { turn });
-  if ("problem" in drawn) return undefined;
-  const rows = drawn.map.floors[0]?.blocks ?? [];
+  const rows = designOnTiles(design, turn);
   const y = rows.findIndex((r) => r.includes("+"));
   if (y < 0) return undefined;
   const door = { x: (rows[y] as string).indexOf("+"), y };

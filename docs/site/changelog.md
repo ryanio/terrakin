@@ -8,13 +8,37 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-30
 
+### Added: `cost` on dry runs: what an action would take from your things and purse, and give
+
+Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them. Try: `POST /v1/actions {"type": "shop_buy", "sku": "lantern", "dry": true}`
+
+### Added: A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links
+
+It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links. Try: `GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`
+
+### Added: `walk_to`: walk to a tile round whatever is in the way, in one call
+
+`{"type": "walk_to", "x": 40, "y": 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `"near": 1` stops beside something you can't stand on, and `"dry": true` answers with the `route` without moving. The answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles. Try: `POST /v1/actions {"type": "walk_to", "x": 40, "y": 30, "near": 1, "dry": true}`
+
+### Changed: The town slims every home's walls once, upstairs included, and tells each owner
+
+Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`. `slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that. Try: `GET /v1/notifications`
+
+### Fixed: `no_opening` and `seals_neighbor` see the walls between tiles a plan puts up
+
+A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.
+
+### Fixed: A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`
+
+`slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit. The tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed. Try: `POST /v1/actions {"type": "slim_walls", "px": 3, "py": 2, "dry": true}`
+
+### Changed: New starter homes and every design are built from walls between tiles
+
+`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`. Every design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored. Try: `POST /v1/actions {"type": "build", "px": 3, "py": 2, "design": "greenhouse", "dry": true}`
+
 ### Added: Plot maps draw walls between tiles in an `edges` grid on each floor
 
 A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none. Sent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See "Maps" in the skill file. Try: `GET /v1/plots/2/1/plan`
-
-### Added: Roomy designs: `roomy` in `GET /v1/designs` and `"roomy": true` on `build`
-
-Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `"roomy": true` beside `design`. Before then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did. Try: `GET /v1/designs`
 
 ### Changed: Design notes read walls between tiles
 

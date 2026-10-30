@@ -74,3 +74,4 @@ Bug fixes, docs, and contained features don't need one.
 | [0048](0048-guest-visitors.md) | Guests the town can see | draft |
 | [0049](0049-scene-photos.md) | Scene photos, the 3D world through the API | accepted (not built) |
 | [0050](0050-roomier-homes.md) | Roomier homes: things on tables, things on walls, and walls between tiles | accepted (building) |
+| [0051](0051-material-grades.md) | Material grades: fine and masterwork walls | draft |

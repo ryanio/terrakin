@@ -85,7 +85,8 @@ test("a partner accepts an invite, moves in next door, and sends a hug and a let
   const his = plotOf(felipe.id);
   expect(Math.max(Math.abs(hers.px - his.px), Math.abs(hers.py - his.py))).toBe(1);
   const size = world.config.plotSize;
-  const onHerPlot = world.blocks.filter(
+  // Her starter home: walls between tiles (RFC 0050), or blocks on a world without them.
+  const onHerPlot = [...world.blocks, ...(world.edges ?? [])].filter(
     (b: { x: number; y: number }) =>
       Math.floor(b.x / size) === hers.px && Math.floor(b.y / size) === hers.py,
   );

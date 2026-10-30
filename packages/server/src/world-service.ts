@@ -2,6 +2,7 @@ import type {
   Action,
   BuildPlanSummary,
   ChatChannel,
+  DryCost,
   ErrorCode,
   FiredPot,
   HandedIn,
@@ -26,6 +27,7 @@ import {
 import {
   activeTable,
   activeTables,
+  apply,
   asJoined,
   type BuildPlan,
   buildSummary,
@@ -33,6 +35,7 @@ import {
   type Crop,
   chebyshev,
   clayOpen,
+  cloneWorld,
   DAY_LENGTH_MS,
   DAY_MS,
   type DailyAward,
@@ -117,6 +120,7 @@ import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import { plotSaleOf } from "./plot-market";
+import { slimPlan, townSlim } from "./slim-plan";
 import {
   boot,
   encodeSnapshot,
@@ -190,6 +194,12 @@ export type ActResult =
       moved?: number;
       /** `move` with `steps`, beside `moved`: what stopped the walk short. */
       stopped?: WalkStop;
+      /** `walk_to`: whether the walker got there (decision 0405). */
+      arrived?: boolean;
+      /** `walk_to` on a dry run: the walk it would take, in legs. */
+      route?: { dir: Direction; steps: number }[];
+      /** A dry run: what it would take from the actor's things and purse, and give. */
+      cost?: DryCost;
       /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */
       notes?: DesignNote[];
       dry?: true;
@@ -275,6 +285,19 @@ export interface WorldServiceOptions {
    * they were built with. Both adapters turn this on. Off by default, like `items`.
    */
   starterDoors?: boolean;
+  /**
+   * Starter homes built from walls between tiles (RFC 0050): once the world counts days, append
+   * `starter_edges` if it never has, so huts built before it replay as the block huts they were.
+   * Both adapters turn this on. Off by default, like `items`.
+   */
+  starterEdges?: boolean;
+  /**
+   * The town slims every home it can (RFC 0050, decision 0404): once starter homes are built from
+   * walls between tiles, plan each held plot's slim, log it as `town_slim` where a dry run skips
+   * nothing and adds no note, tell the owner, then log `slim_homes` so it never runs again. It
+   * waits until `onHomeSlimmed` is wired. Both adapters turn this on. Off by default, like `items`.
+   */
+  slimHomes?: boolean;
   /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
@@ -411,8 +434,8 @@ function gameRefused(code: string, command: string) {
   report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
 /**
- * A `build`'s answer: the plan the sim prepared, the one its commit makes (decision 0076), with
- * the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
+ * A `build`'s or a `slim_walls`'s answer: the plan the sim prepared, the one its commit makes
+ * (decision 0076), with the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
  * the world (`built` false), and on a real build from the world once it's committed. A
  * `commons_build` proposal's: what it would build if it passed now (decision 0101).
  */
@@ -420,11 +443,47 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
   const { plan } = prepared;
   if (!plan) return {};
   const summary: BuildPlanSummary = buildSummary(plan);
-  if (input.command.type !== "build") return { plan: summary };
+  const { type } = input.command;
+  if (type !== "build" && type !== "slim_walls" && type !== "town_slim") return { plan: summary };
   const over = built ? undefined : plan;
   const map = plotMap(state, plan.px, plan.py, over);
   const notes = designNotes(state, plan.px, plan.py, over);
   return { plan: { ...summary, ...(map ? { map } : {}), notes } };
+}
+
+/** Dry runs whose answer says what they cost some other way, or that never cost anything. */
+const NO_COST: ReadonlySet<string> = new Set(["build", "slim_walls", "move", "putter", "chat"]);
+
+/**
+ * What a dry run would take from the actor's things and purse, and give (decision 0406): the input
+ * applied to a copy of the view it was checked against, and the actor's things, counted by kind
+ * with made things included, and coins compared before and after. Nothing when it would change
+ * none of them, or when the copy refuses what the check took, which leaves the answer as it was.
+ */
+function costOf(view: WorldState, input: Input): { cost?: DryCost } {
+  if (NO_COST.has(input.command.type)) return {};
+  const after = cloneWorld(view);
+  if (!apply(after, input).ok) return {};
+  const counts = (w: WorldState) => {
+    const inv = w.items?.inventories[input.actor];
+    const m = new Map<string, number>();
+    for (const [kind, n] of Object.entries(inv?.stacks ?? {}))
+      m.set(kind, (m.get(kind) ?? 0) + (n ?? 0));
+    for (const g of inv?.goods ?? []) m.set(g.kind, (m.get(g.kind) ?? 0) + 1);
+    return m;
+  };
+  const before = counts(view);
+  const now = counts(after);
+  const uses: DryCost["uses"] = [];
+  const gets: DryCost["gets"] = [];
+  for (const kind of [...new Set([...before.keys(), ...now.keys()])].sort()) {
+    const d = (now.get(kind) ?? 0) - (before.get(kind) ?? 0);
+    if (d < 0) uses.push({ kind, count: -d });
+    if (d > 0) gets.push({ kind, count: d });
+  }
+  const coins = (after.economy?.coins[input.actor] ?? 0) - (view.economy?.coins[input.actor] ?? 0);
+  if (uses.length === 0 && gets.length === 0 && coins === 0) return {};
+  return { cost: { uses, gets, coins } };
 }
 
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
@@ -568,6 +627,7 @@ interface TownSwitch {
     | "solidBuildings"
     | "tableSpots"
     | "starterDoors"
+    | "starterEdges"
     | "market"
     | "bounties"
     | "recipes"
@@ -682,6 +742,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.starterDoors,
     command: { type: "starter_doors" },
     label: "hang doors in starter homes",
+  },
+  {
+    option: "starterEdges",
+    due: (s) => !s.starterEdges,
+    command: { type: "starter_edges" },
+    label: "build starter homes from walls between tiles",
   },
   {
     option: "market",
@@ -831,6 +897,8 @@ export class WorldService {
   private readonly solidBuildings: boolean;
   private readonly tableSpots: boolean;
   private readonly starterDoors: boolean;
+  private readonly starterEdges: boolean;
+  private readonly slimHomes: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -939,6 +1007,8 @@ export class WorldService {
     this.solidBuildings = options.solidBuildings ?? false;
     this.tableSpots = options.tableSpots ?? false;
     this.starterDoors = options.starterDoors ?? false;
+    this.starterEdges = options.starterEdges ?? false;
+    this.slimHomes = options.slimHomes ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -1201,6 +1271,10 @@ export class WorldService {
   onPotHandedIn: ((pot: TownPot) => void) | undefined;
   /** Hears each credited event its host served tea at, with the cups poured (RFC 0047). */
   onTeaServed: ((host: string, cups: number) => void) | undefined;
+  /** Hears each home the town slimmed (RFC 0050), with its owner, for their notice. */
+  onHomeSlimmed:
+    | ((owner: string, slimmed: { px: number; py: number; walls: number; back: number }) => void)
+    | undefined;
   /** Who would count as a guest today (RFC 0010), for serving tea; set once the social side is wired. */
   guestFacts: (() => GuestFacts) | undefined;
 
@@ -1275,6 +1349,42 @@ export class WorldService {
     console.error(`Couldn't ${sw.label}: ${on.error.message}`);
   }
 
+  /**
+   * The town's one sweep over every held plot not slimmed before (RFC 0050, decision 0404): each
+   * home `townSlim` finds safe to slim, logged as `town_slim`, so no home comes out worse or half
+   * done. Then `slim_homes`, so it never
+   * runs again. A home it leaves keeps its walls, and its owner can still `slim_walls` it. It waits
+   * for `onHomeSlimmed`, which is wired after the constructor's own tick.
+   */
+  private slimEveryHome() {
+    if (!this.slimHomes || !this.state.starterEdges || this.state.homesSlimmed) return;
+    // Not from the constructor's tick: only once the notices are wired, so every owner hears.
+    if (!this.onHomeSlimmed) return;
+    let slimmed = 0;
+    let left = 0;
+    const plots = Object.values(this.state.plots).sort((a, b) => a.py - b.py || a.px - b.px);
+    for (const { px, py, ownerId } of plots) {
+      // A plot slimmed already was its owner's call: whatever blocks still wall it are theirs.
+      if (ownerId === undefined || this.state.slimmed?.[plotKey(px, py)]) continue;
+      if ("problem" in slimPlan(this.state, px, py)) continue;
+      const slim = townSlim(this.state, px, py);
+      const done = slim && this.run({ actor: TOWN_ACTOR, command: slim.command });
+      if (!slim || !done?.ok) {
+        left++;
+        continue;
+      }
+      slimmed++;
+      try {
+        this.onHomeSlimmed?.(ownerId, { px, py, walls: slim.walls, back: slim.back });
+      } catch (err) {
+        report(err, "world.slim_homes");
+      }
+    }
+    const marked = this.run({ actor: TOWN_ACTOR, command: { type: "slim_homes" } });
+    if (!marked.ok) console.error(`Couldn't mark the homes slimmed: ${marked.error.message}`);
+    console.log(`The town slimmed ${slimmed} homes and left ${left} as they were.`);
+  }
+
   private tickDays() {
     this.reconcileEntitlements();
     this.switchOn(PRESENCE_SWITCH);
@@ -1293,6 +1403,7 @@ export class WorldService {
     const day = this.state.day;
     if (day === undefined) return;
     for (const sw of DAY_SWITCHES) this.switchOn(sw);
+    this.slimEveryHome();
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
     if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {
@@ -2257,11 +2368,7 @@ export class WorldService {
     if (action.type === "build") {
       // A map or a design becomes lists before the sim sees it (RFC 0032).
       const now = plotPlan(this.state, action.px, action.py) ?? { blocks: [], ground: [] };
-      const expanded = buildCommand(action, {
-        size: this.state.config.plotSize,
-        now,
-        roomy: this.state.starterEdges === true,
-      });
+      const expanded = buildCommand(action, { size: this.state.config.plotSize, now });
       if ("problem" in expanded) {
         return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
       }
@@ -2482,6 +2589,7 @@ export class WorldService {
       ...priceOf(input.command),
       ...handedInOf(view, input),
       ...plotSaleOf(view, input),
+      ...costOf(view, input),
     };
   }
 

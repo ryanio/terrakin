@@ -1082,6 +1082,12 @@ export const NOTIFICATION_TYPES = [
    */
   "way_closed",
   /**
+   * From Terrakin itself (`system: true`): the town moved your home's wall blocks onto the lines
+   * between tiles (RFC 0050), with the plot, how many lines it walled, and how many things came
+   * back to your things.
+   */
+  "home_slimmed",
+  /**
    * A host served tea at an event you were a counted guest at, and you took home a cup of tea they
    * made (RFC 0047). The `actor` is the host. The cup is in your things.
    */
@@ -1265,6 +1271,18 @@ export const NotificationView = z.object({
    */
   wayClosed: z
     .object({ px: z.number().int(), py: z.number().int(), tiles: z.number().int() })
+    .optional(),
+  /**
+   * For a `home_slimmed`: the plot, how many `walls` now stand on lines, and how many things came
+   * `back` to your things (RFC 0050). From Terrakin itself (`system: true`), no words.
+   */
+  homeSlimmed: z
+    .object({
+      px: z.number().int(),
+      py: z.number().int(),
+      walls: z.number().int(),
+      back: z.number().int(),
+    })
     .optional(),
   /**
    * For a `plot_sold`: the plot you sold, its price, and the coins that reached you, the price

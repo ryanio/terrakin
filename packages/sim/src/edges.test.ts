@@ -1,7 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { designNotes } from "./design";
 import { edgeAt, edgeKey, edgeOf } from "./edges";
 import { EDGES_CONFIG, EDGES_HASH, EDGES_LOG } from "./fixtures/edges-log";
+import { SLIM_HOMES_CONFIG, SLIM_HOMES_HASH, SLIM_HOMES_LOG } from "./fixtures/slim-homes-log";
+import { SLIM_CONFIG, SLIM_HASH, SLIM_LOG } from "./fixtures/slim-log";
 import { hashWorld } from "./hash";
 import { held } from "./items";
 import { replay } from "./replay";
@@ -195,6 +198,17 @@ describe("a starter hut of walls between tiles", () => {
 describe("slim_walls", () => {
   it("turns a block hut into walls between tiles, and marks the plot", () => {
     const w = world();
+    // A path out of the hut's doorway to the plot's edge: nothing to note, before or after.
+    w.ok("ada", {
+      type: "build",
+      px: 0,
+      py: 0,
+      ground: [
+        { x: 3, y: 6, ground: "dirt" },
+        { x: 3, y: 7, ground: "dirt" },
+      ],
+    });
+    expect(designNotes(w.state, 0, 0)).toEqual([]);
     const ring = Object.keys(w.state.blocks).map((key) => {
       const [x, y] = key.split(",").map(Number) as [number, number];
       return { x, y };
@@ -210,6 +224,7 @@ describe("slim_walls", () => {
     expect(w.state.blocks).toEqual({});
     expect(Object.keys(w.state.edges ?? {})).toHaveLength(20);
     expect(w.state.slimmed).toEqual({ "0,0": true });
+    expect(designNotes(w.state, 0, 0)).toEqual([]);
   });
 
   it("tops up the made material its lines need on the plot's first slim only", () => {
@@ -346,10 +361,6 @@ describe("what the review found", () => {
     // A line upstairs on that flooring keeps it down.
     w.ok("bob", { type: "place", x: 18, y: 3, side: "e", floor: 1, block: "wood" });
     expect(w.refused("bob", { type: "lift", x: 18, y: 3, floor: 1 }).code).toBe("holds_up");
-    // And an upstairs home waits to be slimmed.
-    expect(w.refused("bob", { type: "slim_walls", px: 2, py: 0, remove: [], edges: [] }).code).toBe(
-      "holds_up",
-    );
   });
 
   it("keep a plot from being released, and a way from crossing them", () => {
@@ -397,5 +408,19 @@ describe("edgeOf", () => {
 describe("the edges log", () => {
   it("replays to its pinned hash", () => {
     expect(hashWorld(replay(EDGES_CONFIG, EDGES_LOG))).toBe(EDGES_HASH);
+  });
+
+  it("replays residents' own slims to the hash they had before a slim checked its lines first", () => {
+    expect(hashWorld(replay(SLIM_CONFIG, SLIM_LOG))).toBe(SLIM_HASH);
+  });
+
+  it("replays the town's slim to its pinned hash, upstairs block and all (decision 0404)", () => {
+    const before = replay(EDGES_CONFIG, EDGES_LOG);
+    const after = replay(SLIM_HOMES_CONFIG, SLIM_HOMES_LOG);
+    expect(hashWorld(after)).toBe(SLIM_HOMES_HASH);
+    expect(Object.keys(before.floors?.["1"]?.blocks ?? {})).toContain("9,3");
+    expect(after.floors?.["1"]?.blocks).toEqual({});
+    expect(after.homesSlimmed).toBe(true);
+    expect(after.slimmed).toEqual({ "1,0": true });
   });
 });

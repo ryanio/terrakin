@@ -561,6 +561,11 @@ export interface WorldState {
    */
   slimmed?: Record<string, true>;
   /**
+   * Set by `slim_homes` once the town has slimmed every home it could (RFC 0050), so the server
+   * never runs that sweep again.
+   */
+  homesSlimmed?: true;
+  /**
    * Set by `propose_in_person`: filing a proposal needs you within `config.reach` of the Town
    * Hall's door on the ground floor ([RFC 0042](../../../docs/rfcs/0042-actions-that-need-you-there.md)).
    * Voting stays remote, because a proposal closes on a clock and presence would silence whoever
@@ -1924,6 +1929,8 @@ export type Command =
    * back, and marks the plot `slimmed`.
    */
   | { type: "slim_walls"; px: number; py: number; remove: PlanTile[]; edges: PlanEdge[] }
+  /** Only TOWN_ACTOR sends it: a plot owner's slim, made by the town (`slim_homes`, RFC 0050). */
+  | { type: "town_slim"; px: number; py: number; remove: PlanTile[]; edges: PlanEdge[] }
   | { type: "settle"; px: number; py: number }
   /**
    * A jump to the edge of someone else's plot (RFC 0020). Residents send `px` and `py`; the server
@@ -2210,6 +2217,7 @@ export type Command =
   | { type: "starter_doors" }
   /** From now on a starter home is built from walls between tiles (RFC 0050). TOWN_ACTOR only. */
   | { type: "starter_edges" }
+  | { type: "slim_homes" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
   | { type: "set_shop_share"; percent: number }
@@ -2448,6 +2456,8 @@ export const SERVER_COMMANDS = [
   "keep_table_spots",
   "starter_doors",
   "starter_edges",
+  "town_slim",
+  "slim_homes",
   "test_grant",
   "open_recipes",
   "lower_holiday_prices",
@@ -2679,6 +2689,7 @@ export type WorldEvent =
   | { type: "starter_doors_set" }
   /** From now on starter homes are built from walls between tiles (RFC 0050). Public. */
   | { type: "starter_edges_set" }
+  | { type: "homes_slimmed_set" }
   /** A home's wall blocks became walls between tiles (RFC 0050), the first time on its plot. */
   | { type: "home_slimmed"; px: number; py: number; by: ResidentId }
   | { type: "shop_opened" }

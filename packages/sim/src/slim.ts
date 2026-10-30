@@ -4,14 +4,16 @@ import { oneTimeSwitch, refuse } from "./check";
 import { EDGE_KINDS, edgeKey, edgesOn, edgeTiles } from "./edges";
 import { blockNeeds } from "./items";
 import { plotKey, tileKey } from "./keys";
-import type {
-  BlockKind,
-  Command,
-  Rejection,
-  ResidentId,
-  WorldConfig,
-  WorldEvent,
-  WorldState,
+import {
+  type BlockKind,
+  type Command,
+  type Plot,
+  type Rejection,
+  type ResidentId,
+  TOWN_ACTOR,
+  type WorldConfig,
+  type WorldEvent,
+  type WorldState,
 } from "./types";
 import { canBuildOn } from "./world";
 
@@ -58,10 +60,7 @@ export function starterEdgeHut(
 }
 
 /** What the lines of a slim take beyond the blocks it gives back, in made materials only. */
-function slimGift(
-  state: WorldState,
-  command: Extract<Command, { type: "slim_walls" }>,
-): Partial<Record<StackKind, number>> {
+function slimGift(state: WorldState, command: Slim): Partial<Record<StackKind, number>> {
   const S = state.config.plotSize;
   const x0 = command.px * S;
   const y0 = command.py * S;
@@ -88,48 +87,73 @@ function slimGift(
   return gift;
 }
 
+type Slim = Extract<Command, { type: "slim_walls" | "town_slim" }>;
+
 /**
  * `slim_walls {px, py, remove, edges}`: the server's plan for turning a home's wall blocks into
  * walls between tiles (RFC 0050), checked exactly as the same `build` by the resident would be,
  * with the plot's first one topped up by the town (`slimGift`) and the plot marked `slimmed`.
- * Every wall it puts up must be a wall kind, so a slim never builds anything else.
+ * Every wall it puts up must be a wall kind, so a slim never builds anything else. Its lines are
+ * checked before its removals, so a home with an upstairs keeps its flooring held throughout.
  */
 export function checkSlimWalls(
   state: WorldState,
   actor: ResidentId,
   command: Extract<Command, { type: "slim_walls" }>,
 ): { plan: BuildPlan; commit: Mutation } | Rejection {
-  const { px, py } = command;
-  const plot =
-    Number.isInteger(px) && Number.isInteger(py) ? state.plots[plotKey(px, py)] : undefined;
+  const plot = plotFor(command)(state);
   if (!plot || !canBuildOn(plot, actor)) {
     return refuse(
       "not_your_plot",
       "You can only slim the walls of your own plot, or one shared with you.",
     );
   }
+  return slim(state, actor, actor, command);
+}
+
+/**
+ * `town_slim {px, py, remove, edges}`, which only TOWN_ACTOR sends: the same slim, made for a
+ * plot's owner by the town (`slim_homes`), checked as their own build, with what comes up given
+ * back to them and `home_slimmed` naming the town.
+ */
+export function checkTownSlim(
+  state: WorldState,
+  command: Extract<Command, { type: "town_slim" }>,
+): { plan: BuildPlan; commit: Mutation } | Rejection {
+  const owner = plotFor(command)(state)?.ownerId;
+  if (owner === undefined || !state.residents[owner]) {
+    return refuse("not_your_plot", "Only a plot someone holds has a home to slim.");
+  }
+  return slim(state, owner, TOWN_ACTOR, command);
+}
+
+const plotFor =
+  ({ px, py }: Slim) =>
+  (state: WorldState): Plot | undefined =>
+    Number.isInteger(px) && Number.isInteger(py) ? state.plots[plotKey(px, py)] : undefined;
+
+function slim(
+  state: WorldState,
+  builder: ResidentId,
+  by: ResidentId,
+  command: Slim,
+): { plan: BuildPlan; commit: Mutation } | Rejection {
+  const { px, py } = command;
   if (!Array.isArray(command.remove) || !Array.isArray(command.edges)) {
     return refuse("invalid_plan", "A slim lists the blocks it takes up and the walls it puts up.");
   }
   if (command.edges.some((w) => !(EDGE_KINDS as readonly unknown[]).includes(w?.block))) {
     return refuse("invalid_plan", "A slim puts up only walls, windows, hedges and doors.");
   }
-  // A home with an upstairs waits: its walls may hold the floor above, and a slim that left some
-  // standing would leave the home half done.
-  if ((plot.floors ?? 0) > 0) {
-    return refuse(
-      "holds_up",
-      "Slimming waits for homes with one floor for now: its walls may hold the upstairs up.",
-    );
-  }
   const key = plotKey(px, py);
   const first = state.slimmed?.[key] === undefined;
   const gift = first ? slimGift(state, command) : {};
   const built = checkBuild(
     state,
-    actor,
+    builder,
     { type: "build", px, py, remove: command.remove, edges: command.edges },
     gift,
+    true,
   );
   if ("code" in built) return built;
   return {
@@ -138,11 +162,26 @@ export function checkSlimWalls(
       const events = built.commit();
       if (first) {
         state.slimmed = { ...state.slimmed, [key]: true };
-        events.push({ type: "home_slimmed", px, py, by: actor });
+        events.push({ type: "home_slimmed", px, py, by });
       }
       return events;
     },
   };
+}
+
+/**
+ * `slim_homes`, which only TOWN_ACTOR sends, after the server has slimmed every home it could with
+ * `town_slim`: marks that done, so it never runs again. Comes once.
+ */
+export function checkSlimHomes(state: WorldState): Mutation | Rejection {
+  return oneTimeSwitch({
+    on: state.homesSlimmed,
+    already: "The town has already slimmed the homes.",
+    turnOn: () => {
+      state.homesSlimmed = true;
+    },
+    event: { type: "homes_slimmed_set" },
+  });
 }
 
 /** Whether a line already has a wall or its inside tile a block, so a starter hut leaves it be. */

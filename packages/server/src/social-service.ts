@@ -2299,6 +2299,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a plot's owner the town moved their home's walls onto the lines between tiles (RFC 0050):
+   * one notice from Terrakin itself, with the plot and counts, and no words.
+   */
+  homeSlimmed(recipient: string, slimmed: HomeSlimmedDetail) {
+    this.systemNotice(recipient, "home_slimmed", JSON.stringify(slimmed));
+  }
+
+  /**
    * Tell a plot's seller it sold (RFC 0039): one notice from Terrakin itself, carrying the plot, its
    * price, and the coins that reached them, and no words. It never names the buyer, as the item
    * market never does, though the plot's new owner is on the map for anyone to see.
@@ -2491,6 +2499,7 @@ export class SocialService {
       if (type === "renamed") return this.renamedView(row, detail);
       if (type === "way_laid") return this.wayView(row, detail);
       if (type === "way_closed") return this.wayClosedView(row, detail);
+      if (type === "home_slimmed") return this.homeSlimmedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
       if (type === "pot_sold") return this.potSoldView(row, detail);
       if (type === "tea_served") return this.teaServedView(row, detail);
@@ -2656,6 +2665,13 @@ export class SocialService {
     const parsed = WayClosedDetail.safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "way_closed"), wayClosed: parsed.data }];
+  }
+
+  /** A stored home-slimmed notice (RFC 0050) as the plot's owner reads it. */
+  private homeSlimmedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = HomeSlimmedDetail.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "home_slimmed"), homeSlimmed: parsed.data }];
   }
 
   /** A stored plot-sold notice (RFC 0039) as the seller reads it. */
@@ -3322,7 +3338,8 @@ type SystemNoticeType =
   | "pot_sold"
   | "tea_served"
   | "way_laid"
-  | "way_closed";
+  | "way_closed"
+  | "home_slimmed";
 
 /** What a pot-sold notice keeps (RFC 0047): the pot's codes and the numbers, no words. */
 const PotSoldDetail = z.object({
@@ -3352,6 +3369,15 @@ const WayClosedDetail = z.object({
   tiles: z.number().int(),
 });
 type WayClosedDetail = z.infer<typeof WayClosedDetail>;
+
+/** What a home-slimmed notice keeps (RFC 0050): the plot and counts, and no words. */
+const HomeSlimmedDetail = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  walls: z.number().int(),
+  back: z.number().int(),
+});
+export type HomeSlimmedDetail = z.infer<typeof HomeSlimmedDetail>;
 
 /** What a circle notice (RFC 0033) keeps: ids only, read back as the world has them now. */
 const CircleNoticeDetail = z.object({

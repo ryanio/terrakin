@@ -2,13 +2,15 @@ import {
   apply,
   createWorld,
   edgeKey,
+  hashWorld,
+  prepare,
   TOWN_ACTOR,
   tileKey,
   type WorldConfig,
   worldGround,
 } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { slimPlan } from "./slim-plan";
+import { slimPlan, townSlim } from "./slim-plan";
 
 const CONFIG: WorldConfig = {
   width: 24,
@@ -47,6 +49,113 @@ describe("slimPlan", () => {
     // The door stays on the south side's middle: the line south of (3, 5).
     const door = plan.edges.find((e) => e.block === "door");
     expect(door && edgeKey(door.x, door.y, door.side)).toBe(edgeKey(3, 6, "n"));
+  });
+
+  it("slims a home with an upstairs, its flooring held throughout, and takes down what stood on the old walls", () => {
+    const { state, ok } = hut();
+    const plot = state.plots["0,0"];
+    if (!plot) throw new Error("no plot");
+    plot.floors = 1;
+    state.floors = { "1": { blocks: {}, ground: {} } };
+    // Moss upstairs in the middle, held by the walls round it, and a wall block upstairs standing
+    // on the hut's north-west corner with no flooring under it.
+    ok("ada", {
+      type: "build",
+      px: 0,
+      py: 0,
+      ground: [{ x: 3, y: 3, floor: 1, ground: "moss" }],
+      blocks: [{ x: 1, y: 1, floor: 1, block: "wood" }],
+    });
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    expect(plan.remove).toContainEqual({ x: 1, y: 1, floor: 1 });
+    expect(plan.remove).toHaveLength(17);
+    ok("ada", { type: "slim_walls", px: 0, py: 0, ...plan });
+    expect(state.blocks).toEqual({});
+    expect(state.floors?.["1"]?.blocks).toEqual({});
+    expect(state.floors?.["1"]?.ground).toEqual({ [tileKey(3, 3)]: "moss" });
+    expect(Object.keys(state.edges ?? {})).toHaveLength(20);
+  });
+
+  it("is made for the owner by the town, and marked done once (decision 0404)", () => {
+    const { state, ok } = hut();
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    // Nobody but the town sends it.
+    expect(
+      apply(state, { actor: "ada", command: { type: "town_slim", px: 0, py: 0, ...plan } }),
+    ).toMatchObject({
+      ok: false,
+      rejection: { code: "server_only" },
+    });
+    const done = apply(state, {
+      actor: TOWN_ACTOR,
+      command: { type: "town_slim", px: 0, py: 0, ...plan },
+    });
+    expect(done).toMatchObject({ ok: true });
+    expect(done.ok && done.events).toContainEqual({
+      type: "home_slimmed",
+      px: 0,
+      py: 0,
+      by: TOWN_ACTOR,
+    });
+    expect(Object.keys(state.edges ?? {})).toHaveLength(20);
+    ok(TOWN_ACTOR, { type: "slim_homes" });
+    const marked = hashWorld(state);
+    expect(apply(state, { actor: TOWN_ACTOR, command: { type: "slim_homes" } })).toMatchObject({
+      ok: false,
+      rejection: { code: "already_open" },
+    });
+    expect(hashWorld(state)).toBe(marked);
+    // A plot nobody holds has no home for the town to slim.
+    expect(
+      apply(state, {
+        actor: TOWN_ACTOR,
+        command: { type: "town_slim", px: 1, py: 1, remove: [], edges: [] },
+      }),
+    ).toMatchObject({ ok: false, rejection: { code: "not_your_plot" } });
+  });
+
+  it("is the town's to make only where the home comes out no worse (decision 0404)", () => {
+    const { state, ok } = hut();
+    expect(townSlim(state, 0, 0)).toMatchObject({ walls: 20, back: 0 });
+    ok(TOWN_ACTOR, { type: "open_items" });
+    // Bob walls a little room of brickwork with a door and keeps 3 over: its lines need 11, the 7
+    // blocks and the town's gift cover 9, so the sim would take 2 of his. The town leaves it.
+    ok("bob", { type: "join", name: "bob", kind: "human" });
+    ok("bob", { type: "settle", px: 2, py: 0 });
+    Object.assign(state.residents.bob ?? {}, { x: 0, y: 20 });
+    const items = state.items;
+    if (!items) throw new Error("items aren't open");
+    items.inventories.bob = { stacks: { brickwork: 10 }, goods: [] };
+    const ring = [
+      [1, 1],
+      [2, 1],
+      [3, 1],
+      [1, 2],
+      [3, 2],
+      [1, 3],
+      [3, 3],
+    ].map(([x, y]) => ({ x: x as number, y: y as number, block: "brickwork" as const }));
+    ok("bob", {
+      type: "build",
+      px: 2,
+      py: 0,
+      blocks: [...ring, { x: 2, y: 3, block: "door" }],
+    });
+    const room = slimPlan(state, 2, 0);
+    if ("problem" in room) throw new Error(room.problem);
+    const command = { type: "town_slim" as const, px: 2, py: 0, ...room };
+    expect(prepare(state, { actor: TOWN_ACTOR, command })).toMatchObject({
+      ok: true,
+      plan: { changes: [{ kind: "brickwork", amount: -2 }] },
+    });
+    expect(townSlim(state, 2, 0)).toBeUndefined();
+    // Ada hangs a pennant on her hut's west wall: slimming would take it down, so the town leaves it.
+    items.inventories.ada = { stacks: { pennant: 1 }, goods: [] };
+    ok("ada", { type: "hang", x: 2, y: 2, side: "w", item: "pennant" });
+    expect(townSlim(state, 0, 0)).toBeUndefined();
+    expect(slimPlan(state, 0, 0)).not.toHaveProperty("problem");
   });
 
   it("is logged as the resident's own slim, which the sim builds whole", () => {

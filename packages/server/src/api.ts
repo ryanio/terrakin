@@ -130,6 +130,7 @@ import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
 import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
+import { planWalkTo, walkLegs } from "./walk-to";
 import type { ActResult, WalkStop, WorldService } from "./world-service";
 
 /**
@@ -1665,6 +1666,7 @@ export class Api {
    * where they were and the step after it would be checked from the same tile.
    */
   actWalk(residentId: string, action: Action): ActResult {
+    if (action.type === "walk_to") return this.walkTo(residentId, action);
     const steps = action.type === "move" ? (action.steps ?? 1) : 1;
     const climbing = action.type === "move" && (action.dir === "up" || action.dir === "down");
     if (steps === 1 || climbing || action.dry) return this.service.act(residentId, action);
@@ -1690,6 +1692,46 @@ export class Api {
     }
     if (!last) return this.service.act(residentId, action);
     return { ...last, events, ...(stopped ? { moved: walked, stopped } : {}) };
+  }
+
+  /**
+   * `walk_to` (decision 0405): the fewest steps from where the walker stands to (x, y), or within
+   * `near` tiles of it, on their own floor (the sim's `walkLegsTo`, the walk every refusal names),
+   * walked a `move` at a time as `actWalk` walks one, each paying its own token after the first,
+   * up to `WALK_TO_MAX_STEPS`. The plan is the server's and every step is the sim's own `move`, so
+   * the log holds only moves. A dry run answers with the `route` and moves nothing. The answer says
+   * whether it `arrived`; one that stopped short also says how far it got (`moved`) and, unless it
+   * only ran past the cap, why (`stopped`).
+   */
+  private walkTo(residentId: string, action: Extract<Action, { type: "walk_to" }>): ActResult {
+    const dry = action.dry ? { dry: true as const } : {};
+    const planned = planWalkTo(this.service.state, residentId, action, action.near ?? 0);
+    if ("code" in planned) return { ok: false, error: planned, ...dry };
+    if (action.dry) {
+      const route = planned.legs.map(([dir, steps]) => ({ dir, steps }));
+      return {
+        ok: true,
+        seq: this.service.state.seq,
+        events: [],
+        dry: true,
+        arrived: false,
+        route,
+      };
+    }
+    const walk = walkLegs(planned.legs, (dir, i) =>
+      i > 0 && !this.takeAction(residentId)
+        ? { ok: false, error: { code: "rate_limited", message: WALK_OUT_OF_ACTIONS } }
+        : this.service.act(residentId, { type: "move", dir }),
+    );
+    if ("refused" in walk) return walk.refused;
+    const { last, events, walked, arrived, stopped } = walk;
+    return {
+      ...last,
+      events,
+      arrived,
+      ...(arrived ? {} : { moved: walked }),
+      ...(stopped ? { stopped } : {}),
+    };
   }
 }
 

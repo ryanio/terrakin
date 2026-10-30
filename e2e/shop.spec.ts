@@ -123,7 +123,7 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   const sell = herbs.getByRole("button", { name: "Sell 3" });
   const box = await sell.boundingBox();
   expect(box?.height).toBeGreaterThanOrEqual(44);
-  await page.screenshot({ path: "test-results/shop-buying.png", fullPage: true });
+  await page.screenshot({ path: "test-results/shop-buying.png" });
   await sell.click();
   await expect(page.locator("#site-toast")).toContainText("Sold to the town for 3 coins");
   await expect(herbs).toContainText("sold out for you today");
@@ -152,7 +152,7 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   const things = (await read(page.request, hazel.token, "/v1/inventory")).inventory;
   expect(things.stacks).toContainEqual({ kind: "lantern", count: 1 });
   expect(await overflowsSideways(page)).toBe(false);
-  await page.screenshot({ path: "test-results/shop-bought.png", fullPage: true });
+  await page.screenshot({ path: "test-results/shop-bought.png" });
   expect(errors).toEqual([]);
   settledHazel = hazel;
 });

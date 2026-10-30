@@ -1,6 +1,6 @@
 import { crc32, deflateSync } from "node:zlib";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
-import { blocksWalkers, groundOf, route } from "../packages/sim/src/index.ts";
+import { blocksWalkers, edgeBlocks, edgeKey, groundOf, route } from "../packages/sim/src/index.ts";
 import {
   freePlotsOver,
   type Http,
@@ -137,9 +137,24 @@ export async function walkTo(
         .filter((b: { floor?: number }) => b.floor === undefined)
         .map((b: { x: number; y: number; block: string }) => [`${b.x},${b.y}`, b.block]),
     );
+    // Walls between tiles (RFC 0050) on the ground floor, keyed as the sim keys them.
+    const lines = new Map<string, string>(
+      (world.edges ?? [])
+        .filter((e: { floor?: number }) => e.floor === undefined)
+        .map((e: { x: number; y: number; side: "n" | "w"; block: string }) => [
+          edgeKey(e.x, e.y, e.side),
+          e.block,
+        ]),
+    );
     const ground = groundOf({
       config: world.config,
       hasBlock: (x: number, y: number) => blocksWalkers(blocks.get(`${x},${y}`) as never),
+      ...(lines.size > 0
+        ? {
+            edge: (x: number, y: number, side: "n" | "e" | "s" | "w") =>
+              edgeBlocks(lines.get(edgeKey(x, y, side)) as never),
+          }
+        : {}),
       solidBuildings: world.solidBuildings === true,
       townHall: world.townHall,
       shop: world.shop ?? [],

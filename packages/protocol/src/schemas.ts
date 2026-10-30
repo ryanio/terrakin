@@ -872,6 +872,8 @@ export const WorldSnapshot = z.object({
     .optional(),
   /** Present once starter homes are built from walls between tiles (RFC 0050). */
   starterEdges: z.literal(true).optional(),
+  /** Present once the town has moved every home's wall blocks it could onto lines (RFC 0050). */
+  homesSlimmed: z.literal(true).optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /**
@@ -1447,6 +1449,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("starter_doors_set") }),
   /** From now on a starter home is built from walls between tiles (RFC 0050). */
   z.object({ type: z.literal("starter_edges_set") }),
+  /** The town has moved every home's wall blocks it could onto the lines between tiles (RFC 0050). */
+  z.object({ type: z.literal("homes_slimmed_set") }),
   /** A wall went up on the line on `side` (`n` or `w`) of (x, y) (RFC 0050). Public. */
   z.object({
     type: z.literal("edge_placed"),
@@ -2498,6 +2502,18 @@ export type PlotPlanResponse = z.infer<typeof PlotPlanResponse>;
 
 /** What stopped a `move` with `steps` short of the tiles it asked for (decision 0315). */
 const WalkStop = z.object({ code: ErrorCode, message: z.string() });
+/**
+ * What a dry run would take from your things and purse, and give (decision 0406): counts by kind,
+ * made things included, and the net change in coins, spent below 0.
+ */
+export const DryCost = z.object({
+  uses: z.array(z.object({ kind: z.string(), count: z.number().int() })),
+  gets: z.array(z.object({ kind: z.string(), count: z.number().int() })),
+  coins: z.number().int(),
+});
+export type DryCost = z.infer<typeof DryCost>;
+/** One leg of a `walk_to`'s route: `steps` tiles in one direction (decision 0405). */
+const WalkLeg = z.object({ dir: z.enum(DIRECTIONS), steps: z.number().int() });
 
 export const ActionResponse = z.discriminatedUnion("ok", [
   z.object({
@@ -2544,7 +2560,22 @@ export const ActionResponse = z.discriminatedUnion("ok", [
         "`move` with `steps`: how many tiles you actually walked, when that is fewer than you asked for. `stopped` says why. Absent on a one-tile move and on a walk that went the whole way.",
       ),
     stopped: WalkStop.optional().describe(
-      "`move` with `steps`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+      "`move` with `steps` and `walk_to`, beside `moved`: what stopped the walk short. The refusal of the step it didn't take (`blocked`, `out_of_bounds`), or `rate_limited` when you ran out of actions partway: wait a second and send the rest from where you stand.",
+    ),
+    arrived: z
+      .boolean()
+      .optional()
+      .describe(
+        "`walk_to`: whether you got there. When you didn't, `moved` says how far you got and `stopped` why, or neither when the walk was longer than one `walk_to` goes: send it again to go on.",
+      ),
+    route: z
+      .array(WalkLeg)
+      .optional()
+      .describe(
+        "`walk_to` on a dry run: the walk it would take, as legs of `steps` tiles in one `dir`, nothing moved.",
+      ),
+    cost: DryCost.optional().describe(
+      "On a dry run of any action but `build` (whose `plan` says it): what it would take from your things (`uses`), what it would give you (`gets`), each by kind, and the net change in your `coins`, spent below 0. Absent when it would change none of them.",
     ),
     notes: z
       .array(DesignNoteView)
@@ -2620,6 +2651,12 @@ export const ServerMessage = z.union([
     moved: z.number().int().optional(),
     /** `move` with `steps`, beside `moved`: what stopped it. */
     stopped: WalkStop.optional(),
+    /** `walk_to`: whether you got there (decision 0405). */
+    arrived: z.boolean().optional(),
+    /** `walk_to` on a dry run: the walk it would take. */
+    route: z.array(WalkLeg).optional(),
+    /** A dry run: what it would take from your things and purse, and give (decision 0406). */
+    cost: DryCost.optional(),
   }),
   z.object({
     type: z.literal("error"),

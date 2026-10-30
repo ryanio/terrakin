@@ -130,12 +130,14 @@ test("a newcomer claims a plot from the Commons, builds a design, and finds seed
     await page.screenshot({ path: "test-results/claim-home.png" });
     const r = await me();
     expect(r.hearth).toEqual({ x: r.x, y: r.y });
-    // The greenhouse in stone stands round her hearth, with nothing off about it.
+    // The greenhouse in stone (RFC 0050) stands round her hearth: a glass north wall and
+    // stone sides on the lines round its room, planters outside, and nothing off about it.
     const size = (await world()).config.plotSize;
     const plot = `${Math.floor(r.x / size)}/${Math.floor(r.y / size)}`;
     const plan = (await (await page.request.get(`/v1/plots/${plot}/plan`)).json()).plan;
-    expect(plan.map.floors[0].blocks[1]).toBe(".GGGGG..");
-    expect(plan.map.floors[0].blocks[2]).toBe(".S...S.p");
+    expect(plan.map.floors[0].edges[2]).toBe("+ +G+G+G+G+G+ + +");
+    expect(plan.map.floors[0].edges[5]).toBe(" .S. . . . .S. p ");
+    expect(plan.map.floors[0].blocks[2]).toBe(".......p");
     expect(plan.notes).toEqual([]);
   });
 

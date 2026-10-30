@@ -243,6 +243,8 @@ export function wireSocial(
   service.onPotSold = (seller, sold) => layer.potSold(seller, sold);
   service.onTeaPoured = (guest, host) => layer.teaPoured(guest, host);
   service.onTeaServed = (host, cups) => layer.teaServed(host, cups);
+  // The town's slim of a home tells its owner what changed (RFC 0050).
+  service.onHomeSlimmed = (owner, slimmed) => layer.homeSlimmed(owner, slimmed);
   service.onPotHandedIn = (pot) => layer.townPots.add(pot);
   // Serving tea where nobody would be counted is refused with why (RFC 0047): today's guest facts.
   service.guestFacts = () => layer.guestFacts();

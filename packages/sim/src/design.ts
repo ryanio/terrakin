@@ -3,7 +3,15 @@ import { edgeBlocks, edgeOf } from "./edges";
 import { plotKey } from "./keys";
 import { type PlotTiles, plotLines, plotTiles } from "./map";
 import { claimExitsIn, nearestFreePlot, plotOpenings } from "./openings";
-import type { BlockKind, Direction, Side, Tile, WorldConfig, WorldState } from "./types";
+import {
+  type BlockKind,
+  type Direction,
+  SIDES,
+  type Side,
+  type Tile,
+  type WorldConfig,
+  type WorldState,
+} from "./types";
 import { DIRECTIONS, type Ground, groundOf, stepFrom } from "./walk";
 import { isWay } from "./ways";
 import { blocksWalkers, chebyshev, STEP, shopTiles, townHallTiles } from "./world";
@@ -389,12 +397,14 @@ export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   }
 
   // A path: some ground at all, and from each hearth to the edge over path and flooring. The
-  // tiles beside the hearth and a doorway (an open tile or a door between two walls) needn't be
-  // paved.
+  // tiles beside the hearth and a doorway (an open tile or a door between two walls, or a tile
+  // with a door on one of its lines) needn't be paved.
   const wall = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < S && y < S && blocksWalkers(blockAt({ x, y }));
   const doorway = (t: Tile) =>
-    (wall(t.x, t.y - 1) && wall(t.x, t.y + 1)) || (wall(t.x - 1, t.y) && wall(t.x + 1, t.y));
+    (wall(t.x, t.y - 1) && wall(t.x, t.y + 1)) ||
+    (wall(t.x - 1, t.y) && wall(t.x + 1, t.y)) ||
+    SIDES.some((side) => lineAt(t, side) === "door");
   const anyGround = plot.floors.some((floor) =>
     all.some((t) => plot.ground(floor, t.x, t.y) !== undefined),
   );

@@ -236,7 +236,14 @@ import {
   shopNewDay,
   stockHoliday,
 } from "./shop";
-import { checkSlimWalls, checkStarterEdges, edgeTaken, starterEdgeHut } from "./slim";
+import {
+  checkSlimHomes,
+  checkSlimWalls,
+  checkStarterEdges,
+  checkTownSlim,
+  edgeTaken,
+  starterEdgeHut,
+} from "./slim";
 import {
   checkHang,
   checkPutOn,
@@ -850,6 +857,12 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkStarterDoors(state));
       case "starter_edges":
         return town(checkStarterEdges(state));
+      case "slim_homes":
+        return town(checkSlimHomes(state));
+      case "town_slim": {
+        const slim = checkTownSlim(state, command);
+        return "code" in slim ? { ok: false, rejection: slim } : slim;
+      }
       case "open_shop":
         return town(checkOpenShop(state));
       case "set_shop_share":

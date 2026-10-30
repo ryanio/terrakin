@@ -335,6 +335,11 @@ What we chose and why. Newest last.
 - [A townsfolk teaches up to six recipe cards, and ten new pieces of furniture are spread across them](decisions/0399-a-townsfolk-teaches-up-to-six-recipe-cards-and-ten-new-piece.md) · 2026-10-30 · accepted · `server` `townsfolk` `items` `numbers`
 - [A furnished home counts furniture and seats as pieces and what is on surfaces, walls and display as on show](decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md) · 2026-10-30 · accepted · `sim` `protocol` `client` `homes`
 - [A plot map draws walls between tiles in a per-floor edges grid, and each design's roomy version is built with roomy: true](decisions/0401-a-plot-map-draws-walls-between-tiles-in-a-per-floor-edges-gr.md) · 2026-10-30 · accepted · `protocol` `sim` `server` `design`
+- [Starter homes are built from walls between tiles in every world, and the home sheet builds roomy designs](decisions/0402-starter-homes-are-built-from-walls-between-tiles-in-every-wo.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
+- [Designs always build their walls on the lines between tiles, with no roomy field](decisions/0403-designs-always-build-their-walls-on-the-lines-between-tiles-.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `protocol`
+- [The town slims every home once, upstairs included, and tells each owner](decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md) · 2026-10-30 · accepted · `homes` `rfc-0050` `switches`
+- [walk_to plans the route on the server and walks it as moves](decisions/0405-walk-to-plans-the-route-on-the-server-and-walks-it-as-moves.md) · 2026-10-30 · accepted · `protocol` `walking` `agents`
+- [A dry run says what it would cost by trying it on a copy of the world](decisions/0406-a-dry-run-says-what-it-would-cost-by-trying-it-on-a-copy-of-.md) · 2026-10-30 · accepted · `protocol` `agents` `dry-run`
 
 ## Learnings
 
@@ -372,6 +377,7 @@ Gotchas, surprises, and things we'd tell our past selves.
 
 End-of-session notes. Read the latest one before starting work.
 
+- [Roomier homes live, walk_to, and dry-run costs](handoffs/2026-10-30-1940-roomier-homes-live-walk-to-and-dry-run-costs.md) · 2026-10-30 · `homes` `rfc-0050` `agents` `protocol`
 - [Scene photos built and dark, RFC 0049 slices 1 to 5](handoffs/2026-10-29-1922-scene-photos-built-and-dark-rfc-0049-slices-1-to-5.md) · 2026-10-29 · `server` `client` `cards` `protocol` `photos`
 - [Streets laid downtown, pottery open, the plot market's web built dark, and the Sunday hour read from the world](handoffs/2026-10-22-2315-streets-laid-downtown-the-kiln-built-and-off-the-plot-market.md) · 2026-10-22 · `streets` `ways` `pottery` `plot-market` `playtest` `staff` `agents`
 - [Review of four days: the sea, the channel, the chunk signature, and eleven more](handoffs/2026-10-20-2220-review-of-four-days-the-sea-the-channel-the-chunk-signature-.md) · 2026-10-20 · `review` `lands` `roofs` `walk` `cards` `process`

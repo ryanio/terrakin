@@ -1,10 +1,19 @@
 import {
+  apply,
   type BlockKind,
+  blocksOn,
+  type Command,
+  cloneWorld,
+  designNotes,
   edgeAt,
+  FLOORS,
+  groundOn,
   HOLDING_BLOCKS,
   type PlanEdge,
   type PlanTile,
+  prepare,
   type Side,
+  TOWN_ACTOR,
   tileKey,
   type WorldState,
 } from "@terrakin/sim";
@@ -66,6 +75,10 @@ const byRow = (a: string, b: string) => {
  * where no side one has a room yet. Two tiles of different rooms side by side get a line between
  * them, of the kind that stood on one of them, a plain wall before a door or a window: a door or a
  * doorway in an inner wall stays a door, and the inner wall's ends stay walls.
+ *
+ * Upstairs, flooring stays held, since the lines go up before the blocks come out. A block upstairs
+ * with no flooring under it stands on the wall below it, so it comes down too, with whatever stands
+ * on it the same way, and goes back to the builder's things.
  */
 export function slimPlan(
   state: WorldState,
@@ -244,9 +257,51 @@ export function slimPlan(
       edges.push({ x, y, side, block: kind });
     }
   }
-  const remove: PlanTile[] = [...taken.keys()].map((key) => {
+  const remove: PlanTile[] = [];
+  for (const key of taken.keys()) {
     const [x, y] = xy(key);
-    return { x, y };
-  });
+    remove.push({ x, y });
+    const at = tileKey(x0 + x, y0 + y);
+    for (let floor = 1; floor <= FLOORS.max; floor++) {
+      const up = blocksOn(state, floor)[at];
+      if (up === undefined || groundOn(state, floor)[at] !== undefined) break;
+      remove.push({ x, y, floor });
+      if (!HOLDING_BLOCKS.includes(up)) break;
+    }
+  }
   return { remove, edges };
+}
+
+/** A design note as the town's slim compares them: its code and the tiles it names. */
+const noteKey = (n: { code: string; tiles: readonly { x: number; y: number }[] }) =>
+  `${n.code} ${n.tiles.map((t) => `${t.x},${t.y}`).join(" ")}`;
+
+/**
+ * The town's slim of the home on plot (px, py) (decision 0404), with how many lines it walls and
+ * how many things come back to the owner, or undefined where it would leave the home worse or half
+ * done: nothing to plan, a refusal, anything skipped, anything spent from the owner's things past
+ * what the old blocks and the town's gift cover, anything hung on an old wall taken down, or a
+ * note, by its code and tiles, that the home didn't already have. Read-only: it slims a copy.
+ */
+export function townSlim(
+  state: WorldState,
+  px: number,
+  py: number,
+): { command: Extract<Command, { type: "town_slim" }>; walls: number; back: number } | undefined {
+  const planned = slimPlan(state, px, py);
+  if ("problem" in planned) return undefined;
+  const command = { type: "town_slim" as const, px, py, ...planned };
+  const prepared = prepare(state, { actor: TOWN_ACTOR, command });
+  if (!prepared.ok || !prepared.plan) return undefined;
+  const { plan } = prepared;
+  if (plan.skipped.some((s) => s.why !== "same")) return undefined;
+  if (plan.changes.some((c) => c.amount < 0)) return undefined;
+  const after = cloneWorld(state);
+  if (!apply(after, { actor: TOWN_ACTOR, command }).ok) return undefined;
+  const hung = (w: WorldState) => Object.keys(w.items?.hung ?? {}).length;
+  if (hung(after) !== hung(state)) return undefined;
+  const had = new Set(designNotes(state, px, py).map(noteKey));
+  if (designNotes(after, px, py).some((n) => !had.has(noteKey(n)))) return undefined;
+  const back = plan.changes.filter((c) => c.amount > 0).reduce((n, c) => n + c.amount, 0);
+  return { command, walls: plan.walled.length, back };
 }

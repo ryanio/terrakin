@@ -147,7 +147,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - A line between two tiles has one key, a tile and `n` or `w` (`edgeKey`); readers go through `edgeAt` and `edgesOn`, and nothing else reaches into `state.edges` or a floor's `edges` ([decision 0396](../../docs/knowledge/decisions/0396-walls-between-tiles-are-keyed-by-a-tile-s-north-and-west-lin.md)).
 - `stepFrom` reads a ground's `edge` only when it has one, and `worldGround` and `floorGround` give one only to a world with edges (`withEdges`), so a world without them walks as it always did. Every wrapper of a `Ground` passes `edge` through.
 - A line counts as a wall at both its tiles for holding flooring up, for a roof (`spanBoxes`, only when a plot has edges), and for hanging. Taking one down gives back its cost and what hung on it, by `remove`, a plan's `removeEdges`, or a slim.
-- `slim_walls` is the server's plan logged as lists and checked as the resident's `build`; the plot's first one gets a gift of made material through `planBuild`'s `gift`. `src/fixtures/edges-log.ts` and `edges.test.ts` pin it.
+- `slim_walls` is the server's plan logged as lists and checked as the resident's `build`; the plot's first one gets a gift of made material through `planBuild`'s `gift`. A slim checks its lines before its removals (`linesFirst`), so flooring upstairs stays held. `town_slim` is the same slim made by the town for the plot's owner, and `slim_homes` marks the town's one sweep done ([decision 0404](../../docs/knowledge/decisions/0404-the-town-slims-every-home-once-upstairs-included-and-tells-e.md)). `src/fixtures/edges-log.ts`, `slim-homes-log.ts` and `edges.test.ts` pin it.
 
 ## Roofs (RFC 0041)
 

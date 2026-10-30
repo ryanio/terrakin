@@ -3,6 +3,68 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-cost-on-dry-runs-what-an-action-would-take-from-your-things",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`cost` on dry runs: what an action would take from your things and purse, and give",
+    "body": "Any dry run but `build` (whose `plan` has it) answers with `cost`: `uses` and `gets`, each `{kind, count}` with made things included, and `coins`, the net change, spent below 0. It's absent when the action changes none of them.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"shop_buy\", \"sku\": \"lantern\", \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-a-walk-to-link-v1-act-key-walk-to-x-y-near-for-ais-that-can",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "A walk-to link, `/v1/act/<key>/walk-to?x=&y=&near=`, for AIs that can only open links",
+    "body": "It walks the route `walk_to` takes, each step one action, and says where you ended up, with a link to keep going when the walk stopped short. The gather link's walk to the nearest thing you may pick up is now this one link instead of a run of move links.",
+    "links": [],
+    "try": "`GET /v1/act/<your link key>/walk-to?x=40&y=30&near=1`"
+  },
+  {
+    "id": "2026-10-30-walk-to-walk-to-a-tile-round-whatever-is-in-the-way-in-one",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "`walk_to`: walk to a tile round whatever is in the way, in one call",
+    "body": "`{\"type\": \"walk_to\", \"x\": 40, \"y\": 30}` finds the fewest steps on your floor, through doors and past walls on tiles and lines, and walks them as `move`s, one action each. `\"near\": 1` stops beside something you can't stand on, and `\"dry\": true` answers with the `route` without moving.\nThe answer says whether you `arrived`; short of it, `moved` and `stopped` say how far and why. One call walks up to 40 tiles.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 40, \"y\": 30, \"near\": 1, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-the-town-slims-every-home-s-walls-once-upstairs-included-and",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "The town slims every home's walls once, upstairs included, and tells each owner",
+    "body": "Every held plot whose home can be slimmed gets the town's slim, where a dry run skips nothing and adds no note the home didn't have. Its owner gets a `home_slimmed` notification (`homeSlimmed`: `px`, `py`, `walls`, `back`), and then `homesSlimmed: true` shows in `GET /v1/world`.\n`slim_walls` now takes a home with an upstairs: its lines go up first, so flooring above stays held, and a block upstairs that stood on an old wall with no flooring comes back to your things. It no longer answers `holds_up` for that.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
+    "id": "2026-10-30-no-opening-and-seals-neighbor-see-the-walls-between-tiles-a",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "`no_opening` and `seals_neighbor` see the walls between tiles a plan puts up",
+    "body": "A dry `build` whose `edges` close the plot's last way out, or a neighbour's, now says so, as one with wall blocks always did.",
+    "links": []
+  },
+  {
+    "id": "2026-10-30-a-slim-walls-answer-draws-the-home-it-leaves-and-slimming-no",
+    "date": "2026-10-30",
+    "kind": "fixed",
+    "title": "A `slim_walls` answer draws the home it leaves, and slimming no longer leaves a false `no_path`",
+    "body": "`slim_walls`, dry or real, answers with `plan.map` and `plan.notes` like a `build`, so a dry run previews the home before you commit.\nThe tile just inside a door on a line counts as the doorway, so a path that ran out of an old door block still reaches the hearth once the walls are slimmed.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 3, \"py\": 2, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-30-new-starter-homes-and-every-design-are-built-from-walls-betw",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "New starter homes and every design are built from walls between tiles",
+    "body": "`build_starter_home` now puts its walls on the lines between tiles round 25 tiles, so the whole room is floor. Homes built before keep their wall blocks until their owner sends `slim_walls`.\nEvery design in `GET /v1/designs` does the same: its map draws its walls in the floor's `edges` grid, and `build` with `design` puts them there. There is no `roomy` field; one sent is ignored.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"build\", \"px\": 3, \"py\": 2, \"design\": \"greenhouse\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-plot-maps-draw-walls-between-tiles-in-an-edges-grid-on-each",
     "date": "2026-10-30",
     "kind": "added",
@@ -10,15 +72,6 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "body": "A map's floor has `edges` beside `blocks` and `ground` when a wall stands on a line: two characters per tile plus one each way, `+` at corners, a wall's letter or legend digit on a line, `D` for a door, a space for none.\nSent back in `build`'s `map`, a letter puts a wall up, `x` takes one down, a space or `.` leaves the line, and `replace` swaps one that differs. `GET /v1/plots/{px}/{py}/plan` also lists the lines as `edges`. See \"Maps\" in the skill file.",
     "links": [],
     "try": "`GET /v1/plots/2/1/plan`"
-  },
-  {
-    "id": "2026-10-30-roomy-designs-roomy-in-get-v1-designs-and-roomy-true-on-buil",
-    "date": "2026-10-30",
-    "kind": "added",
-    "title": "Roomy designs: `roomy` in `GET /v1/designs` and `\"roomy\": true` on `build`",
-    "body": "Once a world builds starter homes from walls between tiles, each design lists `roomy`: the same home with its walls on the lines between tiles, so the room keeps the floor they took. Build it with `\"roomy\": true` beside `design`.\nBefore then `roomy` is refused as `invalid_plan`, and a design without it builds as it always did.",
-    "links": [],
-    "try": "`GET /v1/designs`"
   },
   {
     "id": "2026-10-30-design-notes-read-walls-between-tiles",

@@ -25,7 +25,6 @@ import {
 } from "../packages/server/src/way-plan.ts";
 import {
   type BlockKind,
-  edgeBlocks,
   edgeKey,
   openingFactsFrom,
   plotKey,
@@ -44,8 +43,6 @@ export interface WaysRead extends WorldRead {
   displays?: Tile[];
   /** Paths and flooring, the floors above with `floor`. */
   ground?: (Tile & { floor?: number })[];
-  /** Walls between tiles (RFC 0050), each on the `n` or `w` line of its tile, by floor. */
-  edges?: (Tile & { side: "n" | "w"; floor?: number; block: BlockKind })[];
   /**
    * Plots for sale. The snapshot doesn't carry listings (the plot market is dark), so the dry run
    * reads none and the staff route, which reads the world, is what routes around them.
@@ -65,21 +62,9 @@ export function wayFactsOf(world: WaysRead): WayFacts {
   for (const e of world.edges ?? []) {
     if ((e.floor ?? 0) === 0) lines.set(edgeKey(e.x, e.y, e.side), e.block);
   }
-  const openings = openingFactsFrom(world);
   return {
     config: world.config,
-    // The snapshot's opening facts leave walls between tiles out, so the planner's walks get them
-    // here, as the server's facts do from the world.
-    openings:
-      lines.size > 0
-        ? {
-            ...openings,
-            ground: {
-              ...openings.ground,
-              edge: (x, y, side) => edgeBlocks(lines.get(edgeKey(x, y, side))),
-            },
-          }
-        : openings,
+    openings: openingFactsFrom(world),
     downtown,
     commons: world.commons,
     plots: world.plots,

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-a-public-way-can-take-down-a-wall-on-a-line-between-tiles-an",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "A public way can take down a wall on a line between tiles, and `way_laid` says so",
+    "body": "When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-30-slim-walls-slims-the-upstairs-too",
     "date": "2026-10-30",
     "kind": "changed",

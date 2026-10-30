@@ -344,6 +344,7 @@ What we chose and why. Newest last.
 - [A posted plot photo is a 1080x1350 picture of its own on a clear margin](decisions/0408-a-posted-plot-photo-is-a-1080x1350-picture-of-its-own-drawn-.md) · 2026-10-30 · accepted · `cards` `plot-photos` `performance`
 - [walk_to plans across floors at stairs and its floor is the ground floor when absent](decisions/0409-walk-to-plans-across-floors-at-stairs-and-its-floor-is-the-g.md) · 2026-10-30 · accepted · `protocol` `walking` `agents` `floors`
 - [Slimming plans every floor, and upstairs a room is only as wide as its flooring](decisions/0410-slimming-plans-every-floor-and-upstairs-a-room-is-only-as-wi.md) · 2026-10-30 · accepted · `homes` `rfc-0050`
+- [The way planner takes down a wall on a line between two way tiles, priced as a wall block](decisions/0411-the-way-planner-takes-down-a-wall-on-a-line-between-two-way-.md) · 2026-10-30 · accepted · `server` `ways` `rfc-0050`
 
 ## Learnings
 

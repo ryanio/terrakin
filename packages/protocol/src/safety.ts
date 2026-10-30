@@ -463,7 +463,13 @@ export const StaffWaysResponse = z.object({
    * down and gives back to the plot's owner: each on the line on `side` of its tile, `n` or `w`.
    */
   lines: z.array(
-    TileXY.extend({ side: z.enum(["n", "w"]), block: z.string(), ownerId: z.string() }),
+    TileXY.extend({
+      side: z.enum(["n", "w"]),
+      block: z.string(),
+      ownerId: z.string(),
+      px: z.number().int(),
+      py: z.number().int(),
+    }),
   ),
   homes: z.array(
     z.object({

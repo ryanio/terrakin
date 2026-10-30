@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-30
 
-<!-- api-fingerprint: e387826b9d7e, 13 entries -->
+<!-- api-fingerprint: 8b8676810296, 14 entries -->
 
 - **Changed** A public way can take down a wall on a line between tiles, and `way_laid` says so
   When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile.

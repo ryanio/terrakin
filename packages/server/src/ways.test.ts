@@ -132,23 +132,41 @@ describe("laying downtown's ways", () => {
 
   it("lays it, so every plot has a way out, and tells each owner whose plot it crosses", async () => {
     const { call, service, sql, mira, homes, lay } = await start();
+    // A fence of wood on the lines round the four homes, east of x 14 and south of y 14, inside
+    // Bo's, Cy's and Dee's plots and clear of their huts (RFC 0050), so the way has to take a
+    // wall between tiles down to reach the Commons.
+    const edges: Record<string, "wood"> = {};
+    for (let i = 0; i < 15; i++) {
+      edges[edgeKey(15, i, "w")] = "wood";
+      edges[edgeKey(i, 15, "n")] = "wood";
+    }
+    service.state.edges = edges;
     const res = await lay({});
     expect(res.status).toBe(200);
     expect(res.body).toMatchObject({ laid: true, conflicts: [] });
+    expect(res.body.lines.length).toBeGreaterThan(0);
     expect(landlocked(service.state)).toEqual([]);
     const world = (await call("GET", "/v1/world")).body;
     expect(world.ways).toHaveLength(res.body.tiles.length);
 
-    // Each owner whose plot it crosses hears it from Terrakin, once, with the count of tiles.
+    // Each owner whose plot it crosses hears it from Terrakin, once, with the count of tiles and
+    // each wall between tiles taken down, by its side.
+    const lines = res.body.lines as { x: number; y: number; side: string; ownerId: string }[];
     for (const plot of res.body.plots as { ownerId: string; tiles: unknown[] }[]) {
       const who = homes.find((h) => h.residentId === plot.ownerId);
       if (!who) throw new Error("a plot nobody here owns");
       const notices = (await call("GET", "/v1/notifications", undefined, who.token)).body
         .notifications as { type: string; system?: boolean; way?: { tiles: number } }[];
+      const taken = lines
+        .filter((l) => l.ownerId === plot.ownerId)
+        .map(({ x, y, side }) => ({ x, y, side, block: "wood" }));
       expect(notices.filter((n) => n.type === "way_laid")).toEqual([
         expect.objectContaining({
           system: true,
-          way: expect.objectContaining({ tiles: plot.tiles.length }),
+          way: expect.objectContaining({
+            tiles: plot.tiles.length,
+            blocks: expect.arrayContaining(taken),
+          }),
         }),
       ]);
     }
@@ -160,7 +178,9 @@ describe("laying downtown's ways", () => {
     expect((await lay({})).body).toMatchObject({ inputs: 0, laid: false });
 
     // And a block on a way is refused on the wire, in the words that say why.
-    const [first] = res.body.plots as { ownerId: string; tiles: { x: number; y: number }[] }[];
+    const first = (res.body.plots as { ownerId: string; tiles: { x: number; y: number }[] }[]).find(
+      (p) => p.tiles.length > 1,
+    );
     const owner = homes.find((h) => h.residentId === first?.ownerId);
     const [stand, tile] = first?.tiles ?? [];
     if (!owner || !stand || !tile) throw new Error("nothing laid");
@@ -404,6 +424,25 @@ describe("a wall on the line between two tiles (RFC 0050)", () => {
     expect(plan.unjoined.map((u) => u.target)).toContain("plot 0,0");
     expect(plan.lines).toEqual([]);
     expect(plan.tiles.filter((t) => t.x < 12)).toEqual([]);
+  });
+
+  it("holding up an upstairs is never left between a new way tile and one laid before", () => {
+    // Plot (1, 0) has a floor above, with flooring at (10, 1), and a way laid along row 4 from
+    // x 9 to the Commons. Wood lines stand on the north, south and west sides of (9, 4), and the
+    // town can take none of them down. A way on (9, 3) would put the north one between two way
+    // tiles, so the plan goes round by another row and can be laid whole.
+    const state = rowWorld(["p0", "p1", "p2"]);
+    Object.assign(state.plots["1,0"] ?? {}, { floors: 1 });
+    state.floors = { "1": { blocks: {}, ground: { [tileKey(10, 1)]: "planks" } } };
+    state.ways = {};
+    for (let x = 9; x <= 23; x++) state.ways[tileKey(x, 4)] = true;
+    state.edges = {};
+    for (const side of ["n", "s", "w"] as const) state.edges[edgeKey(9, 4, side)] = "wood";
+    const plan = planWays(wayFactsFrom(state));
+    expect(plan.unjoined).toEqual([]);
+    expect(plan.lines).toEqual([]);
+    expect(plan.tiles).not.toContainEqual({ x: 9, y: 3 });
+    expect(wayConflicts(state, wayInputs(plan, 8))).toEqual([]);
   });
 });
 

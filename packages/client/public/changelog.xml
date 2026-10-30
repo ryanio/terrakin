@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-public-way-can-take-down-a-wall-on-a-line-between-tiles-an</id>
+    <title>Changed: A public way can take down a wall on a line between tiles, and `way_laid` says so</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">When the town lays a way across your plot and a wall, window, hedge or door stood on the line between two of its tiles, that wall comes down and back to your things as a block on the way does. The `way_laid` notice lists it in `way.blocks` with `side`, the line on that side of its tile.
+Try: `GET /v1/notifications`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-slim-walls-slims-the-upstairs-too</id>
     <title>Changed: `slim_walls` slims the upstairs too</title>
     <updated>2026-10-30T00:00:00Z</updated>

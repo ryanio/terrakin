@@ -32,6 +32,8 @@ import {
  * Every step is side on (north, south, east or west), never diagonal, so no block at a corner, on
  * anyone's land, can ever close a way. A wall on the line between two tiles (RFC 0050) is a price,
  * as a block is: a step across one plans taking it down, since the sim opens no way across a line.
+ * A line the town can't take down (`lineStays`) is never crossed, and no way runs on both sides of
+ * one.
  * A plot is joined when a tile its hearth's walk reaches on its place has a side, with no wall on
  * it, on a tile of the network off the place, which is decision 0351's way out with the step taken
  * square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a corner step
@@ -171,7 +173,10 @@ export interface WayPlan {
     /** Walls whose tile in toward the hearth couldn't take one, for staff to look at by hand. */
     left: Tile[];
   }[];
-  /** Targets the search couldn't join, and why. */
+  /**
+   * Targets the search couldn't join, and why, and any line the town can't take down that the
+   * plan would leave between two of its tiles.
+   */
   unjoined: { target: string; why: string }[];
 }
 
@@ -229,19 +234,28 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     const key = edgeKey(x, y, side);
     return facts.lines.has(key) && !down.has(key);
   };
+  // Lines the town can't take down (`lineStays`), which no way may ever have on both sides.
+  const stays = new Set([...facts.lines.keys()].filter((key) => lineStays(facts, owners, key)));
   /**
    * What a side-on step from (x, y) costs on top of the tile it reaches: nothing with no line
-   * between, `line` for one the town can take down, and undefined for one it can't, a wall
-   * holding up an upstairs, as for a block.
+   * between, `line` for one the town can take down, and undefined for one it can't.
    */
   const cross = (x: number, y: number, side: Side): number | undefined => {
     if (!standing(x, y, side)) return 0;
-    const block = facts.lines.get(edgeKey(x, y, side)) as BlockKind;
-    const { px, py } = plotOf(config, x, y);
-    const plot = owners.get(plotKey(px, py));
-    if (!plot) return undefined;
-    if ((plot.floors ?? 0) > 0 && HOLDING_BLOCKS.includes(block)) return undefined;
-    return W.line;
+    return stays.has(edgeKey(x, y, side)) ? undefined : W.line;
+  };
+  /**
+   * Whether a way on (x, y) would have a line the town can't take down between it and a tile of
+   * the network, laid, planned, or on the path the search is on (`onPath`): the sim opens no way
+   * with a line between two of its tiles, so the search never steps there.
+   */
+  const pinned = (x: number, y: number, onPath: (key: string) => boolean): boolean => {
+    for (const [dx, dy, side] of STEPS) {
+      if (!stays.has(edgeKey(x, y, side))) continue;
+      const next = tileKey(x + dx, y + dy);
+      if (laid.has(next) || ways.has(next) || onPath(next)) return true;
+    }
+    return false;
   };
 
   /** Open public ground: the Commons, a free slot (unless laid), or a way, with nothing in the way. */
@@ -357,7 +371,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   flood();
   let open = targets.filter((t) => !done(t));
   while (open.length > 0) {
-    const { dist, prev } = search(joined, cost, inDowntown, cross);
+    const { dist, prev } = search(joined, cost, inDowntown, cross, pinned);
     let best: { target: Target; goal: string; d: number } | undefined;
     for (const target of open) {
       for (const goal of target.goals) {
@@ -386,6 +400,32 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   }
 
   return describe(facts, ways, laid, owners, unjoined);
+}
+
+/**
+ * Whether the town can't take down the line `key` names, as the sim's `clear_block` with a side
+ * would refuse: it stands off every claimed plot (its owning tile's plot is nobody's), on a plot
+ * for sale, or, as a wall that may hold up an upstairs, on a plot with a floor above, as a block
+ * there would. Either of its tiles' plots counts, since one household's touching plots share it.
+ */
+function lineStays(
+  facts: WayFacts,
+  owners: ReadonlyMap<string, { floors?: number }>,
+  key: string,
+): boolean {
+  const { config } = facts;
+  const block = facts.lines.get(key);
+  if (block === undefined) return false;
+  const { x, y, side } = parseEdgeKey(key);
+  const home = plotOf(config, x, y);
+  if (!owners.has(plotKey(home.px, home.py))) return true;
+  for (const t of edgeTiles(x, y, side)) {
+    const { px, py } = plotOf(config, t.x, t.y);
+    if (facts.listed.has(plotKey(px, py))) return true;
+    const plot = owners.get(plotKey(px, py));
+    if (plot && (plot.floors ?? 0) > 0 && HOLDING_BLOCKS.includes(block)) return true;
+  }
+  return false;
 }
 
 /** The key of the line between two tiles that share a side. */
@@ -556,6 +596,7 @@ function search(
   cost: (x: number, y: number) => number | undefined,
   inside: (x: number, y: number) => boolean,
   cross: (x: number, y: number, side: Side) => number | undefined,
+  pinned: (x: number, y: number, onPath: (key: string) => boolean) => boolean,
 ): { dist: Map<string, number>; prev: Map<string, string> } {
   const dist = new Map<string, number>();
   const prev = new Map<string, string>();
@@ -608,6 +649,12 @@ function search(
       if (line === undefined) continue;
       const step = cost(nx, ny);
       if (step === undefined) continue;
+      // The path to here, back to the joined ground, which becomes way tiles with it.
+      const onPath = (k: string) => {
+        for (let at: string | undefined = key; at; at = prev.get(at)) if (at === k) return true;
+        return false;
+      };
+      if (pinned(nx, ny, onPath)) continue;
       const nk = tileKey(nx, ny);
       const nd = d + step + line + 0.001;
       if (nd < (dist.get(nk) ?? Number.POSITIVE_INFINITY)) {
@@ -635,7 +682,7 @@ function describe(
   facts: WayFacts,
   ways: Set<string>,
   laid: ReadonlySet<string>,
-  owners: Map<string, { px: number; py: number; ownerId: string }>,
+  owners: Map<string, { px: number; py: number; ownerId: string; floors?: number }>,
   unjoined: WayPlan["unjoined"],
 ): WayPlan {
   const { config } = facts;
@@ -681,9 +728,17 @@ function describe(
     const ka = tileKey(a.x, a.y);
     const kb = tileKey(b.x, b.y);
     if (!onWay.has(ka) || !onWay.has(kb) || (!ways.has(ka) && !ways.has(kb))) continue;
+    // The search never lays a way on both sides of a line the town can't take down, so this is
+    // a plan that can't be laid as it stands: said so, and not sent as a `clear_block`.
+    if (lineStays(facts, owners, key)) {
+      unjoined.push({
+        target: `the line on the ${side} side of ${x},${y}`,
+        why: "the way runs on both sides of a wall the town can't take down",
+      });
+      continue;
+    }
     const { px, py } = plotOf(config, x, y);
     const plot = owners.get(plotKey(px, py));
-    // A line off every claimed plot can't stand; the sim's refusal names it if one does.
     if (!plot) continue;
     lines.push({ x, y, side, block, ownerId: plot.ownerId, px, py });
   }

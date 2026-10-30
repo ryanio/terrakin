@@ -6,6 +6,7 @@ import {
   placeWalk,
   plotKey,
   plotOf,
+  type Side,
   starterHome,
   type Tile,
   tileKey,
@@ -25,9 +26,10 @@ import {
  * and repeats. A better search may find a smaller network.
  *
  * Every step is side on (north, south, east or west), never diagonal, so no block at a corner, on
- * anyone's land, can ever close a way. A plot is joined when a tile its hearth's walk reaches on its
- * place has a side on a tile of the network off the place, which is decision 0351's way out with
- * the step taken square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a
+ * anyone's land, can ever close a way, and no step crosses a wall on the line between two tiles
+ * (RFC 0050). A plot is joined when a tile its hearth's walk reaches on its place has a side,
+ * with no such wall on it, on a tile of the network off the place, which is decision 0351's way
+ * out with the step taken square. That walk is the sim's own (`placeWalk`, the one `openingsOf` takes), so a
  * corner step inside it may pass a neighbour's open tile, as walking does.
  */
 
@@ -144,11 +146,12 @@ export interface WayPlan {
   unjoined: { target: string; why: string }[];
 }
 
+/** The four side-on steps, each with the side of the tile it leaves by. */
 const STEPS = [
-  [0, -1],
-  [1, 0],
-  [0, 1],
-  [-1, 0],
+  [0, -1, "n"],
+  [1, 0, "e"],
+  [0, 1, "s"],
+  [-1, 0, "w"],
 ] as const;
 
 type Target = { name: string; goals: Set<string>; plot?: { px: number; py: number } };
@@ -187,6 +190,9 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   }
   const laid = new Set(facts.ways);
   const ways = new Set<string>();
+  // A way never crosses a wall on a line between tiles (RFC 0050): two tiles with one between them
+  // are never joined, side on.
+  const walled = (x: number, y: number, side: Side) => openings.ground.edge?.(x, y, side) ?? false;
 
   /** Open public ground: the Commons, a free slot (unless laid), or a way, with nothing in the way. */
   const isPublic = (x: number, y: number) => {
@@ -253,10 +259,11 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     for (const t of start) joined.add(tileKey(t.x, t.y));
     for (let i = 0; i < start.length; i++) {
       const at = start[i] as Tile;
-      for (const [dx, dy] of STEPS) {
+      for (const [dx, dy, side] of STEPS) {
         const x = at.x + dx;
         const y = at.y + dy;
         if (!inDowntown(x, y) || joined.has(tileKey(x, y)) || !isPublic(x, y)) continue;
+        if (walled(at.x, at.y, side)) continue;
         joined.add(tileKey(x, y));
         start.push({ x, y });
       }
@@ -277,12 +284,12 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
     const goals = new Set<string>();
     for (const key of room) {
       const [x, y] = key.split(",").map(Number) as [number, number];
-      for (const [dx, dy] of STEPS) {
+      for (const [dx, dy, side] of STEPS) {
         const nx = x + dx;
         const ny = y + dy;
-        if (!inDowntown(nx, ny) || room.has(tileKey(nx, ny))) continue;
+        if (!inDowntown(nx, ny) || room.has(tileKey(nx, ny)) || walled(x, y, side)) continue;
         // Off the place, or a tile of its own that its walk doesn't reach (a wall, a garden's
-        // block): a way that ends there joins the home through it.
+        // block), and no wall on the line between: a way that ends there joins the home through it.
         goals.add(tileKey(nx, ny));
       }
     }
@@ -300,7 +307,7 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   flood();
   let open = targets.filter((t) => !done(t));
   while (open.length > 0) {
-    const { dist, prev } = search(joined, cost, inDowntown);
+    const { dist, prev } = search(joined, cost, inDowntown, walled);
     let best: { target: Target; goal: string; d: number } | undefined;
     for (const target of open) {
       for (const goal of target.goals) {
@@ -361,6 +368,7 @@ function homeOf(facts: WayFacts, hearth: Tile): Set<string> {
       !onPlot(x, y) || facts.blocks.get(tileKey(x, y)) === "door"
         ? ("block" as const)
         : openings.ground.obstacle(x, y),
+    ...(openings.ground.edge ? { edge: openings.ground.edge } : {}),
   };
   const room = walkTree(shut, hearth, S);
   const edge = (x: number, y: number) =>
@@ -408,6 +416,7 @@ function rebuildOf(
           onWay.has(tileKey(x, y))
             ? "block"
             : openings.ground.obstacle(x, y),
+        ...(openings.ground.edge ? { edge: openings.ground.edge } : {}),
       },
       hearth,
       S,
@@ -431,7 +440,11 @@ function rebuildOf(
   for (const t of tiles) {
     const key = tileKey(t.x, t.y);
     if (onWay.has(key) || !side.has(key)) continue;
-    if (!STEPS.some(([dx, dy]) => onWay.has(tileKey(t.x + dx, t.y + dy)))) continue;
+    const beside = STEPS.some(
+      ([dx, dy, s]) =>
+        onWay.has(tileKey(t.x + dx, t.y + dy)) && !openings.ground.edge?.(t.x, t.y, s),
+    );
+    if (!beside) continue;
     // Something standing there closes it already.
     if (facts.blocks.has(key)) continue;
     // A hearth stays a hearth, and the home stays open there for staff to look at. So does a tile
@@ -478,6 +491,7 @@ function search(
   joined: ReadonlySet<string>,
   cost: (x: number, y: number) => number | undefined,
   inside: (x: number, y: number) => boolean,
+  walled: (x: number, y: number, side: Side) => boolean,
 ): { dist: Map<string, number>; prev: Map<string, string> } {
   const dist = new Map<string, number>();
   const prev = new Map<string, string>();
@@ -522,10 +536,10 @@ function search(
     const [d, key] = next;
     if (d > (dist.get(key) ?? Number.POSITIVE_INFINITY)) continue;
     const [x, y] = key.split(",").map(Number) as [number, number];
-    for (const [dx, dy] of STEPS) {
+    for (const [dx, dy, side] of STEPS) {
       const nx = x + dx;
       const ny = y + dy;
-      if (!inside(nx, ny)) continue;
+      if (!inside(nx, ny) || walled(x, y, side)) continue;
       const step = cost(nx, ny);
       if (step === undefined) continue;
       const nk = tileKey(nx, ny);

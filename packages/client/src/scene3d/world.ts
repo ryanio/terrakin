@@ -151,17 +151,21 @@ import {
   plotsAround,
   type Quarter,
   readChunk,
+  spotOfHit,
   type Tile,
   tileAtPoint,
   tileDistance,
-  tileOfHit,
   turnBetween,
   VIEW_RADIUS,
 } from "./world-layout";
 
 export interface World3dOptions {
-  /** A tap on the world, as the tile it landed on. Walking, building, and opening things follow. */
-  onTap(tile: Tile): void;
+  /**
+   * A tap on the world, as the tile it landed on and where in that tile, in tiles from its middle
+   * (what the build bar's walls between tiles read for the nearest side). Walking, building, and
+   * opening things follow.
+   */
+  onTap(tile: Tile, within: { fx: number; fy: number }): void;
   /** Whether a tap on a tile does more than walk there: a mouse over it shows a pointer. */
   tappable?(tile: Tile): boolean;
   /** The 3D view can't go on here: too slow even after stepping down, or the GPU went away. */
@@ -1286,8 +1290,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     down = undefined;
     if (!d || d.id !== e.pointerId) return;
     if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || e.timeStamp - d.t > 500) return;
-    const tile = pick(e.clientX, e.clientY);
-    if (tile && lastMirror) opts.onTap(tile);
+    const picked = pick(e.clientX, e.clientY);
+    if (picked && lastMirror) opts.onTap(picked.tile, picked.within);
   };
   const onCancel = () => {
     pointers = Math.max(0, pointers - 1);
@@ -1317,13 +1321,20 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   function hover(now: number) {
     if (!mouse || !opts.tappable || now - hoverAt < HOVER_MS) return;
     hoverAt = now;
-    const tile = pick(mouse.x, mouse.y);
+    const tile = pick(mouse.x, mouse.y)?.tile;
     const cursor = tile && opts.tappable(tile) ? "pointer" : "";
     if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
   }
 
-  /** The tile under a point on screen: a figure first, then a block or building, then the ground. */
-  function pick(clientX: number, clientY: number): Tile | undefined {
+  /**
+   * The tile under a point on screen, a figure first, then a block or building, then the ground,
+   * and where in it the ray met it: its middle for a figure or a building.
+   */
+  function pick(
+    clientX: number,
+    clientY: number,
+  ): { tile: Tile; within: { fx: number; fy: number } } | undefined {
+    const middle = { fx: 0, fy: 0 };
     const rect = canvas.getBoundingClientRect();
     ndc.set(
       ((clientX - rect.left) / rect.width) * 2 - 1,
@@ -1349,24 +1360,30 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       const id = ownerOf(figureHit.object, (o) => o.userData.residentId as string | undefined);
       const away = id ? figures.get(id)?.away : undefined;
       // Someone asleep at home is where they're drawn, not where they last stood.
-      if (away) return tileAtPoint(away.x, away.y);
+      if (away) return { tile: tileAtPoint(away.x, away.y), within: middle };
       const r = id ? lastMirror?.residents.get(id) : undefined;
-      if (r) return { x: r.x, y: r.y };
+      if (r) return { tile: { x: r.x, y: r.y }, within: middle };
     }
     if (hit) {
       const building = [...buildings.values()].find((b) =>
         ownerOf(hit.object, (o) => o === b.group),
       );
-      const tile = tileOfHit([hit.point.x, hit.point.y, hit.point.z], dir);
-      if (!building) return tile;
+      const spot = spotOfHit([hit.point.x, hit.point.y, hit.point.z], dir);
+      if (!building) return spot;
+      const { tile } = spot;
       // Anything on a building, its label too, is one of its tiles.
       const fp = building.footprint;
       const clamp = (v: number, mid: number, size: number) =>
         Math.min(mid + (size - 1) / 2, Math.max(mid - (size - 1) / 2, v));
-      return { x: clamp(tile.x, fp.x, fp.width), y: clamp(tile.y, fp.y, fp.depth) };
+      return {
+        tile: { x: clamp(tile.x, fp.x, fp.width), y: clamp(tile.y, fp.y, fp.depth) },
+        within: middle,
+      };
     }
     const g = groundPoint([origin.x, origin.y, origin.z], dir);
-    return g ? tileAtPoint(g[0], g[2]) : undefined;
+    if (!g) return undefined;
+    const tile = tileAtPoint(g[0], g[2]);
+    return { tile, within: { fx: g[0] - tile.x, fy: g[2] - tile.y } };
   }
 
   // ---------- losing the GPU ----------

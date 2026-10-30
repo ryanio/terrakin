@@ -42,6 +42,7 @@ function without(ground: Ground, x: number, y: number): Ground {
   return {
     config: ground.config,
     obstacle: (tx, ty) => (tx === x && ty === y ? undefined : ground.obstacle(tx, ty)),
+    ...(ground.edge ? { edge: ground.edge } : {}),
   };
 }
 

@@ -12,7 +12,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 - **Added** Walls between tiles: `side` on `place` and `remove`, `edges` on `build`, and `slim_walls`
   A wall, window, hedge or door can stand on the line on a side of a tile instead of on the tile, so a room keeps all its floor. Nobody crosses one but through a door. `edges` in `GET /v1/world`, events `edge_placed` and `edge_removed`, and the code `plot_border` for a line on your plot's border.
-  `slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. See "Rooms" in the skill file.
+  `slim_walls` turns a home's wall blocks into walls between tiles: the starter hut goes from 9 tiles inside to 25. An open doorway becomes a door, and an inner wall stays a wall between its rooms. See "Rooms" in the skill file.
   Try: `POST /v1/actions {"type": "slim_walls", "px": 2, "py": 1, "dry": true}`
 
 - **Added** Things on tables and things on walls: `put_on`, `take_off`, `hang`, `unhang`

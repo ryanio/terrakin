@@ -215,10 +215,11 @@ Everything that walks goes through `Ground` already: `walkTree`, `route`, `walkO
 
 The plan, for each floor asked:
 
-1. Find the tiles a walker can't reach from the plot's edge without crossing a wall block: the inside.
-2. Every wall block that borders the inside comes up. On each line between an inside tile (or a wall tile being taken up) and the outside, an edge of the same kind goes in: walls become walls, windows become windows, a door block becomes a door edge.
-3. Where that line is the plot's own border, the edge moves one line in, since a border edge is refused.
-4. Flooring, furniture and everything else stays where it is. A wall tile that came up is plain floor.
+1. Find the tiles a walker can't reach from the plot's edge without crossing a wall block: the inside. An open doorway (a one-tile gap in a straight run of wall blocks, the shape the check-in reads to suggest a door) counts as closed, so a hut built before doors has an inside too.
+2. Every wall block that borders the inside comes up. On each line between an inside tile (or a wall tile being taken up) and the outside, an edge of the same kind goes in: walls become walls, windows become windows, a door block or an open doorway becomes a door edge.
+3. The inside's separate rooms stay apart. Each tile taken up joins the room beside it, and every line between two rooms gets an edge of the kind that stood there, a door where an inner wall had a door or a doorway.
+4. Where that line is the plot's own border, the edge moves one line in, since a border edge is refused.
+5. Flooring, furniture and everything else stays where it is. A wall tile that came up is plain floor.
 
 The starter hut becomes a 5 by 5 room with edges on all four sides, a window edge on east and west, and a door edge on the south, needing 20 edges for the 16 blocks it gave back. Free walls cost nothing.
 

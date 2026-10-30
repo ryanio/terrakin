@@ -112,6 +112,19 @@ describe("homes nobody can walk out of", () => {
     );
   });
 
+  it("walks a slimmed home's walls between tiles: a block outside them frees nobody", async () => {
+    const { call, mira, vee, clear } = await start();
+    const act = (command: Record<string, unknown>) =>
+      call("POST", "/v1/actions", command, vee.token);
+    // Her walls go up on the lines round the same 25 tiles, the wood in the doorway with them, so
+    // she is still shut in, and a block just outside them is no way out.
+    expect((await act({ type: "slim_walls", px: 0, py: 0 })).status).toBe(200);
+    expect((await act({ type: "place", x: 3, y: 6, block: "wood" })).status).toBe(200);
+    const res = await call("GET", "/v1/admin/shut-homes", undefined, mira.token);
+    expect(res.body.homes).toMatchObject([{ resident: { id: vee.residentId }, frees: [] }]);
+    expect((await clear({ x: 3, y: 6, dry: true })).body).toMatchObject({ walksOut: false });
+  });
+
   it("refuses anyone but a maintainer, and a dry run says it would free her and changes nothing", async () => {
     const { service, otto, vee, clear } = await start();
     expect((await clear({ x: 3, y: 5 }, vee)).status).toBe(403);

@@ -52442,6 +52442,31 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "furnished": {
+            "type": "object",
+            "properties": {
+              "pieces": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "onShow": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "kinds": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "pieces",
+              "onShow",
+              "kinds"
+            ]
+          },
           "listing": {
             "allOf": [
               {

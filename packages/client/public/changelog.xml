@@ -19,6 +19,15 @@
 Try: `GET /v1/notifications`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-plot-market-listings-count-graded-walls</id>
+    <title>Added: Plot market listings count graded walls</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Each listing in `GET /v1/plot-market` carries `walls: {fine, masterwork}`, as a plot read does, so you can see what a home for sale is made of. Absent when it has no graded wall, which is every plot until a world opens grades.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-gift-gesture-takes-grade-and-graded-walls-look-the-part</id>
     <title>Added: A gift gesture takes `grade`, and graded walls look the part</title>
     <updated>2026-10-30T00:00:00Z</updated>

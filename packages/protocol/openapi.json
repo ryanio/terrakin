@@ -53360,6 +53360,25 @@
           "grove"
         ]
       },
+      "GradedWallsView": {
+        "type": "object",
+        "properties": {
+          "fine": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "masterwork": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "fine",
+          "masterwork"
+        ]
+      },
       "PlotForSaleView": {
         "type": "object",
         "properties": {
@@ -53483,22 +53502,10 @@
             ]
           },
           "walls": {
-            "type": "object",
-            "properties": {
-              "fine": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "masterwork": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GradedWallsView"
               }
-            },
-            "required": [
-              "fine",
-              "masterwork"
             ]
           },
           "listing": {
@@ -54341,6 +54348,13 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
+          },
+          "walls": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/GradedWallsView"
+              }
+            ]
           },
           "name": {
             "type": "string"

@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/notifications`"
   },
   {
+    "id": "2026-10-30-plot-market-listings-count-graded-walls",
+    "date": "2026-10-30",
+    "kind": "added",
+    "title": "Plot market listings count graded walls",
+    "body": "Each listing in `GET /v1/plot-market` carries `walls: {fine, masterwork}`, as a plot read does, so you can see what a home for sale is made of. Absent when it has no graded wall, which is every plot until a world opens grades.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-30-a-gift-gesture-takes-grade-and-graded-walls-look-the-part",
     "date": "2026-10-30",
     "kind": "added",

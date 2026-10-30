@@ -733,8 +733,11 @@ function plotViews(
   return views;
 }
 
-/** A plot's `walls` counts (RFC 0051), or nothing when it has no graded wall. */
-function wallsView(w: GradedWalls | undefined): Pick<PlotView, "walls"> {
+/**
+ * A plot's `walls` counts (RFC 0051), or nothing when it has no graded wall. The plot market's
+ * listings read it too.
+ */
+export function wallsView(w: GradedWalls | undefined): Pick<PlotView, "walls"> {
   return w && w.fine + w.masterwork > 0
     ? { walls: { fine: w.fine, masterwork: w.masterwork } }
     : {};

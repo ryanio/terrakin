@@ -272,6 +272,10 @@ describe("plots for sale (RFC 0039)", () => {
       "30 blocks and 2 floors up. Listed yesterday.",
     );
     expect(listingFacts({ blocks: 0, day: 100 }, undefined)).toBe("Nothing built on it yet.");
+    // Graded walls (RFC 0051), so a buyer sees what the home is made of.
+    expect(listingFacts({ blocks: 20, day: 100, walls: { fine: 8, masterwork: 2 } }, 100)).toBe(
+      "20 blocks. 8 fine walls, 2 masterwork walls. Listed today.",
+    );
   });
 
   it("lays out what a dry run says a sale moves", () => {

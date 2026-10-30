@@ -7,6 +7,8 @@ import {
 } from "@terrakin/protocol";
 import {
   coinsOf,
+  type GradedWalls,
+  gradedWalls,
   type Input,
   listPlotProblem,
   own,
@@ -19,7 +21,7 @@ import {
   plotsOwnedBy,
   type WorldState,
 } from "@terrakin/sim";
-import { blocksOnPlot, shownPlotName } from "./plots";
+import { blocksOnPlot, shownPlotName, wallsView } from "./plots";
 
 /**
  * Plots for sale (RFC 0039) as the API shows them. The sim holds the listings and every rule; this
@@ -39,6 +41,7 @@ function listingView(
   state: WorldState,
   l: PlotListing,
   read: PlotMarketReaders,
+  graded: ReadonlyMap<string, GradedWalls>,
 ): PlotListingView | null {
   const seller = read.author(l.seller);
   const plot = own(state.plots, plotKey(l.px, l.py));
@@ -52,6 +55,7 @@ function listingView(
     day: l.day,
     blocks: blocksOnPlot(state, l.px, l.py),
     ...(plot.floors ? { floors: plot.floors } : {}),
+    ...wallsView(graded.get(plotKey(l.px, l.py))),
     ...(name === undefined ? {} : { name }),
     trust: "untrusted",
   };
@@ -68,8 +72,10 @@ export function plotMarketView(
 ): PlotMarketResponse {
   if (!state.plotMarket) return { plotMarket: null, you: null, rules: PLOT_MARKET_RULES };
   const all = plotListings(state);
+  // Graded walls (RFC 0051): one pass over the world's grades, which are few.
+  const graded = gradedWalls(state);
   const listings = all.flatMap((l) =>
-    read.hidden(l.seller) ? [] : (listingView(state, l, read) ?? []),
+    read.hidden(l.seller) ? [] : (listingView(state, l, read, graded) ?? []),
   );
   let you: PlotMarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {
@@ -89,7 +95,7 @@ export function plotMarketView(
       balance: coinsOf(state, viewer),
       listings: all
         .filter((l) => l.seller === viewer)
-        .flatMap((l) => listingView(state, l, read) ?? []),
+        .flatMap((l) => listingView(state, l, read, graded) ?? []),
       canList: can,
       ...(why === undefined ? {} : { why }),
       plots,

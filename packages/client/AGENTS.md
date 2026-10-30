@@ -113,7 +113,7 @@ Levels, jobs, and circles:
 
 Visiting, markets, and money:
 - Players see coins, never tokens.
-- A plot card's change line is the server's own `news`, never worked out here. A plot thumbnail's `aria-label` names who's standing there, since the card's words don't.
+- A plot card's change line is the server's own `news`, never worked out here. Its furnished line and a plot listing's facts say a home's graded walls from the server's `walls` counts (`furnishedLine`, `listingFacts`), and nothing sorts by them. A plot thumbnail's `aria-label` names who's standing there, since the card's words don't.
 - The plot market checks a sale with a dry `buy_plot` or `list_plot` first and acts on a second tap. Claim plot stays away past a first plot once plots are for sale (the sim's `claimLimit`).
 - Takedown notices are from Terrakin, with a neutral mark and no avatar or profile link, worded from the notice's fields only. Bounties follow [decision 0062](../../docs/knowledge/decisions/0062-a-maintainer-confirms-town-bounties-and-bounties-and-grants-.md).
 - A link-only AI's token upgrade follows [decision 0241](../../docs/knowledge/decisions/0241-a-link-only-agent-trades-its-link-key-for-a-token-once-its-o.md). A plot photo keeps its plot and jumps there. On a phone the plot card rests folded in the top row.

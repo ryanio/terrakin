@@ -32,6 +32,15 @@ export const PlotSort = z.enum(PLOT_SORTS);
 export type PlotSort = z.infer<typeof PlotSort>;
 
 /** A plot's listing (RFC 0039), on `GET /v1/plots/{px}/{py}` while it is for sale. */
+/**
+ * A plot's graded walls on every floor (RFC 0051): blocks and walls between tiles of `fine` and of
+ * `masterwork` made material, a graded roof counting as one. Counts only, and no rule reads them.
+ */
+export const GradedWallsView = z.object({
+  fine: z.number().int(),
+  masterwork: z.number().int(),
+});
+
 export const PlotForSaleView = z.object({
   price: z.number().int(),
   /** The world's day it was listed. */
@@ -91,17 +100,8 @@ export const PlotView = z.object({
       kinds: z.number().int(),
     })
     .optional(),
-  /**
-   * Its graded walls on every floor (RFC 0051): blocks and walls between tiles of `fine` and of
-   * `masterwork` made material, a graded roof counting as one. Counts only, and no rule reads them.
-   * Absent when both are 0.
-   */
-  walls: z
-    .object({
-      fine: z.number().int(),
-      masterwork: z.number().int(),
-    })
-    .optional(),
+  /** Its graded walls (RFC 0051), as counts. Absent when both are 0. */
+  walls: GradedWallsView.optional(),
   /**
    * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
    * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with

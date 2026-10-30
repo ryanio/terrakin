@@ -6,6 +6,7 @@
 import type { PlotListingView, PlotMarketResponse, PlotSaleView } from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
+import { gradedWallsLine } from "./furnished-line";
 import { coins } from "./purse";
 
 type Rules = PlotMarketResponse["rules"];
@@ -68,11 +69,12 @@ export function priceProblem(typed: string, rules: Pick<Rules, "priceMax">): str
 }
 
 /**
- * What stands on a plot for sale and when it went up: "12 blocks and an upstairs. Listed 2 days
- * ago." The second sentence only once the world's day is known.
+ * What stands on a plot for sale, what its walls are made of, and when it went up: "12 blocks and
+ * an upstairs. 8 fine walls. Listed 2 days ago." The graded walls only when it has some (RFC 0051),
+ * the last sentence only once the world's day is known.
  */
 export function listingFacts(
-  l: Pick<PlotListingView, "blocks" | "floors" | "day">,
+  l: Pick<PlotListingView, "blocks" | "floors" | "day" | "walls">,
   today: number | undefined,
 ): string {
   const floors = l.floors ?? 0;
@@ -81,8 +83,10 @@ export function listingFacts(
     l.blocks === 0 && floors === 0
       ? "Nothing built on it yet."
       : `${plural(l.blocks, "block", "blocks")}${up}.`;
-  if (today === undefined) return built;
-  return `${built} Listed ${relativeDayWords(l.day, today)}.`;
+  const graded = gradedWallsLine(l.walls);
+  const made = graded === null ? built : `${built} ${graded}.`;
+  if (today === undefined) return made;
+  return `${made} Listed ${relativeDayWords(l.day, today)}.`;
 }
 
 /** The numbers a dry run gives back, as label and value rows for a sheet. */

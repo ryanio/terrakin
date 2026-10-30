@@ -1,11 +1,13 @@
 import {
   chebyshev,
   clearCost,
+  edgeKey,
   type Ground,
   nearestCounter,
   plotAtTile,
   plotOf,
   plotsOwnedBy,
+  type Side,
   type WorldState,
   walkTree,
   walkWords,
@@ -46,13 +48,34 @@ function without(ground: Ground, x: number, y: number): Ground {
   };
 }
 
+/** The ground with the wall on the line on `side` of (x, y) taken away (RFC 0050). */
+function withoutLine(ground: Ground, x: number, y: number, side: Side): Ground {
+  const { edge } = ground;
+  if (!edge) return ground;
+  const gone = edgeKey(x, y, side);
+  return {
+    config: ground.config,
+    obstacle: ground.obstacle,
+    edge: (tx, ty, s) => edgeKey(tx, ty, s) !== gone && edge(tx, ty, s),
+  };
+}
+
 /**
- * Whether the hearth at `from` has a walk to its counter once the block at `cleared` is gone.
- * The staff route reads it to say whether a clear did what it was for.
+ * Whether the hearth at `from` has a walk to its counter once the block at `cleared` is gone, or
+ * with a `side`, the wall on that line of the tile. The staff route reads it to say whether a
+ * clear did what it was for.
  */
-export function walksOutWithout(state: WorldState, from: Tile, cleared?: Tile): boolean {
+export function walksOutWithout(
+  state: WorldState,
+  from: Tile,
+  cleared?: Tile & { side?: Side },
+): boolean {
   const ground = worldGround(state);
-  const g = cleared ? without(ground, cleared.x, cleared.y) : ground;
+  const g = !cleared
+    ? ground
+    : cleared.side
+      ? withoutLine(ground, cleared.x, cleared.y, cleared.side)
+      : without(ground, cleared.x, cleared.y);
   return walkOut(state, g, from, nearestCounter(state, from)).out;
 }
 

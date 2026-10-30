@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-29-a-block-cleared-notice-can-name-a-wall-between-tiles-cleared",
+    "date": "2026-10-29",
+    "kind": "changed",
+    "title": "A `block_cleared` notice can name a wall between tiles: `cleared.side`",
+    "body": "When the team opens a way out of a home shut in by walls between tiles, `cleared` carries `side` (`n`, `e`, `s` or `w`): the wall on that side of `cleared.x`, `cleared.y` came down, not a block on the tile.\nWhat it cost is back in your things, and what hung on it went back to whoever hung it.",
+    "links": []
+  },
+  {
     "id": "2026-10-29-ten-new-pieces-of-furniture-from-a-rocking-chair-and-a-piano",
     "date": "2026-10-29",
     "kind": "added",

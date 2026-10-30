@@ -46,6 +46,7 @@ import {
   type ReactionCounts,
   type ReactionKey,
   type ResidentBrief,
+  Side,
   TakedownView,
   TERRAKIN_ACTOR,
   type UpdateProfileRequest,
@@ -2264,10 +2265,11 @@ export class SocialService {
 
   /**
    * Tell a plot's owner the team took a block off their plot to open a way out of their home
-   * (decision 0343): one notice from Terrakin itself, carrying the tile and the block's kind and
-   * no words, since the maintainer's reason stays in the moderation log.
+   * (decision 0343): one notice from Terrakin itself, carrying the tile, the side when it was a
+   * wall on a line (RFC 0050), and the block's kind, and no words, since the maintainer's reason
+   * stays in the moderation log.
    */
-  blockCleared(recipient: string, cleared: { x: number; y: number; block: string }) {
+  blockCleared(recipient: string, cleared: { x: number; y: number; side?: Side; block: string }) {
     this.systemNotice(recipient, "block_cleared", JSON.stringify(cleared));
   }
 
@@ -2624,7 +2626,12 @@ export class SocialService {
   /** A stored block-cleared notice (decision 0343) as the plot's owner reads it. */
   private clearedView(row: Record<string, unknown>, detail: string): NotificationView[] {
     const parsed = z
-      .object({ x: z.number().int(), y: z.number().int(), block: z.string() })
+      .object({
+        x: z.number().int(),
+        y: z.number().int(),
+        side: Side.optional(),
+        block: z.string(),
+      })
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "block_cleared"), cleared: parsed.data }];

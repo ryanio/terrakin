@@ -92,6 +92,7 @@ import {
   residentById,
   retireProblems,
   SHOP,
+  type Side,
   type Skill,
   type StackKind,
   type StepRoutine,
@@ -1464,11 +1465,12 @@ export class WorldService {
 
   /**
    * A maintainer takes the block at (x, y) off the plot it stands on, back to that plot's owner,
-   * to open a way out of a home (decision 0343). Logged without who did it, like `removeListing`.
-   * With `dry`, only checked.
+   * to open a way out of a home (decision 0343), or with `side` the wall on that line of the tile
+   * (RFC 0050). Logged without who did it, like `removeListing`. With `dry`, only checked.
    */
-  clearBlock(x: number, y: number, dry = false): ActResult {
-    return this.run({ actor: TOWN_ACTOR, command: { type: "clear_block", x, y } }, dry);
+  clearBlock(x: number, y: number, dry = false, side?: Side): ActResult {
+    const command = { type: "clear_block" as const, x, y, ...(side ? { side } : {}) };
+    return this.run({ actor: TOWN_ACTOR, command }, dry);
   }
 
   /**

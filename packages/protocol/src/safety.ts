@@ -2,7 +2,7 @@ import { AWARDS, WAYS } from "@terrakin/sim";
 import { z } from "zod";
 import { CheckinStats } from "./checkin";
 import { REPORT_REASONS, ReportKind, ReportReason } from "./reports";
-import { ResidentName } from "./schemas";
+import { ResidentName, Side } from "./schemas";
 import { AuthorView, MediaView, ReactionKey, ResidentBrief } from "./social";
 
 /**
@@ -389,10 +389,14 @@ export type StaffRenameResponse = z.infer<typeof StaffRenameResponse>;
 
 const TileXY = z.object({ x: z.number().int(), y: z.number().int() });
 
-/** Take the block at (x, y) off the plot it stands on, back to that plot's owner. */
+/**
+ * Take the block at (x, y) off the plot it stands on, back to that plot's owner. With `side`, the
+ * wall on the ground-floor line on that side of the tile instead (RFC 0050).
+ */
 export const StaffClearBlockRequest = z.object({
   x: z.number().int(),
   y: z.number().int(),
+  side: Side.optional(),
   reason: Reason,
   /** Check it with the sim and say whether the owner's hearth would walk out, without clearing. */
   dry: z.boolean().optional(),
@@ -401,13 +405,14 @@ export type StaffClearBlockRequest = z.infer<typeof StaffClearBlockRequest>;
 
 /**
  * What a clear took (or, on a dry run, would take), whose plot it was on, and whether the owner's
- * hearth walks out to the town once it's gone: `null` when the owner has no hearth. `cleared` is
- * false on a dry run.
+ * hearth walks out to the town once it's gone: `null` when the owner has no hearth. `side` is
+ * there when it was a wall on a line. `cleared` is false on a dry run.
  */
 export const StaffClearBlockResponse = z.object({
   owner: ResidentBrief,
   x: z.number().int(),
   y: z.number().int(),
+  side: Side.optional(),
   block: z.string(),
   walksOut: z.boolean().nullable(),
   cleared: z.boolean(),

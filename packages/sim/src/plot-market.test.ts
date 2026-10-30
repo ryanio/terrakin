@@ -204,6 +204,7 @@ describe("a listed plot is frozen", () => {
       },
     ],
     [TOWN_ACTOR, { type: "clear_block", x: 1, y: 1 }],
+    [TOWN_ACTOR, { type: "clear_block", x: 2, y: 2, side: "n" }],
     [TOWN_ACTOR, { type: "open_way", tiles: [[0, 7]] }],
     [
       TOWN_ACTOR,

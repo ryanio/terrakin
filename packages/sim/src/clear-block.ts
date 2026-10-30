@@ -1,12 +1,13 @@
 import { refuse } from "./check";
 import { displayRemoveProblem } from "./display";
+import { checkEdgeRemove } from "./edge-actions";
 import { removeProblem } from "./floors";
 import { blockRemoveProblem, cropAt, moveBlockCost } from "./items";
 import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
 import { kilnRemoveProblem, potRemoveProblem } from "./pottery";
-import { releaseHungOn, topRemoveProblem } from "./surfaces";
-import type { Command, Rejection, WorldEvent, WorldState } from "./types";
+import { isSide, releaseHungOn, topRemoveProblem } from "./surfaces";
+import type { Command, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
 
@@ -19,8 +20,9 @@ type Mutation = () => WorldEvent[];
  * took comes back to their things, and a free block gives nothing back. It is refused exactly where
  * the owner's own `remove` would be, so staff can never leave a plot in a state its owner couldn't:
  * a planter with something growing, a kiln firing a pot, a block under a display, a wall that holds up an upstairs, or
- * an owner with no room for what comes back. Whether the way is open afterwards is the server's
- * question, not this rule's.
+ * an owner with no room for what comes back. With a `side`, it takes the wall on that line of the
+ * tile instead (`clearLine`). Whether the way is open afterwards is the server's question, not
+ * this rule's.
  */
 export function checkClearBlock(
   state: WorldState,
@@ -35,6 +37,7 @@ export function checkClearBlock(
   // Staff take a plot off the market first: a buyer pays for the plot as it stands.
   const listed = plotListedProblem(state, plot.px, plot.py);
   if (listed) return listed;
+  if (command.side !== undefined) return clearLine(state, plot.ownerId, x, y, command.side);
   const key = tileKey(x, y);
   const taken = state.blocks[key];
   if (taken === undefined) return refuse("no_block", "Nothing to remove there.");
@@ -64,4 +67,27 @@ export function checkClearBlock(
       ...releaseHungOn(state, x, y, 0, TOWN_ACTOR),
     ];
   };
+}
+
+/**
+ * `clear_block` with a `side` (RFC 0050): the wall on the ground-floor line on that side of
+ * (x, y) comes down exactly as the plot owner's own `remove` with that side would take it, with
+ * the same refusals (no wall there, a line holding up an upstairs, no room for what comes back),
+ * its cost back to the owner and what hung on it back to whoever hung it.
+ */
+function clearLine(
+  state: WorldState,
+  owner: ResidentId,
+  x: number,
+  y: number,
+  side: unknown,
+): Mutation | Rejection {
+  if (!isSide(side)) {
+    return refuse("out_of_bounds", "side is n, e, s or w: the line on that side of the tile.");
+  }
+  const checked = checkEdgeRemove(state, owner, x, y, side, 0, TOWN_ACTOR);
+  if (typeof checked !== "function" && checked.code === "inventory_full") {
+    return refuse("inventory_full", "The plot's owner has no room for what that wall gives back.");
+  }
+  return checked;
 }

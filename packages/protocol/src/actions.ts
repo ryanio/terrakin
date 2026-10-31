@@ -893,8 +893,13 @@ export const BuyPlotAction = z.object({
     .int()
     .min(1)
     .max(MARKET.priceMax)
+    .describe("The price you saw, in coins. Any other is refused with `price_changed`."),
+  listed: z
+    .number()
+    .int()
+    .min(0)
     .describe(
-      "The price you saw, in coins. If its seller listed it again at another, the buy is refused with `price_changed` and nothing is paid.",
+      "The listing you saw: its `listed` from `GET /v1/plot-market` or the plot's read. If the plot was taken back and listed again since, even at the same price, the buy is refused with `listing_changed` and nothing is paid.",
     ),
   ...dry,
 });

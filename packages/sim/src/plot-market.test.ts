@@ -54,7 +54,11 @@ function walkTo(state: WorldState, actor: string, to: { x: number; y: number }) 
 }
 
 const list = (price = 300): Command => ({ type: "list_plot", px: 0, py: 0, price });
-const buy: Command = { type: "buy_plot", px: 0, py: 0, price: 300 };
+/** A buy of plot (px, py) as its listing stands now, or of nothing when it isn't for sale. */
+const buy = (state: WorldState, px = 0, py = 0): Command => {
+  const listing = plotListing(state, px, py);
+  return { type: "buy_plot", px, py, price: listing?.price ?? 300, listed: listing?.listed ?? 0 };
+};
 
 describe("opening the plot market", () => {
   it("waits for the item market and for a second land, so free land exists whenever prices do", () => {
@@ -98,7 +102,7 @@ describe("opening the plot market", () => {
     );
     refused(unopened, "ada", list(), "market_closed");
     refused(unopened, "ada", { type: "unlist_plot", px: 0, py: 0 }, "market_closed");
-    refused(unopened, "bob", buy, "market_closed");
+    refused(unopened, "bob", buy(unopened), "market_closed");
   });
 });
 
@@ -153,7 +157,7 @@ describe("listing a plot", () => {
     fund(town, "ada", PLOTS.listingFee);
     fund(town, "bob", 300);
     ok(town, "ada", list());
-    refused(town, "bob", buy, "not_eligible");
+    refused(town, "bob", buy(town), "not_eligible");
 
     // Guests said they'd come to an event booked there.
     const booked = world();
@@ -303,27 +307,42 @@ describe("buying a plot", () => {
     const state = world();
     ok(state, "ada", list());
     // Cy is Ada's AI, with the coins to pay.
-    refused(state, "cy", buy, "not_eligible");
+    refused(state, "cy", buy(state), "not_eligible");
   });
 
   it("pays only the price the buyer sent, so a plot listed again at another price is refused", () => {
     const state = world();
     ok(state, "ada", list(300));
+    const seen = buy(state);
     ok(state, "ada", { type: "unlist_plot", px: 0, py: 0 });
     ok(state, "ada", list(900));
-    // Bob saw it at 300 and has the coins for 900: he pays neither.
-    refused(state, "bob", buy, "price_changed");
-    refused(state, "bob", { type: "buy_plot", px: 0, py: 0, price: 1000 }, "price_changed");
+    // Bob saw it at 300 and has the coins for 900: his buy is for a listing that's gone.
+    refused(state, "bob", seen, "listing_changed");
+    refused(state, "bob", { ...buy(state), price: 1000 } as Command, "price_changed");
     refused(state, "bob", { type: "buy_plot", px: 0, py: 0 } as Command, "invalid_amount");
-    ok(state, "bob", { type: "buy_plot", px: 0, py: 0, price: 900 });
+    ok(state, "bob", buy(state));
+  });
+
+  it("refuses a buy meant for a listing taken back and listed again at the same price", () => {
+    // Ada lists, Bob looks; she takes it back, takes a wall down, and lists it again at 300. The
+    // plot Bob was asked to say yes to isn't the one for sale now, so his buy is refused.
+    const state = world();
+    ok(state, "ada", list(300));
+    const seen = buy(state);
+    ok(state, "ada", { type: "unlist_plot", px: 0, py: 0 });
+    ok(state, "ada", { type: "remove", x: 1, y: 1 });
+    ok(state, "ada", list(300));
+    expect(buy(state)).not.toEqual(seen);
+    refused(state, "bob", seen, "listing_changed");
+    ok(state, "bob", buy(state));
   });
 
   it("refuses your own plot, a buyer at the plot cap, one who can't pay, and a plot not for sale", () => {
     const state = world();
-    refused(state, "bob", buy, "unknown_listing");
+    refused(state, "bob", buy(state), "unknown_listing");
     ok(state, "ada", list());
-    refused(state, "ada", buy, "own_listing");
-    refused(state, "eve", buy, "not_enough_coins");
+    refused(state, "ada", buy(state), "own_listing");
+    refused(state, "eve", buy(state), "not_enough_coins");
   });
 
   it("moves the plot as it stands and the coins less the fee, and clears what was a person's", () => {
@@ -333,7 +352,7 @@ describe("buying a plot", () => {
     const econ = state.economy;
     if (!econ) throw new Error("no economy");
     const before = { ada: econ.coins.ada ?? 0, bob: econ.coins.bob ?? 0, treasury: econ.treasury };
-    const events = ok(state, "bob", buy);
+    const events = ok(state, "bob", buy(state));
     expect(state.plots["0,0"]?.ownerId).toBe("bob");
     expect(state.plots["0,0"]?.coOwners).toBeUndefined();
     expect(JSON.stringify(state.blocks)).toBe(blocks);
@@ -366,7 +385,7 @@ describe("buying a plot", () => {
     const sale = plotSale(state, 0, 0, 300, "eve");
     expect(sale.shared).toEqual([]);
     expect(sale.hearths).toEqual(["ada"]);
-    const events = ok(state, "eve", buy);
+    const events = ok(state, "eve", buy(state));
     expect(state.plots["0,0"]?.ownerId).toBe("eve");
     expect(state.residents.eve?.hearth).toEqual({ x: 2, y: 3 });
     expect(state.residents.ada?.hearth).toBeNull();
@@ -412,10 +431,10 @@ describe("buying a plot", () => {
     ok(later, "ada", list(300));
     ok(later, "fay", { type: "list_plot", px: 2, py: 0, price: 300 });
     ok(later, "gus", { type: "list_plot", px: 0, py: 2, price: 300 });
-    ok(later, "dee", buy);
-    ok(later, "dee", { type: "buy_plot", px: 2, py: 0, price: 300 });
+    ok(later, "dee", buy(later));
+    ok(later, "dee", buy(later, 2, 0));
     expect(plotsOwnedBy(later, "dee")).toHaveLength(3);
-    refused(later, "dee", { type: "buy_plot", px: 0, py: 2, price: 300 }, "plot_limit");
+    refused(later, "dee", buy(later, 0, 2), "plot_limit");
   });
 
   it("replays its fixture to the hash pinned when it landed", () => {

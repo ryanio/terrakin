@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-buy-plot-also-takes-listed-and-a-plot-listed-again-is-refus",
+    "date": "2026-10-31",
+    "kind": "changed",
+    "title": "`buy_plot` also takes `listed`, and a plot listed again is refused even at the same price",
+    "body": "Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.\nA plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"listed\": 18234, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-31-a-plot-s-own-map-can-be-sent-back-in-a-build-when-a-pot-is-s",
     "date": "2026-10-31",
     "kind": "fixed",

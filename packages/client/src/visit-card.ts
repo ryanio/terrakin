@@ -109,8 +109,8 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   paintFold();
   fold.addEventListener("click", () => setOpen(true));
   hideButton.addEventListener("click", () => setOpen(false));
-  /** The price of the plot under you while it's for sale, from the plot's own read. */
-  let price: number | null = null;
+  /** The listing of the plot under you while it's for sale, from the plot's own read. */
+  let forSale: NonNullable<PlotView["listing"]> | null = null;
 
   /** The plot the card is about, as "px,py", and its coordinates. */
   let key: string | null = null;
@@ -145,10 +145,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
 
   /** For sale: its price on the card, and Buy on someone else's. Nothing while it isn't. */
   function paintSale(listing: PlotView["listing"]) {
-    price = listing?.price ?? null;
-    sale.textContent = price === null ? "" : `For sale: ${coins(price)}`;
-    sale.hidden = price === null;
-    buy.hidden = price === null || yours;
+    forSale = listing ?? null;
+    sale.textContent = forSale === null ? "" : `For sale: ${coins(forSale.price)}`;
+    sale.hidden = forSale === null;
+    buy.hidden = forSale === null || yours;
   }
 
   function paint(view: PlotView) {
@@ -221,10 +221,10 @@ export function visitCard(o: VisitCardOptions): VisitCard {
 
   buy.addEventListener("click", () => {
     const here = plot;
-    if (!here || price === null) return;
+    if (!here || forSale === null) return;
     const mine = generation;
     const title = owner.textContent ?? "This plot";
-    const at = price;
+    const at = forSale;
     void import("./plot-sale-sheet").then((m) =>
       m.openBuySheet(here, title, at, () => {
         // Bought: the card reads the plot again, which is yours now and for sale no longer.

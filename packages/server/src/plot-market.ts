@@ -61,6 +61,7 @@ function listingView(
     seller,
     price: l.price,
     day: l.day,
+    listed: l.listed,
     blocks: blocksOnPlot(state, l.px, l.py),
     edges: counts.edges.get(plotKey(l.px, l.py)) ?? 0,
     ...(plot.floors ? { floors: plot.floors } : {}),

@@ -587,7 +587,7 @@ describe("a home the way cuts through", () => {
       "a plot for sale",
       (s) => {
         s.plotMarket = {
-          listings: { "1,0": { px: 1, py: 0, seller: "bo", price: 100, day: 0 } },
+          listings: { "1,0": { px: 1, py: 0, seller: "bo", price: 100, day: 0, listed: 1 } },
         };
       },
     ],

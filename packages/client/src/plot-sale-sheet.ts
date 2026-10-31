@@ -44,17 +44,19 @@ function receipt(sale: PlotSaleView, move: "buy" | "list", rules: Rules): HTMLEl
 }
 
 /**
- * Buy plot `at`, called `title`, for `price`: a dry `buy_plot` as the sheet opens says what it
- * moves, then the buy goes on a second tap. `done` reads the market again once it went through.
+ * Buy plot `at`, called `title`, as its `listing` stood when the page read it (its price and its
+ * own number, `listed`): a dry `buy_plot` as the sheet opens says what it moves, then the buy goes
+ * on a second tap, for that listing only. `done` reads the market again once it went through.
  * `rules` are the market's answer's, and the protocol's own where the page has none (the world).
  */
 export function openBuySheet(
   at: At,
   title: string,
-  price: number,
+  listing: { price: number; listed: number },
   done: () => void,
   rules: Rules = PLOT_MARKET_RULES,
 ) {
+  const { price, listed } = listing;
   const problem = errorLine("plot-buy-problem");
   const shown = h("div", {
     class: "stack tight plot-sale-shown",
@@ -80,7 +82,7 @@ export function openBuySheet(
     problem.textContent = "";
     await actFromButton(
       buy,
-      { type: "buy_plot", px: at.px, py: at.py, price },
+      { type: "buy_plot", px: at.px, py: at.py, price, listed },
       "The plot is yours.",
       {
         words,
@@ -100,7 +102,7 @@ export function openBuySheet(
   void (async () => {
     const r = await whileBusy(
       buy,
-      () => worldApi.act({ type: "buy_plot", px: at.px, py: at.py, price, dry: true }),
+      () => worldApi.act({ type: "buy_plot", px: at.px, py: at.py, price, listed, dry: true }),
       "Checking…",
     );
     const why = actProblem(r, words);

@@ -730,7 +730,9 @@ function plotViews(
       displays: displays.get(key) ?? 0,
       ...furnishedView(furnished.get(key)),
       ...wallsView(graded.get(key)),
-      ...(forSale ? { listing: { price: forSale.price, day: forSale.day } } : {}),
+      ...(forSale
+        ? { listing: { price: forSale.price, day: forSale.day, listed: forSale.listed } }
+        : {}),
       ...(plot.gallery ? { gallery: true as const } : {}),
     });
   }

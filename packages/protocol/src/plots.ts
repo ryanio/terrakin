@@ -56,6 +56,11 @@ export const PlotForSaleView = z.object({
   price: z.number().int(),
   /** The world's day it was listed. */
   day: z.number().int(),
+  /**
+   * This listing's own number: the `seq` of the input that listed it. Send it in `buy_plot`, so a
+   * plot taken back and listed again, even at the same price, is never bought in its place.
+   */
+  listed: z.number().int(),
 });
 
 export const PlotView = z.object({

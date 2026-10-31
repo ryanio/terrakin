@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-buy-plot-also-takes-listed-and-a-plot-listed-again-is-refus</id>
+    <title>Changed: `buy_plot` also takes `listed`, and a plot listed again is refused even at the same price</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.
+A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;listed&quot;: 18234, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-s-own-map-can-be-sent-back-in-a-build-when-a-pot-is-s</id>
     <title>Fixed: A plot's own map can be sent back in a `build` when a pot is set down on it</title>
     <updated>2026-10-31T00:00:00Z</updated>

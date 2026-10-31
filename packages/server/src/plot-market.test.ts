@@ -73,6 +73,9 @@ async function start(
 }
 
 const coins = (t: { service: WorldService }, id: string) => t.service.state.economy?.coins[id];
+/** Plot (0, 0)'s listing number, as a buyer reads it from the market, or 0 when it isn't listed. */
+const listed = (t: { service: WorldService }) =>
+  t.service.state.plotMarket?.listings[plotKey(0, 0)]?.listed ?? 0;
 
 /** The fixture's world on the day Ada may list, with everything open but the plot market. */
 const UNOPENED = PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market");
@@ -123,7 +126,14 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect((await t.call("GET", "/v1/world")).body).not.toHaveProperty("plotMarketOpen");
     const made = t.service.createSession({ name: "Wren", kind: "agent" });
     if (!made.ok || !made.token) throw new Error("Couldn't join Wren");
-    const buy = await t.act(made.token, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
+    const buy = await t.act(made.token, {
+      type: "buy_plot",
+      px: 0,
+      py: 0,
+      price: 300,
+      listed: listed(t),
+      dry: true,
+    });
     expect(buy.error.code).toBe("market_closed");
   });
 
@@ -189,8 +199,8 @@ describe("plots for sale on the API (RFC 0039)", () => {
     // And a door on a line between tiles (RFC 0050), which a home of such walls is mostly made of.
     t.service.state.edges = { "2,6,n": "door" };
 
-    const listed = await t.act(ada, { type: "list_plot", px: 0, py: 0, price: 300 });
-    expect(listed.ok).toBe(true);
+    const listing = await t.act(ada, { type: "list_plot", px: 0, py: 0, price: 300 });
+    expect(listing.ok).toBe(true);
     expect(coins(t, "ada")).toBe(adaHad - PLOTS.listingFee);
 
     // Anyone sees it, with what stands there counted, and its plot view carries the listing.
@@ -208,7 +218,9 @@ describe("plots for sale on the API (RFC 0039)", () => {
     ]);
     expect(market.plotMarket.listings[0].blocks).toBeGreaterThan(0);
     const plot = (await t.call("GET", "/v1/plots/0/0")).body.plot;
-    expect(plot.listing).toEqual({ price: 300, day: t.service.state.day });
+    // Both name the listing by its own number, which a buy sends back.
+    expect(market.plotMarket.listings[0].listed).toBe(listed(t));
+    expect(plot.listing).toEqual({ price: 300, day: t.service.state.day, listed: listed(t) });
     expect(plot.blocks).toBe(market.plotMarket.listings[0].blocks);
     expect(market.plotMarket.listings[0].edges).toBe(1);
     expect(plot.edges).toBe(1);
@@ -229,7 +241,14 @@ describe("plots for sale on the API (RFC 0039)", () => {
 
     // Bob's dry run says the price, the fee, his balance after, and that the seller's hearth goes.
     const bobHad = coins(t, "bob") ?? 0;
-    const dryBuy = await t.act(bob, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
+    const dryBuy = await t.act(bob, {
+      type: "buy_plot",
+      px: 0,
+      py: 0,
+      price: 300,
+      listed: listed(t),
+      dry: true,
+    });
     expect(dryBuy.plotSale).toMatchObject({
       price: 300,
       fee: 15,
@@ -244,7 +263,13 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(dryBuy.plotSale.note).toMatch(/loses their share/);
     expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("ada");
 
-    const bought = await t.act(bob, { type: "buy_plot", px: 0, py: 0, price: 300 });
+    const bought = await t.act(bob, {
+      type: "buy_plot",
+      px: 0,
+      py: 0,
+      price: 300,
+      listed: listed(t),
+    });
     expect(bought).toMatchObject({
       ok: true,
       plotSale: { price: 300, balanceAfter: bobHad - 300 },
@@ -286,9 +311,18 @@ describe("plots for sale on the API (RFC 0039)", () => {
     ]);
     const eve = t.token("eve");
     await t.act(t.token("ada"), { type: "list_plot", px: 0, py: 0, price: 300 });
-    const dry = await t.act(eve, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
+    const dry = await t.act(eve, {
+      type: "buy_plot",
+      px: 0,
+      py: 0,
+      price: 300,
+      listed: listed(t),
+      dry: true,
+    });
     expect(dry.plotSale.shared).toBe(0);
-    expect((await t.act(eve, { type: "buy_plot", px: 0, py: 0, price: 300 })).ok).toBe(true);
+    expect(
+      (await t.act(eve, { type: "buy_plot", px: 0, py: 0, price: 300, listed: listed(t) })).ok,
+    ).toBe(true);
     expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("eve");
     const notices = (await t.call("GET", "/v1/notifications", undefined, eve)).body.notifications;
     expect(notices.map((n: Json) => n.type)).not.toContain("share_ended");
@@ -308,7 +342,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
       const buy = await t.call(
         "POST",
         "/v1/actions",
-        { type: "buy_plot", px: 0, py: 0, price: 300, dry },
+        { type: "buy_plot", px: 0, py: 0, price: 300, listed: listed(t), dry },
         t.token("bob"),
       );
       expect(buy.body).toMatchObject({

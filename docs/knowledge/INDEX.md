@@ -347,7 +347,7 @@ What we chose and why. Newest last.
 - [The way planner takes down a wall on a line between two way tiles, priced as a wall block](decisions/0411-the-way-planner-takes-down-a-wall-on-a-line-between-two-way-.md) · 2026-10-30 · accepted · `server` `ways` `rfc-0050`
 - [Material grades keep RFC 0051's fine table and roll; the economy run finds them scarce, not draining](decisions/0412-material-grades-keep-rfc-0051-s-fine-table-and-roll-the-econ.md) · 2026-10-30 · accepted · `sim` `economy` `homes` `rfc-0051`
 - [Material grades open in every world, terrakin.org included, with RFC 0051's numbers](decisions/0413-material-grades-open-in-every-world-terrakin-org-included-wi.md) · 2026-10-30 · accepted · `grades` `rfc-0051` `switches` `server`
-- [buy_plot carries the price the buyer saw and a plot listed again at another price is refused](decisions/0414-buy-plot-carries-the-price-the-buyer-saw-and-a-plot-listed-a.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
+- [buy_plot carries the listing and the price the buyer saw, and a plot listed again is refused](decisions/0414-buy-plot-carries-the-price-the-buyer-saw-and-a-plot-listed-a.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
 
 ## Learnings
 

@@ -21,6 +21,11 @@ export const PlotListingView = z.object({
   price: z.number().int(),
   /** The world's day it was listed. */
   day: z.number().int(),
+  /**
+   * This listing's own number: the `seq` of the input that listed it. Send it in `buy_plot`, so a
+   * plot taken back and listed again, even at the same price, is never bought in its place.
+   */
+  listed: z.number().int(),
   /** Blocks on it, on every floor, decor and stations included. */
   blocks: z.number().int(),
   /** Walls, windows, hedges and doors on the lines between its tiles (RFC 0050), on every floor. */

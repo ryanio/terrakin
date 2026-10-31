@@ -264,7 +264,7 @@ export function checkListPlot(
   }
   const at = { seq: state.seq + 1, day };
   return () => {
-    plots.listings[plotKey(px, py)] = { px, py, seller: actor, price, day };
+    plots.listings[plotKey(px, py)] = { px, py, seller: actor, price, day, listed: at.seq };
     econ.burned += PLOTS.listingFee;
     return [
       movePurse(econ, actor, -PLOTS.listingFee, "plot_listing_fee", at),
@@ -410,16 +410,23 @@ export function checkBuyPlot(
       `That's your own plot. Take it back with {"type": "unlist_plot", "px": ${px}, "py": ${py}}.`,
     );
   }
-  // The price the buyer saw is part of what they agreed to: a listing taken back and put up again
-  // at another price is refused, never bought at the new one.
-  if (!isWhole(command.price)) {
-    return refuse("invalid_amount", 'Send the price you saw, as "price".');
+  // The listing and the price the buyer saw are what they agreed to. A plot taken back and listed
+  // again is another listing, even at the same price: while it was off the market its seller could
+  // change what stands on it, so a buy meant for the old one never goes through on the new.
+  if (!isWhole(command.listed) || !isWhole(command.price)) {
+    return refuse(
+      "invalid_amount",
+      'Send the listing you saw, as "listed", and its price, as "price", from GET /v1/plot-market.',
+    );
+  }
+  if (command.listed !== listing.listed) {
+    return refuse(
+      "listing_changed",
+      "That plot was taken back and listed again since you looked, so what stands on it may have changed. Look at it again before you buy.",
+    );
   }
   if (command.price !== price) {
-    return refuse(
-      "price_changed",
-      `That plot is ${coins(price)} now, not ${coins(command.price)}. Its seller listed it again. Check it again before you buy.`,
-    );
+    return refuse("price_changed", `That plot is ${coins(price)}, not ${coins(command.price)}.`);
   }
   if (sameHousehold(state, actor, seller)) {
     return refuse(

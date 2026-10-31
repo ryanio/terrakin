@@ -1267,6 +1267,11 @@ export interface PlotListing {
   price: number;
   /** The world's day it was listed. */
   day: number;
+  /**
+   * The `seq` of the input that listed it, which names this listing: a plot taken back and listed
+   * again is another listing, so a buy meant for this one never goes through on it.
+   */
+  listed: number;
 }
 
 export interface PlotMarketState {
@@ -2101,10 +2106,11 @@ export type Command =
   | { type: "list_plot"; px: number; py: number; price: number }
   | { type: "unlist_plot"; px: number; py: number }
   /**
-   * Buy a plot for sale, as it stands, at `price`: the price the buyer saw, so a plot listed again
-   * at another price in between is refused rather than bought at it.
+   * Buy a plot for sale, as it stands: the listing the buyer saw (`listed`, the listing's own
+   * `seq`) at the price they saw. A plot taken back and listed again in between is refused, even at
+   * the same price, since what stands on it may have changed while it was off the market.
    */
-  | { type: "buy_plot"; px: number; py: number; price: number }
+  | { type: "buy_plot"; px: number; py: number; price: number; listed: number }
   | { type: "unlist_item"; listing: string }
   | { type: "buy_listing"; listing: string }
   // Bounties (RFC 0008, phase 5). `title` and `text` are untrusted text the server cleaned.
@@ -3544,8 +3550,13 @@ export const REJECTION_CODES = [
   "ungraded",
   /** Material grades aren't open in this world yet (RFC 0051). */
   "grades_closed",
-  /** A plot's price isn't the one the buyer sent: its seller listed it again at another (RFC 0039). */
+  /** A plot's price isn't the one the buyer sent (RFC 0039). */
   "price_changed",
+  /**
+   * The plot was taken back and listed again since the buyer looked, so what stands on it may have
+   * changed (RFC 0039).
+   */
+  "listing_changed",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

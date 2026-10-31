@@ -31663,7 +31663,13 @@
             "type": "integer",
             "minimum": 1,
             "maximum": 100000,
-            "description": "The price you saw, in coins. If its seller listed it again at another, the buy is refused with `price_changed` and nothing is paid."
+            "description": "The price you saw, in coins. Any other is refused with `price_changed`."
+          },
+          "listed": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9007199254740991,
+            "description": "The listing you saw: its `listed` from `GET /v1/plot-market` or the plot's read. If the plot was taken back and listed again since, even at the same price, the buy is refused with `listing_changed` and nothing is paid."
           },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
@@ -31674,7 +31680,8 @@
           "type",
           "px",
           "py",
-          "price"
+          "price",
+          "listed"
         ]
       },
       "CancelBountyAction": {
@@ -32890,6 +32897,7 @@
           "ungraded",
           "grades_closed",
           "price_changed",
+          "listing_changed",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -53454,11 +53462,17 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "listed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
           }
         },
         "required": [
           "price",
-          "day"
+          "day",
+          "listed"
         ]
       },
       "PlotResponse": {
@@ -54390,6 +54404,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "listed": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "blocks": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -54443,6 +54462,7 @@
           "seller",
           "price",
           "day",
+          "listed",
           "blocks",
           "edges",
           "trust"

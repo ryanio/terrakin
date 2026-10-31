@@ -44,6 +44,14 @@
  *                home's wood or stone walls for it in one `build`. Off by default, so the month
  *                without it plays exactly as before; it prints the finds fine crafts spend against
  *                those picked up, the stock left, and the masterwork pairs a regular makes
+ *   --plots      the world opens the item market, its first island (the server's `planLand`) and
+ *                the plot market with a cap of 3 (RFC 0039), and residents drawn from their own
+ *                stream trade plots: sellers list a plot they've held 14 days now and then at a
+ *                price they pick, flippers list each plot as soon as they may at the going rate
+ *                and claim a free one again once it sells (the flip test), and collectors with the
+ *                coins buy the cheapest listing as a second or third plot. Anyone left with no plot
+ *                after a sale claims a free one. Off by default, so the month without it plays
+ *                exactly as before; it prints the sales, the fees, and what flipping earned
  *   --no-cozy    makers never go on to the armchair, the sofa, and the bed (RFC 0044), so the month
  *                plays as it did before them
  *   --no-floors nobody builds up (RFC 0028), so the month plays as it did before homes went up (the
@@ -186,6 +194,7 @@ const {
   holidaysOf,
   ITEMS,
   inventoryMaxOf,
+  listPlotProblem,
   inventorySize,
   isCommons,
   isDecorKind,
@@ -215,6 +224,11 @@ const {
   pickupLeft,
   picksLeft,
   plotAtTile,
+  PLOTS,
+  plotListing,
+  plotListings,
+  plotSale,
+  plotsOwnedBy,
   plotOf,
   POND,
   POTTERY,
@@ -259,6 +273,7 @@ const {
   worldGround,
 } = await import("../packages/sim/src/index.ts");
 const { SPECIALTIES } = await import("../packages/server/src/lesson-plan.ts");
+const { planLand } = await import("../packages/server/src/lands.ts");
 const { KARMA, KARMA_TIERS, tierAtLeast } = await import("../packages/protocol/src/social.ts");
 const { scoreKarma } = await import("../packages/server/src/karma.ts");
 const { movePurse, moveTreasury } = await import("../packages/sim/src/economy.ts");
@@ -288,6 +303,7 @@ const { values: args } = parseArgs({
     "no-jobs": { type: "boolean", default: false },
     kiln: { type: "boolean", default: false },
     grades: { type: "boolean", default: false },
+    plots: { type: "boolean", default: false },
     "job-edition": { type: "string" },
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
@@ -364,6 +380,12 @@ const KILN_ON = LEVELS_ON && args.kiln === true;
  * logged; its draws are its own stream.
  */
 const GRADES_ON = LEVELS_ON && args.grades === true;
+/**
+ * The plot market (RFC 0039): an island, the item market, the plot market with a cap of 3, and
+ * residents who list, flip, and collect plots. Off unless asked for, as on every world until
+ * `open_plot_market` is logged; its draws are its own stream.
+ */
+const PLOTS_ON = SHOP_OPEN && args.plots === true;
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 /** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
@@ -582,6 +604,15 @@ function simRules(residents = RESIDENTS, heard: JobCounts = monthJobs): Rules {
       }
       if (KILN_ON) must(TOWN_ACTOR, { type: "open_clay", water: true });
       if (GRADES_ON) must(TOWN_ACTOR, { type: "open_grades" });
+      if (PLOTS_ON) {
+        // As terrakin.org would: the item market, then the first island, then plots for sale with
+        // the cap of 3 in the same input (decision 0365).
+        must(TOWN_ACTOR, { type: "open_market" });
+        const land = planLand(state);
+        if (!land) throw new Error("No land to open for the plot market.");
+        must(TOWN_ACTOR, land);
+        must(TOWN_ACTOR, { type: "open_plot_market", maxPlotsPerResident: PLOTS.capMax });
+      }
     },
     newDay: (d) => must(TOWN_ACTOR, { type: "new_day", day: DAY0 + d }),
     join: (id) => must(id, { type: "join", name: id, kind: "human" }),
@@ -1638,6 +1669,148 @@ function goMake(rules: Rules, id: string, habits: Habits) {
     bench ??= workbench(rules, id);
     if (!next || !bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) break;
   }
+}
+
+// ---------- the plot market (RFC 0039) ----------
+
+// Who trades plots, and every price they ask: `--plots` alone draws from it.
+const trade = draws(mulberry32(SEED ^ 0x9107));
+
+/**
+ * The plot market's guesses, since nobody has traded a plot yet. A seller is someone who moves on
+ * now and then; a flipper claims free land to sell it (RFC 0039's flip test); a collector saves for
+ * a second plot. Asking prices span a few weeks of a regular's coins.
+ */
+const PLOT_TRADE = {
+  sellers: 0.2,
+  flippers: 0.03,
+  collectors: 0.1,
+  /** A seller's chance on a day at home of listing a plot they may sell. */
+  listDaily: 0.03,
+  /** What a seller asks, in coins. */
+  ask: [150, 600] as const,
+  /** What a flipper asks before any plot has sold. */
+  firstRate: 300,
+  /** Coins a collector keeps after buying. */
+  reserve: 50,
+} as const;
+
+type PlotRole = "seller" | "flipper" | "collector" | "none";
+const plotRoles = new Map<string, PlotRole>();
+function plotRole(p: Person): PlotRole {
+  let role = plotRoles.get(p.id);
+  if (role === undefined) {
+    const r = trade.between(0, 9999) / 10000;
+    role =
+      r < PLOT_TRADE.flippers
+        ? "flipper"
+        : r < PLOT_TRADE.flippers + PLOT_TRADE.collectors
+          ? "collector"
+          : r < PLOT_TRADE.flippers + PLOT_TRADE.collectors + PLOT_TRADE.sellers
+            ? "seller"
+            : "none";
+    plotRoles.set(p.id, role);
+  }
+  return role;
+}
+
+/** What the plot market did over the month. */
+const plotTrades = {
+  listed: 0,
+  sales: [] as { day: number; price: number; seller: string; buyer: string }[],
+  /** The market's fee on each sale, to the treasury. */
+  fees: 0,
+  /** Listing fees, burned. */
+  burned: 0,
+  /** Sellers left with no plot who claimed a free one again, and those who found none. */
+  resettled: 0,
+  noLand: 0,
+  /** Each flipper's coins from trading plots: what sales brought, less listing fees. */
+  flipNet: new Map<string, number>(),
+};
+
+/** The median price plots sold at so far, which a flipper asks; before any sale, a first guess. */
+function goingRate(): number {
+  const prices = plotTrades.sales.map((s) => s.price).sort((a, b) => a - b);
+  return prices.length === 0 ? PLOT_TRADE.firstRate : percentile(prices, 0.5);
+}
+
+/**
+ * A day of plot trading among the residents at home: sellers and flippers list what they may,
+ * then collectors buy the cheapest listing they can pay for and keep their reserve. Every step is
+ * an input to the sim, refused where the server's would be.
+ */
+function tradePlots(rules: Rules, day: number, home: Person[]) {
+  const { state } = rules;
+  for (const p of home) {
+    const role = plotRole(p);
+    if (role !== "seller" && role !== "flipper") continue;
+    for (const plot of plotsOwnedBy(state, p.id)) {
+      if (plotListing(state, plot.px, plot.py)) continue;
+      if (listPlotProblem(state, p.id, plot.px, plot.py)) continue;
+      if (role === "seller" && !trade.chance(PLOT_TRADE.listDaily)) continue;
+      const price = role === "flipper" ? goingRate() : trade.between(...PLOT_TRADE.ask);
+      if (!rules.send(p.id, { type: "list_plot", px: plot.px, py: plot.py, price })) continue;
+      plotTrades.listed++;
+      plotTrades.burned += PLOTS.listingFee;
+      if (role === "flipper") {
+        plotTrades.flipNet.set(p.id, (plotTrades.flipNet.get(p.id) ?? 0) - PLOTS.listingFee);
+      }
+    }
+  }
+  for (const p of home) {
+    if (plotRole(p) !== "collector") continue;
+    if (plotsOwnedBy(state, p.id).length >= state.config.maxPlotsPerResident) continue;
+    const have = rules.balance(p.id);
+    const choice = plotListings(state)
+      .filter((l) => l.seller !== p.id && l.price + PLOT_TRADE.reserve <= have)
+      .sort((a, b) => a.price - b.price || a.py - b.py || a.px - b.px)[0];
+    if (!choice) continue;
+    const { px, py, price, listed, seller } = choice;
+    const fee = plotSale(state, px, py, price).fee;
+    if (!rules.send(p.id, { type: "buy_plot", px, py, price, listed })) continue;
+    plotTrades.sales.push({ day, price, seller, buyer: p.id });
+    plotTrades.fees += fee;
+    if (plotRoles.get(seller) === "flipper") {
+      plotTrades.flipNet.set(seller, (plotTrades.flipNet.get(seller) ?? 0) + price - fee);
+    }
+    // A seller left with no plot claims a free one, a first plot, which stays free.
+    if (plotsOwnedBy(state, seller).length === 0) {
+      try {
+        rules.settle(seller);
+        plotTrades.resettled++;
+      } catch {
+        plotTrades.noLand++;
+      }
+    }
+  }
+}
+
+/** RFC 0039's economy checks, for a `--plots` run: the sales, the fees, and the flip test. */
+function plotLines(rules: Rules, people: Person[]) {
+  const sales = plotTrades.sales;
+  const prices = sales.map((s) => s.price).sort((a, b) => a - b);
+  const moved = prices.reduce((a, b) => a + b, 0);
+  const unsold = plotListings(rules.state).length;
+  const roles = (r: PlotRole) => people.filter((p) => p.settles && plotRoles.get(p.id) === r);
+  console.log(
+    `\nPlot market (RFC 0039, --plots): ${roles("seller").length} sellers, ${roles("flipper").length} flippers, ${roles("collector").length} collectors. ${plotTrades.listed} listings, ${sales.length} sold, ${unsold} still listed at month end. Sold at median ${percentile(prices, 0.5)} coins (p10 ${percentile(prices, 0.1)}, p90 ${percentile(prices, 0.9)}), ${moved} coins in all between residents; ${plotTrades.fees} to the treasury in fees, ${plotTrades.burned} burned in listing fees. ${plotTrades.resettled} sellers claimed a free plot again, ${plotTrades.noLand} found none.`,
+  );
+  const first = sales[0]?.day;
+  if (first !== undefined) console.log(`  First sale on day ${first}.`);
+  // The flip test: did claiming free land to sell it pay better than playing?
+  const settledIds = people.filter((p) => p.settles && p.arrives < DAYS);
+  const purse = (list: Person[]) =>
+    percentile(
+      list.map((p) => rules.balance(p.id)).sort((a, b) => a - b),
+      0.5,
+    );
+  const flippers = roles("flipper");
+  const nets = flippers.map((p) => plotTrades.flipNet.get(p.id) ?? 0).sort((a, b) => a - b);
+  const flipped = flippers.filter((p) => sales.some((s) => s.seller === p.id)).length;
+  console.log(
+    `  Flip test: ${flipped} of ${flippers.length} flippers sold at least once; what flipping brought a flipper, net of listing fees, median ${percentile(nets, 0.5)}, most ${nets.at(-1) ?? 0}. Month-end purse: flippers median ${purse(flippers)}, every settled resident ${purse(settledIds)}, collectors ${purse(roles("collector"))}.`,
+  );
 }
 
 // ---------- material grades (RFC 0051) ----------
@@ -3446,6 +3619,15 @@ function play(rules: Rules) {
         }
       }
     }
+    // The plot market (RFC 0039), among the settled residents who came home today.
+    if (PLOTS_ON) {
+      const here = new Set(active);
+      tradePlots(
+        rules,
+        day,
+        people.filter((p) => settled.has(p.id) && here.has(p.id)),
+      );
+    }
 
     // The welcomer pays starter gifts from their own purse, oldest newcomer first. Not on their
     // own first day: the rules refuse that.
@@ -4486,6 +4668,7 @@ function flowLines(
   }
   if (KILN_ON) potteryLines(people);
   if (GRADES_ON) gradeLines(rules, people);
+  if (PLOTS_ON) plotLines(rules, people);
   if (COZY_ON) {
     console.log(
       `Cozy pieces (RFC 0044): ${cozy.made} made by ${cozy.makers.size} makers, for ${cozy.cards} coins of cards and ${cozy.cushions} of cushions.`,

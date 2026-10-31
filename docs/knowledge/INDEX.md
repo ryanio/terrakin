@@ -350,6 +350,7 @@ What we chose and why. Newest last.
 - [buy_plot carries the listing and the price the buyer saw, and a plot listed again is refused](decisions/0414-buy-plot-carries-the-price-the-buyer-saw-and-a-plot-listed-a.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
 - [A plot keeps what it last sold for, shown on listings and plot reads, added before any world sells plots](decisions/0415-a-plot-keeps-what-it-last-sold-for-shown-on-listings-and-plo.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
 - [A large plot sale with a young resident in it gets a line in the moderation log for staff](decisions/0416-a-large-plot-sale-with-a-young-resident-in-it-gets-a-line-in.md) · 2026-10-31 · accepted · `server` `safety` `economy` `plots`
+- [The economy run with plot sales keeps the plot market's numbers and finds flipping pays only while free downtown land lasts](decisions/0417-the-economy-run-with-plot-sales-keeps-the-plot-market-s-numb.md) · 2026-10-31 · accepted · `economy` `plots` `sim` `numbers`
 
 ## Learnings
 

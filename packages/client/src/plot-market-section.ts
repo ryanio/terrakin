@@ -11,7 +11,7 @@ import { h } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, emptyNote, itemRow, itemRows, kindPill } from "@terrakin/ui/ui";
 import { listingAction } from "./market-words";
-import { listingFacts, ownPlotLine, ownPlotTitle } from "./plot-market";
+import { listingFacts, noListingsLine, ownPlotLine, ownPlotTitle } from "./plot-market";
 import { plotThumb } from "./plot-thumb";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
@@ -168,10 +168,7 @@ export function plotMarketSection(
     h("h2", { class: "section-title", attrs: { id: "plots" }, text: "Plots for sale" }),
     rows.length > 0
       ? itemRows(rows, { className: "plot-sale-rows" })
-      : emptyNote(
-          "No plots for sale",
-          "When a resident lists a plot, it shows here. Claiming an empty plot is still free.",
-        ),
+      : emptyNote("No plots for sale", noListingsLine((open.you?.plots.length ?? 0) > 0)),
     open.you ? null : h("p", { class: "hint", text: "Join to buy a plot." }),
     own.length > 0
       ? h(

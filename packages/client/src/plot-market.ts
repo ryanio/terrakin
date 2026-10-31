@@ -93,6 +93,16 @@ export function listingFacts(
   return `${made} Listed ${relativeDayWords(l.day, today)}.`;
 }
 
+/**
+ * What the market says with no plot for sale. A first plot is free to claim, which is worth saying
+ * to someone without one; to someone with a plot it would be wrong, since a second is only bought.
+ */
+export function noListingsLine(ownsAPlot: boolean): string {
+  return ownsAPlot
+    ? "When a resident lists a plot, it shows here."
+    : "When a resident lists a plot, it shows here. Your first plot is free to claim.";
+}
+
 /** The numbers a dry run gives back, as label and value rows for a sheet. */
 export function saleRows(
   sale: PlotSaleView,

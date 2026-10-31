@@ -201,7 +201,7 @@ export function checkListPlot(
   if (landOfPlot(state, px, py)) {
     return refuse(
       "not_eligible",
-      "Only downtown plots are for sale for now. Land across the water is still free to claim.",
+      "Only downtown plots can be sold for now, and this one is across the water.",
     );
   }
   const since = Math.max(plot.claimedDay ?? 0, plot.boughtDay ?? 0);
@@ -209,7 +209,7 @@ export function checkListPlot(
     const left = since + PLOTS.settleDays - day;
     return refuse(
       "not_yet",
-      `A plot can be sold ${PLOTS.settleDays} days after it was claimed or bought. This one can be in ${left === 1 ? "1 day" : `${left} days`}.`,
+      `You can sell this plot in ${left === 1 ? "1 day" : `${left} days`}. A plot waits ${PLOTS.settleDays} days after it's claimed or bought before it can be sold.`,
     );
   }
   if (hallAt(state, px, py)) {

@@ -149,7 +149,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
     });
     const dee = (await read("dee")).you;
     expect(dee.canList).toBe(false);
-    expect(dee.plots[0].why).toMatch(/^Only downtown plots are for sale/);
+    expect(dee.plots[0].why).toMatch(/^Only downtown plots can be sold/);
   });
 
   it("prices a listing and a sale before anything moves, then sells the plot as it stands", async () => {

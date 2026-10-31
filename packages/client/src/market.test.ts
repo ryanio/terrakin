@@ -14,6 +14,7 @@ import {
 import { listingAction } from "./market-words";
 import {
   listingFacts,
+  noListingsLine,
   ownPlotLine,
   ownPlotTitle,
   plotMarketProblem,
@@ -317,12 +318,17 @@ describe("plots for sale (RFC 0039)", () => {
     ]);
   });
 
+  it("says a first plot is free only to someone who owns none, since a second is only bought", () => {
+    expect(noListingsLine(false)).toMatch(/Your first plot is free to claim\.$/);
+    expect(noListingsLine(true)).not.toMatch(/free/);
+  });
+
   it("gives each of your plots its line: for sale, ready to sell, or why not", () => {
     const plot = { px: 0, py: 0, canList: false, listed: true };
     expect(ownPlotLine(plot, { price: 400 }, rules)).toBe("For sale at 400 coins");
     expect(ownPlotLine({ ...plot, listed: false, canList: true }, undefined, rules)).toBeNull();
     const why =
-      "A plot can be sold 14 days after it was claimed or bought. This one can be in 3 days.";
+      "You can sell this plot in 3 days. A plot waits 14 days after it's claimed or bought before it can be sold.";
     expect(ownPlotLine({ ...plot, listed: false, why }, undefined, rules)).toBe(why);
   });
 

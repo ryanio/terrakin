@@ -18,8 +18,11 @@ export const VISIT_STRIP = {
   max: 4,
   /** A plot that changed within this many days is fresh. */
   freshDays: 7,
-  /** A bare starter hut's blocks: a plot needs more than this to be worth a look. */
-  starterBlocks: 15,
+  /**
+   * A bare starter hut's walls, blocks and walls between tiles together: 20 lines since RFC 0050
+   * (16 blocks before). A plot needs more than this to be worth a look.
+   */
+  starterPieces: 20,
 } as const;
 
 /** Whether `me` lives on a plot: they own it, or it's shared with them (the sim's own rule). */
@@ -33,7 +36,7 @@ export function isMine(plot: Pick<PlotView, "owner" | "coOwners">, me: string | 
  * week, or someone came by or admired it.
  */
 function worthAVisit(plot: PlotView, now: number): boolean {
-  if (plot.blocks <= VISIT_STRIP.starterBlocks) return false;
+  if (plot.blocks + plot.edges <= VISIT_STRIP.starterPieces) return false;
   const changed = plot.changedAt === null ? Number.NaN : Date.parse(plot.changedAt);
   const fresh = now - changed <= VISIT_STRIP.freshDays * DAY_MS;
   return fresh || plot.admirers > 0 || plot.visitors > 0;

@@ -25,7 +25,7 @@ function plot(px: number, owner: string, extra: Partial<PlotView> = {}): PlotVie
     changedAt: new Date(NOW - 3_600_000).toISOString(),
     visitors: 0,
     admirers: 0,
-    blocks: VISIT_STRIP.starterBlocks + 4,
+    blocks: VISIT_STRIP.starterPieces + 4,
     edges: 0,
     displays: 0,
     ...extra,
@@ -36,10 +36,11 @@ describe("the home wall's plots to visit", () => {
   it("shows real residents' plots worth a look, never yours, and only once there are enough", () => {
     const old = new Date(NOW - (VISIT_STRIP.freshDays + 1) * DAY).toISOString();
     const plots = [
-      plot(0, "ivy"),
+      // A home of walls between tiles with a little more built is worth a look; a bare hut isn't.
+      plot(0, "ivy", { blocks: 2, edges: VISIT_STRIP.starterPieces }),
       plot(1, "me"),
       plot(2, "juniper", { owner: { ...plot(2, "juniper").owner, townsfolk: true } }),
-      plot(3, "sam", { blocks: VISIT_STRIP.starterBlocks }),
+      plot(3, "sam", { blocks: 0, edges: VISIT_STRIP.starterPieces }),
       plot(4, "lee", { changedAt: old }),
       plot(5, "ash", { changedAt: old, admirers: 1 }),
       plot(6, "kit", { changedAt: null, visitors: 2 }),

@@ -1,6 +1,6 @@
 import { MARKET, PLOTS } from "@terrakin/sim";
 import { z } from "zod";
-import { GradedWallsView } from "./plots";
+import { FurnishedView, GradedWallsView } from "./plots";
 import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
@@ -23,8 +23,12 @@ export const PlotListingView = z.object({
   day: z.number().int(),
   /** Blocks on it, on every floor, decor and stations included. */
   blocks: z.number().int(),
+  /** Walls, windows, hedges and doors on the lines between its tiles (RFC 0050), on every floor. */
+  edges: z.number().int(),
   /** Floors it added above its ground floor (RFC 0028). Absent when it has none. */
   floors: z.number().int().min(1).optional(),
+  /** How furnished its home is, as a plot read says it. Absent when it has nothing to count. */
+  furnished: FurnishedView.optional(),
   /**
    * Its graded walls (RFC 0051), as a plot read counts them, so a buyer sees what the home is made
    * of. Absent when both are 0. The price stays the seller's: no rule values a plot.

@@ -7,6 +7,7 @@ import {
 } from "@terrakin/protocol";
 import {
   coinsOf,
+  furnishing,
   type GradedWalls,
   gradedWalls,
   type Input,
@@ -21,7 +22,7 @@ import {
   plotsOwnedBy,
   type WorldState,
 } from "@terrakin/sim";
-import { blocksOnPlot, shownPlotName, wallsView } from "./plots";
+import { blocksOnPlot, edgeCounts, furnishedView, shownPlotName, wallsView } from "./plots";
 
 /**
  * Plots for sale (RFC 0039) as the API shows them. The sim holds the listings and every rule; this
@@ -37,11 +38,17 @@ export interface PlotMarketReaders {
   held: (id: string) => boolean;
 }
 
+/** What the listings read from one pass over the world: walls between tiles, and graded walls. */
+interface Counts {
+  edges: ReadonlyMap<string, number>;
+  graded: ReadonlyMap<string, GradedWalls>;
+}
+
 function listingView(
   state: WorldState,
   l: PlotListing,
   read: PlotMarketReaders,
-  graded: ReadonlyMap<string, GradedWalls>,
+  counts: Counts,
 ): PlotListingView | null {
   const seller = read.author(l.seller);
   const plot = own(state.plots, plotKey(l.px, l.py));
@@ -54,8 +61,10 @@ function listingView(
     price: l.price,
     day: l.day,
     blocks: blocksOnPlot(state, l.px, l.py),
+    edges: counts.edges.get(plotKey(l.px, l.py)) ?? 0,
     ...(plot.floors ? { floors: plot.floors } : {}),
-    ...wallsView(graded.get(plotKey(l.px, l.py))),
+    ...furnishedView(furnishing(state, l.px, l.py)),
+    ...wallsView(counts.graded.get(plotKey(l.px, l.py))),
     ...(name === undefined ? {} : { name }),
     trust: "untrusted",
   };
@@ -72,10 +81,10 @@ export function plotMarketView(
 ): PlotMarketResponse {
   if (!state.plotMarket) return { plotMarket: null, you: null, rules: PLOT_MARKET_RULES };
   const all = plotListings(state);
-  // Graded walls (RFC 0051): one pass over the world's grades, which are few.
-  const graded = gradedWalls(state);
+  // Walls between tiles (RFC 0050) and graded walls (RFC 0051): one pass over the world each.
+  const counts: Counts = { edges: edgeCounts(state), graded: gradedWalls(state) };
   const listings = all.flatMap((l) =>
-    read.hidden(l.seller) ? [] : (listingView(state, l, read, graded) ?? []),
+    read.hidden(l.seller) ? [] : (listingView(state, l, read, counts) ?? []),
   );
   let you: PlotMarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {
@@ -95,7 +104,7 @@ export function plotMarketView(
       balance: coinsOf(state, viewer),
       listings: all
         .filter((l) => l.seller === viewer)
-        .flatMap((l) => listingView(state, l, read, graded) ?? []),
+        .flatMap((l) => listingView(state, l, read, counts) ?? []),
       canList: can,
       ...(why === undefined ? {} : { why }),
       plots,

@@ -53368,6 +53368,31 @@
           "grove"
         ]
       },
+      "FurnishedView": {
+        "type": "object",
+        "properties": {
+          "pieces": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "onShow": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "kinds": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "pieces",
+          "onShow",
+          "kinds"
+        ]
+      },
       "GradedWallsView": {
         "type": "object",
         "properties": {
@@ -53474,6 +53499,11 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "edges": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "floors": {
             "type": "integer",
             "minimum": 1,
@@ -53485,28 +53515,10 @@
             "maximum": 9007199254740991
           },
           "furnished": {
-            "type": "object",
-            "properties": {
-              "pieces": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "onShow": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
-              },
-              "kinds": {
-                "type": "integer",
-                "minimum": -9007199254740991,
-                "maximum": 9007199254740991
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FurnishedView"
               }
-            },
-            "required": [
-              "pieces",
-              "onShow",
-              "kinds"
             ]
           },
           "walls": {
@@ -53556,6 +53568,7 @@
           "visitors",
           "admirers",
           "blocks",
+          "edges",
           "displays"
         ]
       },
@@ -54352,10 +54365,22 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "edges": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "floors": {
             "type": "integer",
             "minimum": 1,
             "maximum": 9007199254740991
+          },
+          "furnished": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/FurnishedView"
+              }
+            ]
           },
           "walls": {
             "allOf": [
@@ -54389,6 +54414,7 @@
           "price",
           "day",
           "blocks",
+          "edges",
           "trust"
         ]
       },

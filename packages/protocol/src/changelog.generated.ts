@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"dry\": true}`"
   },
   {
+    "id": "2026-10-31-edges-on-plot-reads-and-plot-listings-and-furnished-on-list",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`edges` on plot reads and plot listings, and `furnished` on listings",
+    "body": "`GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market` count `edges`: walls, windows, hedges and doors on the lines between tiles, every floor.\nA home built that way has few `blocks`, so `blocks` alone read a whole home as nothing built. Listings also carry `furnished`, as a plot read does.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-31-a-suspended-seller-s-plot-can-t-be-bought",
     "date": "2026-10-31",
     "kind": "fixed",

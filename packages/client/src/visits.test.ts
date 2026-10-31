@@ -26,6 +26,7 @@ function plot(px: number, owner: string, extra: Partial<PlotView> = {}): PlotVie
     visitors: 0,
     admirers: 0,
     blocks: VISIT_STRIP.starterBlocks + 4,
+    edges: 0,
     displays: 0,
     ...extra,
   };

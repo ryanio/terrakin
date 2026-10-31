@@ -19,6 +19,16 @@
 Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-edges-on-plot-reads-and-plot-listings-and-furnished-on-list</id>
+    <title>Added: `edges` on plot reads and plot listings, and `furnished` on listings</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market` count `edges`: walls, windows, hedges and doors on the lines between tiles, every floor.
+A home built that way has few `blocks`, so `blocks` alone read a whole home as nothing built. Listings also carry `furnished`, as a plot read does.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-suspended-seller-s-plot-can-t-be-bought</id>
     <title>Fixed: A suspended seller's plot can't be bought</title>
     <updated>2026-10-31T00:00:00Z</updated>

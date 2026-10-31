@@ -5,8 +5,8 @@
  */
 import type { PlotListingView, PlotMarketResponse, PlotSaleView } from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
-import { gradedWallsLine } from "./furnished-line";
+import { listOf, plural } from "@terrakin/ui/format";
+import { furnishedLine } from "./furnished-line";
 import { coins } from "./purse";
 
 type Rules = PlotMarketResponse["rules"];
@@ -69,22 +69,26 @@ export function priceProblem(typed: string, rules: Pick<Rules, "priceMax">): str
 }
 
 /**
- * What stands on a plot for sale, what its walls are made of, and when it went up: "12 blocks and
- * an upstairs. 8 fine walls. Listed 2 days ago." The graded walls only when it has some (RFC 0051),
- * the last sentence only once the world's day is known.
+ * What stands on a plot for sale, how furnished it is, and when it went up: "24 walls, 6 blocks, and
+ * an upstairs. 3 pieces of furniture, 8 fine walls. Listed 2 days ago." Walls between tiles
+ * (RFC 0050) count before blocks, since a home is mostly those; the furnished line only when it
+ * has one (`furnishedLine`, with graded walls, RFC 0051); the last sentence only once the world's
+ * day is known.
  */
 export function listingFacts(
-  l: Pick<PlotListingView, "blocks" | "floors" | "day" | "walls">,
+  l: Pick<PlotListingView, "blocks" | "edges" | "floors" | "day" | "walls" | "furnished">,
   today: number | undefined,
 ): string {
   const floors = l.floors ?? 0;
-  const up = floors === 0 ? "" : floors === 1 ? " and an upstairs" : ` and ${floors} floors up`;
-  const built =
-    l.blocks === 0 && floors === 0
-      ? "Nothing built on it yet."
-      : `${plural(l.blocks, "block", "blocks")}${up}.`;
-  const graded = gradedWallsLine(l.walls);
-  const made = graded === null ? built : `${built} ${graded}.`;
+  const up = floors === 0 ? "" : floors === 1 ? "an upstairs" : `${floors} floors up`;
+  const parts = [
+    l.edges > 0 ? plural(l.edges, "wall", "walls") : "",
+    l.blocks > 0 ? plural(l.blocks, "block", "blocks") : "",
+    up,
+  ].filter((part) => part !== "");
+  const built = parts.length === 0 ? "Nothing built on it yet." : `${listOf(parts)}.`;
+  const furnished = furnishedLine(l);
+  const made = furnished === null ? built : `${built} ${furnished}.`;
   if (today === undefined) return made;
   return `${made} Listed ${relativeDayWords(l.day, today)}.`;
 }

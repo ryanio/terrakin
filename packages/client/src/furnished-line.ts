@@ -22,7 +22,7 @@ export function furnishedLine(plot: Pick<PlotView, "furnished" | "walls">): stri
  * A home's graded walls (RFC 0051), from the server's counts: "12 fine walls, 1 masterwork wall".
  * Null when it has none.
  */
-export function gradedWallsLine(walls: PlotView["walls"]): string | null {
+function gradedWallsLine(walls: PlotView["walls"]): string | null {
   if (!walls) return null;
   const parts = [
     walls.fine > 0 ? plural(walls.fine, "fine wall", "fine walls") : "",

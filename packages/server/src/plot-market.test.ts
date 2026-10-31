@@ -181,6 +181,8 @@ describe("plots for sale on the API (RFC 0039)", () => {
       key.split(",").every((n) => Number(n) < size),
     );
     t.service.state.grades = { [wall as string]: "fine" };
+    // And a door on a line between tiles (RFC 0050), which a home of such walls is mostly made of.
+    t.service.state.edges = { "2,6,n": "door" };
 
     const listed = await t.act(ada, { type: "list_plot", px: 0, py: 0, price: 300 });
     expect(listed.ok).toBe(true);
@@ -203,6 +205,8 @@ describe("plots for sale on the API (RFC 0039)", () => {
     const plot = (await t.call("GET", "/v1/plots/0/0")).body.plot;
     expect(plot.listing).toEqual({ price: 300, day: t.service.state.day });
     expect(plot.blocks).toBe(market.plotMarket.listings[0].blocks);
+    expect(market.plotMarket.listings[0].edges).toBe(1);
+    expect(plot.edges).toBe(1);
     // Its graded walls, counted as the plot read counts them, so a buyer sees what it's made of.
     expect(market.plotMarket.listings[0].walls).toEqual({ fine: 1, masterwork: 0 });
     expect(plot.walls).toEqual(market.plotMarket.listings[0].walls);

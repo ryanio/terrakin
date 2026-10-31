@@ -9,6 +9,7 @@ import {
   blocksOn,
   canBuildOn,
   DAY_MS,
+  edgesOn,
   FLOORS,
   type Furnishing,
   furnishing,
@@ -687,6 +688,8 @@ function plotViews(
   const furnished = only
     ? new Map([[plotKey(only.px, only.py), furnishing(state, only.px, only.py)]])
     : furnishings(state);
+  // Its walls between tiles (RFC 0050): one pass over the world's lines either way.
+  const lines = edgeCounts(state);
   // Its graded walls (RFC 0051): one pass over the world's grades either way, which are few.
   const graded = gradedWalls(state);
   const one = only ? own(state.plots, plotKey(only.px, only.py)) : undefined;
@@ -722,6 +725,7 @@ function plotViews(
       visitors: facts.visitors.get(week) ?? 0,
       admirers: facts.admirers.get(week) ?? 0,
       blocks: blocks.get(key) ?? 0,
+      edges: lines.get(key) ?? 0,
       ...(plot.floors ? { floors: plot.floors } : {}),
       displays: displays.get(key) ?? 0,
       ...furnishedView(furnished.get(key)),
@@ -743,8 +747,25 @@ export function wallsView(w: GradedWalls | undefined): Pick<PlotView, "walls"> {
     : {};
 }
 
+/**
+ * Walls, windows, hedges and doors on the lines between tiles (RFC 0050), on every floor, counted
+ * for each plot by the tile a line is keyed by, as graded walls are (`gradedWalls`).
+ */
+export function edgeCounts(state: WorldState): Map<string, number> {
+  const size = state.config.plotSize;
+  const counts = new Map<string, number>();
+  for (let floor = 0; floor <= FLOORS.max; floor++) {
+    for (const key of Object.keys(edgesOn(state, floor))) {
+      const [x, y] = parseKey(key);
+      const at = plotKey(Math.floor(x / size), Math.floor(y / size));
+      counts.set(at, (counts.get(at) ?? 0) + 1);
+    }
+  }
+  return counts;
+}
+
 /** A plot's `furnished` counts, or nothing when it has none to show. */
-function furnishedView(f: Furnishing | undefined): Pick<PlotView, "furnished"> {
+export function furnishedView(f: Furnishing | undefined): Pick<PlotView, "furnished"> {
   if (!f) return {};
   const onShow = f.onSurfaces + f.onWalls + f.onDisplay;
   if (f.pieces === 0 && onShow === 0) return {};

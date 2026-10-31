@@ -264,18 +264,33 @@ describe("plots for sale (RFC 0039)", () => {
   });
 
   it("says what stands on a plot for sale, and when it went up once the day is known", () => {
-    expect(listingFacts({ blocks: 12, floors: 1, day: 100 }, 102)).toBe(
+    expect(listingFacts({ blocks: 12, edges: 0, floors: 1, day: 100 }, 102)).toBe(
       "12 blocks and an upstairs. Listed 2 days ago.",
     );
-    expect(listingFacts({ blocks: 1, day: 100 }, 100)).toBe("1 block. Listed today.");
-    expect(listingFacts({ blocks: 30, floors: 2, day: 100 }, 101)).toBe(
-      "30 blocks and 2 floors up. Listed yesterday.",
+    expect(listingFacts({ blocks: 1, edges: 0, day: 100 }, 100)).toBe("1 block. Listed today.");
+    expect(listingFacts({ blocks: 0, edges: 0, day: 100 }, undefined)).toBe(
+      "Nothing built on it yet.",
     );
-    expect(listingFacts({ blocks: 0, day: 100 }, undefined)).toBe("Nothing built on it yet.");
-    // Graded walls (RFC 0051), so a buyer sees what the home is made of.
-    expect(listingFacts({ blocks: 20, day: 100, walls: { fine: 8, masterwork: 2 } }, 100)).toBe(
-      "20 blocks. 8 fine walls, 2 masterwork walls. Listed today.",
+    // A home of walls between tiles (RFC 0050), as every slimmed home is, has few blocks or none.
+    expect(listingFacts({ blocks: 0, edges: 24, day: 100 }, 101)).toBe(
+      "24 walls. Listed yesterday.",
     );
+    expect(listingFacts({ blocks: 6, edges: 1, floors: 2, day: 100 }, undefined)).toBe(
+      "1 wall, 6 blocks, and 2 floors up.",
+    );
+    // How furnished it is, and its graded walls (RFC 0051), so a buyer sees what the home is made of.
+    expect(
+      listingFacts(
+        {
+          blocks: 20,
+          edges: 0,
+          day: 100,
+          furnished: { pieces: 3, onShow: 0, kinds: 2 },
+          walls: { fine: 8, masterwork: 2 },
+        },
+        100,
+      ),
+    ).toBe("20 blocks. 3 pieces of furniture, 8 fine walls, 2 masterwork walls. Listed today.");
   });
 
   it("lays out what a dry run says a sale moves", () => {

@@ -31,7 +31,6 @@ export const PLOT_SORTS = ["recent", "admired"] as const;
 export const PlotSort = z.enum(PLOT_SORTS);
 export type PlotSort = z.infer<typeof PlotSort>;
 
-/** A plot's listing (RFC 0039), on `GET /v1/plots/{px}/{py}` while it is for sale. */
 /**
  * A plot's graded walls on every floor (RFC 0051): blocks and walls between tiles of `fine` and of
  * `masterwork` made material, a graded roof counting as one. Counts only, and no rule reads them.
@@ -39,6 +38,18 @@ export type PlotSort = z.infer<typeof PlotSort>;
 export const GradedWallsView = z.object({
   fine: z.number().int(),
   masterwork: z.number().int(),
+});
+
+/** A plot's listing (RFC 0039), on `GET /v1/plots/{px}/{py}` while it is for sale. */
+/**
+ * How furnished a home is, on every floor (RFC 0050): `pieces` of furniture (seats included),
+ * things `onShow` (on surfaces, hung on walls, and on display), and how many different `kinds`
+ * among them. Counts only.
+ */
+export const FurnishedView = z.object({
+  pieces: z.number().int(),
+  onShow: z.number().int(),
+  kinds: z.number().int(),
 });
 
 export const PlotForSaleView = z.object({
@@ -84,6 +95,11 @@ export const PlotView = z.object({
   knockedToday: z.boolean().optional(),
   /** Blocks on it, on every floor, decor and stations included. */
   blocks: z.number().int(),
+  /**
+   * Walls, windows, hedges and doors on the lines between its tiles (RFC 0050), on every floor. A
+   * home built of walls between tiles has few `blocks` and many of these.
+   */
+  edges: z.number().int(),
   /** Floors it added above its ground floor (RFC 0028). Absent when it has none. */
   floors: z.number().int().min(1).optional(),
   /** Things on display on its pedestals and frames. */
@@ -93,13 +109,7 @@ export const PlotView = z.object({
    * things `onShow` (on surfaces, hung on walls, and on display), and how many different `kinds`
    * among them. Counts only. Absent when all are 0.
    */
-  furnished: z
-    .object({
-      pieces: z.number().int(),
-      onShow: z.number().int(),
-      kinds: z.number().int(),
-    })
-    .optional(),
+  furnished: FurnishedView.optional(),
   /** Its graded walls (RFC 0051), as counts. Absent when both are 0. */
   walls: GradedWallsView.optional(),
   /**

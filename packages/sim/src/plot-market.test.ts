@@ -8,7 +8,7 @@ import {
   PLOT_MARKET_SETUP,
 } from "./fixtures/plot-market-log";
 import { hashWorld } from "./hash";
-import { PLOTS, plotListing } from "./plot-market";
+import { PLOTS, plotListing, plotSale } from "./plot-market";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund } from "./test-support";
 import { type Command, type Input, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
@@ -362,6 +362,10 @@ describe("buying a plot", () => {
     ok(state, "eve", { type: "set_hearth", x: 2, y: 3 });
     fund(state, "eve", 300);
     ok(state, "ada", list());
+    // The sale's own numbers leave the buyer out: no share of hers ends, and no hearth of hers goes.
+    const sale = plotSale(state, 0, 0, 300, "eve");
+    expect(sale.shared).toEqual([]);
+    expect(sale.hearths).toEqual(["ada"]);
     const events = ok(state, "eve", buy);
     expect(state.plots["0,0"]?.ownerId).toBe("eve");
     expect(state.residents.eve?.hearth).toEqual({ x: 2, y: 3 });

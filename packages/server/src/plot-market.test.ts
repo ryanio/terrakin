@@ -261,7 +261,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
         sold: { px: 0, py: 0, price: 300, coins: 285 },
       }),
     );
-    // Eve, whose share ended with the sale, is told too, and the buyer never is.
+    // Eve, whose share ended with the sale, is told too.
     const eves = (await t.call("GET", "/v1/notifications", undefined, t.token("eve"))).body;
     expect(eves.notifications).toContainEqual(
       expect.objectContaining({
@@ -270,8 +270,6 @@ describe("plots for sale on the API (RFC 0039)", () => {
         shareEnded: { px: 0, py: 0, hearthCleared: false },
       }),
     );
-    const bobs = (await t.call("GET", "/v1/notifications", undefined, bob)).body.notifications;
-    expect(bobs.map((n: Json) => n.type)).not.toContain("share_ended");
 
     // The plot is Bob's, off the market, and its card says it changed hands.
     const after = (await t.call("GET", "/v1/plots/0/0")).body.plot;
@@ -279,6 +277,21 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(after).not.toHaveProperty("listing");
     expect(after.news).toBe("A new owner moved in today");
     expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
+  });
+
+  it("tells no share_ended to a co-owner who buys the plot they share, who owns it now", async () => {
+    const t = await start([
+      ...PLOT_MARKET_SETUP,
+      { actor: TOWN_ACTOR, command: { type: "test_grant", to: "eve", coins: 400 } },
+    ]);
+    const eve = t.token("eve");
+    await t.act(t.token("ada"), { type: "list_plot", px: 0, py: 0, price: 300 });
+    const dry = await t.act(eve, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
+    expect(dry.plotSale.shared).toBe(0);
+    expect((await t.act(eve, { type: "buy_plot", px: 0, py: 0, price: 300 })).ok).toBe(true);
+    expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("eve");
+    const notices = (await t.call("GET", "/v1/notifications", undefined, eve)).body.notifications;
+    expect(notices.map((n: Json) => n.type)).not.toContain("share_ended");
   });
 
   it("leaves out a suspended seller's plot, and refuses to sell it to anyone who names it", async () => {

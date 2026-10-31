@@ -23,7 +23,14 @@ import {
   plotsOwnedBy,
   type WorldState,
 } from "@terrakin/sim";
-import { blocksOnPlot, edgeCounts, furnishedView, shownPlotName, wallsView } from "./plots";
+import {
+  blocksOnPlot,
+  edgeCounts,
+  furnishedView,
+  lastSoldView,
+  shownPlotName,
+  wallsView,
+} from "./plots";
 
 /**
  * Plots for sale (RFC 0039) as the API shows them. The sim holds the listings and every rule; this
@@ -67,6 +74,7 @@ function listingView(
     ...(plot.floors ? { floors: plot.floors } : {}),
     ...furnishedView(furnishing(state, l.px, l.py)),
     ...wallsView(counts.graded.get(plotKey(l.px, l.py))),
+    ...lastSoldView(plot),
     ...(name === undefined ? {} : { name }),
     trust: "untrusted",
   };

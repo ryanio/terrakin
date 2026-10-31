@@ -70,13 +70,17 @@ export function priceProblem(typed: string, rules: Pick<Rules, "priceMax">): str
 
 /**
  * What stands on a plot for sale, how furnished it is, and when it went up: "24 walls, 6 blocks, and
- * an upstairs. 3 pieces of furniture, 8 fine walls. Listed 2 days ago." Walls between tiles
+ * an upstairs. 3 pieces of furniture, 8 fine walls. Listed 2 days ago. It last sold for 300 coins
+ * 3 weeks ago." Walls between tiles
  * (RFC 0050) count before blocks, since a home is mostly those; the furnished line only when it
- * has one (`furnishedLine`, with graded walls, RFC 0051); the last sentence only once the world's
- * day is known.
+ * has one (`furnishedLine`, with graded walls, RFC 0051); when it was listed and what it last sold
+ * for only once the world's day is known.
  */
 export function listingFacts(
-  l: Pick<PlotListingView, "blocks" | "edges" | "floors" | "day" | "walls" | "furnished">,
+  l: Pick<
+    PlotListingView,
+    "blocks" | "edges" | "floors" | "day" | "walls" | "furnished" | "lastSold"
+  >,
   today: number | undefined,
 ): string {
   const floors = l.floors ?? 0;
@@ -90,7 +94,10 @@ export function listingFacts(
   const furnished = furnishedLine(l);
   const made = furnished === null ? built : `${built} ${furnished}.`;
   if (today === undefined) return made;
-  return `${made} Listed ${relativeDayWords(l.day, today)}.`;
+  const sold = l.lastSold
+    ? ` It last sold for ${coins(l.lastSold.price)} ${relativeDayWords(l.lastSold.day, today)}.`
+    : "";
+  return `${made} Listed ${relativeDayWords(l.day, today)}.${sold}`;
 }
 
 /**

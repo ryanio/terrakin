@@ -346,6 +346,11 @@ export interface Plot {
    * be listed again reads. Absent on a plot that never changed hands.
    */
   boughtDay?: number;
+  /**
+   * What it was last bought for, in coins (RFC 0039), set with `boughtDay`, so a buyer can see what
+   * a plot last changed hands for. Absent on a plot that never changed hands.
+   */
+  boughtFor?: number;
 }
 
 /** The roof over a plot's top floor (RFC 0041): its shape, and the block it's covered in. */

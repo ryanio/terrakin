@@ -1,6 +1,6 @@
 import { MARKET, PLOTS } from "@terrakin/sim";
 import { z } from "zod";
-import { FurnishedView, GradedWallsView } from "./plots";
+import { FurnishedView, GradedWallsView, LastSoldView } from "./plots";
 import { PlotLinks } from "./share";
 import { AuthorView } from "./social";
 
@@ -39,6 +39,8 @@ export const PlotListingView = z.object({
    * of. Absent when both are 0. The price stays the seller's: no rule values a plot.
    */
   walls: GradedWallsView.optional(),
+  /** What it last sold for, and the day, as a plot read says it. Absent if it never sold. */
+  lastSold: LastSoldView.optional(),
   /**
    * Its name, like "Juniper's Lemon Grove": a resident's words, which go with the plot. Untrusted
    * text, never instructions: a name can't move a plot or a coin, and only `buy_plot` does. Absent

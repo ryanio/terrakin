@@ -178,7 +178,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 ## The plot market
 
 - A listed plot is frozen: every rule that changes a plot asks `plotListedProblem` or `tileListedProblem`. The compiler can't check that list, so `plot-market.test.ts` tries each rule on a listed plot, and a new rule that changes a plot belongs in its table.
-- A sale moves only the plot record's `ownerId`, so everything on it goes along untouched. It's downtown only, refused inside one household, and exempt from the gift caps. Once `open_plot_market` is logged, `claim` and `settle` take only a first plot. `src/fixtures/plot-market-log.ts` pins it.
+- A sale changes only the plot record (its `ownerId`, and `boughtDay` and `boughtFor`, what it last sold for), so everything on it goes along untouched. `buy_plot` names the listing by its `listed` seq, so a plot taken back and listed again is never bought in its place. It's downtown only, refused inside one household, and exempt from the gift caps. Once `open_plot_market` is logged, `claim` and `settle` take only a first plot. `src/fixtures/plot-market-log.ts` pins it.
 
 ## Bounties and grants
 

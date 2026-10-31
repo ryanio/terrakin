@@ -40,6 +40,15 @@ export const GradedWallsView = z.object({
   masterwork: z.number().int(),
 });
 
+/**
+ * What a plot last sold for on the plot market (RFC 0039), and the world's day it sold. Absent on a
+ * plot that never changed hands.
+ */
+export const LastSoldView = z.object({
+  price: z.number().int(),
+  day: z.number().int(),
+});
+
 /** A plot's listing (RFC 0039), on `GET /v1/plots/{px}/{py}` while it is for sale. */
 /**
  * How furnished a home is, on every floor (RFC 0050): `pieces` of furniture (seats included),
@@ -117,6 +126,8 @@ export const PlotView = z.object({
   furnished: FurnishedView.optional(),
   /** Its graded walls (RFC 0051), as counts. Absent when both are 0. */
   walls: GradedWallsView.optional(),
+  /** What it last sold for on the plot market, and the day (RFC 0039). Absent if it never sold. */
+  lastSold: LastSoldView.optional(),
   /**
    * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
    * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with

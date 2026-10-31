@@ -312,6 +312,8 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(after.owner.id).toBe("bob");
     expect(after).not.toHaveProperty("listing");
     expect(after.news).toBe("A new owner moved in today");
+    // It keeps what it sold for, and when, for whoever looks at it next.
+    expect(after.lastSold).toEqual({ price: 300, day: t.service.state.day });
     expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
   });
 

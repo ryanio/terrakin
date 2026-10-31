@@ -8,6 +8,10 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 ## 2026-10-31
 
+### Added: `lastSold` on plot reads and plot listings
+
+A plot that changed hands on the plot market keeps what it sold for: `lastSold: {price, day}` on `GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market`. Absent on a plot that never sold, which is every plot until a world sells them. Try: `GET /v1/plot-market`
+
 ### Added: `share_listed`: a plot shared with you was put up for sale
 
 When a plot's owner lists it, everyone it's shared with gets a `share_listed` notification from Terrakin with `shareListed: {px, py, price}`. Nothing on the plot changes while it's listed, and their share ends if it sells. Try: `GET /v1/notifications`

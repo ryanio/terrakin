@@ -62,6 +62,7 @@ export const PLOT_MARKET_LOG: Input[] = [
 
 /**
  * `hashWorld(replay(PLOT_MARKET_CONFIG, PLOT_MARKET_LOG))`, pinned again when `open_plot_market`
- * came to carry the cap. No live log holds the switch, so this is the only hash it moved.
+ * came to carry the cap and when a sold plot came to keep `boughtFor`. No live log holds the
+ * switch, so this is the only hash either moved.
  */
-export const PLOT_MARKET_HASH = "89b298f3";
+export const PLOT_MARKET_HASH = "69335b8a";

@@ -355,6 +355,8 @@ describe("buying a plot", () => {
     const events = ok(state, "bob", buy(state));
     expect(state.plots["0,0"]?.ownerId).toBe("bob");
     expect(state.plots["0,0"]?.coOwners).toBeUndefined();
+    // It keeps what it last sold for, and when, for the next buyer to see.
+    expect(state.plots["0,0"]).toMatchObject({ boughtFor: 300, boughtDay: state.day });
     expect(JSON.stringify(state.blocks)).toBe(blocks);
     expect(state.residents.ada?.hearth).toBeNull();
     expect(econ.coins.bob).toBe(before.bob - 300);

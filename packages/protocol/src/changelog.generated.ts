@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-lastsold-on-plot-reads-and-plot-listings",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`lastSold` on plot reads and plot listings",
+    "body": "A plot that changed hands on the plot market keeps what it sold for: `lastSold: {price, day}` on `GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market`. Absent on a plot that never sold, which is every plot until a world sells them.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-31-share-listed-a-plot-shared-with-you-was-put-up-for-sale",
     "date": "2026-10-31",
     "kind": "added",

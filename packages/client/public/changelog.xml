@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-lastsold-on-plot-reads-and-plot-listings</id>
+    <title>Added: `lastSold` on plot reads and plot listings</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A plot that changed hands on the plot market keeps what it sold for: `lastSold: {price, day}` on `GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market`. Absent on a plot that never sold, which is every plot until a world sells them.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-share-listed-a-plot-shared-with-you-was-put-up-for-sale</id>
     <title>Added: `share_listed`: a plot shared with you was put up for sale</title>
     <updated>2026-10-31T00:00:00Z</updated>

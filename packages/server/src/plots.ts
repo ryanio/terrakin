@@ -730,6 +730,7 @@ function plotViews(
       displays: displays.get(key) ?? 0,
       ...furnishedView(furnished.get(key)),
       ...wallsView(graded.get(key)),
+      ...lastSoldView(plot),
       ...(forSale
         ? { listing: { price: forSale.price, day: forSale.day, listed: forSale.listed } }
         : {}),
@@ -764,6 +765,13 @@ export function edgeCounts(state: WorldState): Map<string, number> {
     }
   }
   return counts;
+}
+
+/** What a plot last sold for and when (RFC 0039), or nothing when it never changed hands. */
+export function lastSoldView(plot: Plot): Pick<PlotView, "lastSold"> {
+  return plot.boughtFor === undefined || plot.boughtDay === undefined
+    ? {}
+    : { lastSold: { price: plot.boughtFor, day: plot.boughtDay } };
 }
 
 /** A plot's `furnished` counts, or nothing when it has none to show. */

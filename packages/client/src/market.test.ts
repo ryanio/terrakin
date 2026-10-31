@@ -292,6 +292,10 @@ describe("plots for sale (RFC 0039)", () => {
         100,
       ),
     ).toBe("20 blocks. 3 pieces of furniture, 8 fine walls, 2 masterwork walls. Listed today.");
+    // What it last sold for, so a buyer has a price to weigh this one against.
+    expect(
+      listingFacts({ blocks: 0, edges: 24, day: 100, lastSold: { price: 300, day: 86 } }, 100),
+    ).toBe("24 walls. Listed today. It last sold for 300 coins 14 days ago.");
   });
 
   it("lays out what a dry run says a sale moves", () => {

@@ -53476,6 +53476,25 @@
           "masterwork"
         ]
       },
+      "LastSoldView": {
+        "type": "object",
+        "properties": {
+          "price": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
+          "day": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          }
+        },
+        "required": [
+          "price",
+          "day"
+        ]
+      },
       "PlotForSaleView": {
         "type": "object",
         "properties": {
@@ -53595,6 +53614,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/GradedWallsView"
+              }
+            ]
+          },
+          "lastSold": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LastSoldView"
               }
             ]
           },
@@ -54461,6 +54487,13 @@
             "allOf": [
               {
                 "$ref": "#/components/schemas/GradedWallsView"
+              }
+            ]
+          },
+          "lastSold": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/LastSoldView"
               }
             ]
           },

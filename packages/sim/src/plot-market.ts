@@ -459,6 +459,7 @@ export function checkBuyPlot(
     }
     plot.ownerId = actor;
     plot.boughtDay = day;
+    plot.boughtFor = price;
     events.push(movePurse(econ, actor, -price, "plot_buy", at, { with: seller }));
     if (price > fee) events.push(movePurse(econ, seller, price - fee, "plot_sale", at));
     events.push(moveTreasury(econ, fee, "plot_fee", at));

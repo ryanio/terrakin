@@ -1,7 +1,7 @@
 import type { Command } from "@terrakin/sim";
 import type { BuildAction } from "./actions";
 import { DESIGN_SIZE, DESIGNS, designToPlan } from "./designs";
-import { mapToPlan, type PlotNow } from "./maps";
+import { type MapInput, mapToPlan, type PlotNow } from "./maps";
 
 type BuildCommand = Extract<Command, { type: "build" }>;
 
@@ -13,7 +13,12 @@ type BuildCommand = Extract<Command, { type: "build" }>;
  */
 export function buildCommand(
   action: Omit<BuildAction, "dry">,
-  plot: { size: number; now: PlotNow },
+  plot: {
+    size: number;
+    now: PlotNow;
+    /** The plot's own current map legend and grades, the fallback a sent-back map reads by. */
+    current?: Pick<MapInput, "legend" | "grades"> | undefined;
+  },
 ): { command: BuildCommand } | { problem: string } {
   const { px, py, blocks, ground, remove, lift, edges, removeEdges, map, design, replace } = action;
   const lists = [blocks, ground, remove, lift, edges, removeEdges].some((l) => l !== undefined);
@@ -67,7 +72,12 @@ export function buildCommand(
     return "problem" in read ? read : { command: command(read.plan) };
   }
   if (map !== undefined) {
-    const read = mapToPlan(map, { size: plot.size, now: plot.now, replace });
+    const read = mapToPlan(map, {
+      size: plot.size,
+      now: plot.now,
+      replace,
+      current: plot.current,
+    });
     return "problem" in read ? read : { command: command(read.plan) };
   }
   return { command: command({ blocks, ground, remove, lift, edges, removeEdges }) };

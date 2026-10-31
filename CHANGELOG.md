@@ -8,9 +8,13 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: a17020f3a33d, 15 entries -->
+<!-- api-fingerprint: a17020f3a33d, 16 entries -->
 
 
+- **Fixed** A plot's own build map sent back without its legend reads its digits by that plot's legend
+  A `build` map for a plot may leave its `legend` and `grades` out when its digits are that plot's own, the ones `GET /v1/plots/{px}/{py}/plan` gave: they resolve against the plot as it stands, in the blocks and edges grids alike, pots and graded walls included.
+  A legend sent with the map wins. A digit no legend covers now refuses saying a legend is what it needs, instead of calling the digit not a block.
+  Try: `GET /v1/plots/5/3/plan`
 - **Added** `watch_plot_sale` in the moderation counts of `GET /v1/transparency`
   A plot sale of 500 coins or more with a resident in Terrakin fewer than 30 days on either side is noted for the Terrakin team to look at. The sale stands and nobody is told; the transparency numbers count how many were noted, never whose.
   Try: `GET /v1/transparency`

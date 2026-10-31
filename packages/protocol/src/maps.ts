@@ -107,6 +107,8 @@ function readEdges(
   size: number,
   legend: { [digit: string]: BlockKind | undefined },
 ): { problem: string } | { lines: (Line & { char: string })[] } {
+  const noLegend = (char: string, r: number, c: number) =>
+    `${cap(`floor ${floor}'s edges`)} have ${shown(char)} on a line at row ${r}, column ${c}, a digit with no legend to say what wall it is. Digits mean what a legend beside the floors says: send the map's legend with it, or send the plot's own map back and its legend is the one the plot's read gave.`;
   const span = 2 * size + 1;
   const which = `floor ${floor}'s edges`;
   if (rows.length !== span) {
@@ -129,6 +131,9 @@ function readEdges(
       if (char === MAP_EDGE_MARKS.none || char === MAP_MARKS.keep) continue;
       if (char !== MAP_EDGE_MARKS.door && char !== MAP_MARKS.clear) {
         const kind = (MAP_BLOCKS as Record<string, BlockKind>)[char] ?? legend[char];
+        if (kind === undefined && /^[0-9]$/.test(char)) {
+          return { problem: noLegend(char, r, c) };
+        }
         if (kind === undefined || kind === "door" || !isEdgeKind(kind)) {
           return {
             problem: `${cap(which)} have ${shown(char)} on a line at row ${r}, column ${c}, which can't stand between tiles. Lines: ${EDGE_WORDS}, digits from the map's legend for ${EDGE_KINDS.filter((k) => !Object.values(MAP_BLOCKS).includes(k as never)).join(", ")}; a space or ${MAP_MARKS.keep} leaves a line as it is, ${MAP_MARKS.clear} takes its wall down.`,
@@ -203,17 +208,35 @@ function lineKey(l: { x: number; y: number; floor?: number | undefined; side: Si
  * leaves a tile alone; a letter on a tile that holds something else is skipped by the sim as
  * `occupied`, unless `replace` asks to clear what differs first. A floor's `edges` grid does the
  * same for the lines between tiles (`readEdges`). Shape problems refuse the whole map, naming the
- * floor, the grid, and the tile.
+ * floor, the grid, and the tile. A digit with no legend in the map or in the plot's own current
+ * legend (`current`) refuses in words that say a legend is what it needs.
  */
 export function mapToPlan(
   map: MapInput,
-  options: { size: number; now: PlotNow; replace?: boolean | undefined },
+  options: {
+    size: number;
+    now: PlotNow;
+    replace?: boolean | undefined;
+    /**
+     * The plot's own map legend and grades as its read gives them (issue #135). A map sent back
+     * for the plot it was read from may leave its legend out: its digits then mean what the
+     * plot's own legend says. A legend the map carries wins, digit by digit.
+     */
+    current?: Pick<MapInput, "legend" | "grades"> | undefined;
+  },
 ): { plan: PlanLists } | { problem: string } {
-  const { size, now, replace = false } = options;
-  const legend = map.legend ?? {};
+  const { size, now, replace = false, current } = options;
+  const legend: { [digit: string]: BlockKind | undefined } = { ...current?.legend };
+  for (const [digit, kind] of Object.entries(map.legend ?? {})) {
+    if (kind !== undefined) legend[digit] = kind;
+  }
+  const grades: { [digit: string]: PastPlain | undefined } = { ...current?.grades };
+  for (const [digit, grade] of Object.entries(map.grades ?? {})) {
+    if (grade !== undefined) grades[digit] = grade;
+  }
   // A digit's grade (RFC 0051) goes on the plan entry, so the sim sees lists as it always has.
   const gradeOf = (char: string): { grade?: PastPlain } => {
-    const grade = map.grades?.[char];
+    const grade = grades[char];
     return grade && legend[char] !== undefined ? { grade } : {};
   };
   const at = (t: Tile) => `${t.floor ?? 0}:${t.x},${t.y}`;
@@ -288,7 +311,9 @@ export function mapToPlan(
             if (kind === "pot") continue;
             if (!kind) {
               return {
-                problem: `${cap(which)} ${have} ${shown(c)} at (${x}, ${y}), which isn't a block. Blocks: ${BLOCK_WORDS}, and digits from the map's legend; ${MARK_WORDS}.`,
+                problem: /^[0-9]$/.test(c)
+                  ? `${cap(which)} ${have} ${shown(c)} at (${x}, ${y}), a digit with no legend to say what it is. Digits mean what a legend beside the floors says: send the map's legend with it, or send the plot's own map back and its legend is the one the plot's read gave; ${MARK_WORDS}.`
+                  : `${cap(which)} ${have} ${shown(c)} at (${x}, ${y}), which isn't a block. Blocks: ${BLOCK_WORDS}, and digits from the map's legend; ${MARK_WORDS}.`,
               };
             }
             const graded = gradeOf(c);

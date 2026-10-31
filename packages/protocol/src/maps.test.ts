@@ -47,7 +47,13 @@ function expand(state: WorldState, action: Record<string, unknown>) {
   const parsed = Action.parse({ type: "build", px: 2, py: 1, ...action });
   if (parsed.type !== "build") throw new Error("not a build");
   const now = plotPlan(state, 2, 1) ?? EMPTY;
-  return buildCommand(parsed, { size: S, now });
+  // As the server does: the plot's own map is read only for a build that carries a map.
+  const drawn = "map" in action ? plotMap(state, 2, 1) : undefined;
+  return buildCommand(parsed, {
+    size: S,
+    now,
+    current: drawn ? { legend: drawn.legend, grades: drawn.grades } : undefined,
+  });
 }
 
 /** An `edges` grid for a plot of 8 tiles with nothing on any line. */
@@ -111,6 +117,27 @@ describe("mapToPlan (RFC 0032)", () => {
     expect(read.plan.remove).toBeUndefined();
   });
 
+  it("reads digits by the plot's own legend when a sent-back map leaves its legend out (issue #135)", () => {
+    const rows = ["01......", ...Array.from({ length: S - 1 }, () => "........")];
+    const map = { floors: [{ blocks: rows }] };
+    const current = { legend: { "0": "table" as const, "1": "pot" as const } };
+    const read = mapToPlan(map, { size: S, now: EMPTY, current });
+    if ("problem" in read) throw new Error(read.problem);
+    // The table digit resolves through the plot's own legend; the pot digit still leaves its
+    // tile as it stands, as a pot in a carried legend does.
+    expect(read.plan.blocks).toEqual([{ x: 0, y: 0, block: "table" }]);
+    // A legend the map carries wins over the plot's own, digit by digit.
+    const carried = mapToPlan(
+      { ...map, legend: { "0": "chair" as const } },
+      { size: S, now: EMPTY, current },
+    );
+    if ("problem" in carried) throw new Error(carried.problem);
+    expect(carried.plan.blocks).toEqual([{ x: 0, y: 0, block: "chair" }]);
+    // With no legend anywhere the same map refuses, in words that say a legend is the fix.
+    const bare = mapToPlan(map, { size: S, now: EMPTY });
+    expect("problem" in bare && bare.problem).toMatch(/a digit with no legend to say what it is/);
+  });
+
   it("refuses a map whose shape is wrong, naming where, and echoes no more than one character", () => {
     const rows = (n: number, row = "........") => Array.from({ length: n }, () => row);
     const problem = (map: Parameters<typeof mapToPlan>[0]) => {
@@ -129,8 +156,10 @@ describe("mapToPlan (RFC 0032)", () => {
     const sneaky = problem({ floors: [{ ground: [...rows(5), "..‮.....", ...rows(2)] }] });
     expect(sneaky).toMatch(/has a character it can't read at \(2, 5\)/);
     expect(sneaky).not.toContain("‮");
-    // A digit is a block only through the legend, and never ground.
-    expect(problem({ floors: [{ blocks: [...rows(7), "1......."] }] })).toMatch(/isn't a block/);
+    // A digit is a block only through a legend, and the refusal says so (issue #135).
+    expect(problem({ floors: [{ blocks: [...rows(7), "1......."] }] })).toMatch(
+      /a digit with no legend to say what it is/,
+    );
     expect(
       problem({ floors: [{ ground: [...rows(7), "1......."] }], legend: { "1": "table" } }),
     ).toMatch(/isn't a path or flooring/);
@@ -306,6 +335,21 @@ describe("mapToPlan's edges grid (RFC 0050)", () => {
     expect(problem(withLine(NO_LINES, 2, 3, "1"), { "1": "plaster" })).toBe("");
   });
 
+  it("reads an edges digit by the plot's own legend, and a digit with no legend anywhere says so (issue #135)", () => {
+    const edges = withLine(NO_LINES, 2, 3, "1");
+    const read = mapToPlan(
+      { floors: [{ edges }] },
+      { size: S, now: EMPTY, current: { legend: { "1": "plaster" } } },
+    );
+    if ("problem" in read) throw new Error(read.problem);
+    expect(read.plan.edges).toEqual([{ x: 1, y: 1, side: "n", block: "plaster" }]);
+    const bare = mapToPlan({ floors: [{ edges }] }, { size: S, now: EMPTY });
+    expect("problem" in bare && bare.problem).toMatch(
+      /a digit with no legend to say what wall it is/,
+    );
+    expect("problem" in bare && bare.problem).not.toMatch(/can't stand between tiles/);
+  });
+
   it("takes a line down with x only where a wall stands, and swaps only what differs with replace", () => {
     const { state, ok } = world();
     ok("wren", {
@@ -391,6 +435,30 @@ describe("buildCommand (RFC 0032)", () => {
     expect(lists).toEqual({
       command: { type: "build", px: 2, py: 1, ground: [{ x: 0, y: 0, ground: "dirt" }] },
     });
+  });
+
+  it("expands a plot's own map sent back floors-only, legend and all read from the plot (issue #135)", () => {
+    const { state, ok } = world();
+    ok("wren", {
+      type: "build",
+      px: 2,
+      py: 1,
+      blocks: [
+        { x: 0, y: 0, block: "table" },
+        { x: 1, y: 0, block: "chair" },
+      ],
+    });
+    const drawn = plotMap(state, 2, 1);
+    if (!drawn?.legend) throw new Error("the plot's map has no legend");
+    expect(Object.values(drawn.legend)).toEqual(expect.arrayContaining(["table", "chair"]));
+    const expanded = expand(state, { map: { floors: drawn.floors } });
+    if ("problem" in expanded) throw new Error(expanded.problem);
+    expect(expanded.command.blocks).toEqual(
+      expect.arrayContaining([
+        { x: 0, y: 0, block: "table" },
+        { x: 1, y: 0, block: "chair" },
+      ]),
+    );
   });
 
   it("refuses a design on a world whose plots aren't the size designs are drawn for", () => {

@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-10-31
+
+<!-- api-fingerprint: 4aab1bc0ab0d, 1 entry -->
+
+- **Changed** `buy_plot` takes the `price` you saw, and a plot listed again at another is refused
+  `buy_plot` now needs `price`, the price from `GET /v1/plot-market` that your owner said yes to. If the seller took the plot back and listed it again at another price, the buy is refused with the new code `price_changed` and nothing is paid. No world sells plots yet. SKILL.md is version 37.
+  Try: `POST /v1/actions {"type": "buy_plot", "px": 3, "py": 2, "price": 400, "dry": true}`
+
 ## 2026-10-30
 
 <!-- api-fingerprint: e72b1bfeec6d, 19 entries -->

@@ -78,24 +78,29 @@ export function openBuySheet(
   );
   confirmTwice(buy, `Tap again to pay ${coins(price)}`, async () => {
     problem.textContent = "";
-    await actFromButton(buy, { type: "buy_plot", px: at.px, py: at.py }, "The plot is yours.", {
-      words,
-      say: (text) => {
-        if (text !== "The plot is yours.") {
-          problem.textContent = text;
-          return;
-        }
-        closeOverlay(s.dialog);
-        toast(text, { href: worldLinkPath({ kind: "plot", ...at }), label: "Go there" });
+    await actFromButton(
+      buy,
+      { type: "buy_plot", px: at.px, py: at.py, price },
+      "The plot is yours.",
+      {
+        words,
+        say: (text) => {
+          if (text !== "The plot is yours.") {
+            problem.textContent = text;
+            return;
+          }
+          closeOverlay(s.dialog);
+          toast(text, { href: worldLinkPath({ kind: "plot", ...at }), label: "Go there" });
+        },
+        after: done,
       },
-      after: done,
-    });
+    );
   });
   openOverlay(s.dialog);
   void (async () => {
     const r = await whileBusy(
       buy,
-      () => worldApi.act({ type: "buy_plot", px: at.px, py: at.py, dry: true }),
+      () => worldApi.act({ type: "buy_plot", px: at.px, py: at.py, price, dry: true }),
       "Checking…",
     );
     const why = actProblem(r, words);

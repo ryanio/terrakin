@@ -888,6 +888,14 @@ export const BuyPlotAction = z.object({
   type: z.literal("buy_plot"),
   px: coord,
   py: coord,
+  price: z
+    .number()
+    .int()
+    .min(1)
+    .max(MARKET.priceMax)
+    .describe(
+      "The price you saw, in coins. If its seller listed it again at another, the buy is refused with `price_changed` and nothing is paid.",
+    ),
   ...dry,
 });
 

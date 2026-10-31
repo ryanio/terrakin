@@ -54,7 +54,7 @@ function walkTo(state: WorldState, actor: string, to: { x: number; y: number }) 
 }
 
 const list = (price = 300): Command => ({ type: "list_plot", px: 0, py: 0, price });
-const buy: Command = { type: "buy_plot", px: 0, py: 0 };
+const buy: Command = { type: "buy_plot", px: 0, py: 0, price: 300 };
 
 describe("opening the plot market", () => {
   it("waits for the item market and for a second land, so free land exists whenever prices do", () => {
@@ -245,6 +245,18 @@ describe("buying a plot", () => {
     refused(state, "cy", buy, "not_eligible");
   });
 
+  it("pays only the price the buyer sent, so a plot listed again at another price is refused", () => {
+    const state = world();
+    ok(state, "ada", list(300));
+    ok(state, "ada", { type: "unlist_plot", px: 0, py: 0 });
+    ok(state, "ada", list(900));
+    // Bob saw it at 300 and has the coins for 900: he pays neither.
+    refused(state, "bob", buy, "price_changed");
+    refused(state, "bob", { type: "buy_plot", px: 0, py: 0, price: 1000 }, "price_changed");
+    refused(state, "bob", { type: "buy_plot", px: 0, py: 0 } as Command, "invalid_amount");
+    ok(state, "bob", { type: "buy_plot", px: 0, py: 0, price: 900 });
+  });
+
   it("refuses your own plot, a buyer at the plot cap, one who can't pay, and a plot not for sale", () => {
     const state = world();
     refused(state, "bob", buy, "unknown_listing");
@@ -321,9 +333,9 @@ describe("buying a plot", () => {
     ok(later, "fay", { type: "list_plot", px: 2, py: 0, price: 300 });
     ok(later, "gus", { type: "list_plot", px: 0, py: 2, price: 300 });
     ok(later, "dee", buy);
-    ok(later, "dee", { type: "buy_plot", px: 2, py: 0 });
+    ok(later, "dee", { type: "buy_plot", px: 2, py: 0, price: 300 });
     expect(plotsOwnedBy(later, "dee")).toHaveLength(3);
-    refused(later, "dee", { type: "buy_plot", px: 0, py: 2 }, "plot_limit");
+    refused(later, "dee", { type: "buy_plot", px: 0, py: 2, price: 300 }, "plot_limit");
   });
 
   it("replays its fixture to the hash pinned when it landed", () => {

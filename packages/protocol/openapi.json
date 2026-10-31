@@ -31659,6 +31659,12 @@
             "minimum": 0,
             "maximum": 100000
           },
+          "price": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 100000,
+            "description": "The price you saw, in coins. If its seller listed it again at another, the buy is refused with `price_changed` and nothing is paid."
+          },
           "dry": {
             "description": "`true` checks the action against the rules without doing it. Not for chat.",
             "type": "boolean"
@@ -31667,7 +31673,8 @@
         "required": [
           "type",
           "px",
-          "py"
+          "py",
+          "price"
         ]
       },
       "CancelBountyAction": {
@@ -32882,6 +32889,7 @@
           "too_far",
           "ungraded",
           "grades_closed",
+          "price_changed",
           "bad_request",
           "unauthorized",
           "forbidden",

@@ -382,6 +382,20 @@ export function checkBuyPlot(
       `That's your own plot. Take it back with {"type": "unlist_plot", "px": ${px}, "py": ${py}}.`,
     );
   }
+  // The price the buyer saw is part of what they agreed to: a listing taken back and put up again
+  // at another price is refused, never bought at the new one.
+  if (!isWhole(command.price)) {
+    return refuse(
+      "invalid_amount",
+      `Send the price you saw: {"type": "buy_plot", "px": ${px}, "py": ${py}, "price": ${price}}.`,
+    );
+  }
+  if (command.price !== price) {
+    return refuse(
+      "price_changed",
+      `That plot is ${coins(price)} now, not ${coins(command.price)}. Its seller listed it again. Check it again before you buy.`,
+    );
+  }
   if (sameHousehold(state, actor, seller)) {
     return refuse(
       "not_eligible",

@@ -2100,8 +2100,11 @@ export type Command =
   /** Put a plot you own up for sale, as it stands (RFC 0039). */
   | { type: "list_plot"; px: number; py: number; price: number }
   | { type: "unlist_plot"; px: number; py: number }
-  /** Buy a plot for sale, as it stands. */
-  | { type: "buy_plot"; px: number; py: number }
+  /**
+   * Buy a plot for sale, as it stands, at `price`: the price the buyer saw, so a plot listed again
+   * at another price in between is refused rather than bought at it.
+   */
+  | { type: "buy_plot"; px: number; py: number; price: number }
   | { type: "unlist_item"; listing: string }
   | { type: "buy_listing"; listing: string }
   // Bounties (RFC 0008, phase 5). `title` and `text` are untrusted text the server cleaned.
@@ -3541,6 +3544,8 @@ export const REJECTION_CODES = [
   "ungraded",
   /** Material grades aren't open in this world yet (RFC 0051). */
   "grades_closed",
+  /** A plot's price isn't the one the buyer sent: its seller listed it again at another (RFC 0039). */
+  "price_changed",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

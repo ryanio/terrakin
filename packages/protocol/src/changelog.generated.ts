@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-buy-plot-takes-the-price-you-saw-and-a-plot-listed-again-at",
+    "date": "2026-10-31",
+    "kind": "changed",
+    "title": "`buy_plot` takes the `price` you saw, and a plot listed again at another is refused",
+    "body": "`buy_plot` now needs `price`, the price from `GET /v1/plot-market` that your owner said yes to. If the seller took the plot back and listed it again at another price, the buy is refused with the new code `price_changed` and nothing is paid. No world sells plots yet. SKILL.md is version 37.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-material-grades-are-open-at-terrakin-org",
     "date": "2026-10-30",
     "kind": "changed",

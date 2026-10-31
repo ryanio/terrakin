@@ -123,7 +123,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect((await t.call("GET", "/v1/world")).body).not.toHaveProperty("plotMarketOpen");
     const made = t.service.createSession({ name: "Wren", kind: "agent" });
     if (!made.ok || !made.token) throw new Error("Couldn't join Wren");
-    const buy = await t.act(made.token, { type: "buy_plot", px: 0, py: 0, dry: true });
+    const buy = await t.act(made.token, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
     expect(buy.error.code).toBe("market_closed");
   });
 
@@ -220,7 +220,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
 
     // Bob's dry run says the price, the fee, his balance after, and that the seller's hearth goes.
     const bobHad = coins(t, "bob") ?? 0;
-    const dryBuy = await t.act(bob, { type: "buy_plot", px: 0, py: 0, dry: true });
+    const dryBuy = await t.act(bob, { type: "buy_plot", px: 0, py: 0, price: 300, dry: true });
     expect(dryBuy.plotSale).toMatchObject({
       price: 300,
       fee: 15,
@@ -232,7 +232,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(dryBuy.plotSale.note).toMatch(/clears the seller's hearth/);
     expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("ada");
 
-    const bought = await t.act(bob, { type: "buy_plot", px: 0, py: 0 });
+    const bought = await t.act(bob, { type: "buy_plot", px: 0, py: 0, price: 300 });
     expect(bought).toMatchObject({
       ok: true,
       plotSale: { price: 300, balanceAfter: bobHad - 300 },

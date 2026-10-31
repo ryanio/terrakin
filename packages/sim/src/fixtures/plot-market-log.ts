@@ -56,7 +56,7 @@ export const PLOT_MARKET_LOG: Input[] = [
   as("ada", { type: "list_plot", px: 0, py: 0, price: 300 }),
   as("ada", { type: "unlist_plot", px: 0, py: 0 }),
   as("ada", { type: "list_plot", px: 0, py: 0, price: 300 }),
-  as("bob", { type: "buy_plot", px: 0, py: 0 }),
+  as("bob", { type: "buy_plot", px: 0, py: 0, price: 300 }),
   town({ type: "new_day", day: PLOT_MARKET_DAY + 15 }),
 ];
 

@@ -8,7 +8,7 @@ import {
   PLOT_MARKET_SETUP,
 } from "./fixtures/plot-market-log";
 import { hashWorld } from "./hash";
-import { PLOTS, plotListing, plotSale } from "./plot-market";
+import { buyPlotProblem, PLOTS, plotListing, plotSale } from "./plot-market";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund } from "./test-support";
 import { type Command, type Input, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
@@ -306,8 +306,10 @@ describe("buying a plot", () => {
   it("refuses a sale inside one household, which is the guard the gift caps' exemption leans on", () => {
     const state = world();
     ok(state, "ada", list());
-    // Cy is Ada's AI, with the coins to pay.
+    // Cy is Ada's AI, with the coins to pay. What the market tells each reader says the same.
     refused(state, "cy", buy(state), "not_eligible");
+    expect(buyPlotProblem(state, "cy", 0, 0)?.code).toBe("not_eligible");
+    expect(buyPlotProblem(state, "bob", 0, 0)).toBeNull();
   });
 
   it("pays only the price the buyer sent, so a plot listed again at another price is refused", () => {

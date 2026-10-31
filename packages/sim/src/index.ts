@@ -553,6 +553,7 @@ export {
   walkedToday,
 } from "./pets";
 export {
+  buyPlotProblem,
   listPlotProblem,
   PLOTS,
   type PlotSale,

@@ -17,6 +17,7 @@ import {
   noListingsLine,
   ownPlotLine,
   ownPlotTitle,
+  plotBuyAction,
   plotMarketProblem,
   priceProblem,
   saleRows,
@@ -320,6 +321,34 @@ describe("plots for sale (RFC 0039)", () => {
       { label: "When it sells, after the town's 5%", value: "380 coins" },
       { label: "Your coins after", value: "75 coins" },
     ]);
+  });
+
+  it("holds Buy back with the server's reason, but says a shortfall on the button alone", () => {
+    const l = { price: 300, seller: { id: "r_ada" } };
+    expect(plotBuyAction({ ...l, canBuy: true }, "r_bob", 400, rules)).toEqual({
+      kind: "buy",
+      text: "Buy for 300 coins",
+      can: true,
+      line: null,
+    });
+    // Short: the button says by how much, and nothing repeats it.
+    const short = "That plot is 300 coins, and you have 100 coins.";
+    expect(plotBuyAction({ ...l, canBuy: false, why: short }, "r_bob", 100, rules)).toEqual({
+      kind: "buy",
+      text: "200 coins short",
+      can: false,
+      line: null,
+    });
+    // The cap or the household: Buy waits, and the line says why in plain words.
+    const cap = "You already own 3 plots, the most a resident can.";
+    expect(plotBuyAction({ ...l, canBuy: false, why: cap }, "r_bob", 400, rules)).toEqual({
+      kind: "buy",
+      text: "Buy for 300 coins",
+      can: false,
+      line: cap,
+    });
+    expect(plotBuyAction({ ...l, canBuy: false }, "r_ada", 400, rules).kind).toBe("take");
+    expect(plotBuyAction(l, null, null, rules).kind).toBe("none");
   });
 
   it("says a first plot is free only to someone who owns none, since a second is only bought", () => {

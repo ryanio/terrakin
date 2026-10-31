@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-31:
 
+- Added: `canBuy` and `why` on each plot listing, with a token
 - Added: `lastSold` on plot reads and plot listings
 - Added: `share_listed`: a plot shared with you was put up for sale
 - Changed: `buy_plot` also takes `listed`, and a plot listed again is refused even at the same price

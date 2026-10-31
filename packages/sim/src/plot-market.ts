@@ -287,6 +287,27 @@ export function listPlotProblem(
   return typeof checked === "function" ? null : checked;
 }
 
+/**
+ * Why `actor` can't buy plot (px, py) as it's listed now, or null when they can: `buy_plot`'s own
+ * checks with the listing's own price and number. `GET /v1/plot-market` answers `canBuy` from it.
+ */
+export function buyPlotProblem(
+  state: WorldState,
+  actor: ResidentId,
+  px: number,
+  py: number,
+): Rejection | null {
+  const listing = plotListing(state, px, py);
+  const checked = checkBuyPlot(state, actor, {
+    type: "buy_plot",
+    px,
+    py,
+    price: listing?.price ?? 0,
+    listed: listing?.listed ?? 0,
+  });
+  return typeof checked === "function" ? null : checked;
+}
+
 /** Every plot for sale, newest listing first, then north to south and west to east. */
 export function plotListings(state: WorldState): PlotListing[] {
   return Object.values(state.plotMarket?.listings ?? {}).sort(

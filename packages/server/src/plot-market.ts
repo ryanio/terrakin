@@ -6,6 +6,7 @@ import {
   type PlotSaleView,
 } from "@terrakin/protocol";
 import {
+  buyPlotProblem,
   coinsOf,
   furnishing,
   type GradedWalls,
@@ -57,6 +58,7 @@ function listingView(
   l: PlotListing,
   read: PlotMarketReaders,
   counts: Counts,
+  viewer?: string,
 ): PlotListingView | null {
   const seller = read.author(l.seller);
   const plot = own(state.plots, plotKey(l.px, l.py));
@@ -77,7 +79,18 @@ function listingView(
     ...lastSoldView(plot),
     ...(name === undefined ? {} : { name }),
     trust: "untrusted",
+    ...(viewer === undefined ? {} : buyView(state, viewer, l)),
   };
+}
+
+/** Whether `viewer` could buy listing `l` now, and why not: the sim's own `buy_plot` checks. */
+function buyView(
+  state: WorldState,
+  viewer: string,
+  l: PlotListing,
+): Pick<PlotListingView, "canBuy" | "why"> {
+  const problem = buyPlotProblem(state, viewer, l.px, l.py);
+  return problem === null ? { canBuy: true } : { canBuy: false, why: problem.message };
 }
 
 /**
@@ -93,8 +106,10 @@ export function plotMarketView(
   const all = plotListings(state);
   // Walls between tiles (RFC 0050) and graded walls (RFC 0051): one pass over the world each.
   const counts: Counts = { edges: edgeCounts(state), graded: gradedWalls(state) };
+  // With a token, each listing says whether the viewer could buy it (RFC 0039).
+  const buyer = viewer && state.residents[viewer] ? viewer : undefined;
   const listings = all.flatMap((l) =>
-    read.hidden(l.seller) ? [] : (listingView(state, l, read, counts) ?? []),
+    read.hidden(l.seller) ? [] : (listingView(state, l, read, counts, buyer) ?? []),
   );
   let you: PlotMarketResponse["you"] = null;
   if (viewer && state.residents[viewer]) {

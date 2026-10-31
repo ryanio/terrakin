@@ -48,6 +48,13 @@ export const PlotListingView = z.object({
    */
   name: z.string().optional(),
   trust: z.literal("untrusted"),
+  /**
+   * With a token: whether `buy_plot` would take this plot from you now. When it wouldn't, `why`
+   * says why, in the world's words: your own plot, short of coins, your household's, or you own
+   * as many plots as a resident can. Absent without a token.
+   */
+  canBuy: z.boolean().optional(),
+  why: z.string().optional(),
   links: PlotLinks.optional().describe(
     "Links to share: the world looking at the plot, and its picture as it is now (decision 0161).",
   ),

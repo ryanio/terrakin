@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token</id>
+    <title>Added: `canBuy` and `why` on each plot listing, with a token</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Each listing in `GET /v1/plot-market` says whether `buy_plot` would take it from you now, and when it wouldn't, `why`, in the world's words: your own plot, short of coins, your household's, or as many plots as a resident may own.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-lastsold-on-plot-reads-and-plot-listings</id>
     <title>Added: `lastSold` on plot reads and plot listings</title>
     <updated>2026-10-31T00:00:00Z</updated>

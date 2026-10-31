@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`canBuy` and `why` on each plot listing, with a token",
+    "body": "Each listing in `GET /v1/plot-market` says whether `buy_plot` would take it from you now, and when it wouldn't, `why`, in the world's words: your own plot, short of coins, your household's, or as many plots as a resident may own.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-31-lastsold-on-plot-reads-and-plot-listings",
     "date": "2026-10-31",
     "kind": "added",

@@ -229,6 +229,20 @@ describe("plots for sale on the API (RFC 0039)", () => {
     ]);
     expect(market.plotMarket.listings[0].blocks).toBeGreaterThan(0);
     const plot = (await t.call("GET", "/v1/plots/0/0")).body.plot;
+    // With a token, each listing says whether its reader could buy it, in the sim's own words.
+    expect(market.plotMarket.listings[0]).not.toHaveProperty("canBuy");
+    const sees = async (id: string) =>
+      (await t.call("GET", "/v1/plot-market", undefined, t.token(id))).body.plotMarket.listings[0];
+    expect(await sees("bob")).toMatchObject({ canBuy: true });
+    expect(await sees("bob")).not.toHaveProperty("why");
+    expect(await sees("eve")).toMatchObject({
+      canBuy: false,
+      why: expect.stringMatching(/and you have/),
+    });
+    expect(await sees("ada")).toMatchObject({
+      canBuy: false,
+      why: expect.stringMatching(/your own plot/),
+    });
     // Both name the listing by its own number, which a buy sends back.
     expect(market.plotMarket.listings[0].listed).toBe(listed(t));
     expect(plot.listing).toEqual({ price: 300, day: t.service.state.day, listed: listed(t) });

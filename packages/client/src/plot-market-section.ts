@@ -10,8 +10,13 @@ import { plotOf } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, emptyNote, itemRow, itemRows, kindPill } from "@terrakin/ui/ui";
-import { listingAction } from "./market-words";
-import { listingFacts, noListingsLine, ownPlotLine, ownPlotTitle } from "./plot-market";
+import {
+  listingFacts,
+  noListingsLine,
+  ownPlotLine,
+  ownPlotTitle,
+  plotBuyAction,
+} from "./plot-market";
 import { plotThumb } from "./plot-thumb";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
@@ -73,7 +78,7 @@ function listingRow(
   moves: PlotMarketMoves,
 ): HTMLLIElement {
   const { title } = plotTitles(l, [l.seller.name]);
-  const action = listingAction(l, me, data.you?.balance ?? null);
+  const action = plotBuyAction(l, me, data.you?.balance ?? null, data.rules);
   // Your own plot for sale says so, and is taken back from "Your plots", below.
   let trail: HTMLElement | null = null;
   if (action.kind === "take") trail = kindPill("Yours", "moss");
@@ -98,6 +103,7 @@ function listingRow(
     lines: [
       h("span", {}, `${coins(l.price)} from `, personLink(l.seller)),
       listingFacts(l, world?.day),
+      action.line,
       seeIt(l),
     ],
     trail: trail || more ? h("span", { class: "cluster listing-trail" }, trail, more) : null,

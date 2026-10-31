@@ -7,6 +7,7 @@ import type { PlotListingView, PlotMarketResponse, PlotSaleView } from "@terraki
 import { relativeDayWords } from "@terrakin/sim";
 import { listOf, plural } from "@terrakin/ui/format";
 import { furnishedLine } from "./furnished-line";
+import { listingAction } from "./market-words";
 import { coins } from "./purse";
 
 type Rules = PlotMarketResponse["rules"];
@@ -98,6 +99,32 @@ export function listingFacts(
     ? ` It last sold for ${coins(l.lastSold.price)} ${relativeDayWords(l.lastSold.day, today)}.`
     : "";
   return `${made} Listed ${relativeDayWords(l.day, today)}.${sold}`;
+}
+
+/**
+ * A plot for sale's Buy button, and the line under it when the server says you can't buy it
+ * (`canBuy`, the sim's own checks): Take back on your own, by how much you're short (the button says
+ * it, so no line), or Buy held back with why: your household's, or as many plots as you may own.
+ */
+export function plotBuyAction(
+  l: {
+    price: number;
+    seller: { id: string };
+    canBuy?: boolean | undefined;
+    why?: string | undefined;
+  },
+  me: string | null,
+  balance: number | null,
+  rules: Pick<Rules, "priceMax">,
+): { kind: "buy" | "take" | "none"; text: string; can: boolean; line: string | null } {
+  const action = listingAction(l, me, balance);
+  if (action.kind !== "buy" || l.canBuy !== false) return { ...action, line: null };
+  if (balance !== null && balance < l.price) return { ...action, can: false, line: null };
+  return {
+    ...action,
+    can: false,
+    line: plotMarketProblem("", l.why ?? "You can't buy this plot now.", rules, "buy"),
+  };
 }
 
 /**

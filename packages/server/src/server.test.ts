@@ -514,6 +514,31 @@ describe("REST", () => {
       expect(stuck.body.error.code).toBe("out_of_bounds");
     });
 
+    it("says a block stopped it short, the case Felipe hit live (issue #132)", async () => {
+      const { base, service } = await start();
+      const { token, residentId } = await join_(base, "Wren");
+      const spawn = service.state.residents[residentId];
+      if (!spawn) throw new Error("no resident");
+      const [sx, sy] = [spawn.x, spawn.y];
+      // A stone two tiles east of spawn, so a 4-step walk east moves one tile and stops at it.
+      // Setup only, never logged, the way the walk_to tests above wall a tile in.
+      service.state.blocks[tileKey(sx + 2, sy)] = "stone";
+
+      const short = await api(
+        base,
+        "POST",
+        "/v1/actions",
+        { type: "move", dir: "e", steps: 4 },
+        token,
+      );
+      expect(short.body.ok).toBe(true);
+      // Not silent: how far it got, and the refusal of the step it didn't take.
+      expect(short.body.moved).toBe(1);
+      expect(short.body.stopped.code).toBe("blocked");
+      expect(short.body.events.filter((e: { type: string }) => e.type === "moved")).toHaveLength(1);
+      expect(where(service, residentId)).toBe(`${sx + 1},${sy}`);
+    });
+
     it("pays a rate-limit token for each tile after the first", async () => {
       // A world wide enough that only the tokens can stop the walk, never its edge.
       const wide = { ...CONFIG, width: 40, height: 40 };

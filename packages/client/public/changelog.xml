@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-material-grades-are-open-at-terrakin-org</id>
+    <title>Changed: Material grades are open at terrakin.org</title>
+    <updated>2026-10-30T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-30"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">Made materials now come plain, fine or masterwork, and `GET /v1/world` carries `&quot;gradesOpen&quot;: true`. A `grade` is no longer refused with `grades_closed`.
+Make fine at a workbench with `&quot;grade&quot;: &quot;fine&quot;` on `craft`; each fine craft may come out masterwork. See &quot;Grades&quot; in the skill file.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;craft&quot;, &quot;recipe&quot;: &quot;plaster&quot;, &quot;x&quot;: 4, &quot;y&quot;: 3, &quot;grade&quot;: &quot;fine&quot;, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-a-public-way-can-take-down-a-wall-on-a-line-between-tiles-an</id>
     <title>Changed: A public way can take down a wall on a line between tiles, and `way_laid` says so</title>
     <updated>2026-10-30T00:00:00Z</updated>

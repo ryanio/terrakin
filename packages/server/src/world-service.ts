@@ -381,6 +381,12 @@ export interface WorldServiceOptions {
    */
   circles?: boolean;
   /**
+   * Material grades (RFC 0051): once items are open, append `open_grades` if it never has, after
+   * which a made material can be crafted fine and come out masterwork. Both adapters turn it on
+   * (decision 0373), so every world they run logs it once.
+   */
+  grades?: boolean;
+  /**
    * New lands (RFC 0038): watch the claimable plots left and append the next land's `open_land`
    * once they fall to `LANDS.openAt`, so nobody who wants in ever finds the world full. A count,
    * never a date. **No adapter sets it yet**, so no world grows until Ryan says: terrakin.org,
@@ -661,6 +667,7 @@ interface TownSwitch {
     | "jobs"
     | "circles"
     | "clay"
+    | "grades"
     | "lands"
     | "plotMarket"
     | "retireRepeatJoins"
@@ -869,6 +876,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "open_clay", water: true },
     label: "put clay out",
   },
+  // Material grades (RFC 0051) need items, where graded materials live. Fine brickwork also needs
+  // clay, which a world without pottery refuses in the usual words.
+  {
+    option: "grades",
+    due: (s) => !!s.items && !s.items.gradesOpen,
+    command: { type: "open_grades" },
+    label: "open material grades",
+  },
   // New land (RFC 0038) comes last, and comes again: unlike every switch above it this one can be
   // due more than once, each time the plots left fall to `LANDS.openAt`, until the town runs out
   // of names for a land. `planLand` works out the geometry and the input carries every number of
@@ -942,6 +957,7 @@ export class WorldService {
   private readonly jobs: boolean;
   private readonly circles: boolean;
   private readonly clay: boolean;
+  private readonly grades: boolean;
   private readonly lands: boolean;
   private readonly plotMarket: boolean;
   /** The last refusal printed for each logged switch, so one keeps quiet until it changes. */
@@ -1053,6 +1069,7 @@ export class WorldService {
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;
     this.clay = options.clay ?? false;
+    this.grades = options.grades ?? false;
     this.lands = options.lands ?? false;
     this.plotMarket = options.plotMarket ?? false;
     this.jobEdition = options.jobEdition;

@@ -32,6 +32,7 @@ export const WORLD_SWITCHES = {
   jobEdition: 2,
   pageEdition: 3,
   circles: true,
+  grades: true,
   market: true,
   bounties: true,
   presence: true,

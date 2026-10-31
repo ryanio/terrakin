@@ -307,7 +307,7 @@ Built in slices, each its own push:
 2. The server and protocol: the roll in `world-actions.ts`, `grade` on every action and event, the inventory read, the plot map's `grades`, `walls` on a plot read, the slim planner, `SKILL.md`, `CHANGELOG.md`, `pnpm gen`.
 3. The looks: `GRADE_LOOK`, map sprites, both 3D views, plot photos and pictures by link, item picture marks, and a grade picker on the build bar's material row that shows only grades you hold.
 4. Plots to visit's card line and the plot market's counts.
-5. `open_grades` logged at terrakin.org once slices 1 to 4 are live and the economy run's numbers are recorded.
+5. `open_grades` logged at terrakin.org once slices 1 to 4 are live and the economy run's numbers are recorded. Done 2026-10-30 ([decision 0413](../knowledge/decisions/0413-material-grades-open-in-every-world-terrakin-org-included-wi.md)).
 
 ## Alternatives considered
 

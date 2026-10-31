@@ -67,7 +67,8 @@ async function start(open: boolean) {
   const base = await listenOnFreePort(server, cleanups);
   const call = jsonCaller(base);
   service.tick();
-  // No adapter logs `open_grades`: a test world opens it by its route, from this machine only.
+  // This world leaves the `grades` option off, so a test opens grades by its route, from this
+  // machine only.
   if (open) {
     expect((await call("POST", TEST_OPEN_GRADES_PATH)).body).toEqual({ ok: true });
     expect((await call("POST", TEST_OPEN_GRADES_PATH)).body.ok).toBe(false);
@@ -86,6 +87,23 @@ async function start(open: boolean) {
   };
   return { call, act, ada, service, store, stock };
 }
+
+describe("the grades switch", () => {
+  it("logs open_grades once, on the first tick after items open, in a world with the option", () => {
+    const now = Date.UTC(2026, 9, 30, 9);
+    const opts = { store: new MemoryStore(), config: CONFIG, now: () => now, grades: true };
+    // Without items there is nowhere for a grade to live, so the switch waits.
+    const early = new WorldService({ ...opts, days: true });
+    early.tick();
+    expect(early.state.items?.gradesOpen).toBeUndefined();
+    const service = new WorldService({ ...opts, days: true, economy: true, items: true });
+    service.tick();
+    expect(service.state.items?.gradesOpen).toBe(true);
+    const seq = service.state.seq;
+    service.tick();
+    expect(service.state.seq).toBe(seq);
+  });
+});
 
 describe("material grades over HTTP", () => {
   it("refuses every grade, and says nothing of grades, in a world that never opened them", async () => {

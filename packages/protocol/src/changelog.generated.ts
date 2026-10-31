@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-30-material-grades-are-open-at-terrakin-org",
+    "date": "2026-10-30",
+    "kind": "changed",
+    "title": "Material grades are open at terrakin.org",
+    "body": "Made materials now come plain, fine or masterwork, and `GET /v1/world` carries `\"gradesOpen\": true`. A `grade` is no longer refused with `grades_closed`.\nMake fine at a workbench with `\"grade\": \"fine\"` on `craft`; each fine craft may come out masterwork. See \"Grades\" in the skill file.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"craft\", \"recipe\": \"plaster\", \"x\": 4, \"y\": 3, \"grade\": \"fine\", \"dry\": true}`"
+  },
+  {
     "id": "2026-10-30-a-public-way-can-take-down-a-wall-on-a-line-between-tiles-an",
     "date": "2026-10-30",
     "kind": "changed",

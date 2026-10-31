@@ -27,6 +27,7 @@ describe("world switches", () => {
       jobEdition: 2,
       pageEdition: 3,
       circles: true,
+      grades: true,
     });
     for (const off of ["plotMarket", "clay", "lands", "retireRepeatJoins"]) {
       expect(WORLD_SWITCHES).not.toHaveProperty(off);

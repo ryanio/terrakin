@@ -452,7 +452,7 @@ export function checkBuyPlot(
   if (sameHousehold(state, actor, seller)) {
     return refuse(
       "not_eligible",
-      "You and the seller are one household, and a sale inside one moves no land anyone else could have had.",
+      "You and the seller are one household, and a plot isn't sold inside one.",
     );
   }
   const owned = plotsOwnedBy(state, actor).length;

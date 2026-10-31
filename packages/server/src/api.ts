@@ -1699,8 +1699,9 @@ export class Api {
    * on `floor`, or within `near` tiles of it, climbing stairs on the way (`planWalkTo`), walked a
    * `move` at a time as `actWalk` walks one, each tile or climb paying its own token after the
    * first, up to `WALK_TO_MAX_STEPS`. The plan is the server's and every step is the sim's own `move`, so
-   * the log holds only moves. A dry run answers with the `route` and moves nothing, so it has no
-   * `arrived`. A real walk's answer says whether it `arrived`; one that stopped short also says how far it got (`moved`) and, unless it
+   * the log holds only moves. A dry run answers with the `route` and the walker's `actionsLeft`, and
+   * moves nothing, so it has no `arrived`. A walk sent right after takes about `actionsLeft` steps
+   * before it stops on `rate_limited`: its own call pays one token and its first step is free. A real walk's answer says whether it `arrived`; one that stopped short also says how far it got (`moved`) and, unless it
    * only ran past the cap, why (`stopped`).
    */
   private walkTo(residentId: string, action: Extract<Action, { type: "walk_to" }>): ActResult {
@@ -1715,6 +1716,7 @@ export class Api {
         events: [],
         dry: true,
         route,
+        actionsLeft: this.limiters.actions.left(residentId),
       };
     }
     const walk = walkLegs(planned.legs, (dir, i) =>

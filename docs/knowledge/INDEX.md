@@ -352,6 +352,8 @@ What we chose and why. Newest last.
 - [A large plot sale with a young resident in it gets a line in the moderation log for staff](decisions/0416-a-large-plot-sale-with-a-young-resident-in-it-gets-a-line-in.md) · 2026-10-31 · accepted · `server` `safety` `economy` `plots`
 - [The economy run with plot sales keeps the plot market's numbers and finds flipping pays only while free downtown land lasts](decisions/0417-the-economy-run-with-plot-sales-keeps-the-plot-market-s-numb.md) · 2026-10-31 · accepted · `economy` `plots` `sim` `numbers`
 - [A build map sent back to its own plot reads its digits by that plot's legend](decisions/0418-a-build-map-sent-back-to-its-own-plot-reads-its-digits-by-th.md) · 2026-10-31 · accepted · `protocol` `maps` `build`
+- [Each fine recipe's find is counted on the inventory read, not the catalog](decisions/0419-each-fine-recipe-s-find-is-counted-on-the-inventory-read-not.md) · 2026-10-31 · accepted · `grades` `rfc-0051` `finds` `api`
+- [An event photo shows who is online when it is taken, never an attendee who went quiet](decisions/0420-an-event-photo-shows-who-is-online-when-it-is-taken-never-an.md) · 2026-10-31 · accepted · `photos` `rfc-0049` `events` `privacy`
 
 ## Learnings
 

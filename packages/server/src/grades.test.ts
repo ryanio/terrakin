@@ -115,6 +115,9 @@ describe("material grades over HTTP", () => {
     expect((await t.act({ ...craft, dry: true })).error.code).toBe("grades_closed");
     expect(t.service.state.seq).toBe(seq);
     expect((await t.call("GET", "/v1/world")).body).not.toHaveProperty("gradesOpen");
+    expect(
+      (await t.call("GET", "/v1/inventory", undefined, t.ada.token)).body.inventory,
+    ).not.toHaveProperty("fineFinds");
     // A plot with no graded wall has no `walls` at all.
     expect((await t.call("GET", "/v1/plots/0/0")).body.plot).not.toHaveProperty("walls");
   });
@@ -157,6 +160,15 @@ describe("material grades over HTTP", () => {
       { kind: "plaster", count: 3 },
       { kind: "plaster", grade: "fine", count: 4 },
     ]);
+    // Each fine recipe's find (issue #138). Timber frame takes fine plaster, not a find.
+    const fineFinds: { makes: string; find: string; lying: number }[] = inv.inventory.fineFinds;
+    expect(fineFinds.map((f) => [f.makes, f.find])).toEqual([
+      ["plaster", "seashell"],
+      ["brickwork", "clay"],
+      ["driftwood_plank", "pinecone"],
+      ["sea_glass_pane", "crystal"],
+    ]);
+    // How many lie is the sim's `pickupsFor`, which gather.test.ts proves.
     // A wall swapped for fine plaster in one plan, with the map's grades record, and a line.
     const map = {
       legend: { "0": "plaster" },

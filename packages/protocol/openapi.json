@@ -30589,6 +30589,12 @@
                   ]
                 }
               },
+              "actionsLeft": {
+                "description": "`walk_to` on a dry run, beside `route`: the actions you have right now. A walk sent straight after takes about that many steps before it stops with `rate_limited`; actions come back at 10 a second, up to 20.",
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
+              },
               "cost": {
                 "description": "On a dry run of any action but `build` (whose `plan` says it): what it would take from your things (`uses`), what it would give you (`gets`), each by kind, and the net change in your `coins`, spent below 0. Absent when it would change none of them.",
                 "allOf": [
@@ -38590,6 +38596,11 @@
                     "steps"
                   ]
                 }
+              },
+              "actionsLeft": {
+                "type": "integer",
+                "minimum": 0,
+                "maximum": 9007199254740991
               },
               "cost": {
                 "allOf": [
@@ -52798,6 +52809,33 @@
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/KilnView"
+            }
+          },
+          "fineFinds": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "makes": {
+                  "type": "string",
+                  "description": "The material its fine recipe makes."
+                },
+                "find": {
+                  "type": "string",
+                  "description": "The find it takes on top of the plain recipe."
+                },
+                "lying": {
+                  "type": "integer",
+                  "minimum": 0,
+                  "maximum": 9007199254740991,
+                  "description": "How many lie today where you may pick them up; 0 means wait for tomorrow."
+                }
+              },
+              "required": [
+                "makes",
+                "find",
+                "lying"
+              ]
             }
           }
         },

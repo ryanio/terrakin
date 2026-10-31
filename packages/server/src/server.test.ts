@@ -438,24 +438,33 @@ describe("REST", () => {
       expect(far.body).toMatchObject({ ok: true, arrived: false, moved: WALK_TO_MAX_STEPS });
       expect(far.body.stopped).toBeUndefined();
 
-      // With 4 tokens in the bucket the walk pays for 3 tiles after the first, then stops.
+      // A bucket of 4: the dry run pays one and says 3 are left (issue #137). The walk sent
+      // straight after pays one for its call, takes its first step free, and pays a tile each
+      // after that, so it gets about as far as the dry run said before it stops.
       const slow = new WorldService({ store: new MemoryStore(), config: wide });
       const server = createApp({ service: slow, actionsPerSecond: 2, onResponse });
       const slowBase = await listenOnFreePort(server, cleanups);
       const wren = await join_(slowBase, "Wren");
-      const short = await api(
-        slowBase,
-        "POST",
-        "/v1/actions",
-        { type: "walk_to", x: 119, y: at(slow, wren.residentId).y },
-        wren.token,
-      );
+      const goFar = (extra: object = {}) =>
+        api(
+          slowBase,
+          "POST",
+          "/v1/actions",
+          { type: "walk_to", x: 119, y: at(slow, wren.residentId).y, ...extra },
+          wren.token,
+        );
+      const dry = await goFar({ dry: true });
+      expect(dry.body).toMatchObject({ ok: true, dry: true, actionsLeft: 3 });
+      const short = await goFar();
       expect(short.body).toMatchObject({
         ok: true,
         arrived: false,
         stopped: { code: "rate_limited" },
       });
+      expect(short.body.moved).toBeGreaterThanOrEqual(dry.body.actionsLeft);
       expect(short.body.moved).toBeLessThan(10);
+      // A real walk's answer carries no `actionsLeft`: `moved` and `stopped` say where it got.
+      expect(short.body).not.toHaveProperty("actionsLeft");
     });
   });
 

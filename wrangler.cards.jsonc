@@ -10,8 +10,8 @@
   // No routes and no address of its own: a service binding is the only way in.
   "workers_dev": false,
   "preview_urls": false,
-  // Browser Run, which draws scene photos (RFC 0049) for the main Worker. Nothing asks for one
-  // until the main Worker's TERRAKIN_SCENE_PHOTOS is "on", which waits for Ryan's go.
+  // Browser Run, which draws scene photos (RFC 0049) for the main Worker while its
+  // TERRAKIN_SCENE_PHOTOS is "on".
   "browser": { "binding": "BROWSER" },
   "rules": [
     // Card fonts (packages/cards/src/worker.ts): @fontsource WOFF files as ArrayBuffers.

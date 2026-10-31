@@ -6,7 +6,7 @@ import {
   type StackKind,
 } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
-import { isMaterialKind } from "./materials";
+import { isMaterialKind, MATERIAL_RECIPES } from "./materials";
 import { own } from "./own";
 import type { FloorLayer, Rejection, WorldEvent, WorldState } from "./types";
 
@@ -75,6 +75,15 @@ export const FINE_RECIPES: Readonly<Record<MaterialKind, FineRecipe>> = Object.f
   /** A clearer pane. */
   sea_glass_pane: { needs: { sea_glass: 2, crystal: 1 }, makes: 2 },
 });
+
+/**
+ * The find a fine recipe takes on top of its plain recipe: the kind in its `needs` the plain
+ * recipe lacks. Fine timber frame takes fine plaster instead, so it has none.
+ */
+export function fineFindOf(kind: MaterialKind): StackKind | undefined {
+  const plain = MATERIAL_RECIPES[kind].needs;
+  return (Object.keys(FINE_RECIPES[kind].needs) as StackKind[]).find((k) => !(k in plain));
+}
 
 /**
  * What a fine craft comes out as for a resident whose last `run` fine crafts held no masterwork:

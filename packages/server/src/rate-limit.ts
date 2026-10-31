@@ -39,6 +39,12 @@ export class RateLimiter {
     };
   }
 
+  /** Whole requests left right now, spending none. */
+  left(): number {
+    this.refill();
+    return Math.floor(this.tokens);
+  }
+
   /** True when the bucket has refilled completely, so forgetting it changes nothing. */
   isFull(): boolean {
     this.refill();
@@ -73,6 +79,11 @@ export class RateLimiters {
       this.buckets.set(key, bucket);
     }
     return bucket.takeInfo();
+  }
+
+  /** Whole requests `key` has left right now, spending none and keeping no bucket for it. */
+  left(key: string): number {
+    return this.buckets.get(key)?.left() ?? this.capacity;
   }
 
   prune() {

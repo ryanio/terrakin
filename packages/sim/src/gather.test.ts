@@ -4,7 +4,14 @@ import { biomeAt } from "./biome";
 import { CATALOG, FIND_KINDS } from "./catalog";
 import { FINDS_CONFIG, FINDS_HASH, FINDS_LOG } from "./fixtures/finds-log";
 import { GATHER_ALL_CONFIG, GATHER_ALL_HASH, GATHER_ALL_LOG } from "./fixtures/gather-all-log";
-import { FIND_SPAWNS, type FindSpawn, GATHER, gatherableAt, pickupLeft } from "./gather";
+import {
+  FIND_SPAWNS,
+  type FindSpawn,
+  GATHER,
+  gatherableAt,
+  pickupLeft,
+  pickupsFor,
+} from "./gather";
 import { hashWorld } from "./hash";
 import { ITEMS, type StackKind } from "./items";
 import { replay } from "./replay";
@@ -445,6 +452,27 @@ describe("gathering everything within reach (decision 0125)", () => {
       { type: "gathered", x: 5, y: 0, kind: "wood", by: "ada" },
       { type: "gathered", x: 0, y: 5, kind: "stone", by: "ada" },
     ]);
+  });
+
+  it("counts what each resident may pick up today, the whole world over (issue #138)", () => {
+    const w = neighbors();
+    const anyone = pickupsFor(w.state, "bob");
+    expect(pickupsFor(w.state, "ada")).toEqual(anyone);
+    w.ok(TOWN_ACTOR, { type: "own_plot_pickups" });
+    // Ada's plot is (0, 0) to (7, 7): once it's hers alone, its stone counts for her, not Bob.
+    let onAdas = 0;
+    for (let y = 0; y < 8; y++) {
+      for (let x = 0; x < 8; x++) if (pickupLeft(w.state, x, y) === "stone") onAdas++;
+    }
+    expect(onAdas).toBeGreaterThan(0);
+    const ada = pickupsFor(w.state, "ada");
+    expect(ada.stone).toBe(anyone.stone);
+    expect(pickupsFor(w.state, "bob").stone ?? 0).toBe((anyone.stone ?? 0) - onAdas);
+    // What she picks up stops counting.
+    stand(w, "ada", { x: 3, y: 3 });
+    const took = w.ok("ada", ALL).filter((e) => e.type === "gathered" && e.kind === "stone");
+    expect(took.length).toBeGreaterThan(0);
+    expect(pickupsFor(w.state, "ada").stone ?? 0).toBe((ada.stone ?? 0) - took.length);
   });
 
   it.each<[string, boolean, number]>([

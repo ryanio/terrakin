@@ -391,7 +391,7 @@ describe("picture route", () => {
     expect(first.status).toBe(200);
     expect(first.headers).toMatchObject({
       "content-type": "image/png",
-      "cache-control": "public, max-age=120",
+      "cache-control": "public, no-cache",
       "x-content-type-options": "nosniff",
       // This answer drew it, and says so.
       "cache-status": "terrakin; fwd=miss",
@@ -428,9 +428,10 @@ describe("picture route", () => {
     expect(cached.headers["cache-status"]).toBe("terrakin; hit");
     expect([t.asks(), t.renders()]).toEqual([3, 2]);
 
-    // A plot and a look keep longer downstream, and the exact version for a year.
+    // A bare link is asked again downstream every time (issue #140), and the exact version is
+    // kept a year.
     const plot = await serveCard(req("/og/plot/1-2.png"), t.d);
-    expect(plot.headers["cache-control"]).toBe("public, max-age=300");
+    expect(plot.headers["cache-control"]).toBe("public, no-cache");
     const key = (plot.headers.etag ?? "").slice(1, -1);
     const pinned = await serveCard(req("/og/look/r_known.png", { version: key }), t.d);
     expect(pinned.headers["cache-control"]).toBe("public, max-age=31536000, immutable");

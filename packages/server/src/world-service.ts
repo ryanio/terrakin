@@ -200,6 +200,8 @@ export type ActResult =
       arrived?: boolean;
       /** `walk_to` on a dry run: the walk it would take, in legs, each climb a leg of its own. */
       route?: { dir: Direction | Climb; steps: number }[];
+      /** `walk_to` on a dry run: the actions the walker has right now, beside `route`. */
+      actionsLeft?: number;
       /** A dry run: what it would take from the actor's things and purse, and give. */
       cost?: DryCost;
       /** `build_starter_home` (decision 0351), `settle`, and `claim` (decision 0354): notes. */

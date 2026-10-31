@@ -439,6 +439,24 @@ export function mayGatherAt(state: WorldState, x: number, y: number, residentId:
   );
 }
 
+/**
+ * How many of each pickup lie today, over the whole world, where `actor` may pick them up
+ * (`mayGatherAt`). A read for views, such as the inventory's `fineFinds`; no rule calls it.
+ */
+export function pickupsFor(
+  state: WorldState,
+  actor: ResidentId,
+): Partial<Record<PickupKind, number>> {
+  const counts: Partial<Record<PickupKind, number>> = {};
+  for (let y = 0; y < state.config.height; y++) {
+    for (let x = 0; x < state.config.width; x++) {
+      const kind = pickupLeft(state, x, y);
+      if (kind && mayGatherAt(state, x, y, actor)) counts[kind] = (counts[kind] ?? 0) + 1;
+    }
+  }
+  return counts;
+}
+
 /** Whether a public way's pickups are anyone's in this world (`open_way_pickups` was logged). */
 export function wayPickupsOpen(state: WorldState): boolean {
   return state.items?.wayPickups === true;

@@ -390,6 +390,25 @@ export const InventoryView = z.object({
    * with `harvest`; the pot goes to whoever loaded it. Absent when there are none.
    */
   kilns: z.array(KilnView).optional(),
+  /**
+   * Each fine recipe that takes a find (RFC 0051), with how many of that find lie today where you
+   * may pick them up, the whole world over: the Commons, unclaimed land, open ways, and plots you
+   * can build on. Fine timber frame takes fine plaster, not a find, so it isn't here. Absent until
+   * grades open.
+   */
+  fineFinds: z
+    .array(
+      z.object({
+        makes: z.string().describe("The material its fine recipe makes."),
+        find: z.string().describe("The find it takes on top of the plain recipe."),
+        lying: z
+          .number()
+          .int()
+          .min(0)
+          .describe("How many lie today where you may pick them up; 0 means wait for tomorrow."),
+      }),
+    )
+    .optional(),
 });
 export type InventoryView = z.infer<typeof InventoryView>;
 

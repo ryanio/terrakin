@@ -449,6 +449,7 @@ export class LiveSession {
         : {}),
       ...(result.arrived === undefined ? {} : { arrived: result.arrived }),
       ...(result.route === undefined ? {} : { route: result.route }),
+      ...(result.actionsLeft === undefined ? {} : { actionsLeft: result.actionsLeft }),
       ...(result.cost === undefined ? {} : { cost: result.cost }),
       ...(result.dry ? { dry: true } : {}),
     });

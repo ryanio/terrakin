@@ -3,6 +3,32 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-finefinds-on-get-v1-inventory-how-many-of-each-fine-recipe",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`fineFinds` on `GET /v1/inventory`: how many of each fine recipe's find lie today",
+    "body": "Each entry is `{makes, find, lying}`: the material a fine recipe makes, the find it takes on top of the plain recipe, and how many of that find lie today where you may pick them up (the Commons, unclaimed land, open ways, and plots you can build on).\nAt 0 that fine craft waits for tomorrow's finds. Absent until grades open.",
+    "links": [],
+    "try": "`GET /v1/inventory`"
+  },
+  {
+    "id": "2026-10-31-actionsleft-on-a-dry-walk-to-and-the-skill-says-how-far-one",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`actionsLeft` on a dry `walk_to`, and the skill says how far one call goes",
+    "body": "A dry `walk_to` answers with `actionsLeft` beside `route`: the actions you have right now. You have 20 at once and they come back at 10 a second, so a walk sent straight after goes about `actionsLeft` steps (19 at most, since the dry run spends one) before it stops on `rate_limited`, short of the 40-step cap.\nSend the same `walk_to` again after a couple of seconds: it plans again from where you stand, so a long trip is a few calls.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 40, \"y\": 30, \"dry\": true}`"
+  },
+  {
+    "id": "2026-10-31-a-plot-or-look-picture-by-link-no-longer-shows-a-home-as-it",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A plot or look picture by link no longer shows a home as it was minutes ago",
+    "body": "`/og/plot/<px>-<py>.png`, `/og/look/<residentId>.png`, and `/og/near/<residentId>.png` now go out with `Cache-Control: public, no-cache`, so a cache asks again with the `ETag` on every fetch, and a change shows within a minute or two.\nChat apps keep the first picture they saw for a link: when you paste one into a chat, add `?v=` and the picture's `ETag` without its quotes, so each change is a new link.",
+    "links": []
+  },
+  {
     "id": "2026-10-31-a-plot-s-own-build-map-sent-back-without-its-legend-reads-it",
     "date": "2026-10-31",
     "kind": "fixed",

@@ -324,16 +324,19 @@ export async function serveCard(req: CardRequest, deps: CardDeps): Promise<CardR
 }
 
 /**
- * How long each picture by link is answered without asking the world again, and how long caches
- * downstream keep it. The map around someone changes as people walk, so it's two minutes; a plot
- * and a look change rarely, so a minute between asks and five in downstream caches. A request for
- * the exact current version (`?v=<etag>`) is kept a year, like the cards.
+ * How long each picture by link is answered without asking the world again: two minutes for the
+ * map around someone, one for a plot and a look. Caches downstream keep a bare link's answer only
+ * to ask again with its ETag (`UNPINNED`), so a changed home shows on the next fetch past the
+ * pointer. A request for the exact current version (`?v=<etag>`) is kept a year, like the cards.
  */
-export const PICTURE_TTL: Record<PictureRoute["kind"], { ask: number; keep: number }> = {
-  near: { ask: 120, keep: 120 },
-  plot: { ask: 60, keep: 300 },
-  look: { ask: 60, keep: 300 },
+export const PICTURE_TTL: Record<PictureRoute["kind"], { ask: number }> = {
+  near: { ask: 120 },
+  plot: { ask: 60 },
+  look: { ask: 60 },
 };
+
+/** A picture by its bare link: kept downstream, but asked again with its ETag every time. */
+const UNPINNED = "public, no-cache";
 
 /** Picture requests one client may make per minute, and draws the whole server may make. */
 export const PICTURES_PER_MINUTE = 60;
@@ -408,7 +411,7 @@ async function servePicture(
   }
   const headers = (k: string) => ({
     "content-type": "image/png",
-    "cache-control": req.version === k ? YEAR : `public, max-age=${ttl.keep}`,
+    "cache-control": req.version === k ? YEAR : UNPINNED,
     etag: `"${k}"`,
     "x-content-type-options": "nosniff",
   });

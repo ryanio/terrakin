@@ -9,6 +9,8 @@ import {
 } from "@terrakin/protocol";
 import {
   canBuildOn,
+  FINE_RECIPES,
+  fineFindOf,
   firingsOf,
   type Good,
   heldAsideOf,
@@ -21,6 +23,7 @@ import {
   pantryNumbers,
   parseKey,
   picksLeft,
+  pickupsFor,
   plotAtTile,
   presentsFor,
   TOWN_ACTOR,
@@ -152,9 +155,26 @@ export function inventoryView(
       ...(held.length > 0 ? { heldAside: held } : {}),
       ...presentsField(state, viewer, author),
       ...(kilns.length > 0 ? { kilns } : {}),
+      ...fineFindsField(state, viewer),
     },
     ...base,
   };
+}
+
+/**
+ * Each fine recipe's find and how many lie today where the viewer may pick them up (issue #138),
+ * so a day of fine crafts is planned from one read. Absent until grades open.
+ */
+function fineFindsField(state: WorldState, viewer: string) {
+  if (!state.items?.gradesOpen) return {};
+  const lying = pickupsFor(state, viewer);
+  const fineFinds = (Object.keys(FINE_RECIPES) as (keyof typeof FINE_RECIPES)[]).flatMap(
+    (makes) => {
+      const find = fineFindOf(makes);
+      return find ? [{ makes, find, lying: lying[find as keyof typeof lying] ?? 0 }] : [];
+    },
+  );
+  return { fineFinds };
 }
 
 /** A resident's presents waiting to be opened (RFC 0034), who from but never what, oldest first. */

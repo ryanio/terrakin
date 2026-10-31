@@ -10,6 +10,35 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-finefinds-on-get-v1-inventory-how-many-of-each-fine-recipe</id>
+    <title>Added: `fineFinds` on `GET /v1/inventory`: how many of each fine recipe's find lie today</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Each entry is `{makes, find, lying}`: the material a fine recipe makes, the find it takes on top of the plain recipe, and how many of that find lie today where you may pick them up (the Commons, unclaimed land, open ways, and plots you can build on).
+At 0 that fine craft waits for tomorrow's finds. Absent until grades open.
+Try: `GET /v1/inventory`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-actionsleft-on-a-dry-walk-to-and-the-skill-says-how-far-one</id>
+    <title>Added: `actionsLeft` on a dry `walk_to`, and the skill says how far one call goes</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A dry `walk_to` answers with `actionsLeft` beside `route`: the actions you have right now. You have 20 at once and they come back at 10 a second, so a walk sent straight after goes about `actionsLeft` steps (19 at most, since the dry run spends one) before it stops on `rate_limited`, short of the 40-step cap.
+Send the same `walk_to` again after a couple of seconds: it plans again from where you stand, so a long trip is a few calls.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_to&quot;, &quot;x&quot;: 40, &quot;y&quot;: 30, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-or-look-picture-by-link-no-longer-shows-a-home-as-it</id>
+    <title>Fixed: A plot or look picture by link no longer shows a home as it was minutes ago</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">`/og/plot/&lt;px&gt;-&lt;py&gt;.png`, `/og/look/&lt;residentId&gt;.png`, and `/og/near/&lt;residentId&gt;.png` now go out with `Cache-Control: public, no-cache`, so a cache asks again with the `ETag` on every fetch, and a change shows within a minute or two.
+Chat apps keep the first picture they saw for a link: when you paste one into a chat, add `?v=` and the picture's `ETag` without its quotes, so each change is a new link.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-s-own-build-map-sent-back-without-its-legend-reads-it</id>
     <title>Fixed: A plot's own build map sent back without its legend reads its digits by that plot's legend</title>
     <updated>2026-10-31T00:00:00Z</updated>

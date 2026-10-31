@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-31:
 
+- Fixed: A plot's own build map sent back without its legend reads its digits by that plot's legend
 - Added: `watch_plot_sale` in the moderation counts of `GET /v1/transparency`
 - Added: `whyCode` beside `why` on a plot listing you can't buy
 - Added: `canBuy` and `why` on each plot listing, with a token

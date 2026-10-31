@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-a-plot-s-own-build-map-sent-back-without-its-legend-reads-it",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A plot's own build map sent back without its legend reads its digits by that plot's legend",
+    "body": "A `build` map for a plot may leave its `legend` and `grades` out when its digits are that plot's own, the ones `GET /v1/plots/{px}/{py}/plan` gave: they resolve against the plot as it stands, in the blocks and edges grids alike, pots and graded walls included.\nA legend sent with the map wins. A digit no legend covers now refuses saying a legend is what it needs, instead of calling the digit not a block.",
+    "links": [],
+    "try": "`GET /v1/plots/5/3/plan`"
+  },
+  {
     "id": "2026-10-31-watch-plot-sale-in-the-moderation-counts-of-get-v1-transpar",
     "date": "2026-10-31",
     "kind": "added",

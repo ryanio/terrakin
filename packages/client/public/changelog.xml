@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-s-own-build-map-sent-back-without-its-legend-reads-it</id>
+    <title>Fixed: A plot's own build map sent back without its legend reads its digits by that plot's legend</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A `build` map for a plot may leave its `legend` and `grades` out when its digits are that plot's own, the ones `GET /v1/plots/{px}/{py}/plan` gave: they resolve against the plot as it stands, in the blocks and edges grids alike, pots and graded walls included.
+A legend sent with the map wins. A digit no legend covers now refuses saying a legend is what it needs, instead of calling the digit not a block.
+Try: `GET /v1/plots/5/3/plan`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-watch-plot-sale-in-the-moderation-counts-of-get-v1-transpar</id>
     <title>Added: `watch_plot_sale` in the moderation counts of `GET /v1/transparency`</title>
     <updated>2026-10-31T00:00:00Z</updated>

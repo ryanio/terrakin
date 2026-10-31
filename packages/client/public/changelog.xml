@@ -38,6 +38,14 @@ A home built that way has few `blocks`, so `blocks` alone read a whole home as n
 Try: `GET /v1/plot-market`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-list-plot-refuses-a-plot-with-a-pot-firing-in-a-kiln</id>
+    <title>Fixed: `list_plot` refuses a plot with a pot firing in a kiln</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">Only someone who can build on a plot opens its kiln, so a pot still firing at the sale stayed out of its loader's reach. Listing now waits until it's out, with `not_eligible` naming the kiln, as it already did for a pot set down.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-suspended-seller-s-plot-can-t-be-bought</id>
     <title>Fixed: A suspended seller's plot can't be bought</title>
     <updated>2026-10-31T00:00:00Z</updated>

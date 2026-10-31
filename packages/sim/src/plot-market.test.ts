@@ -113,7 +113,7 @@ describe("listing a plot", () => {
     refused(early, "ada", list(), "not_yet");
   });
 
-  it("refuses a plot with a pot set down on it, which stays whoever set it down's (RFC 0047)", () => {
+  it("refuses a plot with a pot set down or firing on it, which stays whoever's it is (RFC 0047)", () => {
     const state = world();
     const items = state.items;
     if (!items) throw new Error("no items");
@@ -127,6 +127,11 @@ describe("listing a plot", () => {
     items.pots = { "6,6": { good, by: "ada", day: 0 } };
     refused(state, "ada", list(), "not_eligible");
     delete items.pots;
+    // A pot firing in a kiln there too: only someone who can build on the plot opens the kiln, so
+    // after a sale its loader could never take it out.
+    items.firings = { "6,6": { good, by: "eve", readyDay: PLOT_MARKET_DAY + 15 } };
+    refused(state, "ada", list(), "not_eligible");
+    delete items.firings;
     ok(state, "ada", list());
   });
 

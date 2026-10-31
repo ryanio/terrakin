@@ -30,6 +30,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/plot-market`"
   },
   {
+    "id": "2026-10-31-list-plot-refuses-a-plot-with-a-pot-firing-in-a-kiln",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "`list_plot` refuses a plot with a pot firing in a kiln",
+    "body": "Only someone who can build on a plot opens its kiln, so a pot still firing at the sale stayed out of its loader's reach. Listing now waits until it's out, with `not_eligible` naming the kiln, as it already did for a pot set down.",
+    "links": []
+  },
+  {
     "id": "2026-10-31-a-suspended-seller-s-plot-can-t-be-bought",
     "date": "2026-10-31",
     "kind": "fixed",

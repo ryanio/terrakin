@@ -445,6 +445,7 @@ Latest, 2026-10-31:
 - Changed: `buy_plot` takes the `price` you saw, and a plot listed again at another is refused
 - Added: `share_ended`: a plot shared with you sold, and `shared` on a sale's dry run
 - Added: `edges` on plot reads and plot listings, and `furnished` on listings
+- Fixed: `list_plot` refuses a plot with a pot firing in a kiln
 - Fixed: A suspended seller's plot can't be bought
 - Fixed: A co-owner who buys the plot they live on keeps their hearth there
 

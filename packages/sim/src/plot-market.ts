@@ -2,7 +2,7 @@ import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { hallAt } from "./circles";
 import { isTownsfolk, movePurse, moveTreasury, sameHousehold } from "./economy";
 import { eventsAt } from "./events";
-import { plotKey } from "./keys";
+import { parseKey, plotKey } from "./keys";
 import { landOfPlot } from "./lands";
 import { MARKET, marketFee } from "./market";
 import { potsOf } from "./pottery";
@@ -240,6 +240,19 @@ export function checkListPlot(
     return refuse(
       "not_eligible",
       "A pot is set down on that plot, and it stays whoever set it down. Take it up first with remove.",
+    );
+  }
+  // So is a pot firing in a kiln there: only someone who can build on the plot opens the kiln, so
+  // after a sale its loader could never take it out.
+  const firing = Object.keys(state.items?.firings ?? {}).find((key) => {
+    const [x, y] = parseKey(key);
+    return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  });
+  if (firing) {
+    const [x, y] = parseKey(firing);
+    return refuse(
+      "not_eligible",
+      `A pot is firing in the kiln at ${x}, ${y}, and it stays whoever loaded it. Take it out with harvest once it's ready, then list the plot.`,
     );
   }
   const have = econ.coins[actor] ?? 0;

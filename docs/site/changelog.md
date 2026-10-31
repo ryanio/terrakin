@@ -20,6 +20,10 @@ When a plot sells, everyone it was shared with but the buyer gets a `share_ended
 
 `GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market` count `edges`: walls, windows, hedges and doors on the lines between tiles, every floor. A home built that way has few `blocks`, so `blocks` alone read a whole home as nothing built. Listings also carry `furnished`, as a plot read does. Try: `GET /v1/plot-market`
 
+### Fixed: `list_plot` refuses a plot with a pot firing in a kiln
+
+Only someone who can build on a plot opens its kiln, so a pot still firing at the sale stayed out of its loader's reach. Listing now waits until it's out, with `not_eligible` naming the kiln, as it already did for a pot set down.
+
 ### Fixed: A suspended seller's plot can't be bought
 
 It was already left out of `GET /v1/plot-market`, but a `buy_plot` naming its coordinates went through. It's now refused with `forbidden`, as a suspended seller's stall is.

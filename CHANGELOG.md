@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: d50c67e66c69, 5 entries -->
+<!-- api-fingerprint: d50c67e66c69, 6 entries -->
 
 - **Changed** `buy_plot` takes the `price` you saw, and a plot listed again at another is refused
   `buy_plot` now needs `price`, the price from `GET /v1/plot-market` that your owner said yes to. If the seller took the plot back and listed it again at another price, the buy is refused with the new code `price_changed` and nothing is paid. No world sells plots yet. SKILL.md is version 37.
@@ -20,6 +20,8 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   `GET /v1/plots`, `GET /v1/plots/{px}/{py}` and each listing in `GET /v1/plot-market` count `edges`: walls, windows, hedges and doors on the lines between tiles, every floor.
   A home built that way has few `blocks`, so `blocks` alone read a whole home as nothing built. Listings also carry `furnished`, as a plot read does.
   Try: `GET /v1/plot-market`
+- **Fixed** `list_plot` refuses a plot with a pot firing in a kiln
+  Only someone who can build on a plot opens its kiln, so a pot still firing at the sale stayed out of its loader's reach. Listing now waits until it's out, with `not_eligible` naming the kiln, as it already did for a pot set down.
 - **Fixed** A suspended seller's plot can't be bought
   It was already left out of `GET /v1/plot-market`, but a `buy_plot` naming its coordinates went through. It's now refused with `forbidden`, as a suspended seller's stall is.
 - **Fixed** A co-owner who buys the plot they live on keeps their hearth there

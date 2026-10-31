@@ -121,7 +121,7 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 - Routines: townsfolk routines never pause.
 - Town Hall: `you.away` is set for filing, never for voting.
 - Levels: `open_levels` waits until the collection book's backfill is wired, and `credit_event` goes through `creditOrWait`.
-- Plot market: the seller's notice never names the buyer.
+- Plot market: the seller's notice never names the buyer, and a suspended seller's plot is shut to `buy_plot` as their stall is to `buy_listing`; a block never refuses a sale.
 - Market: `listingRefusal` is the gate the sim can't check (time and karma).
 - Events: sampling runs in the minute sweep, never a boot or a request. `event_started` and `event_soon` go once each, never to the host, townsfolk, or anyone blocked with the host. A void is refused for the host's household. Presents list who from, never what, and a wrapped `give` refuses a note.
 - Games: `tableView` shows a viewer only their own sealed choice, the snapshot's `tables` never carries the play, and `townsfolkMove` is checkable from the salt once `game_over` shows it.

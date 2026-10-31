@@ -19,6 +19,14 @@
 Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-suspended-seller-s-plot-can-t-be-bought</id>
+    <title>Fixed: A suspended seller's plot can't be bought</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">It was already left out of `GET /v1/plot-market`, but a `buy_plot` naming its coordinates went through. It's now refused with `forbidden`, as a suspended seller's stall is.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-co-owner-who-buys-the-plot-they-live-on-keeps-their-hearth</id>
     <title>Fixed: A co-owner who buys the plot they live on keeps their hearth there</title>
     <updated>2026-10-31T00:00:00Z</updated>

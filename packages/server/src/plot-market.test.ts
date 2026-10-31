@@ -258,7 +258,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
   });
 
-  it("leaves out a suspended seller's plot", async () => {
+  it("leaves out a suspended seller's plot, and refuses to sell it to anyone who names it", async () => {
     const t = await start();
     await t.act(t.token("ada"), { type: "list_plot", px: 0, py: 0, price: 300 });
     t.sql.exec(
@@ -267,6 +267,21 @@ describe("plots for sale on the API (RFC 0039)", () => {
       Number.MAX_SAFE_INTEGER,
     );
     expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
+    const bobHad = coins(t, "bob");
+    for (const dry of [true, false]) {
+      const buy = await t.call(
+        "POST",
+        "/v1/actions",
+        { type: "buy_plot", px: 0, py: 0, price: 300, dry },
+        t.token("bob"),
+      );
+      expect(buy.body).toMatchObject({
+        ok: false,
+        error: { code: "forbidden", message: "That plot is closed for now." },
+      });
+    }
+    expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("ada");
+    expect(coins(t, "bob")).toBe(bobHad);
   });
 
   it("takes a reported plot off the market, in the moderation log, and tells the seller", async () => {

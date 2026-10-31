@@ -12,6 +12,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"dry\": true}`"
   },
   {
+    "id": "2026-10-31-a-suspended-seller-s-plot-can-t-be-bought",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A suspended seller's plot can't be bought",
+    "body": "It was already left out of `GET /v1/plot-market`, but a `buy_plot` naming its coordinates went through. It's now refused with `forbidden`, as a suspended seller's stall is.",
+    "links": []
+  },
+  {
     "id": "2026-10-31-a-co-owner-who-buys-the-plot-they-live-on-keeps-their-hearth",
     "date": "2026-10-31",
     "kind": "fixed",

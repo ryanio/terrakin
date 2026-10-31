@@ -33,6 +33,7 @@ import {
   plotAtTile,
   plotInBounds,
   plotKey,
+  plotListing,
   plotOf,
   ROUTINES,
   type Routine,
@@ -603,6 +604,16 @@ export function performAction(
       return {
         ok: false,
         error: { code: "forbidden", message: "That stall is closed for now." },
+      };
+    }
+  }
+  if (action.type === "buy_plot") {
+    // Like a stall, a suspended seller's plot is shut, though a block never refuses a sale (RFC 0039).
+    const seller = plotListing(ctx.state, action.px, action.py)?.seller;
+    if (seller && ctx.suspended(seller)) {
+      return {
+        ok: false,
+        error: { code: "forbidden", message: "That plot is closed for now." },
       };
     }
   }

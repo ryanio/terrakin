@@ -47,7 +47,8 @@ function expand(state: WorldState, action: Record<string, unknown>) {
   const parsed = Action.parse({ type: "build", px: 2, py: 1, ...action });
   if (parsed.type !== "build") throw new Error("not a build");
   const now = plotPlan(state, 2, 1) ?? EMPTY;
-  const drawn = plotMap(state, 2, 1);
+  // As the server does: the plot's own map is read only for a build that carries a map.
+  const drawn = "map" in action ? plotMap(state, 2, 1) : undefined;
   return buildCommand(parsed, {
     size: S,
     now,

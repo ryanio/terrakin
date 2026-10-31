@@ -54518,6 +54518,13 @@
           "why": {
             "type": "string"
           },
+          "whyCode": {
+            "allOf": [
+              {
+                "$ref": "#/components/schemas/ErrorCode"
+              }
+            ]
+          },
           "links": {
             "description": "Links to share: the world looking at the plot, and its picture as it is now (decision 0161).",
             "allOf": [

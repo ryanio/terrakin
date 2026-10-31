@@ -371,6 +371,7 @@ describe("plain words", () => {
   it("names log actors", () => {
     expect(actorLabel({ actor: "triage", actorView: null })).toBe("AI triage");
     expect(actorLabel({ actor: "system", actorView: null })).toBe("Automatic");
+    expect(actorLabel({ actor: "watch", actorView: null })).toBe("Sale watch");
     expect(actorLabel({ actor: "access:mod@example.com", actorView: null })).toBe("mod");
     expect(actorLabel({ actor: author.id, actorView: author })).toBe("Pebble");
   });

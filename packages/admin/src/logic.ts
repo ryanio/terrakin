@@ -607,6 +607,7 @@ export function actorEmail(entry: Pick<ModerationLogView, "actor">): string | un
 export function actorLabel(entry: Pick<ModerationLogView, "actor" | "actorView">): string {
   if (entry.actor === "triage") return "AI triage";
   if (entry.actor === "system") return "Automatic";
+  if (entry.actor === "watch") return "Sale watch";
   const email = actorEmail(entry);
   if (email) return shortStaffName(email);
   return entry.actorView?.name ?? entry.actor;

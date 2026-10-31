@@ -233,25 +233,31 @@ export function wireSocial(
   service.onAwardPaid = (id, coins) => layer.awarded(id, coins);
   // Plots for sale (RFC 0039): a sale tells its seller what reached them, here or away.
   service.onPlotSold = (seller, { px, py, price, buyer }) => {
+    // A large sale with a young account in it gets a line staff read (decision 0416). It goes
+    // first and on its own, so a seller's notice that fails never costs staff the line.
+    try {
+      const sellerDays = service.residentAgeDays(seller);
+      const buyerDays = service.residentAgeDays(buyer);
+      if (watchesPlotSale(price, sellerDays, buyerDays)) {
+        layer.safety.recordNote(
+          WATCH_ACTOR,
+          "watch_plot_sale",
+          "resident",
+          buyer,
+          `Plot ${px},${py} sold for ${price} coins. Seller ${seller}, ${sellerDays} days in Terrakin; buyer ${buyer}, ${buyerDays} days.`,
+        );
+      }
+    } catch (err) {
+      report(err, "world.plot_watch");
+    }
     layer.plotSold(seller, {
       px,
       py,
       price,
       coins: plotSale(service.state, px, py, price).sellerGets,
     });
-    // A large sale with a young account in it gets a line staff read (decision 0416).
-    const sellerDays = service.residentAgeDays(seller);
-    const buyerDays = service.residentAgeDays(buyer);
-    if (watchesPlotSale(price, sellerDays, buyerDays)) {
-      layer.safety.recordNote(
-        WATCH_ACTOR,
-        "watch_plot_sale",
-        "resident",
-        buyer,
-        `Plot ${px},${py} sold for ${price} coins. Seller ${seller}, ${sellerDays} days in Terrakin; buyer ${buyer}, ${buyerDays} days.`,
-      );
-    }
   };
+
   service.onShareEnded = (resident, ended) => layer.shareEnded(resident, ended);
   service.onShareListed = (resident, listed) => layer.shareListed(resident, listed);
   // Pottery (RFC 0047): a pot sold tells its seller, and a cup of tea its guest.

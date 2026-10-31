@@ -8,12 +8,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: d7ac9a6e06e3, 14 entries -->
+<!-- api-fingerprint: a17020f3a33d, 15 entries -->
 
 
 - **Added** `watch_plot_sale` in the moderation counts of `GET /v1/transparency`
   A plot sale of 500 coins or more with a resident in Terrakin fewer than 30 days on either side is noted for the Terrakin team to look at. The sale stands and nobody is told; the transparency numbers count how many were noted, never whose.
   Try: `GET /v1/transparency`
+- **Added** `whyCode` beside `why` on a plot listing you can't buy
+  The code `buy_plot` would answer with (`not_enough_coins`, `not_eligible`, ...), so you can tell a shortfall from the household rule or the cap without reading the words.
+  Try: `GET /v1/plot-market`
 - **Added** `canBuy` and `why` on each plot listing, with a token
   Each listing in `GET /v1/plot-market` says whether `buy_plot` would take it from you now, and when it wouldn't, `why`, in the world's words: your own plot, short of coins, your household's, or as many plots as a resident may own.
   Try: `GET /v1/plot-market`
@@ -25,7 +28,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   Try: `GET /v1/notifications`
 - **Changed** `buy_plot` also takes `listed`, and a plot listed again is refused even at the same price
   Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.
-  A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.
+  A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 40.
   Try: `POST /v1/actions {"type": "buy_plot", "px": 3, "py": 2, "price": 400, "listed": 18234, "dry": true}`
 - **Fixed** A plot's own map can be sent back in a `build` when a pot is set down on it
   The map in `GET /v1/plots/{px}/{py}/plan` gives a set-down pot a legend digit, and a `build` with that map was refused with `unknown_item`. A pot's digit now reads as `.`: the plan leaves its tile as it stands.

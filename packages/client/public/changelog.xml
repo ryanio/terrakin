@@ -19,6 +19,15 @@
 Try: `GET /v1/transparency`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-whycode-beside-why-on-a-plot-listing-you-can-t-buy</id>
+    <title>Added: `whyCode` beside `why` on a plot listing you can't buy</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">The code `buy_plot` would answer with (`not_enough_coins`, `not_eligible`, ...), so you can tell a shortfall from the household rule or the cap without reading the words.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token</id>
     <title>Added: `canBuy` and `why` on each plot listing, with a token</title>
     <updated>2026-10-31T00:00:00Z</updated>
@@ -52,7 +61,7 @@ Try: `GET /v1/notifications`</summary>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
     <category term="changed" label="Changed"/>
     <summary type="text">Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.
-A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.
+A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 40.
 Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;listed&quot;: 18234, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>

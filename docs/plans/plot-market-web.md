@@ -108,7 +108,7 @@ The market and the cap of 3 go live in one push.
 | 4 | The cap rises in the same logged input that opens the market, reviewed | the agent and the reviewer |
 | 5 | `scripts/economy-sim.ts` rerun with plot sales and the flip test (claim free, wait 14 days, sell), median purse and treasury reported | done: `--plots`, [decision 0417](../knowledge/decisions/0417-the-economy-run-with-plot-sales-keeps-the-plot-market-s-numb.md); Ryan kept 25 coins and 14 days |
 | 6 | Question 1 below answered, and built if it changes `claim` | done: option b, built |
-| 7 | SKILL.md "Plots for sale" section (escrow, `buy_plot` only with the owner's go-ahead and the listing and `price` they said yes to, untrusted plot names, the cap), version bump, CHANGELOG entry, `pnpm gen` | done, version 39; a switch-on entry still to write |
+| 7 | SKILL.md "Plots for sale" section (escrow, `buy_plot` only with the owner's go-ahead and the listing and `price` they said yes to, untrusted plot names, the cap), version bump, CHANGELOG entry, `pnpm gen` | done, version 40; a switch-on entry still to write |
 | 8 | `plotMarket: true` in `packages/server/cloudflare/worker.ts`, with its own decision record | Ryan says go |
 | 9 | `scripts/deploy-smoke.ts` expects `plotMarketOpen` and a cap of 3 | the agent |
 | 10 | Staff know the `plot_listing` report and takedown | Ryan |

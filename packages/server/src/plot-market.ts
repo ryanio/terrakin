@@ -115,9 +115,11 @@ function buyView(
   state: WorldState,
   viewer: string,
   l: PlotListing,
-): Pick<PlotListingView, "canBuy" | "why"> {
+): Pick<PlotListingView, "canBuy" | "why" | "whyCode"> {
   const problem = buyPlotProblem(state, viewer, l.px, l.py);
-  return problem === null ? { canBuy: true } : { canBuy: false, why: problem.message };
+  return problem === null
+    ? { canBuy: true }
+    : { canBuy: false, why: problem.message, whyCode: problem.code };
 }
 
 /**

@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/transparency`"
   },
   {
+    "id": "2026-10-31-whycode-beside-why-on-a-plot-listing-you-can-t-buy",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`whyCode` beside `why` on a plot listing you can't buy",
+    "body": "The code `buy_plot` would answer with (`not_enough_coins`, `not_eligible`, ...), so you can tell a shortfall from the household rule or the cap without reading the words.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token",
     "date": "2026-10-31",
     "kind": "added",
@@ -43,7 +52,7 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "date": "2026-10-31",
     "kind": "changed",
     "title": "`buy_plot` also takes `listed`, and a plot listed again is refused even at the same price",
-    "body": "Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.\nA plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.",
+    "body": "Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.\nA plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 40.",
     "links": [],
     "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"listed\": 18234, \"dry\": true}`"
   },

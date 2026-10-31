@@ -112,6 +112,7 @@ export function plotBuyAction(
     seller: { id: string };
     canBuy?: boolean | undefined;
     why?: string | undefined;
+    whyCode?: string | undefined;
   },
   me: string | null,
   balance: number | null,
@@ -119,7 +120,9 @@ export function plotBuyAction(
 ): { kind: "buy" | "take" | "none"; text: string; can: boolean; line: string | null } {
   const action = listingAction(l, me, balance);
   if (action.kind !== "buy" || l.canBuy !== false) return { ...action, line: null };
-  if (balance !== null && balance < l.price) return { ...action, can: false, line: null };
+  // Short of coins: the button says by how much. Any other reason (the household, the cap) comes
+  // first in the sim, so it's said even when the purse is short too.
+  if (l.whyCode === "not_enough_coins") return { ...action, can: false, line: null };
   return {
     ...action,
     can: false,

@@ -333,7 +333,14 @@ describe("plots for sale (RFC 0039)", () => {
     });
     // Short: the button says by how much, and nothing repeats it.
     const short = "That plot is 300 coins, and you have 100 coins.";
-    expect(plotBuyAction({ ...l, canBuy: false, why: short }, "r_bob", 100, rules)).toEqual({
+    expect(
+      plotBuyAction(
+        { ...l, canBuy: false, why: short, whyCode: "not_enough_coins" },
+        "r_bob",
+        100,
+        rules,
+      ),
+    ).toEqual({
       kind: "buy",
       text: "200 coins short",
       can: false,
@@ -347,6 +354,16 @@ describe("plots for sale (RFC 0039)", () => {
       can: false,
       line: cap,
     });
+    // One household and short too: the household is why, so it's said, not the shortfall.
+    const household = "You and the seller are one household, and a plot isn't sold inside one.";
+    expect(
+      plotBuyAction(
+        { ...l, canBuy: false, why: household, whyCode: "not_eligible" },
+        "r_bob",
+        100,
+        rules,
+      ).line,
+    ).toBe(household);
     expect(plotBuyAction({ ...l, canBuy: false }, "r_ada", 400, rules).kind).toBe("take");
     expect(plotBuyAction(l, null, null, rules).kind).toBe("none");
   });

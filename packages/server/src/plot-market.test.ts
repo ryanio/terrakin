@@ -9,7 +9,7 @@ import {
 import { createApp, TEST_OPEN_PLOT_MARKET_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
-import { PLOT_SALE_WATCH } from "./plot-market";
+import { PLOT_SALE_WATCH, watchesPlotSale } from "./plot-market";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -239,6 +239,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(await sees("eve")).toMatchObject({
       canBuy: false,
       why: expect.stringMatching(/and you have/),
+      whyCode: "not_enough_coins",
     });
     expect(await sees("ada")).toMatchObject({
       canBuy: false,
@@ -357,6 +358,11 @@ describe("plots for sale on the API (RFC 0039)", () => {
     );
     expect(await watched(PLOT_SALE_WATCH.price - 1, young)).toEqual([]);
     expect(await watched(PLOT_SALE_WATCH.price, PLOT_SALE_WATCH.youngDays)).toEqual([]);
+    // Either side young is enough: new accounts paying an old one is the funnel it watches for.
+    const old = PLOT_SALE_WATCH.youngDays + 10;
+    expect(watchesPlotSale(PLOT_SALE_WATCH.price, old, young)).toBe(true);
+    expect(watchesPlotSale(PLOT_SALE_WATCH.price, young, old)).toBe(true);
+    expect(watchesPlotSale(PLOT_SALE_WATCH.price, old, old)).toBe(false);
   });
 
   it("tells no share_ended to a co-owner who buys the plot they share, who owns it now", async () => {

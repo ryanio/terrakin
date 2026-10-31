@@ -19,6 +19,14 @@
 Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-co-owner-who-buys-the-plot-they-live-on-keeps-their-hearth</id>
+    <title>Fixed: A co-owner who buys the plot they live on keeps their hearth there</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A sale clears every hearth on the plot but the buyer's. Before, a co-owner buying their shared home lost their own hearth with the seller's, and the dry run's `clearsHearth` said so.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-30-material-grades-are-open-at-terrakin-org</id>
     <title>Changed: Material grades are open at terrakin.org</title>
     <updated>2026-10-30T00:00:00Z</updated>

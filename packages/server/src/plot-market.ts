@@ -117,9 +117,9 @@ export function plotSaleOf(state: WorldState, input: Input): { plotSale?: PlotSa
   const listed = plotListing(state, px, py);
   const price = command.type === "list_plot" ? command.price : listed?.price;
   if (price === undefined) return {};
-  const sale = plotSale(state, px, py, price);
-  const have = coinsOf(state, input.actor);
   const selling = command.type === "list_plot";
+  const sale = plotSale(state, px, py, price, selling ? undefined : input.actor);
+  const have = coinsOf(state, input.actor);
   const clearsHearth = sale.hearths.length > 0;
   const mine = sale.hearths.includes(input.actor);
   const note = selling

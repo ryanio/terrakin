@@ -12,6 +12,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"dry\": true}`"
   },
   {
+    "id": "2026-10-31-a-co-owner-who-buys-the-plot-they-live-on-keeps-their-hearth",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A co-owner who buys the plot they live on keeps their hearth there",
+    "body": "A sale clears every hearth on the plot but the buyer's. Before, a co-owner buying their shared home lost their own hearth with the seller's, and the dry run's `clearsHearth` said so.",
+    "links": []
+  },
+  {
     "id": "2026-10-30-material-grades-are-open-at-terrakin-org",
     "date": "2026-10-30",
     "kind": "changed",

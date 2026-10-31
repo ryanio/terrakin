@@ -34,8 +34,8 @@ import { plotOf, plotsOwnedBy } from "./world";
  *
  * Everything fixed to the land moves with it, because none of it moves at all: blocks, ground,
  * floors, crops and the roof are keyed by tile or kept on the plot's record, and only the record's
- * owner changes. What belongs to a person does not: every hearth on the plot is cleared at the
- * sale, as `release` clears it, and co-owners lose their share. Coins go from buyer to seller less
+ * owner changes. What belongs to a person does not: every hearth on the plot but the buyer's is
+ * cleared at the sale, as `release` clears it, and co-owners lose their share. Coins go from buyer to seller less
  * `marketFee`, which goes to the treasury; the listing fee is burned. Nothing is minted.
  *
  * Nothing here runs until the server sends `open_plot_market`, which needs the item market open
@@ -287,15 +287,27 @@ export interface PlotSale {
   /** `marketFee`, never more than the price. */
   fee: number;
   sellerGets: number;
-  /** Everyone whose hearth is on the plot, which the sale clears: its seller's, or a co-owner's. */
+  /**
+   * Everyone whose hearth is on the plot, which the sale clears: its seller's, or a co-owner's. Never
+   * the buyer's: a co-owner who buys the plot they live on keeps their hearth.
+   */
   hearths: ResidentId[];
 }
 
-/** What selling plot (px, py) at `price` would move and clear, as `buy_plot` does it. */
-export function plotSale(state: WorldState, px: number, py: number, price: number): PlotSale {
+/**
+ * What selling plot (px, py) at `price` to `buyer` would move and clear, as `buy_plot` does it.
+ * Without a buyer (a listing, before anyone buys), every hearth on the plot.
+ */
+export function plotSale(
+  state: WorldState,
+  px: number,
+  py: number,
+  price: number,
+  buyer?: ResidentId,
+): PlotSale {
   const fee = Math.min(marketFee(price), price);
   const hearths = Object.values(state.residents).flatMap((r) => {
-    if (!r.hearth) return [];
+    if (!r.hearth || r.id === buyer) return [];
     const p = plotOf(state.config, r.hearth.x, r.hearth.y);
     return p.px === px && p.py === py ? [r.id] : [];
   });
@@ -410,7 +422,7 @@ export function checkBuyPlot(
   if (have < price) {
     return refuse("not_enough_coins", `That plot is ${coins(price)}, and you have ${coins(have)}.`);
   }
-  const sale = plotSale(state, px, py, price);
+  const sale = plotSale(state, px, py, price, actor);
   const { fee } = sale;
   const at = { seq: state.seq + 1, day };
   const hearthsHere = sale.hearths.flatMap((id) => state.residents[id] ?? []);

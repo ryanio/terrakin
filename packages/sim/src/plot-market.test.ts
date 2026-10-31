@@ -10,7 +10,7 @@ import {
 import { hashWorld } from "./hash";
 import { PLOTS, plotListing } from "./plot-market";
 import { replay } from "./replay";
-import { expectSupplyHolds } from "./test-support";
+import { expectSupplyHolds, fund } from "./test-support";
 import { type Command, type Input, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
 import { route, worldGround } from "./walk";
 import { createWorld, plotsOwnedBy } from "./world";
@@ -293,6 +293,21 @@ describe("buying a plot", () => {
     });
     // A bought plot waits out the cooling-off like a claimed one, so it can't be flipped at once.
     refused(state, "bob", list(), "not_yet");
+  });
+
+  it("leaves a co-owner who buys the plot they live on their hearth, and clears the seller's", () => {
+    const state = world();
+    walkTo(state, "eve", { x: 2, y: 4 });
+    ok(state, "eve", { type: "set_hearth", x: 2, y: 3 });
+    fund(state, "eve", 300);
+    ok(state, "ada", list());
+    const events = ok(state, "eve", buy);
+    expect(state.plots["0,0"]?.ownerId).toBe("eve");
+    expect(state.residents.eve?.hearth).toEqual({ x: 2, y: 3 });
+    expect(state.residents.ada?.hearth).toBeNull();
+    expect(events.filter((e) => e.type === "hearth_cleared")).toEqual([
+      { type: "hearth_cleared", residentId: "ada" },
+    ]);
   });
 
   it("is the only way to a second plot: claim and settle take only a first one, before the switch and after it", () => {

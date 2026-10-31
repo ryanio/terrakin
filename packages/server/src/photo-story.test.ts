@@ -7,7 +7,7 @@ import { type PhotoMark, storyBetween } from "./photo-story";
  * would need a built loft, a pet, and a planted garden to reach.
  */
 
-const NOTHING: PhotoMark = { blocks: 0, crops: 0, floors: 0, pet: false, named: false };
+const NOTHING: PhotoMark = { blocks: 0, walls: 0, crops: 0, floors: 0, pet: false, named: false };
 
 describe("a photo's story line", () => {
   it("says what is new, biggest change first, two parts at most", () => {
@@ -16,6 +16,9 @@ describe("a photo's story line", () => {
       [{ blocks: 12 }, { blocks: 13 }, "New since your last photo: a new block"],
       [{ blocks: 12 }, { blocks: 16 }, "New since your last photo: 4 new blocks"],
       [{}, { crops: 1 }, "New since your last photo: a bed planted"],
+      // Walls between tiles count as built (RFC 0050), but not against a mark kept before them.
+      [{ walls: 20 }, { walls: 21 }, "New since your last photo: a new wall"],
+      [{ walls: null }, { walls: 21 }, undefined],
       [{}, { crops: 3 }, "New since your last photo: 3 beds planted"],
       [{}, { floors: 1 }, "New since your last photo: a floor upstairs"],
       [{}, { pet: true }, "New since your last photo: a pet"],

@@ -282,6 +282,10 @@ export function mapToPlan(
               continue;
             }
             const kind = (MAP_BLOCKS as Record<string, BlockKind>)[c] ?? legend[c];
+            // A pot set down (RFC 0047) is placed by its id, never from a plan, so its digit in a
+            // map the server wrote leaves the tile as it stands, like `.`, and a plot's own map can
+            // always be sent back.
+            if (kind === "pot") continue;
             if (!kind) {
               return {
                 problem: `${cap(which)} ${have} ${shown(c)} at (${x}, ${y}), which isn't a block. Blocks: ${BLOCK_WORDS}, and digits from the map's legend; ${MARK_WORDS}.`,

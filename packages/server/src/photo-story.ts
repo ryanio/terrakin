@@ -15,6 +15,11 @@ import type { SqlExec } from "./sql-store";
 /** What a photo showed, as the next one compares against it. */
 export interface PhotoMark {
   blocks: number;
+  /**
+   * Walls between tiles on the ground floor (RFC 0050). Null for a mark kept before they were
+   * counted, so the first photo after says nothing about walls rather than calling all of them new.
+   */
+  walls: number | null;
   crops: number;
   floors: number;
   pet: boolean;
@@ -37,6 +42,7 @@ function markOf(spec: PlotPhotoSpec): PhotoMark {
     blocks:
       spec.blocks.filter(on).length +
       upstairs.reduce((sum, f) => sum + f.blocks.filter(on).length, 0),
+    walls: (spec.edges ?? []).filter(on).length,
     crops: (spec.crops ?? []).filter(on).length,
     floors: upstairs.length,
     pet: spec.pet !== undefined,
@@ -60,6 +66,7 @@ export function storyBetween(was: PhotoMark | undefined, now: PhotoMark): string
   if (!was) return "First photo of this home";
   const floors = now.floors - was.floors;
   const blocks = now.blocks - was.blocks;
+  const walls = was.walls === null || now.walls === null ? 0 : now.walls - was.walls;
   const crops = now.crops - was.crops;
   // In the order a home changes most visibly, so the two that make the line are the two worth
   // reading: someone new living here, then height, then what was built, planted, and called.
@@ -67,6 +74,7 @@ export function storyBetween(was: PhotoMark | undefined, now: PhotoMark): string
     now.pet && !was.pet ? "a pet" : undefined,
     floors > 0 ? some(floors, "floor upstairs", "floors upstairs") : undefined,
     blocks > 0 ? some(blocks, "new block", "new blocks") : undefined,
+    walls > 0 ? some(walls, "new wall", "new walls") : undefined,
     crops > 0 ? some(crops, "bed planted", "beds planted") : undefined,
     now.named && !was.named ? "a name" : undefined,
   ].filter((p): p is string => p !== undefined);
@@ -89,13 +97,19 @@ export class PhotoStories {
       created_at INTEGER NOT NULL,
       PRIMARY KEY (resident, px, py)
     )`);
+    // Added with walls between tiles (RFC 0050). Rows kept before it read as null: not counted.
+    try {
+      o.sql.exec("ALTER TABLE photo_marks ADD COLUMN walls INTEGER");
+    } catch {
+      // Already there.
+    }
   }
 
   /** What `resident`'s last photo of that plot showed, or undefined for their first. */
   mark(resident: string, place: { px: number; py: number }): PhotoMark | undefined {
     const row = [
       ...this.o.sql.exec(
-        "SELECT blocks, crops, floors, pet, named FROM photo_marks WHERE resident = ? AND px = ? AND py = ?",
+        "SELECT blocks, walls, crops, floors, pet, named FROM photo_marks WHERE resident = ? AND px = ? AND py = ?",
         resident,
         place.px,
         place.py,
@@ -104,6 +118,7 @@ export class PhotoStories {
     if (!row) return undefined;
     return {
       blocks: Number(row.blocks),
+      walls: row.walls === null || row.walls === undefined ? null : Number(row.walls),
       crops: Number(row.crops),
       floors: Number(row.floors),
       pet: Number(row.pet) === 1,
@@ -120,15 +135,16 @@ export class PhotoStories {
   keep(resident: string, place: { px: number; py: number }, spec: PlotPhotoSpec): void {
     const m = markOf(spec);
     this.o.sql.exec(
-      `INSERT INTO photo_marks (resident, px, py, blocks, crops, floors, pet, named, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+      `INSERT INTO photo_marks (resident, px, py, blocks, walls, crops, floors, pet, named, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        ON CONFLICT (resident, px, py) DO UPDATE SET
-         blocks = excluded.blocks, crops = excluded.crops, floors = excluded.floors,
+         blocks = excluded.blocks, walls = excluded.walls, crops = excluded.crops, floors = excluded.floors,
          pet = excluded.pet, named = excluded.named, created_at = excluded.created_at`,
       resident,
       place.px,
       place.py,
       m.blocks,
+      m.walls ?? 0,
       m.crops,
       m.floors,
       m.pet ? 1 : 0,

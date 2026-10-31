@@ -97,6 +97,20 @@ describe("mapToPlan (RFC 0032)", () => {
     expect(read.plan.remove).toBeUndefined();
   });
 
+  it("leaves a pot's tile as it stands, so a plot's own map with a pot set down can be sent back", () => {
+    const blocks = [".1......", ".WW.....", ...Array.from({ length: S - 2 }, () => "........")];
+    const read = mapToPlan(
+      { legend: { "1": "pot" }, floors: [{ blocks }] },
+      { size: S, now: EMPTY, replace: true },
+    );
+    if ("problem" in read) throw new Error(read.problem);
+    expect(read.plan.blocks).toEqual([
+      { x: 1, y: 1, block: "wood" },
+      { x: 2, y: 1, block: "wood" },
+    ]);
+    expect(read.plan.remove).toBeUndefined();
+  });
+
   it("refuses a map whose shape is wrong, naming where, and echoes no more than one character", () => {
     const rows = (n: number, row = "........") => Array.from({ length: n }, () => row);
     const problem = (map: Parameters<typeof mapToPlan>[0]) => {

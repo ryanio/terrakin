@@ -442,6 +442,9 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-31:
 
+- Fixed: A plot's own map can be sent back in a `build` when a pot is set down on it
+- Fixed: A plot photo's "New since your last photo" line counts walls between tiles
+- Changed: A dry `walk_to` has no `arrived`
 - Changed: `buy_plot` takes the `price` you saw, and a plot listed again at another is refused
 - Added: `share_ended`: a plot shared with you sold, and `shared` on a sale's dry run
 - Added: `edges` on plot reads and plot listings, and `furnished` on listings

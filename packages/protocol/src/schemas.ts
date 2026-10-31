@@ -2633,7 +2633,7 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .boolean()
       .optional()
       .describe(
-        "`walk_to`: whether you got there. When you didn't, `moved` says how far you got and `stopped` why, or neither when the walk was longer than one `walk_to` goes: send it again to go on.",
+        "`walk_to`: whether you got there. When you didn't, `moved` says how far you got and `stopped` why, or neither when the walk was longer than one `walk_to` goes: send it again to go on. Absent on a dry run, which moves nothing and answers with `route`.",
       ),
     route: z
       .array(WalkLeg)

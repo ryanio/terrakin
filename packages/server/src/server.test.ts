@@ -327,7 +327,9 @@ describe("REST", () => {
         api(base, "POST", "/v1/actions", { type: "walk_to", ...to, ...extra }, token);
 
       const dry = await walkTo({ dry: true });
-      expect(dry.body).toMatchObject({ ok: true, dry: true, arrived: false });
+      expect(dry.body).toMatchObject({ ok: true, dry: true });
+      // A dry run moves nothing, so it says nothing about arriving: `route` is its answer.
+      expect(dry.body).not.toHaveProperty("arrived");
       const steps = dry.body.route.reduce((n: number, leg: { steps: number }) => n + leg.steps, 0);
       // Round by the gap, longer than the straight line through the wall.
       expect(steps).toBeGreaterThan(to.x - from.x);

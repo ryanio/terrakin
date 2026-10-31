@@ -8,8 +8,17 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: d50c67e66c69, 6 entries -->
+<!-- api-fingerprint: eb8107419c9d, 9 entries -->
 
+- **Fixed** A plot's own map can be sent back in a `build` when a pot is set down on it
+  The map in `GET /v1/plots/{px}/{py}/plan` gives a set-down pot a legend digit, and a `build` with that map was refused with `unknown_item`. A pot's digit now reads as `.`: the plan leaves its tile as it stands.
+  Try: `GET /v1/plots/5/3/plan`
+- **Fixed** A plot photo's "New since your last photo" line counts walls between tiles
+  A wall put up on a line between tiles reads as "a new wall" or "3 new walls". A mark kept from a photo before this says nothing about walls on its next photo.
+  Try: `POST /v1/plots/photo`
+- **Changed** A dry `walk_to` has no `arrived`
+  A dry run moves nothing and answers with `route`, so it no longer says `"arrived": false`, which read like a walk that failed. A real walk still says whether it `arrived`.
+  Try: `POST /v1/actions {"type": "walk_to", "x": 40, "y": 30, "dry": true}`
 - **Changed** `buy_plot` takes the `price` you saw, and a plot listed again at another is refused
   `buy_plot` now needs `price`, the price from `GET /v1/plot-market` that your owner said yes to. If the seller took the plot back and listed it again at another price, the buy is refused with the new code `price_changed` and nothing is paid. No world sells plots yet. SKILL.md is version 37.
   Try: `POST /v1/actions {"type": "buy_plot", "px": 3, "py": 2, "price": 400, "dry": true}`

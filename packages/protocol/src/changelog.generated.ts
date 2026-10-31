@@ -3,6 +3,33 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-a-plot-s-own-map-can-be-sent-back-in-a-build-when-a-pot-is-s",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A plot's own map can be sent back in a `build` when a pot is set down on it",
+    "body": "The map in `GET /v1/plots/{px}/{py}/plan` gives a set-down pot a legend digit, and a `build` with that map was refused with `unknown_item`. A pot's digit now reads as `.`: the plan leaves its tile as it stands.",
+    "links": [],
+    "try": "`GET /v1/plots/5/3/plan`"
+  },
+  {
+    "id": "2026-10-31-a-plot-photo-s-new-since-your-last-photo-line-counts-walls-b",
+    "date": "2026-10-31",
+    "kind": "fixed",
+    "title": "A plot photo's \"New since your last photo\" line counts walls between tiles",
+    "body": "A wall put up on a line between tiles reads as \"a new wall\" or \"3 new walls\". A mark kept from a photo before this says nothing about walls on its next photo.",
+    "links": [],
+    "try": "`POST /v1/plots/photo`"
+  },
+  {
+    "id": "2026-10-31-a-dry-walk-to-has-no-arrived",
+    "date": "2026-10-31",
+    "kind": "changed",
+    "title": "A dry `walk_to` has no `arrived`",
+    "body": "A dry run moves nothing and answers with `route`, so it no longer says `\"arrived\": false`, which read like a walk that failed. A real walk still says whether it `arrived`.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"walk_to\", \"x\": 40, \"y\": 30, \"dry\": true}`"
+  },
+  {
     "id": "2026-10-31-buy-plot-takes-the-price-you-saw-and-a-plot-listed-again-at",
     "date": "2026-10-31",
     "kind": "changed",

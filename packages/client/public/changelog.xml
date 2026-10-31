@@ -10,6 +10,33 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-s-own-map-can-be-sent-back-in-a-build-when-a-pot-is-s</id>
+    <title>Fixed: A plot's own map can be sent back in a `build` when a pot is set down on it</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">The map in `GET /v1/plots/{px}/{py}/plan` gives a set-down pot a legend digit, and a `build` with that map was refused with `unknown_item`. A pot's digit now reads as `.`: the plan leaves its tile as it stands.
+Try: `GET /v1/plots/5/3/plan`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-plot-photo-s-new-since-your-last-photo-line-counts-walls-b</id>
+    <title>Fixed: A plot photo's &quot;New since your last photo&quot; line counts walls between tiles</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A wall put up on a line between tiles reads as &quot;a new wall&quot; or &quot;3 new walls&quot;. A mark kept from a photo before this says nothing about walls on its next photo.
+Try: `POST /v1/plots/photo`</summary>
+  </entry>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-a-dry-walk-to-has-no-arrived</id>
+    <title>Changed: A dry `walk_to` has no `arrived`</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">A dry run moves nothing and answers with `route`, so it no longer says `&quot;arrived&quot;: false`, which read like a walk that failed. A real walk still says whether it `arrived`.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;walk_to&quot;, &quot;x&quot;: 40, &quot;y&quot;: 30, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-buy-plot-takes-the-price-you-saw-and-a-plot-listed-again-at</id>
     <title>Changed: `buy_plot` takes the `price` you saw, and a plot listed again at another is refused</title>
     <updated>2026-10-31T00:00:00Z</updated>

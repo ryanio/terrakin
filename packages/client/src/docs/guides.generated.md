@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-31:
 
+- Added: `watch_plot_sale` in the moderation counts of `GET /v1/transparency`
 - Added: `canBuy` and `why` on each plot listing, with a token
 - Added: `lastSold` on plot reads and plot listings
 - Added: `share_listed`: a plot shared with you was put up for sale

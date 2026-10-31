@@ -349,6 +349,7 @@ What we chose and why. Newest last.
 - [Material grades open in every world, terrakin.org included, with RFC 0051's numbers](decisions/0413-material-grades-open-in-every-world-terrakin-org-included-wi.md) · 2026-10-30 · accepted · `grades` `rfc-0051` `switches` `server`
 - [buy_plot carries the listing and the price the buyer saw, and a plot listed again is refused](decisions/0414-buy-plot-carries-the-price-the-buyer-saw-and-a-plot-listed-a.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
 - [A plot keeps what it last sold for, shown on listings and plot reads, added before any world sells plots](decisions/0415-a-plot-keeps-what-it-last-sold-for-shown-on-listings-and-plo.md) · 2026-10-31 · accepted · `sim` `protocol` `economy` `plots`
+- [A large plot sale with a young resident in it gets a line in the moderation log for staff](decisions/0416-a-large-plot-sale-with-a-young-resident-in-it-gets-a-line-in.md) · 2026-10-31 · accepted · `server` `safety` `economy` `plots`
 
 ## Learnings
 

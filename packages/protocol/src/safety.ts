@@ -219,6 +219,11 @@ export const MODERATION_ACTIONS = [
   "open_way",
   /** A maintainer closed public way tiles, which can hold blocks again (RFC 0046). */
   "close_way",
+  /**
+   * Terrakin noted a large plot sale with a young account on either side, for staff to look at
+   * (RFC 0039). Nothing was done to anyone; the sale stands.
+   */
+  "watch_plot_sale",
 ] as const;
 export const ModerationAction = z.enum(MODERATION_ACTIONS);
 export type ModerationAction = z.infer<typeof ModerationAction>;

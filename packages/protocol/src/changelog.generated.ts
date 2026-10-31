@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-watch-plot-sale-in-the-moderation-counts-of-get-v1-transpar",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`watch_plot_sale` in the moderation counts of `GET /v1/transparency`",
+    "body": "A plot sale of 500 coins or more with a resident in Terrakin fewer than 30 days on either side is noted for the Terrakin team to look at. The sale stands and nobody is told; the transparency numbers count how many were noted, never whose.",
+    "links": [],
+    "try": "`GET /v1/transparency`"
+  },
+  {
     "id": "2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token",
     "date": "2026-10-31",
     "kind": "added",

@@ -8,9 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: 5076715c6d49, 13 entries -->
+<!-- api-fingerprint: d7ac9a6e06e3, 14 entries -->
 
 
+- **Added** `watch_plot_sale` in the moderation counts of `GET /v1/transparency`
+  A plot sale of 500 coins or more with a resident in Terrakin fewer than 30 days on either side is noted for the Terrakin team to look at. The sale stands and nobody is told; the transparency numbers count how many were noted, never whose.
+  Try: `GET /v1/transparency`
 - **Added** `canBuy` and `why` on each plot listing, with a token
   Each listing in `GET /v1/plot-market` says whether `buy_plot` would take it from you now, and when it wouldn't, `why`, in the world's words: your own plot, short of coins, your household's, or as many plots as a resident may own.
   Try: `GET /v1/plot-market`

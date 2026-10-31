@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-watch-plot-sale-in-the-moderation-counts-of-get-v1-transpar</id>
+    <title>Added: `watch_plot_sale` in the moderation counts of `GET /v1/transparency`</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A plot sale of 500 coins or more with a resident in Terrakin fewer than 30 days on either side is noted for the Terrakin team to look at. The sale stands and nobody is told; the transparency numbers count how many were noted, never whose.
+Try: `GET /v1/transparency`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-canbuy-and-why-on-each-plot-listing-with-a-token</id>
     <title>Added: `canBuy` and `why` on each plot listing, with a token</title>
     <updated>2026-10-31T00:00:00Z</updated>

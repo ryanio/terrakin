@@ -9,6 +9,7 @@ import {
 import { createApp, TEST_OPEN_PLOT_MARKET_PATH } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
+import { PLOT_SALE_WATCH } from "./plot-market";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -329,6 +330,33 @@ describe("plots for sale on the API (RFC 0039)", () => {
     // It keeps what it sold for, and when, for whoever looks at it next.
     expect(after.lastSold).toEqual({ price: 300, day: t.service.state.day });
     expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
+  });
+
+  it("notes a large sale with a young resident in it for staff, and leaves a smaller or older one be", async () => {
+    const watched = async (price: number, daysOld: number) => {
+      // Ada and Bob joined on the fixture's first day; the clock says how long ago that was.
+      const t = await start(PLOT_MARKET_SETUP, { now: () => (PLOT_MARKET_DAY + daysOld) * DAY_MS });
+      await t.act(t.token("ada"), { type: "list_plot", px: 0, py: 0, price });
+      const bought = await t.act(t.token("bob"), {
+        type: "buy_plot",
+        px: 0,
+        py: 0,
+        price,
+        listed: listed(t),
+      });
+      expect(bought.ok).toBe(true);
+      return [...t.sql.exec("SELECT * FROM moderation_log WHERE action = 'watch_plot_sale'")];
+    };
+    const young = PLOT_SALE_WATCH.youngDays - 1;
+    const rows = await watched(PLOT_SALE_WATCH.price, young);
+    expect(rows).toEqual([
+      expect.objectContaining({ actor: "watch", kind: "resident", target: "bob" }),
+    ]);
+    expect(String(rows[0]?.reason)).toBe(
+      `Plot 0,0 sold for ${PLOT_SALE_WATCH.price} coins. Seller ada, ${young} days in Terrakin; buyer bob, ${young} days.`,
+    );
+    expect(await watched(PLOT_SALE_WATCH.price - 1, young)).toEqual([]);
+    expect(await watched(PLOT_SALE_WATCH.price, PLOT_SALE_WATCH.youngDays)).toEqual([]);
   });
 
   it("tells no share_ended to a co-owner who buys the plot they share, who owns it now", async () => {

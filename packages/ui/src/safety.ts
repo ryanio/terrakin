@@ -108,4 +108,5 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   clear_block: "Opened a way out of a home",
   open_way: "Laid a public way across a plot",
   close_way: "Closed public way tiles on a plot",
+  watch_plot_sale: "Noted a large plot sale with a new resident in it",
 };

@@ -11,7 +11,7 @@ import { listingForReport, listingRefusal } from "./market";
 import { MUSEGOD_PARTNER } from "./musegod-worlds";
 import { PartnerResidents } from "./partner-residents";
 import { findPartner } from "./partners";
-import { plotListingForReport } from "./plot-market";
+import { plotListingForReport, WATCH_ACTOR, watchesPlotSale } from "./plot-market";
 import { forgetRetired, moveMerged, socialUsers } from "./repeat-joins";
 import { Routines } from "./routines";
 import type { SocialService } from "./social-service";
@@ -232,13 +232,26 @@ export function wireSocial(
   // other notification covers coins.
   service.onAwardPaid = (id, coins) => layer.awarded(id, coins);
   // Plots for sale (RFC 0039): a sale tells its seller what reached them, here or away.
-  service.onPlotSold = (seller, { px, py, price }) =>
+  service.onPlotSold = (seller, { px, py, price, buyer }) => {
     layer.plotSold(seller, {
       px,
       py,
       price,
       coins: plotSale(service.state, px, py, price).sellerGets,
     });
+    // A large sale with a young account in it gets a line staff read (decision 0416).
+    const sellerDays = service.residentAgeDays(seller);
+    const buyerDays = service.residentAgeDays(buyer);
+    if (watchesPlotSale(price, sellerDays, buyerDays)) {
+      layer.safety.recordNote(
+        WATCH_ACTOR,
+        "watch_plot_sale",
+        "resident",
+        buyer,
+        `Plot ${px},${py} sold for ${price} coins. Seller ${seller}, ${sellerDays} days in Terrakin; buyer ${buyer}, ${buyerDays} days.`,
+      );
+    }
+  };
   service.onShareEnded = (resident, ended) => layer.shareEnded(resident, ended);
   service.onShareListed = (resident, listed) => layer.shareListed(resident, listed);
   // Pottery (RFC 0047): a pot sold tells its seller, and a cup of tea its guest.

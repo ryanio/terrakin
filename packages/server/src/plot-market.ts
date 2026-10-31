@@ -8,6 +8,7 @@ import {
 import {
   buyPlotProblem,
   coinsOf,
+  ECONOMY,
   furnishing,
   type GradedWalls,
   gradedWalls,
@@ -37,6 +38,32 @@ import {
  * Plots for sale (RFC 0039) as the API shows them. The sim holds the listings and every rule; this
  * adds names, counts, and the answer a `list_plot` or `buy_plot` carries, read before its commit.
  */
+
+/**
+ * When a plot sale gets a line in the moderation log for staff to look at (decision 0416): a price
+ * of at least `price` coins with a resident on either side who joined fewer than `youngDays` days
+ * ago. A sale is exempt from the gift caps, so it is the one way coins move between residents in
+ * large amounts; a day's receiving cap is the size worth a look, and a month is how long an
+ * account that exists only to pass coins along tends to be new. Nothing is refused or held.
+ */
+export const PLOT_SALE_WATCH = {
+  /** `ECONOMY.receiveCap`: more than gifts could move to one resident in a day. */
+  price: ECONOMY.receiveCap,
+  youngDays: 30,
+} as const;
+
+/** Who the moderation log names for a watched sale: Terrakin noticing, not a person acting. */
+export const WATCH_ACTOR = "watch";
+
+/**
+ * Whether a sale at `price` between residents `sellerDays` and `buyerDays` old (whole days since
+ * each first joined) is one staff should look at.
+ */
+export function watchesPlotSale(price: number, sellerDays: number, buyerDays: number): boolean {
+  return (
+    price >= PLOT_SALE_WATCH.price && Math.min(sellerDays, buyerDays) < PLOT_SALE_WATCH.youngDays
+  );
+}
 
 /** What the plot market's views read from outside the world. */
 export interface PlotMarketReaders {

@@ -1303,7 +1303,7 @@ export class WorldService {
    * the sale stands.
    */
   onPlotSold:
-    | ((seller: string, sold: { px: number; py: number; price: number }) => void)
+    | ((seller: string, sold: { px: number; py: number; price: number; buyer: string }) => void)
     | undefined;
 
   /**
@@ -2821,7 +2821,7 @@ export class WorldService {
     for (const e of events) {
       if (e.type !== "plot_sold") continue;
       try {
-        this.onPlotSold?.(e.seller, { px: e.px, py: e.py, price: e.price });
+        this.onPlotSold?.(e.seller, { px: e.px, py: e.py, price: e.price, buyer: e.buyer });
       } catch (err) {
         // The sale stands; the notice misses it.
         report(err, "world.plot_sold", { command: input.command.type });

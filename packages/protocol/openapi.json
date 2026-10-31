@@ -50609,6 +50609,11 @@
                 "type": "integer",
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
+              },
+              "watch_plot_sale": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
               }
             },
             "required": [
@@ -50642,7 +50647,8 @@
               "award_grant",
               "clear_block",
               "open_way",
-              "close_way"
+              "close_way",
+              "watch_plot_sale"
             ]
           },
           "suspendedNow": {

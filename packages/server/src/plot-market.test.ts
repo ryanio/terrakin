@@ -172,7 +172,12 @@ describe("plots for sale on the API (RFC 0039)", () => {
       balanceAfter: adaHad - PLOTS.listingFee,
       clearsHearth: true,
     });
-    expect(dryList.plotSale.note).toMatch(/your hearth there is cleared/);
+    expect(dryList.plotSale.note).toMatch(/Your hearth there is cleared/);
+    // And that Eve, who shares it, loses her share and hears it.
+    expect(dryList.plotSale.shared).toBe(1);
+    expect(dryList.plotSale.note).toMatch(
+      /The resident you share it with loses their share\. They're told/,
+    );
     expect(t.service.state.seq).toBe(seq);
 
     // One of her walls fine (RFC 0051), as a graded build leaves it, for the listing to count.
@@ -233,7 +238,10 @@ describe("plots for sale on the API (RFC 0039)", () => {
       clearsHearth: true,
     });
     expect(dryBuy.plotSale).not.toHaveProperty("listingFee");
-    expect(dryBuy.plotSale.note).toMatch(/clears the seller's hearth/);
+    // Eve shares the plot: the dry run counts her, and says she loses her share.
+    expect(dryBuy.plotSale.shared).toBe(1);
+    expect(dryBuy.plotSale.note).toMatch(/clears the hearth of whoever lives there/);
+    expect(dryBuy.plotSale.note).toMatch(/loses their share/);
     expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("ada");
 
     const bought = await t.act(bob, { type: "buy_plot", px: 0, py: 0, price: 300 });
@@ -253,6 +261,17 @@ describe("plots for sale on the API (RFC 0039)", () => {
         sold: { px: 0, py: 0, price: 300, coins: 285 },
       }),
     );
+    // Eve, whose share ended with the sale, is told too, and the buyer never is.
+    const eves = (await t.call("GET", "/v1/notifications", undefined, t.token("eve"))).body;
+    expect(eves.notifications).toContainEqual(
+      expect.objectContaining({
+        type: "share_ended",
+        system: true,
+        shareEnded: { px: 0, py: 0, hearthCleared: false },
+      }),
+    );
+    const bobs = (await t.call("GET", "/v1/notifications", undefined, bob)).body.notifications;
+    expect(bobs.map((n: Json) => n.type)).not.toContain("share_ended");
 
     // The plot is Bob's, off the market, and its card says it changed hands.
     const after = (await t.call("GET", "/v1/plots/0/0")).body.plot;

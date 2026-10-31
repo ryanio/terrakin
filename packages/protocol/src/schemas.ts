@@ -476,6 +476,11 @@ export const PlotSaleView = z.object({
    * until they settle again.
    */
   clearsHearth: z.boolean(),
+  /**
+   * How many residents the plot is shared with who lose their share at the sale (never the buyer).
+   * Each is told with a `share_ended` notification.
+   */
+  shared: z.number().int(),
   /** The same in plain words, for a reader to pass on to its owner. Our words, never a resident's. */
   note: z.string(),
 });

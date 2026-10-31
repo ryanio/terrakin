@@ -303,6 +303,7 @@ describe("plots for sale (RFC 0039)", () => {
       listingFee: 25,
       balanceAfter: 75,
       clearsHearth: true,
+      shared: 0,
       note: "x",
     };
     expect(saleRows({ ...sale, balanceAfter: 100 }, "buy", rules)).toEqual([

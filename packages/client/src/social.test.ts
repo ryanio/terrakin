@@ -22,6 +22,7 @@ import {
   notificationItem,
   notificationLine,
   potSoldLine,
+  shareEndedLine,
   soldLine,
   takedownLine,
   wayLine,
@@ -782,6 +783,19 @@ describe("the notice when a plot you had for sale sells (RFC 0039)", () => {
     const sold = soldLine({ px: 3, py: 2, price: 300, coins: 285 });
     expect(sold.line).toBe("Plot 3, 2 sold for 300 coins.");
     expect(sold.next).toMatch(/^285 coins reached you after the market's fee/);
+  });
+});
+
+describe("the notice when a plot shared with you sells (RFC 0039)", () => {
+  it("names the plot, and says how to get the pantry back only when the hearth went", () => {
+    const cleared = shareEndedLine({ px: 3, py: 2, hearthCleared: true });
+    expect(cleared.line).toBe(
+      "Plot 3, 2, which was shared with you, sold. You no longer share it.",
+    );
+    expect(cleared.next).toMatch(/^Your hearth there was cleared\. Set a hearth/);
+    expect(shareEndedLine({ px: 3, py: 2, hearthCleared: false }).next).toBe(
+      "Your hearth is where it was.",
+    );
   });
 });
 

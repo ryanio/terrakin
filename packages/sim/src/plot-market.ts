@@ -292,6 +292,8 @@ export interface PlotSale {
    * the buyer's: a co-owner who buys the plot they live on keeps their hearth.
    */
   hearths: ResidentId[];
+  /** Everyone the plot is shared with, who loses their share at the sale. Never the buyer. */
+  shared: ResidentId[];
 }
 
 /**
@@ -311,7 +313,8 @@ export function plotSale(
     const p = plotOf(state.config, r.hearth.x, r.hearth.y);
     return p.px === px && p.py === py ? [r.id] : [];
   });
-  return { price, fee, sellerGets: price - fee, hearths };
+  const shared = (state.plots[plotKey(px, py)]?.coOwners ?? []).filter((id) => id !== buyer);
+  return { price, fee, sellerGets: price - fee, hearths, shared };
 }
 
 /**

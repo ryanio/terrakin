@@ -2316,6 +2316,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident a plot shared with them sold, so their share ended (RFC 0039): one notice from
+   * Terrakin itself with the plot and whether their hearth there was cleared. Never the buyer.
+   */
+  shareEnded(recipient: string, ended: ShareEndedDetail) {
+    this.systemNotice(recipient, "share_ended", JSON.stringify(ended));
+  }
+
+  /**
    * Tell a pot's seller it sold (RFC 0047): one notice from Terrakin itself with the pot by its
    * codes, its price, and the coins that reached them. Never the buyer, and never the pot's label.
    */
@@ -2501,6 +2509,7 @@ export class SocialService {
       if (type === "way_closed") return this.wayClosedView(row, detail);
       if (type === "home_slimmed") return this.homeSlimmedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
+      if (type === "share_ended") return this.shareEndedView(row, detail);
       if (type === "pot_sold") return this.potSoldView(row, detail);
       if (type === "tea_served") return this.teaServedView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
@@ -2686,6 +2695,13 @@ export class SocialService {
       .safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "plot_sold"), sold: parsed.data }];
+  }
+
+  /** A stored share-ended notice (RFC 0039) as its resident reads it. */
+  private shareEndedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = ShareEndedDetail.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "share_ended"), shareEnded: parsed.data }];
   }
 
   /** A stored tea-served notice (RFC 0047) as the host reads it. */
@@ -3335,11 +3351,20 @@ type SystemNoticeType =
   | "block_cleared"
   | "renamed"
   | "plot_sold"
+  | "share_ended"
   | "pot_sold"
   | "tea_served"
   | "way_laid"
   | "way_closed"
   | "home_slimmed";
+
+/** What a share-ended notice keeps (RFC 0039): the plot and whether a hearth went, no words. */
+const ShareEndedDetail = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  hearthCleared: z.boolean(),
+});
+type ShareEndedDetail = z.infer<typeof ShareEndedDetail>;
 
 /** What a pot-sold notice keeps (RFC 0047): the pot's codes and the numbers, no words. */
 const PotSoldDetail = z.object({

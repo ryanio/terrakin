@@ -15,6 +15,7 @@ import {
   own,
   PLOTS,
   type PlotListing,
+  type PlotSale,
   plotKey,
   plotListing,
   plotListings,
@@ -130,16 +131,7 @@ export function plotSaleOf(state: WorldState, input: Input): { plotSale?: PlotSa
   const sale = plotSale(state, px, py, price, selling ? undefined : input.actor);
   const have = coinsOf(state, input.actor);
   const clearsHearth = sale.hearths.length > 0;
-  const mine = sale.hearths.includes(input.actor);
-  const note = selling
-    ? clearsHearth
-      ? mine
-        ? "When it sells, your hearth there is cleared: no pantry and no allowance until you settle again. Everything built on it goes to the buyer."
-        : "When it sells, the hearth on it is cleared, and everything built on it goes to the buyer."
-      : "When it sells, everything built on it goes to the buyer."
-    : clearsHearth
-      ? "The sale clears the seller's hearth on the plot, and anyone it was shared with loses their share. Everything built on it is yours, as it stands."
-      : "Everything built on it is yours, as it stands, and anyone it was shared with loses their share.";
+  const note = selling ? sellerNote(sale, input.actor) : buyerNote(sale);
   return {
     plotSale: {
       px,
@@ -150,9 +142,36 @@ export function plotSaleOf(state: WorldState, input: Input): { plotSale?: PlotSa
       ...(selling ? { listingFee: PLOTS.listingFee } : {}),
       balanceAfter: have - (selling ? PLOTS.listingFee : price),
       clearsHearth,
+      shared: sale.shared.length,
       note,
     },
   };
+}
+
+/** What a sale means for its seller, in our words: who loses a hearth or a share there. */
+function sellerNote(sale: PlotSale, seller: string): string {
+  const words = ["When it sells, everything built on it goes to the buyer."];
+  if (sale.hearths.includes(seller)) {
+    words.push("Your hearth there is cleared: no pantry and no allowance until you set one again.");
+  }
+  const n = sale.shared.length;
+  if (n > 0) {
+    const theirs = sale.hearths.filter((id) => id !== seller).length;
+    words.push(
+      `${n === 1 ? "The resident you share it with loses their share" : `The ${n} residents you share it with lose their shares`}${theirs > 0 ? ", and a hearth of theirs there is cleared" : ""}. They're told when it sells.`,
+    );
+  }
+  return words.join(" ");
+}
+
+/** What a sale means for its buyer, in our words: what they get, and what goes. */
+function buyerNote(sale: PlotSale): string {
+  const words = [
+    "Everything built on it is yours, as it stands. Your own hearth stays where it is.",
+  ];
+  if (sale.hearths.length > 0) words.push("The sale clears the hearth of whoever lives there now.");
+  if (sale.shared.length > 0) words.push("Anyone it was shared with loses their share.");
+  return words.join(" ");
 }
 
 /**

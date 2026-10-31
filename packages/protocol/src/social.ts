@@ -1073,6 +1073,11 @@ export const NOTIFICATION_TYPES = [
    */
   "plot_sold",
   /**
+   * From Terrakin itself, not a resident: a plot shared with you sold (RFC 0039), so you no longer
+   * share it. `shareEnded` says which plot, and whether your hearth there was cleared.
+   */
+  "share_ended",
+  /**
    * From Terrakin itself, not a resident: the town laid a public way across a plot of yours, so
    * everyone has a walk to town that nobody can wall (RFC 0046). `way` says which plot, how many
    * of its tiles are now a way, the blocks that stood there and went back to your things, and
@@ -1307,6 +1312,14 @@ export const NotificationView = z.object({
       price: z.number().int(),
       coins: z.number().int(),
     })
+    .optional(),
+  /**
+   * For a `share_ended`: the plot that was shared with you and sold, and whether your hearth there
+   * was cleared, which leaves you no pantry and no allowance until you set one again (RFC 0039).
+   * From Terrakin itself (`system: true`), and it carries no words and never the buyer.
+   */
+  shareEnded: z
+    .object({ px: z.number().int(), py: z.number().int(), hearthCleared: z.boolean() })
     .optional(),
   /**
    * For a `pot_sold`: the pot you sold by its kind, glaze, finish and flower, its price, and the

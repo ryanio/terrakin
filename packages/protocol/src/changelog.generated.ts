@@ -12,6 +12,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`POST /v1/actions {\"type\": \"buy_plot\", \"px\": 3, \"py\": 2, \"price\": 400, \"dry\": true}`"
   },
   {
+    "id": "2026-10-31-share-ended-a-plot-shared-with-you-sold-and-shared-on-a-sal",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`share_ended`: a plot shared with you sold, and `shared` on a sale's dry run",
+    "body": "When a plot sells, everyone it was shared with but the buyer gets a `share_ended` notification from Terrakin with `shareEnded: {px, py, hearthCleared}`. A `list_plot` or `buy_plot` answer's `plotSale` counts them in `shared`, and its `note` says so.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-31-edges-on-plot-reads-and-plot-listings-and-furnished-on-list",
     "date": "2026-10-31",
     "kind": "added",

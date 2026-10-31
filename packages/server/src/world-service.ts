@@ -1307,6 +1307,15 @@ export class WorldService {
     | undefined;
 
   /**
+   * Hears each resident whose share of a plot ended because it sold (RFC 0039), and whether their
+   * hearth there went with it, so they learn why they can't build there or why their pantry
+   * stopped. A failure here is reported and the sale stands.
+   */
+  onShareEnded:
+    | ((resident: string, ended: { px: number; py: number; hearthCleared: boolean }) => void)
+    | undefined;
+
+  /**
    * Hears each pot sold in the market (RFC 0047), with the pot read from the buyer's own
    * `inventory` event in the same input, so its seller is told what sold. A failure is reported
    * and the sale stands.
@@ -2785,7 +2794,8 @@ export class WorldService {
         report(err, "world.award_paid", { command: input.command.type });
       }
     }
-    // Plots sold (RFC 0039): the seller is told, since they may be nowhere near when it sells.
+    // Plots sold (RFC 0039): the seller is told, since they may be nowhere near when it sells, and
+    // so is everyone whose share ended with it, but the buyer, who now owns it.
     for (const e of events) {
       if (e.type !== "plot_sold") continue;
       try {
@@ -2793,6 +2803,18 @@ export class WorldService {
       } catch (err) {
         // The sale stands; the notice misses it.
         report(err, "world.plot_sold", { command: input.command.type });
+      }
+      for (const u of events) {
+        if (u.type !== "plot_unshared" || u.px !== e.px || u.py !== e.py) continue;
+        if (u.residentId === e.buyer) continue;
+        const hearthCleared = events.some(
+          (c) => c.type === "hearth_cleared" && c.residentId === u.residentId,
+        );
+        try {
+          this.onShareEnded?.(u.residentId, { px: e.px, py: e.py, hearthCleared });
+        } catch (err) {
+          report(err, "world.share_ended", { command: input.command.type });
+        }
       }
     }
     // Pots sold and cups of tea poured (RFC 0047): the seller and the guest are told.

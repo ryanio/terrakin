@@ -37203,6 +37203,11 @@
           "clearsHearth": {
             "type": "boolean"
           },
+          "shared": {
+            "type": "integer",
+            "minimum": -9007199254740991,
+            "maximum": 9007199254740991
+          },
           "note": {
             "type": "string"
           }
@@ -37215,6 +37220,7 @@
           "sellerGets",
           "balanceAfter",
           "clearsHearth",
+          "shared",
           "note"
         ]
       },
@@ -47964,6 +47970,7 @@
           "block_cleared",
           "renamed",
           "plot_sold",
+          "share_ended",
           "way_laid",
           "way_closed",
           "home_slimmed",
@@ -48273,6 +48280,29 @@
               "py",
               "price",
               "coins"
+            ]
+          },
+          "shareEnded": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "hearthCleared": {
+                "type": "boolean"
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "hearthCleared"
             ]
           },
           "potSold": {

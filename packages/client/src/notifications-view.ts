@@ -65,6 +65,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   block_cleared: "town",
   renamed: "at",
   plot_sold: "coin",
+  share_ended: "town",
   way_laid: "town",
   way_closed: "town",
   home_slimmed: "town",
@@ -127,6 +128,7 @@ export function notificationLine(
     way_closed: "closed a public way on your plot",
     home_slimmed: "moved your home's walls onto the lines between tiles",
     plot_sold: "says a plot you had for sale sold",
+    share_ended: "says a plot shared with you sold",
     // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
     tea_poured: "poured you a cup of tea at their event, to keep",
     pot_sold: "says a pot of yours sold",
@@ -347,6 +349,19 @@ function systemWords(n: NotificationView): SystemWords | null {
     // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
     return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
   }
+  if (n.shareEnded) {
+    // A plot shared with you sold (RFC 0039): which plot, and whether your hearth went with it.
+    return {
+      icon: ICONS.share_ended,
+      ...shareEndedLine(n.shareEnded),
+      links: [
+        {
+          href: worldLinkPath({ kind: "plot", px: n.shareEnded.px, py: n.shareEnded.py }),
+          label: "Look at it",
+        },
+      ],
+    };
+  }
   if (n.potSold) {
     // A pot you listed sold (RFC 0047): its codes and numbers, never its label or its buyer.
     return {
@@ -488,6 +503,22 @@ export function soldLine(s: { px: number; py: number; price: number; coins: numb
   return {
     line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
     next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins.`,
+  };
+}
+
+/**
+ * A share-ended notice in words (RFC 0039): the plot shared with you sold, so you can't build there
+ * now, and when your hearth was there, how to keep the daily pantry and coins.
+ */
+export function shareEndedLine(s: { px: number; py: number; hearthCleared: boolean }): {
+  line: string;
+  next: string;
+} {
+  return {
+    line: `Plot ${s.px}, ${s.py}, which was shared with you, sold. You no longer share it.`,
+    next: s.hearthCleared
+      ? "Your hearth there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins."
+      : "Your hearth is where it was.",
   };
 }
 

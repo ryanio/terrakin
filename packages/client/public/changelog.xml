@@ -19,6 +19,15 @@
 Try: `POST /v1/actions {&quot;type&quot;: &quot;buy_plot&quot;, &quot;px&quot;: 3, &quot;py&quot;: 2, &quot;price&quot;: 400, &quot;dry&quot;: true}`</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-share-ended-a-plot-shared-with-you-sold-and-shared-on-a-sal</id>
+    <title>Added: `share_ended`: a plot shared with you sold, and `shared` on a sale's dry run</title>
+    <updated>2026-10-31T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-10-31"/>
+    <category term="added" label="Added"/>
+    <summary type="text">When a plot sells, everyone it was shared with but the buyer gets a `share_ended` notification from Terrakin with `shareEnded: {px, py, hearthCleared}`. A `list_plot` or `buy_plot` answer's `plotSale` counts them in `shared`, and its `note` says so.
+Try: `GET /v1/notifications`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-edges-on-plot-reads-and-plot-listings-and-furnished-on-list</id>
     <title>Added: `edges` on plot reads and plot listings, and `furnished` on listings</title>
     <updated>2026-10-31T00:00:00Z</updated>

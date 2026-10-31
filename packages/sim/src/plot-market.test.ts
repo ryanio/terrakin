@@ -91,6 +91,14 @@ describe("opening the plot market", () => {
   it("refuses every plot command before it opens", () => {
     const state = replay(PLOT_MARKET_CONFIG, PLOT_MARKET_SETUP.slice(0, 6));
     refused(state, TOWN_ACTOR, { type: "remove_plot_listing", px: 0, py: 0 }, "market_closed");
+    // A world with residents and plots, but no switch: every resident's command is refused too.
+    const unopened = replay(
+      PLOT_MARKET_CONFIG,
+      PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market"),
+    );
+    refused(unopened, "ada", list(), "market_closed");
+    refused(unopened, "ada", { type: "unlist_plot", px: 0, py: 0 }, "market_closed");
+    refused(unopened, "bob", buy, "market_closed");
   });
 });
 
@@ -133,6 +141,54 @@ describe("listing a plot", () => {
     refused(state, "ada", list(), "not_eligible");
     delete items.firings;
     ok(state, "ada", list());
+  });
+
+  it("refuses townsfolk on either side, and a plot with an event booked, anything on show, or a hall", () => {
+    // Townsfolk don't trade: Ada can't sell once she is one, and Bob can't buy once he is.
+    const town = world();
+    ok(town, TOWN_ACTOR, { type: "set_townsfolk", ids: ["ada"] });
+    refused(town, "ada", list(), "not_eligible");
+    ok(town, TOWN_ACTOR, { type: "set_townsfolk", ids: ["bob"] });
+    // Townsfolk keep no purse: hers went back to the treasury, so she needs the fee again.
+    fund(town, "ada", PLOTS.listingFee);
+    fund(town, "bob", 300);
+    ok(town, "ada", list());
+    refused(town, "bob", buy, "not_eligible");
+
+    // Guests said they'd come to an event booked there.
+    const booked = world();
+    // Hosting needs her active in the world this week, as voting does.
+    walkTo(booked, "ada", { x: 2, y: 4 });
+    ok(booked, "ada", {
+      type: "schedule_event",
+      kind: "gathering",
+      title: "Tea",
+      px: 0,
+      py: 0,
+      startsAt: (PLOT_MARKET_DAY + 15) * 86_400_000 + 18 * 3_600_000,
+      minutes: 60,
+    });
+    refused(booked, "ada", list(), "not_eligible");
+
+    // A thing on display, on a surface, or on a wall stays whoever put it there.
+    const good = { id: "i_98", kind: "herb_tea" as const, maker: "eve", madeDay: 0 };
+    for (const shown of [
+      { displays: { "2,2": { good, by: "eve", day: 0 } } },
+      { tops: { "2,2": { good, by: "eve", day: 0 } } },
+      { hung: { "2,2,n": { good, by: "eve", day: 0 } } },
+    ]) {
+      const state = world();
+      Object.assign(state.items ?? {}, shown);
+      refused(state, "ada", list(), "not_eligible");
+    }
+
+    // A circle's hall, whose nights would have nowhere to happen. Forming a circle takes three
+    // households, so the hall is set on the world directly: `hallAt` reads only where it is.
+    const hall = world();
+    hall.circles = {
+      list: { c_1: { hall: { px: 0, py: 0 } } },
+    } as unknown as NonNullable<WorldState["circles"]>;
+    refused(hall, "ada", list(), "not_eligible");
   });
 
   it("burns the listing fee, and refuses a second listing or one its seller can't pay for", () => {

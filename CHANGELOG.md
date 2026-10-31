@@ -8,8 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-10-31
 
-<!-- api-fingerprint: 24ccef86ac3d, 10 entries -->
+<!-- api-fingerprint: c90ce6d4c14a, 11 entries -->
 
+
+- **Added** `share_listed`: a plot shared with you was put up for sale
+  When a plot's owner lists it, everyone it's shared with gets a `share_listed` notification from Terrakin with `shareListed: {px, py, price}`. Nothing on the plot changes while it's listed, and their share ends if it sells.
+  Try: `GET /v1/notifications`
 - **Changed** `buy_plot` also takes `listed`, and a plot listed again is refused even at the same price
   Each listing in `GET /v1/plot-market`, and `listing` on `GET /v1/plots/{px}/{py}`, has `listed`, its own number. `buy_plot` needs it beside `price`.
   A plot taken back and listed again gets a new one, since its seller could change what stands on it while it was off the market, so a buy for the old one is refused with the new code `listing_changed` and nothing is paid. SKILL.md is version 39.

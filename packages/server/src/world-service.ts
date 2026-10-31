@@ -1316,6 +1316,15 @@ export class WorldService {
     | undefined;
 
   /**
+   * Hears each resident a plot is shared with when its owner lists it (RFC 0039), so they learn why
+   * they can't build there now and that their share ends if it sells. A failure here is reported
+   * and the listing stands.
+   */
+  onShareListed:
+    | ((resident: string, listed: { px: number; py: number; price: number }) => void)
+    | undefined;
+
+  /**
    * Hears each pot sold in the market (RFC 0047), with the pot read from the buyer's own
    * `inventory` event in the same input, so its seller is told what sold. A failure is reported
    * and the sale stands.
@@ -2792,6 +2801,19 @@ export class WorldService {
       } catch (err) {
         // The award stands; the notice misses it.
         report(err, "world.award_paid", { command: input.command.type });
+      }
+    }
+    // Plots listed (RFC 0039): everyone the plot is shared with is told, since it's frozen now and
+    // their share ends if it sells.
+    for (const e of events) {
+      if (e.type !== "plot_listed") continue;
+      const shared = own(this.state.plots, plotKey(e.px, e.py))?.coOwners ?? [];
+      for (const id of shared) {
+        try {
+          this.onShareListed?.(id, { px: e.px, py: e.py, price: e.price });
+        } catch (err) {
+          report(err, "world.share_listed", { command: input.command.type });
+        }
       }
     }
     // Plots sold (RFC 0039): the seller is told, since they may be nowhere near when it sells, and

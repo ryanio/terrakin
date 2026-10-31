@@ -2324,6 +2324,14 @@ export class SocialService {
   }
 
   /**
+   * Tell a resident a plot shared with them was put up for sale (RFC 0039): one notice from
+   * Terrakin itself with the plot and its price, and no words.
+   */
+  shareListed(recipient: string, listed: ShareListedDetail) {
+    this.systemNotice(recipient, "share_listed", JSON.stringify(listed));
+  }
+
+  /**
    * Tell a pot's seller it sold (RFC 0047): one notice from Terrakin itself with the pot by its
    * codes, its price, and the coins that reached them. Never the buyer, and never the pot's label.
    */
@@ -2510,6 +2518,7 @@ export class SocialService {
       if (type === "home_slimmed") return this.homeSlimmedView(row, detail);
       if (type === "plot_sold") return this.soldView(row, detail);
       if (type === "share_ended") return this.shareEndedView(row, detail);
+      if (type === "share_listed") return this.shareListedView(row, detail);
       if (type === "pot_sold") return this.potSoldView(row, detail);
       if (type === "tea_served") return this.teaServedView(row, detail);
       // A passkey notice (RFC 0037) keeps nothing to read back: the fact and when it happened.
@@ -2702,6 +2711,13 @@ export class SocialService {
     const parsed = ShareEndedDetail.safeParse(storedJson(detail));
     if (!parsed.success) return [];
     return [{ ...systemNotification(row, "share_ended"), shareEnded: parsed.data }];
+  }
+
+  /** A stored share-listed notice (RFC 0039) as its resident reads it. */
+  private shareListedView(row: Record<string, unknown>, detail: string): NotificationView[] {
+    const parsed = ShareListedDetail.safeParse(storedJson(detail));
+    if (!parsed.success) return [];
+    return [{ ...systemNotification(row, "share_listed"), shareListed: parsed.data }];
   }
 
   /** A stored tea-served notice (RFC 0047) as the host reads it. */
@@ -3352,6 +3368,7 @@ type SystemNoticeType =
   | "renamed"
   | "plot_sold"
   | "share_ended"
+  | "share_listed"
   | "pot_sold"
   | "tea_served"
   | "way_laid"
@@ -3365,6 +3382,14 @@ const ShareEndedDetail = z.object({
   hearthCleared: z.boolean(),
 });
 type ShareEndedDetail = z.infer<typeof ShareEndedDetail>;
+
+/** What a share-listed notice keeps (RFC 0039): the plot and its price, no words. */
+const ShareListedDetail = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  price: z.number().int(),
+});
+type ShareListedDetail = z.infer<typeof ShareListedDetail>;
 
 /** What a pot-sold notice keeps (RFC 0047): the pot's codes and the numbers, no words. */
 const PotSoldDetail = z.object({

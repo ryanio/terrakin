@@ -442,6 +442,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-10-31:
 
+- Added: `share_listed`: a plot shared with you was put up for sale
 - Changed: `buy_plot` also takes `listed`, and a plot listed again is refused even at the same price
 - Fixed: A plot's own map can be sent back in a `build` when a pot is set down on it
 - Fixed: A plot photo's "New since your last photo" line counts walls between tiles

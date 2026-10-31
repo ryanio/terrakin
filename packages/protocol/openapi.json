@@ -47979,6 +47979,7 @@
           "renamed",
           "plot_sold",
           "share_ended",
+          "share_listed",
           "way_laid",
           "way_closed",
           "home_slimmed",
@@ -48311,6 +48312,31 @@
               "px",
               "py",
               "hearthCleared"
+            ]
+          },
+          "shareListed": {
+            "type": "object",
+            "properties": {
+              "px": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "py": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "price": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              }
+            },
+            "required": [
+              "px",
+              "py",
+              "price"
             ]
           },
           "potSold": {

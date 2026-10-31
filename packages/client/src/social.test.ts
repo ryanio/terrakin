@@ -23,6 +23,7 @@ import {
   notificationLine,
   potSoldLine,
   shareEndedLine,
+  shareListedLine,
   soldLine,
   takedownLine,
   wayLine,
@@ -783,6 +784,14 @@ describe("the notice when a plot you had for sale sells (RFC 0039)", () => {
     const sold = soldLine({ px: 3, py: 2, price: 300, coins: 285 });
     expect(sold.line).toBe("Plot 3, 2 sold for 300 coins.");
     expect(sold.next).toMatch(/^285 coins reached you after the market's fee/);
+  });
+});
+
+describe("the notice when a plot shared with you is put up for sale (RFC 0039)", () => {
+  it("names the plot and its price, and says what a sale would mean for the share", () => {
+    const said = shareListedLine({ px: 3, py: 2, price: 400 });
+    expect(said.line).toBe("Plot 3, 2, which is shared with you, is for sale for 400 coins.");
+    expect(said.next).toMatch(/If it sells, your share ends/);
   });
 });
 

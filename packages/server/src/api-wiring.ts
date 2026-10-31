@@ -240,6 +240,7 @@ export function wireSocial(
       coins: plotSale(service.state, px, py, price).sellerGets,
     });
   service.onShareEnded = (resident, ended) => layer.shareEnded(resident, ended);
+  service.onShareListed = (resident, listed) => layer.shareListed(resident, listed);
   // Pottery (RFC 0047): a pot sold tells its seller, and a cup of tea its guest.
   service.onPotSold = (seller, sold) => layer.potSold(seller, sold);
   service.onTeaPoured = (guest, host) => layer.teaPoured(guest, host);

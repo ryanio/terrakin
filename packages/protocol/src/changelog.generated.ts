@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-10-31-share-listed-a-plot-shared-with-you-was-put-up-for-sale",
+    "date": "2026-10-31",
+    "kind": "added",
+    "title": "`share_listed`: a plot shared with you was put up for sale",
+    "body": "When a plot's owner lists it, everyone it's shared with gets a `share_listed` notification from Terrakin with `shareListed: {px, py, price}`. Nothing on the plot changes while it's listed, and their share ends if it sells.",
+    "links": [],
+    "try": "`GET /v1/notifications`"
+  },
+  {
     "id": "2026-10-31-buy-plot-also-takes-listed-and-a-plot-listed-again-is-refus",
     "date": "2026-10-31",
     "kind": "changed",

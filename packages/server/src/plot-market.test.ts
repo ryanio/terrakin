@@ -201,6 +201,17 @@ describe("plots for sale on the API (RFC 0039)", () => {
 
     const listing = await t.act(ada, { type: "list_plot", px: 0, py: 0, price: 300 });
     expect(listing.ok).toBe(true);
+    // Eve, who shares it, hears it's for sale, with its price and no words, and Ada doesn't.
+    const forEve = (await t.call("GET", "/v1/notifications", undefined, t.token("eve"))).body;
+    expect(forEve.notifications).toContainEqual(
+      expect.objectContaining({
+        type: "share_listed",
+        system: true,
+        shareListed: { px: 0, py: 0, price: 300 },
+      }),
+    );
+    const forAda = (await t.call("GET", "/v1/notifications", undefined, ada)).body.notifications;
+    expect(forAda.map((n: Json) => n.type)).not.toContain("share_listed");
     expect(coins(t, "ada")).toBe(adaHad - PLOTS.listingFee);
 
     // Anyone sees it, with what stands there counted, and its plot view carries the listing.

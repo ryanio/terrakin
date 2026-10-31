@@ -66,6 +66,7 @@ const ICONS: Record<NotificationView["type"], IconName> = {
   renamed: "at",
   plot_sold: "coin",
   share_ended: "town",
+  share_listed: "coin",
   way_laid: "town",
   way_closed: "town",
   home_slimmed: "town",
@@ -129,6 +130,7 @@ export function notificationLine(
     home_slimmed: "moved your home's walls onto the lines between tiles",
     plot_sold: "says a plot you had for sale sold",
     share_ended: "says a plot shared with you sold",
+    share_listed: "says a plot shared with you is for sale",
     // A host who served tea at an event you were counted at (RFC 0047); the cup is in your things.
     tea_poured: "poured you a cup of tea at their event, to keep",
     pot_sold: "says a pot of yours sold",
@@ -349,6 +351,14 @@ function systemWords(n: NotificationView): SystemWords | null {
     // A plot you had for sale sold (RFC 0039). The notice carries numbers and no words.
     return { icon: ICONS.plot_sold, ...soldLine(n.sold), links: [] };
   }
+  if (n.shareListed) {
+    // A plot shared with you was put up for sale (RFC 0039): which plot and its price.
+    return {
+      icon: ICONS.share_listed,
+      ...shareListedLine(n.shareListed),
+      links: [{ href: "/market#plots", label: "Open the market" }],
+    };
+  }
   if (n.shareEnded) {
     // A plot shared with you sold (RFC 0039): which plot, and whether your hearth went with it.
     return {
@@ -503,6 +513,20 @@ export function soldLine(s: { px: number; py: number; price: number; coins: numb
   return {
     line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
     next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins.`,
+  };
+}
+
+/**
+ * A share-listed notice in words (RFC 0039): the plot shared with you is for sale, frozen until it
+ * sells or comes back, and your share ends when it sells.
+ */
+export function shareListedLine(s: { px: number; py: number; price: number }): {
+  line: string;
+  next: string;
+} {
+  return {
+    line: `Plot ${s.px}, ${s.py}, which is shared with you, is for sale for ${plural(s.price, "coin", "coins")}.`,
+    next: "Nothing on it changes while it's for sale. If it sells, your share ends, and a hearth of yours there is cleared.",
   };
 }
 

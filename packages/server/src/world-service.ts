@@ -2442,7 +2442,14 @@ export class WorldService {
     if (action.type === "build") {
       // A map or a design becomes lists before the sim sees it (RFC 0032).
       const now = plotPlan(this.state, action.px, action.py) ?? { blocks: [], ground: [] };
-      const expanded = buildCommand(action, { size: this.state.config.plotSize, now });
+      // A map sent back for this plot may leave its legend out: the plot's own map, as its read
+      // gives it, is the legend its digits read by (issue #135).
+      const own = action.map ? plotMap(this.state, action.px, action.py) : undefined;
+      const expanded = buildCommand(action, {
+        size: this.state.config.plotSize,
+        now,
+        current: own ? { legend: own.legend, grades: own.grades } : undefined,
+      });
       if ("problem" in expanded) {
         return { ok: false, error: { code: "invalid_plan", message: expanded.problem } };
       }

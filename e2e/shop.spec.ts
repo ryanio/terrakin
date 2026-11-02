@@ -125,7 +125,9 @@ test("a visitor sees the shop; a resident sells herbs to the town and buys a lan
   expect(box?.height).toBeGreaterThanOrEqual(44);
   await page.screenshot({ path: "test-results/shop-buying.png" });
   await sell.click();
-  await expect(page.locator("#site-toast")).toContainText("Sold to the town for 3 coins");
+  await expect(page.locator("#site-toast")).toContainText(
+    "Sold 3 bunches of herbs to the town for 3 coins",
+  );
   await expect(herbs).toContainText("sold out for you today");
   await expect(herbs.getByRole("button", { name: "Sell" })).toBeDisabled();
   await expect(page.locator("#shop-balance")).toContainText(String(before + 3));

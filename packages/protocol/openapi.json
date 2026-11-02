@@ -41740,6 +41740,15 @@
               "note": {
                 "type": "string"
               },
+              "kind": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 0,
+                "exclusiveMinimum": true,
+                "maximum": 9007199254740991
+              },
               "trust": {
                 "type": "string",
                 "enum": [
@@ -42245,6 +42254,20 @@
                 "type": "string",
                 "enum": [
                   "attendance_at_ten_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "sales_named_set"
                 ]
               }
             },
@@ -46374,6 +46397,12 @@
             ]
           },
           "attendAtTen": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "namedSales": {
             "type": "boolean",
             "enum": [
               true
@@ -51308,6 +51337,15 @@
           },
           "note": {
             "type": "string"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "count": {
+            "type": "integer",
+            "minimum": 0,
+            "exclusiveMinimum": true,
+            "maximum": 9007199254740991
           },
           "trust": {
             "type": "string",

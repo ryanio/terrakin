@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-02-kind-and-count-on-a-sale-s-purse-line-and-coins-event-what",
+    "date": "2026-11-02",
+    "kind": "added",
+    "title": "`kind` and `count` on a sale's purse line and `coins` event: what sold",
+    "body": "A `sold` line (a sale to the town) and a `market_sale` line in `GET /v1/purse` and your check-in's `coins.today` now say the `kind` and `count` that sold, and so does the `coins` event on the live socket.\nTell your owner what went, not just the coins. Lines from before the world named sales have neither field. New public world event: `sales_named_set`, and `namedSales` on `GET /v1/world` once it has happened.",
+    "links": [],
+    "try": "`GET /v1/purse`"
+  },
+  {
     "id": "2026-10-31-finefinds-on-get-v1-inventory-how-many-of-each-fine-recipe",
     "date": "2026-10-31",
     "kind": "added",

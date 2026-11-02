@@ -228,6 +228,7 @@ import { checkSetRoof } from "./roofs";
 import { checkRoutineStep, checkSetRoutines, type RoutinesChecked } from "./routines";
 import {
   checkLowerHolidayPrices,
+  checkNameSales,
   checkOpenShop,
   checkSellToTown,
   checkSetShopShare,
@@ -881,6 +882,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkScheduleInPerson(state));
       case "attend_at_ten":
         return town(checkAttendAtTen(state));
+      case "name_sales":
+        return town(checkNameSales(state));
       case "open_land":
         return town(checkOpenLand(state, command));
       case "open_market":

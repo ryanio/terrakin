@@ -191,10 +191,15 @@ function addLine(lines: LedgerLine[], line: LedgerLine) {
   if (lines.length > ECONOMY.ledgerMax) lines.splice(0, lines.length - ECONOMY.ledgerMax);
 }
 
-/** Who the coins went to or came from, and a gift's note. Absent fields stay absent. */
+/**
+ * Who the coins went to or came from, a gift's note, and what a sale sold. Absent fields stay
+ * absent.
+ */
 interface Other {
   with?: ResidentId;
   note?: string;
+  kind?: string;
+  count?: number;
 }
 
 /** Where and when a movement happens: the input's seq and the day. */

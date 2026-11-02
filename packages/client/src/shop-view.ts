@@ -40,6 +40,7 @@ import {
   learnedLine,
   madeName,
   needsListLine,
+  soldWords,
   stackCount,
   thingCount,
   walkInWorld,
@@ -335,7 +336,7 @@ export function shopView(ctx: ViewContext): View {
       act(
         sell,
         { type: "sell_to_town", item: order.kind, count: n },
-        `Sold to the town for ${coins(order.price * n)}.`,
+        `Sold ${soldWords(order.kind, n) ?? "them"} to the town for ${coins(order.price * n)}.`,
       ),
     );
     const left =

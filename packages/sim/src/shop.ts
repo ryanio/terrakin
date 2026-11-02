@@ -529,6 +529,28 @@ export function checkShopInPerson(state: WorldState): ShopChecked {
 }
 
 /**
+ * `name_sales`, which only TOWN_ACTOR sends: from now on the seller's purse line for a sale to
+ * the town or at the market keeps the kind and count sold, so a notice can say what went. Lines
+ * from sales before it stay bare, so they replay as they were made. A top-level flag, like
+ * `attendAtTen`, since it reads neither the shop's state nor the market's.
+ */
+export function checkNameSales(state: WorldState): ShopChecked {
+  return oneTimeSwitch({
+    on: state.namedSales,
+    already: "Sales already say what sold.",
+    turnOn: () => {
+      state.namedSales = true;
+    },
+    event: { type: "sales_named_set" },
+  });
+}
+
+/** What a sale's purse line keeps: the kind and count, once `name_sales` is logged. */
+export function soldWhat(state: WorldState, kind: string, count: number) {
+  return state.namedSales ? { kind, count } : {};
+}
+
+/**
  * Why a resident isn't at the shop, or null when they are: on the ground floor and within
  * `config.reach` of a counter. The counter is `nearestCounter`'s, so once a land is open an
  * islander is asked to their own and never across the water (RFC 0038), and nobody has to know
@@ -728,6 +750,7 @@ export function checkSellToTown(
   const total = order.price * count;
   const at = { seq: state.seq + 1, day };
   const ids = goods.map((g) => g.id);
+  const what = soldWhat(state, kind, count);
   return () => {
     const mine = inventory(items, actor);
     let event: WorldEvent;
@@ -739,6 +762,6 @@ export function checkSellToTown(
     }
     shop.today.sold[actor] = { ...shop.today.sold[actor], [kind]: sold + count };
     econ.minted += total;
-    return [event, movePurse(econ, actor, total, "sold", at)];
+    return [event, movePurse(econ, actor, total, "sold", at, what)];
   };
 }

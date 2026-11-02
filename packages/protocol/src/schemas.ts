@@ -945,6 +945,11 @@ export const WorldSnapshot = z.object({
    * however long it runs (issue #126). Absent in worlds that ask for a third of the samples.
    */
   attendAtTen: z.literal(true).optional(),
+  /**
+   * Present once a sale's purse line and `coins` event say what sold (`kind` and `count`).
+   * Absent in worlds whose sales say only that something sold.
+   */
+  namedSales: z.literal(true).optional(),
   /** Commons blocks the town built, with the proposal that built each. */
   townBuilt: z
     .array(z.object({ x: z.number().int(), y: z.number().int(), proposal: z.string() }))
@@ -1456,6 +1461,10 @@ export const WorldEvent = z.discriminatedUnion("type", [
     reason: CoinReason,
     with: z.string().optional(),
     note: z.string().optional(),
+    /** On a `sold` or `market_sale`: the kind that sold. */
+    kind: z.string().optional(),
+    /** With `kind`: how many sold. */
+    count: z.number().int().positive().optional(),
     /** Present with a `note`: it's another resident's words. */
     trust: z.literal("untrusted").optional(),
   }),
@@ -1531,6 +1540,8 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("schedule_in_person_set") }),
   /** From now on, an event counts attendance at 2 samples, 10 minutes (`attendAtTen`). */
   z.object({ type: z.literal("attendance_at_ten_set") }),
+  /** From now on, a sale's `coins` event and purse line say what sold (`kind` and `count`). */
+  z.object({ type: z.literal("sales_named_set") }),
   /**
    * A new land opened beyond downtown (RFC 0038): the world grew to `width` by `height`, `plots`
    * are claimable with `settle`, `bridge` is the walk across the water to them, `square` is the

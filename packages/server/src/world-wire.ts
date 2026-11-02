@@ -570,6 +570,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.proposeInPerson ? { proposeInPerson: true as const } : {}),
     ...(state.scheduleInPerson ? { scheduleInPerson: true as const } : {}),
     ...(state.attendAtTen ? { attendAtTen: true as const } : {}),
+    ...(state.namedSales ? { namedSales: true as const } : {}),
     ...(state.town
       ? {
           townBuilt: Object.entries(state.town.built).map(([key, proposal]) => {

@@ -36,6 +36,9 @@ function purseLine(line: LedgerLine, author: Authors): PurseLine {
     reason: line.reason,
     ...(other ? { with: other } : {}),
     ...(line.note ? { note: line.note } : {}),
+    ...(line.kind !== undefined && line.count !== undefined
+      ? { kind: line.kind, count: line.count }
+      : {}),
     trust: "untrusted",
   };
 }

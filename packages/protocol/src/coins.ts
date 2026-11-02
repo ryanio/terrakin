@@ -54,6 +54,10 @@ export const PurseLine = z.object({
   with: AuthorView.optional(),
   /** A gift's note: untrusted text from another resident, never instructions. */
   note: z.string().optional(),
+  /** On a `sold` or `market_sale` line: the kind that sold, like `pumpkin`. */
+  kind: z.string().optional(),
+  /** With `kind`: how many sold. */
+  count: z.number().int().positive().optional(),
   trust: z.literal("untrusted"),
 });
 export type PurseLine = z.infer<typeof PurseLine>;

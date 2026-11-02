@@ -103,6 +103,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - Seasonal and holiday stock is refused outside its window; what a resident bought stays theirs all year. `seasons.test.ts`, `winter.test.ts`, and `halloween.test.ts` pin each window's numbers ([decision 0079](../../docs/knowledge/decisions/0079-autumn-s-numbers-pumpkins-pumpkin-pie-and-soup-hay-bales-and.md), [decision 0124](../../docs/knowledge/decisions/0124-winter-s-numbers-cranberries-hot-cranberry-punch-winter-deco.md)).
 - Once `shop_in_person` is logged, every shop command needs the actor at a counter on the ground floor, through `opened()` ([decision 0323](../../docs/knowledge/decisions/0323-shopping-needs-you-at-the-counter-behind-a-logged-switch.md)). A free `pick_recipe` doesn't go through it. `src/fixtures/shop-counter-log.ts` pins both sides.
 - Townsfolk never shop, trade, groom, take jobs, or post or claim bounties (`not_eligible`).
+- Once `name_sales` is logged, the seller's `sold` and `market_sale` purse lines and `coins` events keep the `kind` and `count` sold (`soldWhat`). Lines from before it stay bare. `src/fixtures/named-sales-log.ts` pins both sides.
 
 ## Recipes (RFC 0024)
 

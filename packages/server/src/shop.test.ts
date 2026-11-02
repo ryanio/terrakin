@@ -58,6 +58,7 @@ async function start({ shop = true, shopInPerson = false } = {}) {
     items: true,
     shop,
     shopInPerson,
+    namedSales: true,
   });
   const sql = nodeSql();
   const social = new SocialService({
@@ -302,6 +303,12 @@ describe("the town shop", () => {
     inv.stacks.herb = 5;
     const sold = await w.act(ada.token, { type: "sell_to_town", item: "herb", count: 2 });
     expect(sold.ok).toBe(true);
+    // The world logged `name_sales`, so her purse line says what she sold, for her notice.
+    const purse = (await w.call("GET", "/v1/purse", undefined, ada.token)).body.purse;
+    expect(purse.ledger.find((l: Json) => l.reason === "sold")).toMatchObject({
+      kind: "herb",
+      count: 2,
+    });
     const shop = (await w.call("GET", "/v1/shop", undefined, ada.token)).body.shop;
     const herb = shop.buying.find((b: Json) => b.kind === "herb");
     expect(herb).toEqual({

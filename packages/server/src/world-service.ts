@@ -360,6 +360,11 @@ export interface WorldServiceOptions {
    */
   attendAtTen?: boolean;
   /**
+   * Named sales: append `name_sales` if it never has, after which a sale's purse line keeps the
+   * kind and count sold, so the seller's notice says what went. Both adapters turn it on.
+   */
+  namedSales?: boolean;
+  /**
    * Levels and skills (RFC 0029): once items are open and the social layer is wired, append
    * `open_levels` if it never has, with the one-time credit of firsts from the collection book
    * (`levelFirsts`). Both adapters turn it on (decision 0373), so every world they run logs it once.
@@ -665,6 +670,7 @@ interface TownSwitch {
     | "proposeInPerson"
     | "scheduleInPerson"
     | "attendAtTen"
+    | "namedSales"
     | "levels"
     | "jobs"
     | "circles"
@@ -839,6 +845,14 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "attend_at_ten" },
     label: "count attendance at 10 minutes",
   },
+  // Named sales need nothing open first: the flag is top level, and a world with no shop or
+  // market simply has no sale to name yet.
+  {
+    option: "namedSales",
+    due: (s) => !s.namedSales,
+    command: { type: "name_sales" },
+    label: "say what sold on a sale's purse line",
+  },
   // Levels (RFC 0029) open with a one-time credit read from the collection book, a social table.
   // Until `Api` wires `levelFirsts` there's no book to read, so the switch waits, and a read that
   // throws is reported and leaves it for a later tick: levels never open without their credit.
@@ -955,6 +969,7 @@ export class WorldService {
   private readonly proposeInPerson: boolean;
   private readonly scheduleInPerson: boolean;
   private readonly attendAtTen: boolean;
+  private readonly namedSales: boolean;
   private readonly levels: boolean;
   private readonly jobs: boolean;
   private readonly circles: boolean;
@@ -1067,6 +1082,7 @@ export class WorldService {
     this.proposeInPerson = options.proposeInPerson ?? false;
     this.scheduleInPerson = options.scheduleInPerson ?? false;
     this.attendAtTen = options.attendAtTen ?? false;
+    this.namedSales = options.namedSales ?? false;
     this.levels = options.levels ?? false;
     this.jobs = options.jobs ?? false;
     this.circles = options.circles ?? false;

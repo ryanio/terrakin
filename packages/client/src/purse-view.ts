@@ -13,11 +13,15 @@ import { purseApi } from "./api/purse";
 import { savedToken } from "./net";
 import { pageData } from "./page-data";
 import { balanceLine, coins } from "./purse";
+import { soldWords } from "./things";
 import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
 
 /** What a purse line was, in plain words. Pure, so tests pin it. */
-export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: number }): string {
+export function lineLabel(
+  line: Pick<PurseLine, "reason" | "with" | "kind" | "count"> & { amount?: number },
+): string {
   const who = line.with?.name ?? "someone";
+  const sold = line.kind ? soldWords(line.kind, line.count ?? 1) : undefined;
   switch (line.reason) {
     case "allowance":
       return "Coming home";
@@ -36,7 +40,7 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: 
     case "shop":
       return "At the town shop";
     case "sold":
-      return "Sold to the town";
+      return sold ? `Sold the town ${sold}` : "Sold to the town";
     case "appreciation":
       return "Neighbors who liked your posts";
     case "bounty_held":
@@ -68,7 +72,7 @@ export function lineLabel(line: Pick<PurseLine, "reason" | "with"> & { amount?: 
     case "market_buy":
       return `Bought from ${who} at the market`;
     case "market_sale":
-      return "Sold at the market";
+      return sold ? `Sold ${sold} at the market` : "Sold at the market";
     case "plot_listing_fee":
       return "Listing a plot";
     case "plot_buy":

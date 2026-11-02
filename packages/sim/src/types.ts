@@ -611,6 +611,12 @@ export interface WorldState {
    */
   attendAtTen?: true;
   /**
+   * Set by `name_sales`: from then on a purse line for a sale to the town (`sold`) or at the
+   * market (`market_sale`) keeps the `kind` and `count` sold, so the seller is told what went.
+   * Absent until then, and every sale before it keeps its bare line, so old logs hash as they did.
+   */
+  namedSales?: true;
+  /**
    * The lands beyond the first grid (RFC 0038), absent until the first `open_land`. The world's
    * `width` and `height` in `config` grow with each one, from the numbers the logged input
    * carries, so the same log always builds the same world.
@@ -1837,6 +1843,10 @@ export interface LedgerLine {
   with?: ResidentId;
   /** A gift's note. Untrusted text, cleaned by the server before it was logged. */
   note?: string;
+  /** On a `sold` or `market_sale` line once `name_sales` is logged: the kind that sold. */
+  kind?: string;
+  /** With `kind`: how many sold. */
+  count?: number;
   /**
    * On a treasury `award` line (RFC 0036): the maintainer who awarded it was in the recipient's
    * own household. The ledger is the only durable public record of an award, so the flag lives
@@ -2308,6 +2318,8 @@ export type Command =
   | { type: "schedule_in_person" }
   /** From now on, attendance counts at 2 samples (10 minutes), however long an event runs. */
   | { type: "attend_at_ten" }
+  /** From now on, a sale's purse line keeps what was sold. */
+  | { type: "name_sales" }
   | {
       type: "open_land";
       land: string;
@@ -2548,6 +2560,7 @@ export const SERVER_COMMANDS = [
   "propose_in_person",
   "schedule_in_person",
   "attend_at_ten",
+  "name_sales",
   "open_land",
   "retire_repeat_joins",
   "merge_resident",
@@ -2747,6 +2760,9 @@ export type WorldEvent =
       /** The other side of a gift. */
       with?: ResidentId;
       note?: string;
+      /** What sold, on a `sold` or `market_sale` once `name_sales` is logged. */
+      kind?: string;
+      count?: number;
     }
   /** Coins moved in or out of the treasury. Public, like the treasury's history. */
   | {
@@ -2870,6 +2886,8 @@ export type WorldEvent =
   | { type: "schedule_in_person_set" }
   /** `attend_at_ten` turned on: attendance counts at 2 samples (10 minutes). Public. */
   | { type: "attendance_at_ten_set" }
+  /** `name_sales` turned on: a sale's purse line and `coins` event say what sold. Public. */
+  | { type: "sales_named_set" }
   /** A new land opened (RFC 0038): the world grew, and `lands` in the snapshot says what's there. */
   | {
       type: "land_opened";

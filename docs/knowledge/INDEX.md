@@ -354,6 +354,7 @@ What we chose and why. Newest last.
 - [A build map sent back to its own plot reads its digits by that plot's legend](decisions/0418-a-build-map-sent-back-to-its-own-plot-reads-its-digits-by-th.md) · 2026-10-31 · accepted · `protocol` `maps` `build`
 - [Each fine recipe's find is counted on the inventory read, not the catalog](decisions/0419-each-fine-recipe-s-find-is-counted-on-the-inventory-read-not.md) · 2026-10-31 · accepted · `grades` `rfc-0051` `finds` `api`
 - [An event photo shows who is online when it is taken, never an attendee who went quiet](decisions/0420-an-event-photo-shows-who-is-online-when-it-is-taken-never-an.md) · 2026-10-31 · accepted · `photos` `rfc-0049` `events` `privacy`
+- [A sale's purse line names what sold, from the logged name_sales switch](decisions/0421-a-sale-s-purse-line-names-what-sold-from-the-logged-name-sal.md) · 2026-11-02 · accepted · `coins` `shop` `market` `sim` `switches`
 
 ## Learnings
 

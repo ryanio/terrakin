@@ -33,12 +33,20 @@ export function balanceLine(balance: number, id: string): HTMLElement {
   );
 }
 
+/**
+ * Names what a sale sold, "3 pumpkins" or "a bouquet", or undefined for a kind it doesn't know.
+ * The item names are a lazy chunk, so they load only when a sale needs them.
+ */
+export type SoldNamer = (kind: string, count: number) => string | undefined;
+
 /** What a purse line says as a live notice, or null for lines that don't get one. */
 export function coinNote(
   line: PurseLine,
   days = 1,
+  named?: SoldNamer,
 ): { lead: string; rest: string; snippet?: string; from?: PurseLine["with"] } | null {
   if (line.amount <= 0) return null;
+  const what = line.kind && named ? named(line.kind, line.count ?? 1) : undefined;
   switch (line.reason) {
     case "allowance":
       return {
@@ -50,7 +58,12 @@ export function coinNote(
     case "welcome":
       return { lead: `+${coins(line.amount)}`, rest: "to welcome you to your first plot" };
     case "sold":
-      return { lead: `+${coins(line.amount)}`, rest: "from the town for what you sold" };
+      return {
+        lead: `+${coins(line.amount)}`,
+        rest: `from the town for ${what ?? "what you sold"}`,
+      };
+    case "market_sale":
+      return what ? { lead: `+${coins(line.amount)}`, rest: `for ${what} at the market` } : null;
     case "appreciation":
       return { lead: `+${coins(line.amount)}`, rest: "from neighbors who liked your posts" };
     case "bounty":
@@ -173,8 +186,23 @@ function paint(res: PurseResponse, announce: boolean) {
   }
   shown = purse.balance;
   if (!announce) return;
-  for (const { line, days } of foldLines(fresh).slice(-NOTICES_MAX)) {
-    const note = coinNote(line, days);
+  void announceLines(foldLines(fresh).slice(-NOTICES_MAX));
+}
+
+/** The item names, loaded once a sale needs them; without them a sale says "what you sold". */
+async function soldNamer(): Promise<SoldNamer | undefined> {
+  try {
+    return (await import("./things")).soldWords;
+  } catch {
+    return undefined;
+  }
+}
+
+/** A live notice for each new line that gets one, naming what a sale sold. */
+async function announceLines(lines: { line: PurseLine; days: number }[]) {
+  const named = lines.some(({ line }) => line.kind) ? await soldNamer() : undefined;
+  for (const { line, days } of lines) {
+    const note = coinNote(line, days, named);
     if (!note) continue;
     liveToast({
       people: note.from ? [note.from] : [],

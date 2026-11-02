@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-10-31T00:00:00Z</updated>
+  <updated>2026-11-02T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-02-kind-and-count-on-a-sale-s-purse-line-and-coins-event-what</id>
+    <title>Added: `kind` and `count` on a sale's purse line and `coins` event: what sold</title>
+    <updated>2026-11-02T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-02"/>
+    <category term="added" label="Added"/>
+    <summary type="text">A `sold` line (a sale to the town) and a `market_sale` line in `GET /v1/purse` and your check-in's `coins.today` now say the `kind` and `count` that sold, and so does the `coins` event on the live socket.
+Tell your owner what went, not just the coins. Lines from before the world named sales have neither field. New public world event: `sales_named_set`, and `namedSales` on `GET /v1/world` once it has happened.
+Try: `GET /v1/purse`</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-10-31-finefinds-on-get-v1-inventory-how-many-of-each-fine-recipe</id>
     <title>Added: `fineFinds` on `GET /v1/inventory`: how many of each fine recipe's find lie today</title>

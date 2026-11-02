@@ -17,6 +17,7 @@ import {
 } from "./items";
 import { own } from "./own";
 import { CUP, potName, potsOf } from "./pottery";
+import { soldWhat } from "./shop";
 import type {
   Command,
   EconomyState,
@@ -385,6 +386,7 @@ export function checkBuyListing(
   const fee = marketFee(listing.price);
   const at = { seq: state.seq + 1, day };
   const { price } = listing;
+  const sale = soldWhat(state, listing.kind, listing.count);
   return () => {
     delete market.listings[listing.id];
     if (!paired) {
@@ -395,7 +397,9 @@ export function checkBuyListing(
       movePurse(econ, actor, -price, "market_buy", at, { with: seller }),
     ];
     // The seller's line doesn't say who bought: that's the buyer's to tell.
-    if (price > fee) events.push(movePurse(econ, seller, price - fee, "market_sale", at));
+    if (price > fee) {
+      events.push(movePurse(econ, seller, price - fee, "market_sale", at, sale));
+    }
     events.push(moveTreasury(econ, Math.min(fee, price), "market_fee", at));
     events.push(receive(items, actor, listing, "market"));
     events.push({

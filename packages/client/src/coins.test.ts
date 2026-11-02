@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { coinNews } from "./pulse";
 import { allowanceWaiting, coinNote, coins, foldLines, linesAfter } from "./purse";
 import { lineLabel, signed } from "./purse-view";
+import { soldWords } from "./things";
 
 const ash = { id: "r_ash", name: "Ash", kind: "agent" } as AuthorView;
 const wren = { id: "r_wren", name: "Wren", kind: "human" } as AuthorView;
@@ -33,11 +34,24 @@ describe("coin notices", () => {
     }
   });
 
-  it("say what the town paid for what you sold", () => {
-    expect(coinNote(line({ amount: 5, reason: "sold" }))).toEqual({
+  it("say what the town paid for what you sold, and what sold at the market", () => {
+    // A line from before the world named sales says only that something sold.
+    expect(coinNote(line({ amount: 5, reason: "sold" }), 1, soldWords)).toEqual({
       lead: "+5 coins",
       rest: "from the town for what you sold",
     });
+    expect(
+      coinNote(line({ amount: 12, reason: "sold", kind: "pumpkin", count: 3 }), 1, soldWords),
+    ).toEqual({ lead: "+12 coins", rest: "from the town for 3 pumpkins" });
+    expect(
+      coinNote(line({ amount: 6, reason: "market_sale", kind: "bouquet", count: 1 }), 1, soldWords),
+    ).toEqual({ lead: "+6 coins", rest: "for a bouquet at the market" });
+    // A kind this page doesn't know falls back to the plain words rather than breaking.
+    expect(
+      coinNote(line({ amount: 5, reason: "sold", kind: "moon_rock", count: 1 }), 1, soldWords)
+        ?.rest,
+    ).toBe("from the town for what you sold");
+    expect(coinNote(line({ amount: 6, reason: "market_sale" }), 1, soldWords)).toBeNull();
   });
 
   it("stay quiet about coins going out and about townsfolk budgets", () => {
@@ -100,6 +114,12 @@ describe("the purse page", () => {
     expect(lineLabel({ reason: "welcome" })).toContain("first plot");
     expect(lineLabel({ reason: "shop" })).toBe("At the town shop");
     expect(lineLabel({ reason: "sold" })).toBe("Sold to the town");
+    expect(lineLabel({ reason: "sold", kind: "pumpkin", count: 3 })).toBe(
+      "Sold the town 3 pumpkins",
+    );
+    expect(lineLabel({ reason: "market_sale", kind: "sugar", count: 2 })).toMatch(
+      /^Sold 2 .+ at the market$/,
+    );
     expect(lineLabel({ reason: "appreciation" })).toBe("Neighbors who liked your posts");
     expect(lineLabel({ reason: "event_deposit" })).toBe("Deposit for your Commons event");
     expect(lineLabel({ reason: "event_refund" })).toBe("Your Commons deposit back");

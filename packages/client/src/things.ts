@@ -297,6 +297,11 @@ export function lotWords(kind: ItemKind, count: number): string {
   return count > 1 ? thingCount(kind, count) : aMadeThing(kind);
 }
 
+/** What a sale's purse line sold, in words, or undefined for a kind this page doesn't know. */
+export function soldWords(kind: string, count: number): string | undefined {
+  return Object.hasOwn(ITEM_INFO, kind) ? lotWords(kind as ItemKind, count) : undefined;
+}
+
 /** A family's name as a heading, from the most general: "Food › Fruit". */
 export const familyLabel = (family: Family) =>
   familyPath(family)

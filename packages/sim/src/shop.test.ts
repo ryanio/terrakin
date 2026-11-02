@@ -4,6 +4,7 @@ import type { RecipeName } from "./catalog";
 import { nearestCounter } from "./doors";
 import { ITEMS_CONFIG, ITEMS_LOG } from "./fixtures/items-log";
 import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
+import { NAMED_SALES_CONFIG, NAMED_SALES_HASH, NAMED_SALES_LOG } from "./fixtures/named-sales-log";
 import {
   SHOP_COUNTER_CONFIG,
   SHOP_COUNTER_HASH,
@@ -660,6 +661,35 @@ describe("sell_to_town", () => {
     expect(w.code("ada", { type: "sell_to_town", item: "herb", count: 2 })).toBe(
       "not_enough_items",
     );
+  });
+});
+
+describe("name_sales", () => {
+  it("keeps what sold on a sale's purse line from the switch on, and only from then", () => {
+    const before = replay(NAMED_SALES_CONFIG, NAMED_SALES_LOG.slice(0, -4));
+    expect(apply(before, { actor: "ada", command: { type: "name_sales" } })).toMatchObject({
+      rejection: { code: "server_only" },
+    });
+    const state = replay(NAMED_SALES_CONFIG, NAMED_SALES_LOG);
+    expect(hashWorld(state)).toBe(NAMED_SALES_HASH);
+    expect(state.namedSales).toBe(true);
+    expect(apply(state, { actor: TOWN_ACTOR, command: { type: "name_sales" } })).toMatchObject({
+      rejection: { code: "already_open" },
+    });
+    const sales = (id: string) =>
+      (state.economy?.ledgers[id] ?? [])
+        .filter((l) => l.reason === "sold" || l.reason === "market_sale")
+        .map(({ reason, kind, count }) => ({ reason, kind, count }));
+    // The shop log's sale to the town, the market log's sale, and the sale just before the switch
+    // say nothing of what went.
+    expect(sales("ada")).toEqual([
+      { reason: "sold", kind: undefined, count: undefined },
+      { reason: "market_sale", kind: undefined, count: undefined },
+      { reason: "market_sale", kind: undefined, count: undefined },
+      { reason: "market_sale", kind: "sugar", count: 2 },
+    ]);
+    // Sold by its id, the bouquet's line still names its kind.
+    expect(sales("cy")).toEqual([{ reason: "sold", kind: "bouquet", count: 1 }]);
   });
 });
 

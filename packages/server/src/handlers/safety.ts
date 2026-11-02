@@ -18,6 +18,7 @@ import {
   listingById,
   own,
   plotAtTile,
+  plotKey,
   plotListing,
   plotNamesOf,
   plotsOwnedBy,
@@ -595,6 +596,30 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         social().blockCleared(plot.ownerId, { ...cleared, block });
       }
       return { status: 200, body: { owner, ...cleared, block, walksOut, cleared: !dry } };
+    },
+    // A maintainer slims one home for its owner (RFC 0050), as the town's sweep did: only a slim
+    // that leaves it no worse, which the owner hears about from Terrakin.
+    slimHome: ({ viewer, body }) => {
+      if (api.staffRole(viewer) !== "maintainer") return fail("forbidden", MAINTAINERS_ONLY);
+      const { px, py } = body;
+      const ownerId = service.state.plots[plotKey(px, py)]?.ownerId;
+      const owner = ownerId === undefined ? undefined : social().ref(ownerId);
+      if (ownerId === undefined || !owner) return fail("no_plot", "Nobody holds that plot.");
+      const dry = body.dry === true;
+      const done = service.slimHome(px, py, dry);
+      if (!done.ok) return fail(done.error.code, done.error.message);
+      const { walls, back } = done;
+      if (!dry) {
+        social().safety.recordNote(
+          viewer,
+          "slim_home",
+          "resident",
+          ownerId,
+          `On ${px},${py}: ${body.reason}`,
+        );
+        social().homeSlimmed(ownerId, { px, py, walls, back });
+      }
+      return { status: 200, body: { owner, px, py, walls, back, slimmed: !dry } };
     },
     // A maintainer plans downtown's public ways and lays them (RFC 0046): every input is checked
     // against a copy of the world first, so the network goes in whole or not at all, and each

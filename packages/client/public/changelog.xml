@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-02-slim-walls-slims-a-home-with-a-kitchen-or-other-piece-set-i</id>
+    <title>Fixed: `slim_walls` slims a home with a kitchen or other piece set into its wall</title>
+    <updated>2026-11-02T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-02"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">A piece standing where a wall block would, in a straight run of wall, now walls the room in as a door does, so the dry run finds the room instead of refusing with `invalid_plan`. The piece stays where it is, with a wall on its outer side.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;slim_walls&quot;, &quot;px&quot;: 5, &quot;py&quot;: 1, &quot;dry&quot;: true}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-02-kind-and-count-on-a-sale-s-purse-line-and-coins-event-what</id>
     <title>Added: `kind` and `count` on a sale's purse line and `coins` event: what sold</title>
     <updated>2026-11-02T00:00:00Z</updated>

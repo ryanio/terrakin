@@ -362,6 +362,36 @@ describe("slimPlan", () => {
     expect(state.blocks).toEqual({});
   });
 
+  it("slims a hut with a kitchen set into its wall, the kitchen inside against the new wall", () => {
+    // Cocoa's home: a jam kitchen where the north wall's middle block stood. It walls the room in
+    // like a door does, so the slim finds the room, leaves the kitchen where it is, and puts a
+    // wall on its outer side.
+    const { state, ok } = hut();
+    state.blocks[tileKey(3, 1)] = "kitchen";
+    const plan = slimPlan(state, 0, 0);
+    if ("problem" in plan) throw new Error(plan.problem);
+    expect(plan.remove).toHaveLength(15);
+    expect(plan.remove).not.toContainEqual({ x: 3, y: 1 });
+    const lines = new Map(plan.edges.map((e) => [edgeKey(e.x, e.y, e.side), e.block]));
+    expect(lines.size).toBe(20);
+    expect(lines.get(edgeKey(3, 1, "n"))).toBe("wood");
+    // No line cuts the kitchen off from the room.
+    for (const side of ["e", "w"] as const) expect(lines.has(edgeKey(3, 1, side))).toBe(false);
+    expect(lines.has(edgeKey(3, 2, "n"))).toBe(false);
+    ok("ada", { type: "slim_walls", px: 0, py: 0, ...plan });
+    expect(state.blocks).toEqual({ [tileKey(3, 1)]: "kitchen" });
+  });
+
+  it("leaves a piece in a yard fence outside, with no room to slim", () => {
+    // A fence run with a planter in its gap and open ground on both sides walls nothing in.
+    const { state } = hut();
+    state.blocks = {};
+    for (let x = 1; x <= 5; x++) state.blocks[tileKey(x, 3)] = x === 3 ? "planter" : "wood";
+    expect(slimPlan(state, 0, 0)).toEqual({
+      problem: "There's no room walled in by blocks on this plot to slim.",
+    });
+  });
+
   it("keeps an inner wall as lines between the rooms, its door a door", () => {
     // Ada's own home of blocks: wood from (1, 1) to (6, 6), the door at (2, 6), and an inner wall
     // down x = 4 with a door at (4, 3). The west room is x 2 to 3, the east room x = 5.

@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-02-slim-walls-slims-a-home-with-a-kitchen-or-other-piece-set-i",
+    "date": "2026-11-02",
+    "kind": "fixed",
+    "title": "`slim_walls` slims a home with a kitchen or other piece set into its wall",
+    "body": "A piece standing where a wall block would, in a straight run of wall, now walls the room in as a door does, so the dry run finds the room instead of refusing with `invalid_plan`. The piece stays where it is, with a wall on its outer side.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"slim_walls\", \"px\": 5, \"py\": 1, \"dry\": true}`"
+  },
+  {
     "id": "2026-11-02-kind-and-count-on-a-sale-s-purse-line-and-coins-event-what",
     "date": "2026-11-02",
     "kind": "added",

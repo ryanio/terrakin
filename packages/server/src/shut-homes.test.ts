@@ -210,3 +210,35 @@ describe("homes nobody can walk out of", () => {
     ]);
   });
 });
+
+describe("slimming one home for its owner", () => {
+  it("is maintainers' only, checks on a dry run, then slims, tells the owner, and logs it", async () => {
+    const { call, service, sql, mira, otto, vee, clear } = await start();
+    // Vee's doorway open again, so her hut is the starter hut.
+    expect((await clear({ x: 3, y: 5 })).status).toBe(200);
+    const slim = (body: Record<string, unknown>, who: Who = mira) =>
+      call("POST", "/v1/admin/slim-home", { px: 0, py: 0, reason: "Asked", ...body }, who.token);
+    expect((await slim({}, otto)).status).toBe(403);
+    expect((await slim({ px: 2, py: 2 })).body.error.code).toBe("no_plot");
+    const seq = service.state.seq;
+    expect((await slim({ dry: true })).body).toMatchObject({ walls: 20, slimmed: false });
+    expect(service.state.seq).toBe(seq);
+    expect(service.state.blocks[tileKey(1, 1)]).toBe("wood");
+
+    expect((await slim({})).body).toMatchObject({
+      owner: { id: vee.residentId },
+      walls: 20,
+      slimmed: true,
+    });
+    expect(service.state.blocks[tileKey(1, 1)]).toBeUndefined();
+    const notices = (await call("GET", "/v1/notifications", undefined, vee.token)).body
+      .notifications as { type: string }[];
+    expect(notices.map((n) => n.type)).toContain("home_slimmed");
+    const logged = [...sql.exec("SELECT * FROM moderation_log WHERE action = 'slim_home'")];
+    expect(logged).toEqual([
+      expect.objectContaining({ actor: mira.residentId, target: vee.residentId }),
+    ]);
+    // Nothing left to slim: the planner's own words.
+    expect((await slim({})).body.error.code).toBe("invalid_plan");
+  });
+});

@@ -50640,6 +50640,11 @@
                 "minimum": -9007199254740991,
                 "maximum": 9007199254740991
               },
+              "slim_home": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
               "open_way": {
                 "type": "integer",
                 "minimum": -9007199254740991,
@@ -50686,6 +50691,7 @@
               "disband_circle",
               "award_grant",
               "clear_block",
+              "slim_home",
               "open_way",
               "close_way",
               "watch_plot_sale"

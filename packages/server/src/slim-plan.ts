@@ -189,7 +189,27 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
       }
     }
   }
-  const closed = (x: number, y: number) => wall(x, y) || gaps.has(`${x},${y}`);
+  // Pieces set into a wall: a block that isn't a wall (a kitchen, a planter) in a straight run of
+  // wall blocks, with no wall across it. Each walls the room in as a doorway does, then stays
+  // where it is, inside the room, with a line on its outer side.
+  const setIn = new Map<string, [[number, number], [number, number]]>();
+  for (let y = 0; y < S; y++) {
+    for (let x = 0; x < S; x++) {
+      const piece = block(x, y);
+      if (piece === undefined || isWall(piece)) continue;
+      for (const [dx, dy] of [
+        [1, 0],
+        [0, 1],
+      ] as const) {
+        const a: [number, number] = [x - dy, y - dx];
+        const b: [number, number] = [x + dy, y + dx];
+        if (!wall(x - dx, y - dy) || !wall(x + dx, y + dy) || wall(...a) || wall(...b)) continue;
+        setIn.set(`${x},${y}`, [a, b]);
+      }
+    }
+  }
+  const closed = (x: number, y: number) =>
+    wall(x, y) || gaps.has(`${x},${y}`) || setIn.has(`${x},${y}`);
 
   // The outside: open ground a walk from the plot's edge reaches, across no wall, doorway or line.
   const outside = new Set<string>();
@@ -220,6 +240,7 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
   }
   const out = ([x, y]: [number, number]) => !onPlot(x, y) || outside.has(`${x},${y}`);
   const doorways = [...gaps].filter(([, [a, b]]) => !(out(a) && out(b))).map(([key]) => key);
+  const pieces = [...setIn].filter(([, [a, b]]) => !(out(a) && out(b))).map(([key]) => key);
   const inside = new Set<string>();
   for (let y = 0; y < S; y++) {
     for (let x = 0; x < S; x++) {
@@ -262,11 +283,11 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
     grade: "plain",
   };
 
-  // The room: inside, and the walls that came up and the doorways where there's floor, less the
-  // plot's own rim.
+  // The room: inside, and the walls that came up, the doorways, and the pieces set into the walls
+  // where there's floor, less the plot's own rim.
   const rim = (x: number, y: number) => x === 0 || y === 0 || x === S - 1 || y === S - 1;
   const room = new Set<string>();
-  for (const key of [...inside, ...[...stood.keys()].filter(floored)]) {
+  for (const key of [...inside, ...[...stood.keys(), ...pieces].filter(floored)]) {
     const [x, y] = xy(key);
     if (!rim(x, y)) room.add(key);
   }

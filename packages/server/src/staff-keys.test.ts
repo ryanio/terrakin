@@ -236,7 +236,7 @@ describe("staff keys", () => {
       "getWorldLog",
       "revokeStaffKey",
     ]);
-    expect(staff).toHaveLength(40);
+    expect(staff).toHaveLength(41);
   });
 
   it("are refused from another site, and need JSON to write, like a signed-in call", async () => {

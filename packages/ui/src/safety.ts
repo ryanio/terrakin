@@ -106,6 +106,7 @@ export const ACTION_LABELS: Record<ModerationAction, string> = {
   disband_circle: "Disbanded a circle",
   award_grant: "Awarded coins for good work",
   clear_block: "Opened a way out of a home",
+  slim_home: "Slimmed a home for its owner",
   open_way: "Laid a public way across a plot",
   close_way: "Closed public way tiles on a plot",
   watch_plot_sale: "Noted a large plot sale with a new resident in it",

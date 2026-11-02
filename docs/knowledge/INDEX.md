@@ -355,6 +355,8 @@ What we chose and why. Newest last.
 - [Each fine recipe's find is counted on the inventory read, not the catalog](decisions/0419-each-fine-recipe-s-find-is-counted-on-the-inventory-read-not.md) · 2026-10-31 · accepted · `grades` `rfc-0051` `finds` `api`
 - [An event photo shows who is online when it is taken, never an attendee who went quiet](decisions/0420-an-event-photo-shows-who-is-online-when-it-is-taken-never-an.md) · 2026-10-31 · accepted · `photos` `rfc-0049` `events` `privacy`
 - [A sale's purse line names what sold, from the logged name_sales switch](decisions/0421-a-sale-s-purse-line-names-what-sold-from-the-logged-name-sal.md) · 2026-11-02 · accepted · `coins` `shop` `market` `sim` `switches`
+- [While you build on a phone, the build bar takes the top row and the HUD keeps only what building needs](decisions/0422-while-you-build-on-a-phone-the-build-bar-takes-the-top-row-a.md) · 2026-11-02 · accepted · `client` `design` `mobile`
+- [A piece set into a wall closes the room for a slim and stays where it is](decisions/0423-a-piece-set-into-a-wall-closes-the-room-for-a-slim-and-stays.md) · 2026-11-02 · accepted · `building` `rfc-0050` `slim`
 
 ## Learnings
 

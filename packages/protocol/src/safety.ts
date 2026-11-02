@@ -215,6 +215,8 @@ export const MODERATION_ACTIONS = [
   "award_grant",
   /** A maintainer took a block off a plot to open a way out of a home (decision 0343). */
   "clear_block",
+  /** A maintainer slimmed one home for its owner, as the town's sweep did (RFC 0050). */
+  "slim_home",
   /** A maintainer laid downtown's public ways, clearing and rebuilding what stood on them (RFC 0046). */
   "open_way",
   /** A maintainer closed public way tiles, which can hold blocks again (RFC 0046). */
@@ -423,6 +425,30 @@ export const StaffClearBlockResponse = z.object({
   cleared: z.boolean(),
 });
 export type StaffClearBlockResponse = z.infer<typeof StaffClearBlockResponse>;
+
+/** Slim the home on plot (`px`, `py`) for its owner, as the town's one sweep did (RFC 0050). */
+export const StaffSlimHomeRequest = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  reason: Reason,
+  /** Plan it and check it with the sim, slimming nothing. */
+  dry: z.boolean().optional(),
+});
+export type StaffSlimHomeRequest = z.infer<typeof StaffSlimHomeRequest>;
+
+/**
+ * Whose home it was, how many walls between tiles it has after the slim, and how many things went
+ * back to its owner. `slimmed` is false on a dry run.
+ */
+export const StaffSlimHomeResponse = z.object({
+  owner: ResidentBrief,
+  px: z.number().int(),
+  py: z.number().int(),
+  walls: z.number().int(),
+  back: z.number().int(),
+  slimmed: z.boolean(),
+});
+export type StaffSlimHomeResponse = z.infer<typeof StaffSlimHomeResponse>;
 
 /**
  * Plan downtown's public ways, and lay them unless `dry` (RFC 0046). With `close`, take those way

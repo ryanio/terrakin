@@ -1669,6 +1669,35 @@ export class WorldService {
   }
 
   /**
+   * A maintainer slims the home on plot (px, py) for its owner, as `slimEveryHome` does: only a
+   * slim `townSlim` finds safe, logged as `town_slim`. With `dry`, only checked.
+   */
+  slimHome(
+    px: number,
+    py: number,
+    dry = false,
+  ): { ok: true; walls: number; back: number } | Extract<ActResult, { ok: false }> {
+    const planned = slimPlan(this.state, px, py);
+    if ("problem" in planned) {
+      return { ok: false, error: { code: "invalid_plan", message: planned.problem } };
+    }
+    const slim = townSlim(this.state, px, py);
+    if (!slim) {
+      return {
+        ok: false,
+        error: {
+          code: "invalid_plan",
+          message:
+            "Slimming this home would leave it worse off (something skipped, a cost to its owner, or a new design note), so it stays for its owner to slim.",
+        },
+      };
+    }
+    const done = this.run({ actor: TOWN_ACTOR, command: slim.command }, dry);
+    if (!done.ok) return done;
+    return { ok: true, walls: slim.walls, back: slim.back };
+  }
+
+  /**
    * One of the town's inputs that lay downtown's public ways (RFC 0046): a `clear_block`, an
    * `open_way`, or a `rebuild_home`, in the order `wayInputs` gives them. The staff route checks
    * the whole list against a copy of the world first.

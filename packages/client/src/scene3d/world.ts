@@ -292,6 +292,8 @@ interface Fig {
 }
 
 /** A bubble's text is drawn this big on its canvas, and shown this many CSS pixels tall on screen. */
+/** How strongly a pickup you may not take (someone else's plot) shows, as on the map. */
+const NOT_YOURS_OPACITY = 0.35;
 const BUBBLE_FONT_PX = 45;
 const BUBBLE_SCREEN_PX = 14;
 
@@ -447,6 +449,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   /** Where the last frame cut the world away (RFC 0028), so a new cut builds its plots again. */
   let cutSeen = "";
   let pending = false;
+  /** Who's looking, for the pickups they may not take (drawn faded). */
+  let viewer: string | undefined;
   /** A pass over changed plots stopped at the per-frame cap: the next frame finishes it. */
   let recheck = false;
   let started = false;
@@ -488,7 +492,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   }
 
   function buildChunk(mirror: Mirror, px: number, py: number, cut: number | undefined): Chunk {
-    const data = readChunk(mirror, px, py, hearths, season, homes.has(plotKey(px, py)), cut);
+    const lit = homes.has(plotKey(px, py));
+    const data = readChunk(mirror, px, py, hearths, season, lit, cut, viewer);
     const scope = scoped(stage);
     const group = new Group();
     group.name = `plot ${px},${py}`;
@@ -521,16 +526,19 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
-    // Branches and stones are shapes; finds (RFC 0021) stand as their pictures.
-    const lying = data.pickups.flatMap((p) =>
-      isResourceKind(p.kind) ? [{ ...p, kind: p.kind }] : [],
-    );
-    // A recipe page (RFC 0024) stands the same way, as its scroll.
-    const found = data.pickups.flatMap((p) =>
-      isFindKind(p.kind) || p.kind === RECIPE_PAGE ? [{ ...p, kind: p.kind }] : [],
-    );
-    if (lying.length) group.add(pickups(origin, lying));
-    if (found.length) group.add(foundThings(scope, origin, found, pictures));
+    // Branches and stones are shapes; finds (RFC 0021) stand as their pictures. What lies where
+    // you may not pick it up (someone else's plot) stands faded.
+    for (const notYours of [false, true]) {
+      const here = data.pickups.filter((p) => (p.notYours === true) === notYours);
+      const opacity = notYours ? NOT_YOURS_OPACITY : 1;
+      const lying = here.flatMap((p) => (isResourceKind(p.kind) ? [{ ...p, kind: p.kind }] : []));
+      // A recipe page (RFC 0024) stands the same way, as its scroll.
+      const found = here.flatMap((p) =>
+        isFindKind(p.kind) || p.kind === RECIPE_PAGE ? [{ ...p, kind: p.kind }] : [],
+      );
+      if (lying.length) group.add(pickups(origin, lying, opacity));
+      if (found.length) group.add(foundThings(scope, origin, found, pictures, opacity));
+    }
     for (const h of data.hearths) {
       const home = hearth(scope, grain, { light: false, ...hearthLook });
       home.position.set(h.x, 0, h.y);
@@ -576,7 +584,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       if (have && !changed) continue;
       const lit = homes.has(key);
       const at = cutAt(p.x, p.y);
-      if (have && have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit, at))
+      if (
+        have &&
+        have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit, at, viewer)
+      )
         continue;
       if (built >= BUILDS_PER_FRAME) {
         pending = true;
@@ -1418,7 +1429,9 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // A new season dresses the ground again, plot by plot, like any change to the world.
       const newSeason = seasonNow !== season;
       season = seasonNow;
-      const changed = mirror !== mirrorSeen || mirror.seq !== seqSeen || newSeason;
+      const newViewer = me !== viewer;
+      viewer = me;
+      const changed = mirror !== mirrorSeen || mirror.seq !== seqSeen || newSeason || newViewer;
       mirrorSeen = mirror;
       seqSeen = mirror.seq;
       // Someone out on a routine goes back to sleep at home a few minutes after its last step.

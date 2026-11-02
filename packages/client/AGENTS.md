@@ -103,6 +103,7 @@ Building:
 - A Town Hall build dims nothing, since the town pays.
 
 Growing, making, and finds:
+- A pickup you may not take (on a plot that isn't yours, by the sim's `mayGatherAt`) is drawn faded, on the map and in 3D, never hidden.
 - A station's sheet lists only what `inventory.recipes` says you know once recipes are learned (RFC 0024), since the mirror doesn't carry what anyone learned. Gather all leaves out recipe pages you know (the sim's `pageKnown`).
 - Fishing (RFC 0023) shows Fish where the sim's `waterBeside` finds water. With no rod it says how to make one rather than sending `fish`.
 - Pottery (RFC 0047): a firing pot's kind shows only to its loader, by the sim's `potName`. Every cost, odds, and name comes from the sim (`kilnLabel`, `FINISHES`, `firePotSteps`), never the page. Tea stands on a table or hearth, never a house's floor (`teaSpots`, pure and tested), and Serve is held back while nobody would be counted.

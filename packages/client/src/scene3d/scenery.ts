@@ -116,8 +116,11 @@ export function scenery(
 export function pickups(
   origin: { x: number; y: number },
   items: readonly { x: number; y: number; kind: ResourceKind }[],
+  opacity = 1,
 ): Group {
   const group = new Group();
+  // Faded, for what lies where you may not pick it up: every material in the group.
+  const faded = opacity < 1 ? { transparent: true, opacity } : {};
   const m = new Matrix4();
   const q = new Quaternion();
   const up = new Vector3(0, 1, 0);
@@ -141,7 +144,11 @@ export function pickups(
     });
     const geo = bakeShade(mergeGeometries(sticks), 0.7, 1);
     for (const g of sticks) g.dispose();
-    const mat = new MeshLambertMaterial({ color: blockLook("wood").color, vertexColors: true });
+    const mat = new MeshLambertMaterial({
+      ...faded,
+      color: blockLook("wood").color,
+      vertexColors: true,
+    });
     place(new InstancedMesh(geo, mat, wood.length), wood);
   }
   const stone = items.filter((p) => p.kind === "stone");
@@ -149,7 +156,11 @@ export function pickups(
     const geo = new DodecahedronGeometry(0.14, 0);
     geo.scale(1.1, 0.6, 0.9);
     geo.translate(0, 0.07, 0);
-    const mat = new MeshLambertMaterial({ color: blockLook("stone").color, flatShading: true });
+    const mat = new MeshLambertMaterial({
+      ...faded,
+      color: blockLook("stone").color,
+      flatShading: true,
+    });
     place(new InstancedMesh(geo, mat, stone.length), stone);
   }
   // Clay (RFC 0047): two low mounds of it run together, lighter on top, in a dark patch of wet
@@ -167,13 +178,17 @@ export function pickups(
     });
     const geo = bakeShade(mergeGeometries(mounds), 0.72, 1);
     for (const g of mounds) g.dispose();
-    const mat = new MeshLambertMaterial({ color: hex(CLAY_HEX), vertexColors: true });
+    const mat = new MeshLambertMaterial({ ...faded, color: hex(CLAY_HEX), vertexColors: true });
     place(new InstancedMesh(geo, mat, clay.length), clay);
     const patch = new CircleGeometry(0.36, 14);
     patch.rotateX(-Math.PI / 2);
     patch.scale(1, 1, 0.7);
     patch.translate(0, 0.006, 0);
-    const damp = new MeshLambertMaterial({ color: 0x40627a, transparent: true, opacity: 0.45 });
+    const damp = new MeshLambertMaterial({
+      color: 0x40627a,
+      transparent: true,
+      opacity: 0.45 * opacity,
+    });
     place(new InstancedMesh(patch, damp, clay.length), clay);
   }
   return group;

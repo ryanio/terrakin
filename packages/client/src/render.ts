@@ -227,17 +227,10 @@ export function render(
   const flowers: [Path2D, Path2D] = [new Path2D(), new Path2D()];
   const leaves: [Path2D, Path2D, Path2D] = [new Path2D(), new Path2D(), new Path2D()];
   // Phase 1 gathering: fallen branches and loose stones, from the sim's own spawn function, and
-  // finds (RFC 0021), each drawn as its own picture once the ground is down.
-  const sticks = new Path2D();
-  const pebbles = new Path2D();
-  const lumps = new Path2D();
-  const wet = new Path2D();
-  const clayMarks: { x: number; y: number; lean: number }[] = [];
-  /** The shaded side of a block of clay, under its top in the clay's own color. */
-  const CLAY_SIDE = "#8f4f31";
-  /** The damp ground clay lies in, a water tone, so it never reads as a dry branch or stone. */
-  const CLAY_WET = "rgba(64, 98, 122, 0.42)";
-  const finds: { kind: ArtKind; cx: number; cy: number; size: number }[] = [];
+  // finds (RFC 0021), each drawn as its own picture once the ground is down. What you may not
+  // pick up (someone else's plot) is drawn faded, by the sim's own rule (`mayGatherAt`).
+  const yours = pickupPaths();
+  const notYours = pickupPaths();
   if (simple) {
     // Zoomed out, the whole ground and every ground-floor block is one picture, stretched.
     const corner = tileToScreen(cam, 0, 0);
@@ -327,6 +320,8 @@ export function render(
         }
         const pickup = mirror.pickupAt(x, y);
         if (pickup) {
+          const { sticks, pebbles, lumps, wet, clayMarks, finds } =
+            me === undefined || mirror.mayGatherAt(x, y, me) ? yours : notYours;
           const px = left + w * 0.5;
           const py = top + h * 0.55;
           if (pickup === "wood") {
@@ -375,46 +370,8 @@ export function render(
     ctx.fillStyle = LEAF_TONES[i] as string;
     ctx.fill(path);
   }
-  // Pickups sit on ground of their own color (forest, stone), so each gets a soft ink edge.
-  ctx.fillStyle = CLAY_WET;
-  ctx.fill(wet);
-  ctx.globalAlpha = 0.45;
-  ctx.strokeStyle = INK;
-  ctx.lineWidth = Math.max(3, scale / 8);
-  ctx.stroke(sticks);
-  ctx.lineWidth = Math.max(1, scale / 24);
-  ctx.stroke(pebbles);
-  ctx.stroke(lumps);
-  ctx.globalAlpha = 1;
-  ctx.fillStyle = CLAY_SIDE;
-  ctx.fill(lumps);
-  // Each block of clay's lighter top, and the wire's cut across it.
-  if (clayMarks.length > 0) {
-    const tops = new Path2D();
-    const cuts = new Path2D();
-    for (const c of clayMarks) {
-      tops.moveTo(c.x + scale * 0.2, c.y - scale * 0.05);
-      tops.ellipse(c.x, c.y - scale * 0.05, scale * 0.2, scale * 0.055, 0, 0, Math.PI * 2);
-      cuts.moveTo(c.x - scale * 0.12, c.y - scale * (0.05 + 0.025 * c.lean));
-      cuts.quadraticCurveTo(
-        c.x,
-        c.y - scale * 0.04,
-        c.x + scale * 0.12,
-        c.y - scale * (0.05 - 0.025 * c.lean),
-      );
-    }
-    ctx.fillStyle = CLAY_HEX;
-    ctx.fill(tops);
-    ctx.lineWidth = Math.max(1, scale / 36);
-    ctx.strokeStyle = CLAY_SIDE;
-    ctx.stroke(cuts);
-  }
-  ctx.lineWidth = Math.max(1.5, scale / 14);
-  ctx.strokeStyle = blockFill("wood");
-  ctx.stroke(sticks);
-  ctx.fillStyle = blockFill("stone");
-  ctx.fill(pebbles);
-  for (const f of finds) paintFind(ctx, f.kind, f.cx, f.cy, f.size);
+  paintPickups(ctx, yours, scale, 1);
+  paintPickups(ctx, notYours, scale, NOT_YOURS_ALPHA);
 
   // ---- plots: owner tint plus a dashed clay border; faint lines between unclaimed plots ----
   const px0 = Math.floor(x0 / S);
@@ -1568,4 +1525,82 @@ export function render(
     ctx.globalAlpha = 1;
   }
   ctx.textBaseline = "alphabetic";
+}
+
+/** The shaded side of a block of clay, under its top in the clay's own color. */
+const CLAY_SIDE = "#8f4f31";
+/** The damp ground clay lies in, a water tone, so it never reads as a dry branch or stone. */
+const CLAY_WET = "rgba(64, 98, 122, 0.42)";
+/** How strongly a pickup you may not take (someone else's plot) shows. */
+const NOT_YOURS_ALPHA = 0.35;
+
+/** One set of pickups to draw: branches, stones, clay, and finds as their pictures. */
+interface PickupPaths {
+  sticks: Path2D;
+  pebbles: Path2D;
+  lumps: Path2D;
+  wet: Path2D;
+  clayMarks: { x: number; y: number; lean: number }[];
+  finds: { kind: ArtKind; cx: number; cy: number; size: number }[];
+}
+
+const pickupPaths = (): PickupPaths => ({
+  sticks: new Path2D(),
+  pebbles: new Path2D(),
+  lumps: new Path2D(),
+  wet: new Path2D(),
+  clayMarks: [],
+  finds: [],
+});
+
+/** Draw one set of pickups at `alpha`: 1 for what you may take, fainter for what you may not. */
+function paintPickups(
+  ctx: CanvasRenderingContext2D,
+  { sticks, pebbles, lumps, wet, clayMarks, finds }: PickupPaths,
+  scale: number,
+  alpha: number,
+) {
+  ctx.save();
+  ctx.globalAlpha = alpha;
+  // Pickups sit on ground of their own color (forest, stone), so each gets a soft ink edge.
+  ctx.fillStyle = CLAY_WET;
+  ctx.fill(wet);
+  ctx.globalAlpha = alpha * 0.45;
+  ctx.strokeStyle = INK;
+  ctx.lineWidth = Math.max(3, scale / 8);
+  ctx.stroke(sticks);
+  ctx.lineWidth = Math.max(1, scale / 24);
+  ctx.stroke(pebbles);
+  ctx.stroke(lumps);
+  ctx.globalAlpha = alpha;
+  ctx.fillStyle = CLAY_SIDE;
+  ctx.fill(lumps);
+  // Each block of clay's lighter top, and the wire's cut across it.
+  if (clayMarks.length > 0) {
+    const tops = new Path2D();
+    const cuts = new Path2D();
+    for (const c of clayMarks) {
+      tops.moveTo(c.x + scale * 0.2, c.y - scale * 0.05);
+      tops.ellipse(c.x, c.y - scale * 0.05, scale * 0.2, scale * 0.055, 0, 0, Math.PI * 2);
+      cuts.moveTo(c.x - scale * 0.12, c.y - scale * (0.05 + 0.025 * c.lean));
+      cuts.quadraticCurveTo(
+        c.x,
+        c.y - scale * 0.04,
+        c.x + scale * 0.12,
+        c.y - scale * (0.05 - 0.025 * c.lean),
+      );
+    }
+    ctx.fillStyle = CLAY_HEX;
+    ctx.fill(tops);
+    ctx.lineWidth = Math.max(1, scale / 36);
+    ctx.strokeStyle = CLAY_SIDE;
+    ctx.stroke(cuts);
+  }
+  ctx.lineWidth = Math.max(1.5, scale / 14);
+  ctx.strokeStyle = blockFill("wood");
+  ctx.stroke(sticks);
+  ctx.fillStyle = blockFill("stone");
+  ctx.fill(pebbles);
+  for (const f of finds) paintFind(ctx, f.kind, f.cx, f.cy, f.size);
+  ctx.restore();
 }

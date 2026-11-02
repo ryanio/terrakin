@@ -353,6 +353,8 @@ export function foundThings(
   origin: { x: number; y: number },
   list: readonly { x: number; y: number; kind: FindKind | typeof RECIPE_PAGE }[],
   pictures: Pictures,
+  /** Under 1 for finds lying where you may not pick them up (someone else's plot). */
+  opacity = 1,
 ): Group {
   const group = new Group();
   group.name = "finds";
@@ -373,7 +375,7 @@ export function foundThings(
     new MeshBasicMaterial({
       map: stage.keep(spotTexture("255, 250, 240")),
       transparent: true,
-      opacity: 0.85,
+      opacity: 0.85 * opacity,
       depthWrite: false,
     }),
   );
@@ -382,7 +384,14 @@ export function foundThings(
     taken.push(art);
     void art.texture.then((map) => {
       if (gone || !map) return;
-      const material = stage.keep(new SpriteMaterial({ map, alphaTest: 0.5 }));
+      const material = stage.keep(
+        // alphaTest is measured after opacity, so it scales with it or a faded find vanishes.
+        new SpriteMaterial({
+          map,
+          alphaTest: 0.5 * opacity,
+          ...(opacity < 1 ? { transparent: true, opacity } : {}),
+        }),
+      );
       for (const f of list) {
         if (f.kind !== kind) continue;
         const at = new Vector3(f.x - origin.x, 0, f.y - origin.y);

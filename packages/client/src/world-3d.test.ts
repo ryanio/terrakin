@@ -316,6 +316,7 @@ describe("one plot of the world, read from the mirror", () => {
       season?: Season;
       lit?: boolean;
       cut?: number;
+      viewer?: string;
     }
     const roof = (style: "gable" | "hip") => () => ({
       style,
@@ -363,12 +364,16 @@ describe("one plot of the world, read from the mirror", () => {
         roofAt: roof("gable"),
         isSea: () => false,
         gradeAt: () => "plain",
+        mayGatherAt: () => true,
       },
       hearths: new Set(["9,9"]),
       season: "summer",
+      viewer: "capri",
     };
-    const read = (r: Read) => readChunk(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut);
-    const sign = (r: Read) => chunkSignature(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut);
+    const read = (r: Read) =>
+      readChunk(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut, r.viewer);
+    const sign = (r: Read) =>
+      chunkSignature(r.source, 1, 1, r.hearths, r.season, r.lit, r.cut, r.viewer);
     const drawn = ({ signature, ...chunk }: PlotChunk) => JSON.stringify(chunk);
     const before = read(base);
     expect(sign(base)).toBe(before.signature);
@@ -404,6 +409,8 @@ describe("one plot of the world, read from the mirror", () => {
       // A kiln loaded with a pot glows (RFC 0047).
       kilns: source({ kilns: new Map([["15,13", { by: "capri", readyDay: 3 }]]) }),
       pickupAt: source({ pickupAt: (x, y) => (x === 11 && y === 12 ? "stone" : null) }),
+      // A branch the viewer may not pick up (someone else's plot) stands faded.
+      mayGatherAt: source({ mayGatherAt: () => false }),
       residents: source({ residents: new Map([["capri", { hearth: { x: 30, y: 30 } }]]) }),
       presents: source({ presents: new Map([["capri", 3]]) }),
       // A thing on a surface, and one on a wall, draw as themselves (RFC 0050).

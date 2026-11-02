@@ -154,7 +154,8 @@ export interface PlotChunk {
   flowers: { x: number; y: number; warm: boolean }[];
   leaves: GroundLeaf[];
   /** Today's fallen branches, loose stones, and finds still lying there, from the sim's spawn. */
-  pickups: { x: number; y: number; kind: PickupKind }[];
+  /** `notYours`: on a plot the viewer may not gather on, so it's drawn faded. */
+  pickups: { x: number; y: number; kind: PickupKind; notYours?: true }[];
   /** A home someone's in, so its windows light up after dark (`litHomes`, decision 0098). */
   lit: boolean;
   /** Presents waiting under a tree or by a hearth (RFC 0034). */
@@ -199,6 +200,8 @@ export interface ChunkSource {
   day?: number | undefined;
   /** What lies on a tile to pick up today (`Mirror.pickupAt`). */
   pickupAt?(x: number, y: number): PickupKind | null;
+  /** Whether a resident may pick up what lies on a tile, by the sim's rule (`Mirror.mayGatherAt`). */
+  mayGatherAt?(x: number, y: number, residentId: string): boolean;
   /** Who lives where, for where their presents wait (RFC 0034). */
   residents?: PileSource["residents"];
   /** How many presents wait for each resident (RFC 0034). Absent reads as none. */
@@ -241,6 +244,7 @@ function tileThings(
   y: number,
   hearths: ReadonlySet<string>,
   lit: boolean,
+  viewer?: string,
 ) {
   const key = tileKey(x, y);
   const block = source.blocks.get(key);
@@ -267,15 +271,18 @@ function tileThings(
   if (crop) parts.push(`${key}:${crop.crop}:${crop.done.toFixed(2)}`);
   // Same rule as the map and the sim: a pickup lies anywhere not built on, hearths too.
   const pickup = source.pickupAt?.(x, y) ?? null;
-  if (pickup) parts.push(`${key}:${pickup}`);
-  return { block, grade, ground, hearth, display, crop, pickup, parts, firing };
+  const notYours =
+    pickup !== null && viewer !== undefined && source.mayGatherAt?.(x, y, viewer) === false;
+  if (pickup) parts.push(`${key}:${pickup}${notYours ? ":not-yours" : ""}`);
+  return { block, grade, ground, hearth, display, crop, pickup, notYours, parts, firing };
 }
 
 /**
  * Read one plot from the mirror. `hearths` holds every resident's hearth tile key, `season`
  * dresses the ground (today's look without one), `lit` says someone's home there, and `cut` is
  * the floor it's cut away at (RFC 0028): on the plot you stand on, yours, so nothing above you
- * is drawn; on every other plot, absent, so it shows whole.
+ * is drawn; on every other plot, absent, so it shows whole. `viewer` is who's looking: what lies
+ * where they may not pick it up is marked `notYours`.
  */
 export function readChunk(
   source: ChunkSource,
@@ -285,6 +292,7 @@ export function readChunk(
   season?: Season,
   lit = false,
   cut?: number,
+  viewer?: string,
 ): PlotChunk {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const owner = source.plots.get(`${px},${py}`);
@@ -301,7 +309,7 @@ export function readChunk(
   const parts: string[] = [owner ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
-      const at = tileThings(source, x, y, hearths, lit);
+      const at = tileThings(source, x, y, hearths, lit, viewer);
       parts.push(...at.parts);
       if (at.block)
         blocks.push({
@@ -315,7 +323,14 @@ export function readChunk(
       if (at.hearth) homes.push({ x, y });
       if (at.display) displays.push(at.display);
       if (at.crop) crops.push(at.crop);
-      if (at.pickup) pickups.push({ x, y, kind: at.pickup });
+      if (at.pickup) {
+        pickups.push({
+          x,
+          y,
+          kind: at.pickup,
+          ...(at.notYours ? { notYours: true as const } : {}),
+        });
+      }
       // Nothing grows or falls on open water (RFC 0038), as on the map.
       if (at.block || at.hearth || at.ground || source.isSea?.(x, y)) continue;
       const scenery: Scenery | null = groundTile(source.config, x, y, inCommons, season).scenery;
@@ -455,12 +470,13 @@ export function chunkSignature(
   season?: Season,
   lit = false,
   cut?: number,
+  viewer?: string,
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
   const parts: string[] = [source.plots.get(`${px},${py}`) ?? "", season ?? ""];
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
-      parts.push(...tileThings(source, x, y, hearths, lit).parts);
+      parts.push(...tileThings(source, x, y, hearths, lit, viewer).parts);
   const up = upstairsOf(source, bounds, lit, cut);
   parts.push(...up.parts);
   for (const pot of potsShown(source, bounds, up.blocks)) parts.push(potPart(pot));

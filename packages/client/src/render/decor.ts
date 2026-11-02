@@ -265,12 +265,14 @@ export function paintFind(
   size: number,
 ) {
   ctx.save();
-  ctx.globalAlpha = 0.6;
+  // Relative to the alpha it's drawn at, so a find you may not take stays faded.
+  const alpha = ctx.globalAlpha;
+  ctx.globalAlpha = alpha * 0.6;
   ctx.fillStyle = PAPER;
   ctx.beginPath();
   ctx.ellipse(cx, cy + size * 0.2, size * 0.34, size * 0.15, 0, 0, Math.PI * 2);
   ctx.fill();
-  ctx.globalAlpha = 1;
+  ctx.globalAlpha = alpha;
   const art = itemArtImage(kind);
   const side = size * 0.76;
   if (art) ctx.drawImage(art, cx - side / 2, cy - side * 0.55, side, side);

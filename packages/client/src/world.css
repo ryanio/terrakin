@@ -238,12 +238,26 @@ a.action {
   color: var(--paper);
 }
 
-/* The 2D or 3D toggle: an action button on its own, just above the d-pad, in reach of the thumb. */
+/*
+ * The settings over the actions: + and -, the speaker, and Map or 3D. Wider than a phone, the
+ * round ones share a row and the 3D toggle keeps its words on a row of its own under them. The row
+ * takes no taps itself, so the map between the buttons stays tappable.
+ */
+.hud-settings {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: var(--space-2xs);
+  pointer-events: none;
+}
+
+.hud-settings > * {
+  pointer-events: auto;
+}
+
+/* The 2D or 3D toggle. */
 .world-mode {
-  position: absolute;
-  left: calc(14px + env(safe-area-inset-left));
-  bottom: calc(14px + env(safe-area-inset-bottom) + var(--pad-cell) * 3 + var(--space-md));
-  width: auto;
+  justify-content: center;
 }
 
 /* The cube turns while the scene loads. */
@@ -257,11 +271,10 @@ a.action {
   }
 }
 
-/* The speaker (decision 0097): a round button on top of the actions. Its waves show the level. */
+/* The speaker (decision 0097): a round button in the settings row. Its waves show the level. */
 .hud-sound {
-  align-self: flex-end;
-  width: var(--tap);
-  min-height: var(--tap);
+  width: 44px;
+  min-height: 44px;
   padding: 0;
   color: var(--clay);
   touch-action: none;
@@ -285,20 +298,11 @@ a.action {
 }
 
 /*
- * The map's own controls (map-zoom.ts, places.ts): Places, then + and - round under it, on the
- * right edge under the top bar. The column takes no taps itself, so the map between them stays
- * tappable.
+ * The map's own controls (map-zoom.ts, places.ts): Places on top of the corner's column, and + and
+ * - round in the settings row under it.
  */
-.map-tools {
-  position: absolute;
-  right: calc(12px + env(safe-area-inset-right));
-  top: calc(64px + env(safe-area-inset-top));
-  align-items: flex-end;
-  pointer-events: none;
-}
-
-.map-tools > * {
-  pointer-events: auto;
+.map-places {
+  align-self: flex-end;
   touch-action: none;
 }
 
@@ -307,9 +311,10 @@ a.action {
 }
 
 .map-zoom {
-  width: var(--tap);
-  min-height: var(--tap);
+  width: 44px;
+  min-height: 44px;
   padding: 0;
+  touch-action: none;
 }
 
 /* Places (places-sheet.ts): each place's mark in clay, like the map's. */
@@ -335,6 +340,54 @@ a.action {
   gap: var(--space-2xs);
   padding: var(--space-xs);
   border-radius: var(--r-card);
+}
+
+/*
+ * The bar's first row: the tabs, then (on a plot you can build on) the walls, roof, floor, and notes
+ * chips, which scroll sideways and fade at the edge to say there's more. Alone, the tabs take the
+ * whole row; beside the chips, each tab is as wide as its word.
+ */
+.palette-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-xs);
+  min-width: 0;
+}
+
+.palette-head > .palette-tabs {
+  flex: 1 0 auto;
+}
+
+.palette-head:has(> .palette-floors:not([hidden])) > .palette-tabs {
+  flex: none;
+  grid-auto-columns: max-content;
+}
+
+.palette-head:has(> .palette-floors:not([hidden])) .link-tab {
+  padding-inline: var(--space-sm);
+  font-size: var(--text-sm);
+}
+
+.palette-head > .palette-floors {
+  flex: 1 1 0;
+  flex-wrap: nowrap;
+  min-width: 0;
+  overflow-x: auto;
+  padding-inline-end: var(--space-xl);
+  mask-image: linear-gradient(90deg, #000 calc(100% - var(--space-xl)), transparent);
+}
+
+.palette-head .palette-floors button {
+  font-size: var(--text-sm);
+}
+
+/*
+ * While you build, the HUD keeps what building needs: the bar, the d-pad, the actions, and the
+ * settings. What's for the rest of the world (Invite, Places, Gather all and the chips beside it)
+ * steps aside until you're done.
+ */
+.hud.building :is(.hud-invite, .map-places, .world-near) {
+  display: none;
 }
 
 /* The home sheet's status line takes no room until it has words. */
@@ -494,9 +547,8 @@ a.action {
  * A guest walking the town (decision 0380): the way back to the feed, Sign in, the d-pad, notices,
  * and Move in in Claim plot's place, filled like the door's own button so it's the one thing to tap.
  */
-.hud[data-guest]
-  > :not(.hud-feed, .hud-signin, .dpad, .actions, .map-tools, .status, .toast, .world-wait),
-.hud[data-guest] .actions > :not(#claim),
+.hud[data-guest] > :not(.hud-feed, .hud-signin, .dpad, .actions, .status, .toast, .world-wait),
+.hud[data-guest] .actions > :not(#claim, .map-places, .hud-settings),
 .hud:not([data-guest]) .hud-signin {
   display: none;
 }
@@ -670,22 +722,13 @@ a.action {
 }
 
 /*
- * What you can do where you stand ("Fish", "Pat Biscuit", "Gather all"): stacked above the 3D toggle, clear
+ * What you can do where you stand ("Fish", "Pat Biscuit", "Gather all"): stacked over the d-pad, clear
  * of the actions. The column takes no taps itself, so the map under it stays tappable.
  */
 .world-near {
   position: absolute;
   left: calc(14px + env(safe-area-inset-left));
-  bottom: calc(
-    14px +
-    env(safe-area-inset-bottom) +
-    var(--tap) *
-    4 +
-    var(--space-2xs) *
-    2 +
-    var(--space-md) *
-    2
-  );
+  bottom: calc(14px + env(safe-area-inset-bottom) + var(--pad-cell) * 3 + var(--space-sm));
   pointer-events: none;
 }
 
@@ -740,8 +783,8 @@ a.action {
  */
 @media (max-width: 479px) {
   .hud {
-    /* One action button, and the row of two settings over them. Both corners read it. */
-    --act-h: 60px;
+    /* One action button: a tap target tall, with its word under its icon. */
+    --act-h: var(--tap);
     --act-w: 82px;
   }
 
@@ -788,47 +831,35 @@ a.action {
     font-size: var(--text-base);
   }
 
-  /* The speaker and the 3D view are settings, not actions: smaller, on a row of their own. */
-  .hud-sound {
-    grid-column: 2;
+  /*
+   * Places, then the settings (-, +, 3D view, the speaker) as one row of circles, sit over the
+   * actions, all in the corner under the thumb rather than up the side of the map. The row is a
+   * little wider than the actions and reaches left over the map, never off the screen.
+   */
+  .map-places,
+  .hud-settings {
+    grid-column: 1 / -1;
+  }
+
+  .map-places {
     justify-self: end;
-    width: 44px;
-    min-height: 44px;
+  }
+
+  .hud-settings {
+    flex-wrap: nowrap;
+    gap: var(--space-xs);
+  }
+
+  .hud-sound {
+    order: 1;
   }
 
   .world-mode {
-    left: auto;
-    right: calc(14px + env(safe-area-inset-right) + 44px + var(--space-sm));
-    bottom: calc(14px + env(safe-area-inset-bottom) + var(--act-h) * 2 + var(--space-sm) * 2);
     width: 44px;
     min-width: 44px;
     min-height: 44px;
     padding: 0;
-    justify-content: center;
     border-radius: 50%;
-  }
-
-  /*
-   * The map's controls sit over the settings row on the right, clear of the top row and of the
-   * cards and chat that open under it, in reach of the thumb.
-   */
-  .map-tools {
-    top: auto;
-    right: calc(14px + env(safe-area-inset-right));
-    bottom: calc(
-      14px +
-      env(safe-area-inset-bottom) +
-      var(--act-h) *
-      2 +
-      var(--space-sm) *
-      3 +
-      44px
-    );
-  }
-
-  .map-zoom {
-    width: 44px;
-    min-height: 44px;
   }
 
   .world-mode > span {
@@ -915,10 +946,40 @@ a.action {
 
   /*
    * The chips for what's beside you (Gather all, Fish, the next step, the job) sit just over the
-   * pad, where the labelled column's 3D toggle used to be, rather than up in the map.
+   * pad, as wide as they can be without reaching the settings row on the right.
    */
-  .world-near {
-    bottom: calc(14px + env(safe-area-inset-bottom) + var(--pad-cell) * 3 + var(--space-sm));
+  .world-near > .pill-button {
+    max-width: calc(100vw - 230px - env(safe-area-inset-left) - env(safe-area-inset-right));
+    padding: 0 var(--space-md);
+    font-size: var(--text-md);
+  }
+
+  /*
+   * While you build, the bar takes the top row's place, and the way back to the feed comes back
+   * when you're done; anything the top row says moves under the bar.
+   */
+  .palette {
+    top: calc(12px + env(safe-area-inset-top));
+  }
+
+  .hud.building .hud-feed {
+    display: none;
+  }
+
+  .hud.building .status {
+    top: calc(var(--palette-bottom, 160px) + var(--space-sm));
+  }
+
+  /* The line about the pick is one row, cut short; a tap on it opens the rest (world.ts). */
+  #palette-line {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    cursor: pointer;
+  }
+
+  #palette-line[data-open] {
+    white-space: normal;
   }
 
   /* A notice takes less of the map: a smaller line, and wider, so it wraps less. */
@@ -963,8 +1024,6 @@ a.action {
  * still under your thumb, and a screen reader never loses one.
  */
 .actions,
-.world-mode,
-.map-tools,
 .hud-feed,
 .hud-invite,
 .world-near {
@@ -972,8 +1031,6 @@ a.action {
 }
 
 .hud[data-walking] .actions,
-.hud[data-walking] .world-mode,
-.hud[data-walking] .map-tools,
 .hud[data-walking] .hud-feed,
 .hud[data-walking] .hud-invite,
 .hud[data-walking] .visit-card,
@@ -983,8 +1040,6 @@ a.action {
 
 /* Coming back is quicker than going: you stopped because you want them. */
 .hud:not([data-walking]) .actions,
-.hud:not([data-walking]) .world-mode,
-.hud:not([data-walking]) .map-tools,
 .hud:not([data-walking]) .hud-feed,
 .hud:not([data-walking]) .hud-invite,
 .hud:not([data-walking]) .visit-card,

@@ -203,6 +203,13 @@ const paletteRows: Record<PaletteTab | "materials", HTMLElement> = {
   furniture: $("palette-furniture"),
 };
 const paletteLine = $("palette-line");
+// On a phone the line about the pick shows one row (world.css); a tap opens the whole of it, and
+// another folds it again.
+paletteLine.addEventListener("click", () => {
+  paletteLine.toggleAttribute("data-open");
+  if (buildMode)
+    hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+});
 const notesList = $("palette-notes");
 /** The chip at the end of the floors row that opens the notes about this home. */
 const notesToggle = h("button", {
@@ -255,7 +262,7 @@ const paletteTabs = linkTabs(
     pick: (i) => showTab(PALETTE_TABS[i] ?? "blocks"),
   },
 );
-palette.prepend(paletteTabs);
+palette.querySelector(".palette-head")?.prepend(paletteTabs);
 const modeButton = $<HTMLButtonElement>("world-mode");
 const petButton = $<HTMLButtonElement>("world-pet");
 /** Shown while you stand on a green with a pet that hasn't been out today (RFC 0045). */
@@ -2393,7 +2400,7 @@ function paintPalette() {
   paintGradeChips(paletteRows.materials, pick, holdings, graded, pickGrade);
   for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
-  paletteLine.textContent = isGroundKind(pick)
+  const line = isGroundKind(pick)
     ? groundLine(pick, holdings)
     : pick === "pot"
       ? potPlaceLine(
@@ -2411,6 +2418,11 @@ function paintPalette() {
               : pick === "kiln"
                 ? kilnPlaceLine(holdings)
                 : blockLine(pick);
+  // A new line starts folded to one row on a phone; a tap on it opens the rest.
+  if (paletteLine.textContent !== line) {
+    paletteLine.textContent = line;
+    delete paletteLine.dataset.open;
+  }
   // A kiln (RFC 0047) is on the bar only once pottery is open in this world.
   const kiln = paletteRows.blocks.querySelector<HTMLButtonElement>('[data-block="kiln"]');
   if (kiln) {
@@ -2467,11 +2479,11 @@ function paintFloors() {
   const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
   roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
   roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
-  floorRow.append(roofToggle);
-  // Walls on tiles, or on the lines between them (RFC 0050).
+  // Walls on tiles, or on the lines between them (RFC 0050), first: it changes what every wall
+  // tap does, so it stays beside the tabs while the rest of the row scrolls.
   linesToggle.textContent = betweenTiles ? "Walls: between tiles" : "Walls: on tiles";
   linesToggle.setAttribute("aria-pressed", String(betweenTiles));
-  floorRow.append(linesToggle);
+  floorRow.append(linesToggle, roofToggle);
   // A home of wall blocks can turn its walls into walls between tiles, and gain their floor.
   if (hasWallBlocks(plot)) {
     const slim = h("button", {
@@ -2842,8 +2854,8 @@ function snapCamera() {
 /** How far down the top bar's pills reach, in CSS pixels: where the visit card starts. */
 const TOP_BAR_PX = 60;
 
-/** The four actions in the corner, whose top is where the clear map ends on a phone. */
-const actionsBar = document.querySelector<HTMLElement>(".actions");
+/** The settings row over the four actions, whose top is where the clear map ends on a phone. */
+const settingsRow = document.querySelector<HTMLElement>(".hud-settings");
 
 /**
  * Where the clear map's middle is, as pixels below the screen's middle: halfway between the chrome
@@ -2863,7 +2875,7 @@ function clearLift(): number {
     cam.width < 480
       ? Math.min(
           cam.height,
-          actionsBar?.getBoundingClientRect().top ?? cam.height,
+          settingsRow?.getBoundingClientRect().top ?? cam.height,
           pad?.getBoundingClientRect().top ?? cam.height,
         )
       : cam.height;

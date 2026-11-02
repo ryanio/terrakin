@@ -211,25 +211,7 @@
           <button type="button" data-dir="s" aria-label="South"><svg class="icon" data-icon="chevronUp" aria-hidden="true"></svg></button>
         </fieldset>
 
-        <!-- Map or 3D, above the d-pad so it never pushes the build palette into the world. -->
-        <button type="button" id="world-mode" class="action world-mode" aria-pressed="false" hidden>
-          <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
-          <span>3D view</span>
-        </button>
-        <!-- The map (map-zoom.ts, places.ts): Places lists Home, the Town Hall, the shop, the Green, and each land's square to walk to, and + and - zoom the map by their sign alone, like the speaker. Zoom stays away in 3D. -->
-        <div class="stack tight map-tools">
-          <button type="button" id="map-places" class="pill-button map-places" aria-haspopup="dialog">
-            <svg class="icon map-icon" data-icon="map" aria-hidden="true"></svg>
-            <span>Places</span>
-          </button>
-          <button type="button" id="map-zoom-in" class="pill-button map-zoom" aria-label="Zoom in">
-            <svg class="icon map-icon" data-icon="plus" aria-hidden="true"></svg>
-          </button>
-          <button type="button" id="map-zoom-out" class="pill-button map-zoom" aria-label="Zoom out">
-            <svg class="icon map-icon" data-icon="minus" aria-hidden="true"></svg>
-          </button>
-        </div>
-        <!-- What you can do where you stand, above the 3D toggle: go into the Town Hall or the shop beside you, cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
+        <!-- What you can do where you stand, over the d-pad, put away while you build: go into the Town Hall or the shop beside you, cast a line beside water (RFC 0023), pat a neighbor's pet (RFC 0019), and pick up everything lying within reach (decision 0125). -->
         <!-- Up or down the stairs you stand on (RFC 0028), beside your figure on the map. -->
         <button type="button" id="world-climb" class="pill-button world-climb" data-dir="up" hidden>
           <svg class="icon climb-up" data-icon="up" aria-hidden="true"></svg>
@@ -273,8 +255,10 @@
         </div>
         <div class="actions">
           <fieldset id="palette" class="palette paper" aria-label="Pick what to build" hidden>
-            <!-- The tabs (linkTabs) go first, from world.ts, then which floor taps build on, or Add an upstairs (RFC 0028), and the chip that opens the notes about this home (RFC 0032). -->
-            <div id="palette-floors" class="pick-row palette-floors" hidden></div>
+            <!-- One row: the tabs (linkTabs, put first by world.ts), then, on a plot you can build on, which floor taps build on, the walls and roof chips, Add an upstairs (RFC 0028), and the chip that opens the notes about this home (RFC 0032), scrolling sideways. -->
+            <div class="palette-head">
+              <div id="palette-floors" class="pick-row palette-floors" hidden></div>
+            </div>
             <div id="palette-blocks" class="palette-row" role="tabpanel" aria-labelledby="palette-tab-blocks">
               <!-- The hearth first, with its name showing: it's home, where the pantry arrives. -->
               <button type="button" data-block="hearth" class="palette-named" aria-label="Hearth, your home tile"><span class="chip"><svg class="icon" data-icon="home" aria-hidden="true"></svg></span><span class="palette-name" aria-hidden="true">Hearth</span></button>
@@ -299,12 +283,30 @@
             <!-- Notes about the home (RFC 0032), opened from their chip at the end of the floors row. -->
             <ul id="palette-notes" class="plain-list palette-notes" hidden></ul>
           </fieldset>
-          <!-- Sound (decision 0097): off until tapped, then on, quiet, and off again. The speaker shows which. -->
-          <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off" hidden>
-            <svg class="icon sound-icon sound-off" data-icon="soundOff" aria-hidden="true"></svg>
-            <svg class="icon sound-icon sound-quiet" data-icon="soundQuiet" aria-hidden="true"></svg>
-            <svg class="icon sound-icon sound-on" data-icon="soundOn" aria-hidden="true"></svg>
+          <!-- The map (map-zoom.ts, places.ts): Places lists Home, the Town Hall, the shop, the Green, and each land's square to walk to. It steps aside while you build. -->
+          <button type="button" id="map-places" class="pill-button map-places" aria-haspopup="dialog">
+            <svg class="icon map-icon" data-icon="map" aria-hidden="true"></svg>
+            <span>Places</span>
           </button>
+          <!-- The settings over the actions: + and - zoom the map (away in 3D), then the speaker, then Map or 3D. On a phone they are one row of circles, going by their sign alone. -->
+          <div class="hud-settings">
+            <button type="button" id="map-zoom-out" class="pill-button map-zoom" aria-label="Zoom out">
+              <svg class="icon map-icon" data-icon="minus" aria-hidden="true"></svg>
+            </button>
+            <button type="button" id="map-zoom-in" class="pill-button map-zoom" aria-label="Zoom in">
+              <svg class="icon map-icon" data-icon="plus" aria-hidden="true"></svg>
+            </button>
+            <!-- Sound (decision 0097): off until tapped, then on, quiet, and off again. The speaker shows which. -->
+            <button type="button" id="sound" class="pill-button hud-sound" aria-pressed="false" aria-label="Sound" data-level="off" hidden>
+              <svg class="icon sound-icon sound-off" data-icon="soundOff" aria-hidden="true"></svg>
+              <svg class="icon sound-icon sound-quiet" data-icon="soundQuiet" aria-hidden="true"></svg>
+              <svg class="icon sound-icon sound-on" data-icon="soundOn" aria-hidden="true"></svg>
+            </button>
+            <button type="button" id="world-mode" class="action world-mode" aria-pressed="false" hidden>
+              <svg class="icon" data-icon="cube" aria-hidden="true"></svg>
+              <span>3D view</span>
+            </button>
+          </div>
           <button type="button" id="home" class="action" hidden>
             <svg class="icon" data-icon="home" aria-hidden="true"></svg>
             <span>Home</span>

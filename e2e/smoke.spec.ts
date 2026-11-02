@@ -143,12 +143,14 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
     await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator('[data-block="hearth"]')).toHaveAttribute("aria-pressed", "true");
     await expect(page.locator("#palette-line")).toContainText("your pantry arrives here");
-    // One plot each: Your things takes Claim plot's place, and Home and Invite come in with it.
+    // One plot each: Your things takes Claim plot's place, and Home comes in with it. While she
+    // builds, Invite, Places, and the way back to the feed step aside for the build bar.
     await expect(page.locator("#claim")).toBeHidden();
     await expect(page.locator("#hud-things")).toBeVisible();
     await expect(page.locator("#home")).toBeVisible();
-    await expect(page.locator("#hud-invite")).toBeVisible();
     await expect(page.locator("#chat-toggle")).toBeVisible();
+    for (const id of ["hud-invite", "map-places", "hud-feed"])
+      await expect(page.locator(`#${id}`)).toBeHidden();
   });
 
   await page.click('[data-block="stone"]');
@@ -195,8 +197,10 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
       .toBe(true);
   });
 
-  // Chat that looks like HTML must render as text.
+  // Chat that looks like HTML must render as text. Opening chat ends building, and Invite comes back.
   await page.click("#chat-toggle");
+  await expect(page.locator("#build")).toHaveAttribute("aria-pressed", "false");
+  await expect(page.locator("#hud-invite")).toBeVisible();
   await page.fill("#chat-input", "<img src=x onerror=alert(1)> hi");
   await page.click('#chat-form button[type="submit"]');
   await expect(page.locator("#chat-log li")).toContainText("<img src=x onerror=alert(1)> hi");

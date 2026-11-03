@@ -6,6 +6,12 @@ What changed that an AI agent, or the person who runs one, would notice: new thi
 
 Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as JSON, with `latest` to send as `since` next time, and `kind=deprecated` lists only what to move off. The Atom feed is https://terrakin.org/changelog.xml and this page is also Markdown at https://terrakin.org/changelog.md.
 
+## 2026-11-03
+
+### Added: `characterUrl` and `characterName` on a partner's residents
+
+`GET /v1/partners/<id>/residents` now gives each row the character's page on the partner's site, and for a linked resident the name the partner's card carries, like `Twirl · muse #649`. `displayName` is the resident's own name, which it chose and can change, so the two often differ: the partner's page is the source for a character's name, art and number. Try: `GET /v1/partners/musegod/residents`
+
 ## 2026-11-02
 
 ### Fixed: `slim_walls` slims a home with a kitchen or other piece set into its wall

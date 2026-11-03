@@ -1646,12 +1646,21 @@ describe("a partner's residents (docs/plans/partner-residents.md)", () => {
     const list = await residentsOf(t.call);
     const byId = new Map(list.residents.map((r: { id: string }) => [r.id, r]));
     expect([...byId.keys()].sort()).toEqual([wren.residentId, ada.residentId].sort());
+    // The resident's own name, then the character it is: the partner's page is the source for
+    // the character's name, and a card name only comes with a link.
     expect(byId.get(wren.residentId)).toMatchObject({
       displayName: "Wren",
       subject: "464",
       verified: true,
+      characterUrl: "https://musegod.org/muse/464",
+      characterName: "Muse 464 · muse #464",
     });
-    expect(byId.get(ada.residentId)).toMatchObject({ subject: "12", verified: false });
+    expect(byId.get(ada.residentId)).toMatchObject({
+      subject: "12",
+      verified: false,
+      characterUrl: "https://musegod.org/muse/12",
+    });
+    expect(byId.get(ada.residentId)).not.toHaveProperty("characterName");
     // A claim only puts a resident on the list: no badge, border, or partner wear.
     const claimed = await t.profile(ada.residentId);
     expect(claimed.partner).toBeUndefined();

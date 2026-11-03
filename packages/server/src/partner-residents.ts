@@ -9,7 +9,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { DAY_MS, MINUTE_MS, utcDay } from "@terrakin/sim";
-import { claimedSubject, type PartnerConfig } from "./partners";
+import { claimedSubject, type PartnerConfig, partnerPageUrl } from "./partners";
 import type { WorldCredit } from "./snapshots";
 import type { SqlExec } from "./sql-store";
 
@@ -209,8 +209,22 @@ export class PartnerResidents {
     return ties;
   }
 
+  /**
+   * What the partner's card calls each linked character, as the link last read it. The partner's
+   * site is the source for a character's name, art and number, and a resident's own name is its
+   * own, so a row carries both rather than leaving a reader to guess which it is looking at.
+   */
+  private cardNames(partner: PartnerConfig): Map<string, string> {
+    return new Map(
+      this.rows("SELECT resident_id, name FROM agent_links WHERE partner_id = ?", partner.id).map(
+        (row) => [String(row.resident_id), String(row.name)],
+      ),
+    );
+  }
+
   private build(partner: PartnerConfig): Entry[] {
     const ties = this.ties(partner);
+    const cards = this.cardNames(partner);
     const activity = this.activity(new Set(ties.keys()));
     const entries = [...ties].flatMap(([id, tie]): Entry[] => {
       const r = this.o.resident(id);
@@ -221,6 +235,7 @@ export class PartnerResidents {
         id,
       )[0]?.handle;
       const joined = this.o.joinedDay(id);
+      const card = tie.verified ? cards.get(id) : undefined;
       return [
         {
           key: a.last,
@@ -229,6 +244,8 @@ export class PartnerResidents {
             ...(handle ? { handle: String(handle) } : {}),
             displayName: r.name,
             subject: tie.subject,
+            characterUrl: partnerPageUrl(partner, tie.subject),
+            ...(card ? { characterName: card } : {}),
             verified: tie.verified,
             joinedAt: joined === undefined ? null : iso(joined * DAY_MS),
             lastActiveAt: a.last > 0 ? iso(a.last) : null,

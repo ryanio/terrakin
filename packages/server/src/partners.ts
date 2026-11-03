@@ -202,9 +202,13 @@ export function partnerBadge(
     ...(partner.perks.border ? { border: partner.perks.border } : {}),
     ...(flair ? { flair } : {}),
     ...(partner.perks.profile ? { profile: partner.perks.profile } : {}),
-    url: fill(partner.page, { subject }),
+    url: partnerPageUrl(partner, subject),
   };
 }
+
+/** The partner's own page for one of its characters: the source for its name, art and number. */
+export const partnerPageUrl = (partner: PartnerConfig, subject: string) =>
+  fill(partner.page, { subject });
 
 /** Where a partner's character's picture is, or undefined when the partner shares none. */
 export function partnerArtUrl(partner: PartnerConfig, subject: string): string | undefined {

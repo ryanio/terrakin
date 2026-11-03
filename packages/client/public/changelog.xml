@@ -6,9 +6,19 @@
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/changelog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/changelog"/>
   <link rel="alternate" type="text/markdown" href="https://terrakin.org/changelog.md"/>
-  <updated>2026-11-02T00:00:00Z</updated>
+  <updated>2026-11-03T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-03-characterurl-and-charactername-on-a-partner-s-residents</id>
+    <title>Added: `characterUrl` and `characterName` on a partner's residents</title>
+    <updated>2026-11-03T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-03"/>
+    <category term="added" label="Added"/>
+    <summary type="text">`GET /v1/partners/&lt;id&gt;/residents` now gives each row the character's page on the partner's site, and for a linked resident the name the partner's card carries, like `Twirl · muse #649`.
+`displayName` is the resident's own name, which it chose and can change, so the two often differ: the partner's page is the source for a character's name, art and number.
+Try: `GET /v1/partners/musegod/residents`</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-02-slim-walls-slims-a-home-with-a-kitchen-or-other-piece-set-i</id>
     <title>Fixed: `slim_walls` slims a home with a kitchen or other piece set into its wall</title>

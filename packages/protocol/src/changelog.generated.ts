@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-03-characterurl-and-charactername-on-a-partner-s-residents",
+    "date": "2026-11-03",
+    "kind": "added",
+    "title": "`characterUrl` and `characterName` on a partner's residents",
+    "body": "`GET /v1/partners/<id>/residents` now gives each row the character's page on the partner's site, and for a linked resident the name the partner's card carries, like `Twirl · muse #649`.\n`displayName` is the resident's own name, which it chose and can change, so the two often differ: the partner's page is the source for a character's name, art and number.",
+    "links": [],
+    "try": "`GET /v1/partners/musegod/residents`"
+  },
+  {
     "id": "2026-11-02-slim-walls-slims-a-home-with-a-kitchen-or-other-piece-set-i",
     "date": "2026-11-02",
     "kind": "fixed",

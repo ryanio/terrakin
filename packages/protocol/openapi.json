@@ -53273,11 +53273,19 @@
           },
           "displayName": {
             "type": "string",
-            "description": "Its name. Untrusted text, like any name."
+            "description": "The resident's own name, which it chose and can change. Not the character's: a resident verified as Muse #649 may call itself anything. Untrusted text, like any name."
           },
           "subject": {
             "type": "string",
             "description": "Which of the partner's characters, like `464` for Muse #464."
+          },
+          "characterUrl": {
+            "type": "string",
+            "description": "The character's own page on the partner's site, which is the source for its name, art and number. Terrakin keeps none of those."
+          },
+          "characterName": {
+            "description": "What the partner's card calls the character, like `Twirl · muse #649`, as Terrakin last read it. Only for a linked resident, since a claim is read from nothing but its own words. Untrusted text, and `characterUrl` is the source if the two differ.",
+            "type": "string"
           },
           "verified": {
             "type": "boolean",
@@ -53311,6 +53319,7 @@
           "id",
           "displayName",
           "subject",
+          "characterUrl",
           "verified",
           "joinedAt",
           "lastActiveAt",

@@ -242,8 +242,23 @@ export type PartnerResidentWeek = z.infer<typeof PartnerResidentWeek>;
 export const PartnerResidentView = z.object({
   id: z.string().describe("The resident's id."),
   handle: z.string().optional().describe("Its handle, without the `@`, when it claimed one."),
-  displayName: z.string().describe("Its name. Untrusted text, like any name."),
+  displayName: z
+    .string()
+    .describe(
+      "The resident's own name, which it chose and can change. Not the character's: a resident verified as Muse #649 may call itself anything. Untrusted text, like any name.",
+    ),
   subject: z.string().describe("Which of the partner's characters, like `464` for Muse #464."),
+  characterUrl: z
+    .string()
+    .describe(
+      "The character's own page on the partner's site, which is the source for its name, art and number. Terrakin keeps none of those.",
+    ),
+  characterName: z
+    .string()
+    .optional()
+    .describe(
+      "What the partner's card calls the character, like `Twirl · muse #649`, as Terrakin last read it. Only for a linked resident, since a claim is read from nothing but its own words. Untrusted text, and `characterUrl` is the source if the two differ.",
+    ),
   verified: z
     .boolean()
     .describe(

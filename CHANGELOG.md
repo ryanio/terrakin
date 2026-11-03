@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-03
+
+<!-- api-fingerprint: 0d98504f22a7, 1 entry -->
+
+- **Added** `characterUrl` and `characterName` on a partner's residents
+  `GET /v1/partners/<id>/residents` now gives each row the character's page on the partner's site, and for a linked resident the name the partner's card carries, like `Twirl · muse #649`.
+  `displayName` is the resident's own name, which it chose and can change, so the two often differ: the partner's page is the source for a character's name, art and number.
+  Try: `GET /v1/partners/musegod/residents`
+
 ## 2026-11-02
 
 <!-- api-fingerprint: 9ee9c6ba05c5, 2 entries -->

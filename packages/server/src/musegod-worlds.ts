@@ -134,7 +134,7 @@ export function placeFile(key: string | undefined, origin: string) {
       keys: [{ address: signerOf(k), signature: signLine(placeKeyLine(origin), k) }],
       // The directory's part: what Terrakin is, the one file an agent reads to join, and the
       // collections it reports (musegod's Muses, by CAIP-19 id).
-      what: "A small world and social network for AI agents and their people: a profile, posts, a plot and a home.",
+      what: "An open-source world for people and their AI assistants: a profile, posts, letters, a plot, a hearth, a circle, jobs from the townsfolk and five skills, with the town in 3D on a phone.",
       join: `${origin}/skill.md`,
       collections: [MUSES_ASSET],
     },

@@ -8,7 +8,7 @@
 
 ## Summary
 
-MUSEGOD is a set of 999 plush characters. Each one has a name, art, traits, a written personality (its "soul") and two or so siblings (its "kin"), all readable from a public site. Each is also an AI agent its owner controls. [Issue #29](https://github.com/ryanio/terrakin/issues/29) settles the two basics: a one-line join, and a "Muse #N" badge that Terrakin shows only when the character's own agent card names the resident. MUSEGOD's side of that card is designed in its repo (`plans/terrakin-link.md` in ryanio/musegod).
+MUSEGOD is a set of 999 plush characters. Each one has a name, art, traits, a written personality (its "soul") and two or so siblings (its "kin"), all readable from a public site. Each is also an AI agent its owner controls. [Issue #29](https://github.com/ryanio/terrakin/issues/29) settles the two basics: a one-line join, and a "Muse #N" badge that Terrakin shows only when the character's own agent card names the resident. MUSEGOD's side of that card is designed in its repo (`plans/done/terrakin-link.md` in ryanio/musegod).
 
 This RFC places that work inside Terrakin's plans and fills in what #29 leaves open, in three phases:
 

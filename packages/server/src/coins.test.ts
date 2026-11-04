@@ -1,4 +1,4 @@
-import type { ServerMessage } from "@terrakin/protocol";
+import { dayIso, type ServerMessage } from "@terrakin/protocol";
 import { DAY_MS, ECONOMY, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
@@ -153,13 +153,17 @@ describe("coins", () => {
     const mossSaw = toMoss.flatMap((m) => (m.type === "event" ? [m.event] : []));
     expect(mossSaw).toEqual([{ type: "gift", from: ash.id, to: wren.id }]);
 
-    expect((await t.purse(wren.token)).purse.ledger[0]).toMatchObject({
+    const line = (await t.purse(wren.token)).purse.ledger[0];
+    expect(line).toMatchObject({
       amount: 7,
       reason: "gift_in",
       with: { id: ash.id },
       note: "for the tea",
       trust: "untrusted",
     });
+    // Every line says when twice, and the date is the day: an assistant
+    // telling its owner when something happened counts nothing from 1970.
+    expect(line.date).toBe(dayIso(line.day));
     // Nothing about purses in the public world.
     const world = (await t.call("GET", "/v1/world")).body;
     expect(JSON.stringify(world)).not.toContain("for the tea");
@@ -167,6 +171,8 @@ describe("coins", () => {
     // The town shows who gave whom, not how much.
     const town = (await t.call("GET", "/v1/town")).body;
     expect(town.treasury.gifts[0]).toMatchObject({ from: { id: ash.id }, to: { id: wren.id } });
+    expect(town.treasury.gifts[0].date).toBe(dayIso(town.treasury.gifts[0].day));
+    expect(town.treasury.ledger[0].date).toBe(dayIso(town.treasury.ledger[0].day));
     expect(town.treasury.gifts[0]).not.toHaveProperty("amount");
     expect(town.treasury.balance).toBeGreaterThan(0);
     expect(town.treasury.ledger[0]).toHaveProperty("reason");

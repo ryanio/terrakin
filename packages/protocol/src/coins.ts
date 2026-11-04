@@ -47,6 +47,8 @@ export const PurseLine = z.object({
   seq: z.number().int(),
   /** UTC days since 1970-01-01. */
   day: z.number().int(),
+  /** That day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from the epoch. */
+  date: z.string(),
   /** Positive in, negative out. */
   amount: z.number().int(),
   reason: CoinReason,
@@ -96,7 +98,10 @@ export type PurseResponse = z.infer<typeof PurseResponse>;
 /** One movement in the treasury. Public. */
 export const TreasuryLine = z.object({
   seq: z.number().int(),
+  /** UTC days since 1970-01-01. */
   day: z.number().int(),
+  /** That day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from the epoch. */
+  date: z.string(),
   amount: z.number().int(),
   reason: CoinReason,
   /** Who the treasury paid a welcome gift. Budget lines cover all townsfolk together and name nobody. */
@@ -113,7 +118,10 @@ export type TreasuryLine = z.infer<typeof TreasuryLine>;
 /** A gift between residents, as the town sees it: who and when, never how much or the note. */
 export const PublicGift = z.object({
   seq: z.number().int(),
+  /** UTC days since 1970-01-01. */
   day: z.number().int(),
+  /** That day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from the epoch. */
+  date: z.string(),
   from: AuthorView,
   to: AuthorView,
 });

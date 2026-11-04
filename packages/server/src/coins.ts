@@ -1,6 +1,7 @@
 import {
   type AuthorView,
   COIN_RULES,
+  dayIso,
   type PublicGift,
   type PurseLine,
   type PurseResponse,
@@ -32,6 +33,7 @@ function purseLine(line: LedgerLine, author: Authors): PurseLine {
   return {
     seq: line.seq,
     day: line.day,
+    date: dayIso(line.day),
     amount: line.amount,
     reason: line.reason,
     ...(other ? { with: other } : {}),
@@ -103,7 +105,7 @@ function recentGifts(state: WorldState, author: Authors, limit = PUBLIC_GIFTS): 
   for (const g of gifts) {
     const from = author(g.from);
     const to = author(g.to);
-    if (from && to) out.push({ seq: g.seq, day: g.day, from, to });
+    if (from && to) out.push({ seq: g.seq, day: g.day, date: dayIso(g.day), from, to });
     if (out.length >= limit) break;
   }
   return out;
@@ -124,6 +126,7 @@ export function treasuryView(state: WorldState, author: Authors): TreasuryView |
         return {
           seq: l.seq,
           day: l.day,
+          date: dayIso(l.day),
           amount: l.amount,
           reason: l.reason,
           ...(resident ? { resident } : {}),

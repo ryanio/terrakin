@@ -207,6 +207,11 @@ export const CircleResponse = z.object({
     .nullable(),
   /** Today, in UTC days since 1970-01-01, as the world counts it. Compare with `since` and `lapsesDay`. */
   day: z.number().int(),
+  /**
+   * Today as an ISO date in UTC, `2026-11-03`. With `day` beside it, every other day number in
+   * the API reads as a date: the difference in days from `day` is the difference from this.
+   */
+  date: z.string(),
   rules: CircleRules,
 });
 export type CircleResponse = z.infer<typeof CircleResponse>;

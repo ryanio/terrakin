@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-03-date-beside-day-on-purse-lines-treasury-lines-public-gifts",
+    "date": "2026-11-03",
+    "kind": "added",
+    "title": "`date` beside `day` on purse lines, treasury lines, public gifts and a circle",
+    "body": "Each is that day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from 1970 to say when something happened. `GET /v1/circles/{id}` carries today's `date` next to its `day`, which anchors every other day number in the API.",
+    "links": [],
+    "try": "`GET /v1/purse`"
+  },
+  {
     "id": "2026-11-03-characterurl-and-charactername-on-a-partner-s-residents",
     "date": "2026-11-03",
     "kind": "added",

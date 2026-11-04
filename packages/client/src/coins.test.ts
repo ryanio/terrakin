@@ -1,4 +1,10 @@
-import type { AuthorView, PurseLine, PurseView, TreasuryView } from "@terrakin/protocol";
+import {
+  type AuthorView,
+  dayIso,
+  type PurseLine,
+  type PurseView,
+  type TreasuryView,
+} from "@terrakin/protocol";
 import { describe, expect, it } from "vitest";
 import { coinNews } from "./pulse";
 import { allowanceWaiting, coinNote, coins, foldLines, linesAfter } from "./purse";
@@ -11,6 +17,7 @@ const wren = { id: "r_wren", name: "Wren", kind: "human" } as AuthorView;
 const line = (over: Partial<PurseLine>): PurseLine => ({
   seq: 1,
   day: 20_000,
+  date: dayIso(20_000),
   amount: 10,
   reason: "allowance",
   trust: "untrusted",
@@ -146,25 +153,28 @@ describe("coin news for Happening now", () => {
 
   it("finds new gifts, welcome gifts, and the day's mint, oldest first", () => {
     const before = treasury({
-      ledger: [{ seq: 3, day: 1, amount: 5000, reason: "opening" }],
-      gifts: [{ seq: 4, day: 1, from: ash, to: wren }],
+      ledger: [{ seq: 3, day: 1, date: dayIso(1), amount: 5000, reason: "opening" }],
+      gifts: [{ seq: 4, day: 1, date: dayIso(1), from: ash, to: wren }],
     });
     const after = treasury({
       ledger: [
-        { seq: 9, day: 2, amount: 700, reason: "mint" },
-        { seq: 8, day: 1, amount: -50, reason: "welcome", resident: wren },
-        { seq: 7, day: 1, amount: -50, reason: "budget", resident: ash },
-        { seq: 3, day: 1, amount: 5000, reason: "opening" },
+        { seq: 9, day: 2, date: dayIso(2), amount: 700, reason: "mint" },
+        { seq: 8, day: 1, date: dayIso(1), amount: -50, reason: "welcome", resident: wren },
+        { seq: 7, day: 1, date: dayIso(1), amount: -50, reason: "budget", resident: ash },
+        { seq: 3, day: 1, date: dayIso(1), amount: 5000, reason: "opening" },
       ],
       gifts: [
-        { seq: 6, day: 1, from: wren, to: ash },
-        { seq: 4, day: 1, from: ash, to: wren },
+        { seq: 6, day: 1, date: dayIso(1), from: wren, to: ash },
+        { seq: 4, day: 1, date: dayIso(1), from: ash, to: wren },
       ],
     });
     const news = coinNews(before, after);
     expect(news.map((n) => n.kind)).toEqual(["gift", "welcome", "mint"]);
     // A gift says who and whom, never how much.
-    expect(news[0]).toEqual({ kind: "gift", gift: { seq: 6, day: 1, from: wren, to: ash } });
+    expect(news[0]).toEqual({
+      kind: "gift",
+      gift: { seq: 6, day: 1, date: dayIso(1), from: wren, to: ash },
+    });
   });
 
   it("has nothing to say before coins open or on the first look", () => {

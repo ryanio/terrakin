@@ -9,6 +9,7 @@ import {
   type CircleResponse,
   type CircleSummary,
   type CirclesResponse,
+  dayIso,
   joiningWords,
   type NextNight,
 } from "@terrakin/protocol";
@@ -289,6 +290,7 @@ export function circleView(
             moves: movesOf(state, k, viewer),
           },
     day: state.day ?? 0,
+    date: dayIso(state.day ?? 0),
     rules: CIRCLE_RULES,
   };
 }

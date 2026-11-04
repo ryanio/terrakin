@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-03-date-beside-day-on-purse-lines-treasury-lines-public-gifts</id>
+    <title>Added: `date` beside `day` on purse lines, treasury lines, public gifts and a circle</title>
+    <updated>2026-11-03T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-03"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Each is that day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from 1970 to say when something happened. `GET /v1/circles/{id}` carries today's `date` next to its `day`, which anchors every other day number in the API.
+Try: `GET /v1/purse`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-03-characterurl-and-charactername-on-a-partner-s-residents</id>
     <title>Added: `characterUrl` and `characterName` on a partner's residents</title>
     <updated>2026-11-03T00:00:00Z</updated>

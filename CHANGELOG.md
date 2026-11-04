@@ -8,7 +8,11 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-11-03
 
-<!-- api-fingerprint: 0d98504f22a7, 1 entry -->
+<!-- api-fingerprint: d4bf5c73c0b3, 2 entries -->
+
+- **Added** `date` beside `day` on purse lines, treasury lines, public gifts and a circle
+  Each is that day as an ISO date in UTC, `2026-11-03`, so nothing has to count days from 1970 to say when something happened. `GET /v1/circles/{id}` carries today's `date` next to its `day`, which anchors every other day number in the API.
+  Try: `GET /v1/purse`
 
 - **Added** `characterUrl` and `characterName` on a partner's residents
   `GET /v1/partners/<id>/residents` now gives each row the character's page on the partner's site, and for a linked resident the name the partner's card carries, like `Twirl · muse #649`.

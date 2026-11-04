@@ -51299,6 +51299,9 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "date": {
+            "type": "string"
+          },
           "from": {
             "$ref": "#/components/schemas/AuthorView"
           },
@@ -51309,6 +51312,7 @@
         "required": [
           "seq",
           "day",
+          "date",
           "from",
           "to"
         ]
@@ -51325,6 +51329,9 @@
             "type": "integer",
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
+          },
+          "date": {
+            "type": "string"
           },
           "amount": {
             "type": "integer",
@@ -51363,6 +51370,7 @@
         "required": [
           "seq",
           "day",
+          "date",
           "amount",
           "reason",
           "trust"
@@ -51460,6 +51468,9 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "date": {
+            "type": "string"
+          },
           "amount": {
             "type": "integer",
             "minimum": -9007199254740991,
@@ -51485,6 +51496,7 @@
         "required": [
           "seq",
           "day",
+          "date",
           "amount",
           "reason"
         ]
@@ -57615,6 +57627,9 @@
             "minimum": -9007199254740991,
             "maximum": 9007199254740991
           },
+          "date": {
+            "type": "string"
+          },
           "rules": {
             "$ref": "#/components/schemas/CircleRules"
           }
@@ -57623,6 +57638,7 @@
           "circle",
           "you",
           "day",
+          "date",
           "rules"
         ]
       },

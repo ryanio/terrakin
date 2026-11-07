@@ -194,6 +194,14 @@ const CASES: { name: string; setUp?: (w: World) => void; command: (w: World) => 
     },
     command: () => ({ type: "unhang", ...THERE, side: "n" }),
   },
+  {
+    name: "turn",
+    setUp: (w) => {
+      stock(w.state, "ada", { table: 1 });
+      w.build({ blocks: [{ ...THERE, block: "table" }] });
+    },
+    command: () => ({ type: "turn", ...THERE, turn: 90 }),
+  },
   { name: "gather a tile", command: (w) => ({ type: "gather", ...pickupTile(w.state) }) },
   {
     name: "set_off_firework",

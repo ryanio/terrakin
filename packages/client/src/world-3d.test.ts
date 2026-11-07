@@ -364,6 +364,7 @@ describe("one plot of the world, read from the mirror", () => {
         roofAt: roof("gable"),
         isSea: () => false,
         gradeAt: () => "plain",
+        turnAt: () => 0,
         mayGatherAt: () => true,
       },
       hearths: new Set(["9,9"]),
@@ -424,6 +425,8 @@ describe("one plot of the world, read from the mirror", () => {
       roofAt: source({ roofAt: roof("hip") }),
       // A graded wall (RFC 0051) wears its grade.
       gradeAt: source({ gradeAt: (key) => (key === "8,8" ? "fine" : "plain") }),
+      // A turned piece of furniture faces its way.
+      turnAt: source({ turnAt: (key) => (key === "11,13" ? 90 : 0) }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },
       season: { ...base, season: "autumn" },

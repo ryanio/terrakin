@@ -30197,6 +30197,9 @@
             "$ref": "#/components/schemas/PlaceAction"
           },
           {
+            "$ref": "#/components/schemas/TurnAction"
+          },
+          {
             "$ref": "#/components/schemas/RemoveAction"
           },
           {
@@ -32904,6 +32907,7 @@
           "grades_closed",
           "price_changed",
           "listing_changed",
+          "not_turnable",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -35006,6 +35010,16 @@
               "plain",
               "fine",
               "masterwork"
+            ]
+          },
+          "turn": {
+            "description": "Furniture only: which way it faces, in degrees clockwise from facing south (0). 90 faces west, 180 north, 270 east. A low stone wall doesn't turn.",
+            "type": "number",
+            "enum": [
+              0,
+              90,
+              180,
+              270
             ]
           },
           "item": {
@@ -39703,6 +39717,52 @@
           "lava_lamp"
         ]
       },
+      "TurnAction": {
+        "type": "object",
+        "properties": {
+          "type": {
+            "type": "string",
+            "enum": [
+              "turn"
+            ]
+          },
+          "x": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "y": {
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 100000
+          },
+          "floor": {
+            "description": "The floor: 0 or absent for the ground floor, 1 upstairs (RFC 0028).",
+            "type": "integer",
+            "minimum": 0,
+            "maximum": 9
+          },
+          "turn": {
+            "type": "number",
+            "enum": [
+              0,
+              90,
+              180,
+              270
+            ]
+          },
+          "dry": {
+            "description": "`true` checks the action against the rules without doing it. Not for chat.",
+            "type": "boolean"
+          }
+        },
+        "required": [
+          "type",
+          "x",
+          "y",
+          "turn"
+        ]
+      },
       "UnhangAction": {
         "type": "object",
         "properties": {
@@ -41061,6 +41121,15 @@
                   "masterwork"
                 ]
               },
+              "turn": {
+                "description": "A turned piece of furniture: 90 faces west, 180 north, 270 east. Absent faces south.",
+                "type": "number",
+                "enum": [
+                  90,
+                  180,
+                  270
+                ]
+              },
               "by": {
                 "type": "string"
               },
@@ -41119,6 +41188,52 @@
               "type",
               "x",
               "y",
+              "by"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "block_turned"
+                ]
+              },
+              "x": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "y": {
+                "type": "integer",
+                "minimum": -9007199254740991,
+                "maximum": 9007199254740991
+              },
+              "floor": {
+                "description": "The floor it's on: absent on the ground floor, 1 upstairs (RFC 0028).",
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 9007199254740991
+              },
+              "turn": {
+                "type": "number",
+                "enum": [
+                  0,
+                  90,
+                  180,
+                  270
+                ]
+              },
+              "by": {
+                "type": "string"
+              }
+            },
+            "required": [
+              "type",
+              "x",
+              "y",
+              "turn",
               "by"
             ]
           },
@@ -46143,6 +46258,15 @@
                   "enum": [
                     "fine",
                     "masterwork"
+                  ]
+                },
+                "turn": {
+                  "description": "A turned piece of furniture: 90 faces west, 180 north, 270 east. Absent faces south.",
+                  "type": "number",
+                  "enum": [
+                    90,
+                    180,
+                    270
                   ]
                 }
               },

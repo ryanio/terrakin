@@ -56,6 +56,31 @@ describe("Mirror", () => {
     expect(m.blocks.get("1,1")).toBe("leaf");
   });
 
+  it("carries which way each piece faces from the snapshot and the events", () => {
+    const m = new Mirror({
+      ...snapshot,
+      blocks: [
+        { x: 1, y: 1, block: "sofa", turn: 180 },
+        { x: 2, y: 1, block: "armchair" },
+      ],
+    });
+    expect(m.turnAt("1,1")).toBe(180);
+    expect(m.turnAt("2,1")).toBe(0);
+    const events = [
+      { seq: 4, event: { type: "block_turned", x: 2, y: 1, turn: 90, by: "a" } },
+      { seq: 5, event: { type: "block_turned", x: 1, y: 1, turn: 0, by: "a" } },
+      { seq: 6, event: { type: "block_removed", x: 2, y: 1, by: "a" } },
+      { seq: 7, event: { type: "block_placed", x: 3, y: 1, block: "bed", turn: 270, by: "a" } },
+    ] as const;
+    expect(m.apply(events[0])).toBe("applied");
+    expect(m.turnAt("2,1")).toBe(90);
+    for (const e of events.slice(1)) expect(m.apply(e)).toBe("applied");
+    // Turned back to south, and taken up: nothing kept. Set down turned: kept.
+    expect(m.turnAt("1,1")).toBe(0);
+    expect(m.turnAt("2,1")).toBe(0);
+    expect(m.turnAt("3,1")).toBe(270);
+  });
+
   it("carries a wall's and a roof's grade from the snapshot and the events (RFC 0051)", () => {
     const m = new Mirror({
       ...snapshot,

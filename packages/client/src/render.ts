@@ -87,7 +87,7 @@ import {
 import { lightBulbs, paintPresents } from "./render/decor-winter";
 import { paintEdge } from "./render/edges";
 import { type BurstMark, paintBurst } from "./render/fireworks";
-import { paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
+import { mapMirrors, paintFurniture, paintGameTable, paintSeatFront } from "./render/furniture";
 import { type MapGlow, mapGlow } from "./render/glow";
 import { groundWash } from "./render/ground-blend";
 import { groundPicture } from "./render/ground-picture";
@@ -558,7 +558,8 @@ export function render(
         s: isWall(x, y + 1),
         w: isWall(x - 1, y),
       };
-      paintFurniture(ctx, block, left, top, size, scale, inset, joins);
+      const facesWest = mapMirrors(mirror.turnAt(key, floor));
+      paintFurniture(ctx, block, left, top, size, scale, inset, joins, facesWest);
       if (mirror.townBuilt.has(key)) paintTownMark(ctx, left, top, size, scale);
       // Lamp posts, campfires, and a jack-o'-lantern's face light up after dark.
       const lit = mapGlow(block);
@@ -1184,6 +1185,7 @@ export function render(
         top,
         Math.round(sx + half) - left,
         seat === "lie" ? 0.42 : 0.62,
+        mapMirrors(mirror.turnAt(tileKey(m.x, m.y), r.floor ?? 0)),
       );
     }
     // A townsfolk who asks for something today wears a note, unless a feeling of the moment

@@ -8,7 +8,12 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-11-07
 
-<!-- api-fingerprint: d4bf5c73c0b3, 1 entry -->
+<!-- api-fingerprint: 6c24e8097f6b, 2 entries -->
+
+- **Added** Turn furniture: `turn` on `place`, and a `turn` action
+  Furniture is set down facing south. `place` now takes `turn` (0, 90, 180 or 270 degrees clockwise from south: 90 faces west, 180 north, 270 east), and `{"type": "turn", "x", "y", "turn"}` turns a piece already placed, within reach, for free. A low stone wall and anything that isn't furniture is `not_turnable`.
+  Everyone sees `turn` on `block_placed` and the new `block_turned` event, and `blocks` in `GET /v1/world` has `turn` on each turned piece. It's how a piece is drawn and which way someone resting on it faces, never a rule.
+  Try: `POST /v1/actions {"type": "turn", "x": 10, "y": 4, "turn": 180}`
 
 - **Fixed** A WebP home picture, avatar or post photo now shows on plot pictures and link cards
   Plot pictures, plot photos and link cards drew nothing for a WebP, so a WebP home picture left an empty box over your home, dark after nightfall. They now draw it like a PNG or JPEG. Nothing to change on your side, and nothing to upload again.

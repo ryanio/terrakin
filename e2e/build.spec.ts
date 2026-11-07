@@ -168,6 +168,13 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
       .toContainEqual({ x: spot.x, y: spot.y, block: "table" });
     // Her last table: the bar says none are left, and where to make one.
     await expect(page.locator("#palette-line")).toContainText("Table: none yet.");
+    // Facing north picked, a tap on her table turns it rather than taking it up.
+    await page.getByRole("button", { name: "Faces north" }).click();
+    await expect(page.locator("#palette-line")).toContainText("turns it north");
+    await tapTile(page, spot.dx, spot.dy);
+    await expect
+      .poll(async () => (await (await page.request.get("/v1/world")).json()).blocks)
+      .toContainEqual({ x: spot.x, y: spot.y, block: "table", turn: 180 });
     await page.screenshot({ path: "test-results/build-bar.png" });
   });
 
@@ -249,6 +256,9 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await page.click("#build");
     await expect(page.locator("#slim-walls")).toHaveCount(0);
     await page.click("#build");
+    // A branch lying on the corner would take the tap (it picks it up), so clear what lies in
+    // reach first: the tap is for walking.
+    await act(page.request, bramble.token, { type: "gather" });
     // The room reaches its corners: she walks onto the north-west one, and home again.
     await tapTile(page, -2, -2);
     await expect.poll(where).toMatchObject({ x: start.x - 2, y: start.y - 2 });

@@ -119,6 +119,7 @@ import {
   hearthStand,
   type LayoutFigure,
   litHomes,
+  RESTING_ORDER,
   restPose3d,
   signSize,
   smokeStart,
@@ -972,6 +973,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         o.castShadow = false;
       });
       group.position.copy(at);
+      group.rotation.order = RESTING_ORDER;
       group.rotation.y = turn;
       if (opts.photo) hideTag(group);
       scene.add(group);
@@ -1016,9 +1018,16 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       }
       const m = motion.pose(r, now, still);
       // The way they're walking, or the server's word for someone who hasn't moved since.
-      // Resting on a seat (RFC 0044): sat on its cushion facing out, or lying along a bed.
+      // Resting on a seat (RFC 0044): sat on its cushion facing out the way the seat faces, or
+      // lying along a bed.
+      const posture = postureAt(
+        (sx, sy) => mirror.blocksOn(r.floor ?? 0).get(tileKey(sx, sy)),
+        m.x,
+        m.y,
+      );
       const rest = restPose3d(
-        postureAt((sx, sy) => mirror.blocksOn(r.floor ?? 0).get(tileKey(sx, sy)), m.x, m.y),
+        posture,
+        posture ? mirror.turnAt(tileKey(m.x, m.y), r.floor ?? 0) : 0,
       );
       const want = rest.face ?? faceAngle(m.facing ?? mirror.facing.get(id));
       const gap = turnBetween(f.turn, want);
@@ -1054,7 +1063,8 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
             z += stand.y * pull;
           }
       }
-      z += rest.along;
+      x += rest.alongX;
+      z += rest.alongZ;
       const y = m.lift + rise + rest.lift;
       if (x !== p.x || z !== p.z || y !== p.y || turn !== f.turn || rest.pitch !== g.rotation.x)
         moved = true;

@@ -269,6 +269,7 @@ import {
   isServerCommand,
   type TownChecked,
 } from "./town";
+import { checkTurn, setTurn, turnField, turnFor } from "./turns";
 import type {
   ApplyResult,
   Command,
@@ -1330,7 +1331,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
     case "put_on":
     case "take_off":
     case "hang":
-    case "unhang": {
+    case "unhang":
+    case "turn": {
       const { x, y } = command;
       if (!inBounds(config, x, y)) return reject("out_of_bounds", "That's outside the world.");
       const far = outOfBuildReach(state, me, { x, y });
@@ -1367,6 +1369,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (command.type === "lift") return town(checkLift(state, actor, command, floor));
       // A wall on the line between two tiles (RFC 0050) keeps the same where-rules, and its own.
       if ((command.type === "place" || command.type === "remove") && command.side !== undefined) {
+        // A wall between tiles never turns, so a turn there is refused rather than dropped.
+        if (command.type === "place" && command.turn) {
+          return reject("not_turnable", "Only furniture turns. A wall between tiles doesn't.");
+        }
         const edge = checkEdge(state, actor, command, floor);
         return "code" in edge ? { ok: false, rejection: edge } : edge;
       }
@@ -1377,6 +1383,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       if (command.type === "unhang") return town(checkUnhang(state, actor, command, floor));
       const key = tileKey(x, y);
       const blocks = floor === 0 ? state.blocks : layerFor(state, floor).blocks;
+      // Turning a piece keeps the same where-rules, and its own checks.
+      if (command.type === "turn")
+        return town(checkTurn(state, actor, command, floor, blocks, key));
       // Hearths, crops, and displays are on the ground floor, keyed by their tile alone.
       const groundFloor = floor === 0;
       if (command.type === "remove") {
@@ -1402,6 +1411,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return () => {
           delete blocks[key];
           setGrade(state, floor, key, "plain");
+          setTurn(state, floor, key, 0);
           return [
             { type: "block_removed", x, y, ...floorField(floor), by: actor },
             ...moveBlockCost(state, actor, taken, 1, was),
@@ -1434,6 +1444,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // A made material may come at a grade (RFC 0051); nothing else takes one.
       const grade = gradeFor(state, block, command.grade);
       if (typeof grade !== "string") return { ok: false, rejection: grade };
+      // A piece of furniture may be set down facing another way.
+      const turn = turnFor(block, command.turn);
+      if (typeof turn !== "number") return { ok: false, rejection: turn };
       // A kiln (RFC 0047) waits for `open_clay`.
       const kilnShut = block === KILN ? potteryClosed(state) : null;
       if (kilnShut) return { ok: false, rejection: kilnShut };
@@ -1457,6 +1470,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       return () => {
         blocks[key] = block;
         setGrade(state, floor, key, grade);
+        setTurn(state, floor, key, turn);
         return [
           {
             type: "block_placed",
@@ -1465,6 +1479,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
             ...floorField(floor),
             block,
             ...gradeField(grade),
+            ...turnField(turn),
             by: actor,
           },
           ...moveBlockCost(state, actor, block, -1, grade),

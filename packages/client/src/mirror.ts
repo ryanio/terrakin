@@ -35,6 +35,7 @@ import {
   mayGatherOn,
   onSpring,
   type PastPlain,
+  type PastSouth,
   type Pet,
   type PickupKind,
   type PlotRoof,
@@ -51,6 +52,7 @@ import {
   squareOf,
   TEA,
   type Tile,
+  type Turn,
   tileKey,
   topKey,
   upstairsGroundOf,
@@ -66,6 +68,8 @@ type EventMessage = { seq: number; event: WorldEvent };
 
 /** Events that never change the zoomed-out map's ground picture (`groundRev`). */
 const GROUND_STILL: ReadonlySet<WorldEvent["type"]> = new Set([
+  // The zoomed-out ground picture draws no piece's facing.
+  "block_turned",
   "moved",
   "joined",
   "left",
@@ -231,6 +235,11 @@ export class Mirror {
    * and `edgeKey` for a line, as the snapshot and the events carry them. Plain is never here.
    */
   private gradeLayers = new Map<number, Map<string, PastPlain>>();
+  /**
+   * Which way each turned piece of furniture faces, by floor and the sim's `tileKey`, as the
+   * snapshot and the events carry it. A piece facing south is never here.
+   */
+  private turnLayers = new Map<number, Map<string, PastSouth>>();
   /** Whether made materials come in grades here (`grades_opened`, RFC 0051). */
   gradesOpen = false;
   /** Whether starter homes are built from walls between tiles (`starter_edges_set`, RFC 0050). */
@@ -359,9 +368,11 @@ export class Mirror {
       }
     }
     this.gradeLayers.clear();
+    this.turnLayers.clear();
     for (const b of snapshot.blocks) {
       this.blocksAt(b.floor).set(tileKey(b.x, b.y), b.block);
       this.#setGrade(b.floor, tileKey(b.x, b.y), b.grade);
+      this.#setTurn(b.floor, tileKey(b.x, b.y), b.turn);
     }
     for (const e of snapshot.edges ?? []) {
       this.edgesAt(e.floor).set(edgeKey(e.x, e.y, e.side), e.block);
@@ -463,6 +474,26 @@ export class Mirror {
    */
   gradeAt(key: string, floor = 0): Grade {
     return this.gradeLayers.get(floor)?.get(key) ?? "plain";
+  }
+
+  /** Which way the piece at `key` on `floor` faces, as the sim's `turnAt` reads it: 0 is south. */
+  turnAt(key: string, floor = 0): Turn {
+    return this.turnLayers.get(floor)?.get(key) ?? 0;
+  }
+
+  /** Keep or drop which way a piece faces as an event or the snapshot says it. */
+  #setTurn(floor: number | undefined, key: string, turn: Turn | undefined) {
+    const at = floor ?? 0;
+    if (!turn) {
+      this.turnLayers.get(at)?.delete(key);
+      return;
+    }
+    let layer = this.turnLayers.get(at);
+    if (!layer) {
+      layer = new Map();
+      this.turnLayers.set(at, layer);
+    }
+    layer.set(key, turn);
   }
 
   /** Keep or drop a wall's grade as an event or the snapshot says it. */
@@ -806,6 +837,7 @@ export class Mirror {
       case "block_placed":
         this.blocksAt(event.floor).set(tileKey(event.x, event.y), event.block);
         this.#setGrade(event.floor, tileKey(event.x, event.y), event.grade);
+        this.#setTurn(event.floor, tileKey(event.x, event.y), event.turn);
         if (event.pot) {
           this.pots.set(potKey(event.x, event.y, event.floor ?? 0), {
             good: { ...event.pot },
@@ -828,7 +860,11 @@ export class Mirror {
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));
         this.#setGrade(event.floor, tileKey(event.x, event.y), undefined);
+        this.#setTurn(event.floor, tileKey(event.x, event.y), undefined);
         this.pots.delete(potKey(event.x, event.y, event.floor ?? 0));
+        break;
+      case "block_turned":
+        this.#setTurn(event.floor, tileKey(event.x, event.y), event.turn);
         break;
       case "ground_laid":
         this.pavingAt(event.floor).set(tileKey(event.x, event.y), event.ground);

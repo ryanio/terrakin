@@ -8,6 +8,7 @@ import { tileKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
 import { kilnRemoveProblem, potRemoveProblem } from "./pottery";
 import { isSide, releaseHungOn, topRemoveProblem } from "./surfaces";
+import { setTurn } from "./turns";
 import type { Command, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
 import { inBounds, plotAtTile } from "./world";
@@ -65,6 +66,7 @@ export function checkClearBlock(
   return () => {
     delete state.blocks[key];
     setGrade(state, 0, key, "plain");
+    setTurn(state, 0, key, 0);
     return [
       { type: "block_removed", x, y, by: TOWN_ACTOR },
       ...moveBlockCost(state, owner, taken, 1, was),

@@ -66,6 +66,8 @@ export interface DecorPlace {
   /** Multiplies the model's colors: white on the plot, toward the haze for a neighbor's. */
   tint: number;
   joins?: Joins;
+  /** How far it's turned about the up axis (`turnAngle`): absent faces south. */
+  turn?: number;
 }
 
 /** One piece of a model, already in place: drawn once, or once per decor block. */
@@ -890,7 +892,7 @@ export function placeParts(parts: readonly Part[], places: readonly DecorPlace[]
     const spots: { x: number; y: number; z: number; turn: number; tint: number }[] = [];
     for (const p of places) {
       const at = { x: p.x, y: p.y ?? 0, z: p.z, tint: p.tint };
-      if (!part.rail) spots.push({ ...at, turn: 0 });
+      if (!part.rail) spots.push({ ...at, turn: p.turn ?? 0 });
       else
         for (const side of ["n", "e", "s", "w"] as const)
           if (p.joins?.[side]) spots.push({ ...at, turn: RAIL_TURN[side] });

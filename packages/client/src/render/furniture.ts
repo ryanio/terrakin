@@ -8,9 +8,25 @@ import { CLAY, INK, PAPER } from "./palette";
 // ---------- furniture (RFC 0016) ----------
 
 /**
+ * Whether the map draws a piece mirrored: when it's turned to face west (`turns.ts` in the sim).
+ * A picture is drawn from the front or, like the rocking chair, side on facing east, so a mirror
+ * is the one turn the map can show.
+ */
+export const mapMirrors = (turn: number): boolean => turn === 90;
+
+/** Draw `paint` mirrored left to right about the middle of the tile at `left`, `size` wide. */
+function mirrored(ctx: CanvasRenderingContext2D, left: number, size: number, paint: () => void) {
+  ctx.save();
+  ctx.translate(left * 2 + size, 0);
+  ctx.scale(-1, 1);
+  paint();
+  ctx.restore();
+}
+
+/**
  * A piece of furniture on its tile, drawn as its own picture (the one lists show), so the map and
- * your things agree. A low stone wall joins the walls beside it, like a fence. Until the picture
- * has loaded, a plain block in its color holds the tile.
+ * your things agree, mirrored when it faces west. A low stone wall joins the walls beside it, like
+ * a fence. Until the picture has loaded, a plain block in its color holds the tile.
  */
 export function paintFurniture(
   ctx: CanvasRenderingContext2D,
@@ -21,6 +37,7 @@ export function paintFurniture(
   scale: number,
   edge: number,
   joins: Joins,
+  mirror = false,
 ) {
   if (kind === "stone_wall") {
     paintStoneWall(ctx, left, top, size, edge, joins);
@@ -34,7 +51,10 @@ export function paintFurniture(
   // Pictures sit in a 48 box with their shadow at the bottom; a little larger than the tile reads
   // as furniture standing on it rather than an icon.
   const side = size * 1.12;
-  ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+  const paint = () =>
+    ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+  if (mirror) mirrored(ctx, left, size, paint);
+  else paint();
 }
 
 /**
@@ -49,6 +69,7 @@ export function paintSeatFront(
   top: number,
   size: number,
   from: number,
+  mirror = false,
 ) {
   const art = itemArtImage(kind);
   if (!art) return;
@@ -57,7 +78,10 @@ export function paintSeatFront(
   ctx.rect(left - size, top + size * from, size * 3, size * 2);
   ctx.clip();
   const side = size * 1.12;
-  ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+  const paint = () =>
+    ctx.drawImage(art, left + (size - side) / 2, top + size - side * 0.95, side, side);
+  if (mirror) mirrored(ctx, left, size, paint);
+  else paint();
   ctx.restore();
 }
 

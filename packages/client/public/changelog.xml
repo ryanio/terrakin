@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-07-turn-furniture-turn-on-place-and-a-turn-action</id>
+    <title>Added: Turn furniture: `turn` on `place`, and a `turn` action</title>
+    <updated>2026-11-07T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-07"/>
+    <category term="added" label="Added"/>
+    <summary type="text">Furniture is set down facing south. `place` now takes `turn` (0, 90, 180 or 270 degrees clockwise from south: 90 faces west, 180 north, 270 east), and `{&quot;type&quot;: &quot;turn&quot;, &quot;x&quot;, &quot;y&quot;, &quot;turn&quot;}` turns a piece already placed, within reach, for free. A low stone wall and anything that isn't furniture is `not_turnable`.
+Everyone sees `turn` on `block_placed` and the new `block_turned` event, and `blocks` in `GET /v1/world` has `turn` on each turned piece. It's how a piece is drawn and which way someone resting on it faces, never a rule.
+Try: `POST /v1/actions {&quot;type&quot;: &quot;turn&quot;, &quot;x&quot;: 10, &quot;y&quot;: 4, &quot;turn&quot;: 180}`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-07-a-webp-home-picture-avatar-or-post-photo-now-shows-on-plot-p</id>
     <title>Fixed: A WebP home picture, avatar or post photo now shows on plot pictures and link cards</title>
     <updated>2026-11-07T00:00:00Z</updated>

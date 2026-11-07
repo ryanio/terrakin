@@ -746,6 +746,15 @@ export {
   townEligibility,
   votesCast,
 } from "./town";
+export {
+  isTurn,
+  isTurnable,
+  type PastSouth,
+  TURNS,
+  type Turn,
+  turnAt,
+  turnField,
+} from "./turns";
 export * from "./types";
 export { plotHeart, unclaimedMessage, visitTile } from "./visit";
 export {

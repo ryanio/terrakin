@@ -152,7 +152,7 @@ describe("material grades over HTTP", () => {
     expect(t.store.log.at(-1)?.command).not.toHaveProperty("roll");
   });
 
-  it("reads graded things back: the inventory, a plot, its plan and map, and the world", async () => {
+  it("reads graded and turned things back: the inventory, a plot, its plan and map, and the world", async () => {
     const t = await start(true);
     t.stock({ plaster: 3 }, { plaster: { fine: 4 } });
     const inv = (await t.call("GET", "/v1/inventory", undefined, t.ada.token)).body;
@@ -203,8 +203,15 @@ describe("material grades over HTTP", () => {
     expect(plan.edges).toContainEqual({ x: 3, y: 4, side: "n", block: "plaster", grade: "fine" });
     const digit = Object.entries(plan.map.legend).find(([, kind]) => kind === "plaster")?.[0];
     expect(plan.map.grades).toEqual({ [digit as string]: "fine" });
+    // A turned piece of furniture reads back with its `turn` beside the grades, so a reload
+    // draws a room the way its owner set it out; one facing south has none.
+    t.stock({ sofa: 1 });
+    expect(await t.act({ type: "place", x: 4, y: 4, block: "sofa", turn: 180 })).toMatchObject({
+      ok: true,
+    });
     const world = (await t.call("GET", "/v1/world")).body;
     expect(world.blocks).toContainEqual({ x: 2, y: 1, block: "plaster", grade: "fine" });
     expect(world.blocks).toContainEqual({ x: 1, y: 1, block: "wood" });
+    expect(world.blocks).toContainEqual({ x: 4, y: 4, block: "sofa", turn: 180 });
   });
 });

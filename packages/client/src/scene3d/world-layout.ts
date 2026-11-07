@@ -21,6 +21,7 @@ import {
   type Scenery,
   type Season,
   STEP,
+  type Turn,
   tileKey,
   type WorldConfig,
 } from "@terrakin/sim";
@@ -214,7 +215,12 @@ export interface ChunkSource {
   edgesOn?(floor: number): ReadonlyMap<string, BlockKind>;
   /** A wall's grade (RFC 0051) by its tile or edge key (`Mirror.gradeAt`). Absent reads as plain. */
   gradeAt?(key: string, floor?: number): Grade;
+  /** Which way a piece faces by its tile key (`Mirror.turnAt`). Absent reads as south. */
+  turnAt?(key: string, floor?: number): Turn;
 }
+
+/** A turned piece's part of a chunk's signature, so turning one redraws it: empty for south. */
+const turnPart = (turn: Turn) => (turn ? `:t${turn}` : "");
 
 /** A graded wall's part of a chunk's signature, so a regraded wall redraws: empty for plain. */
 const gradePart = (grade: Grade | undefined) => (grade && grade !== "plain" ? `:${grade}` : "");
@@ -263,7 +269,9 @@ function tileThings(
   const firing = block === "kiln" && source.kilns?.has(key) === true;
   const shining = (lit && block === "glass") || firing;
   const grade = block ? (source.gradeAt?.(key) ?? "plain") : "plain";
-  if (block) parts.push(`${key}:${block}${gradePart(grade)}${shining ? ":lit" : ""}`);
+  const turn = block ? (source.turnAt?.(key) ?? 0) : 0;
+  if (block)
+    parts.push(`${key}:${block}${gradePart(grade)}${turnPart(turn)}${shining ? ":lit" : ""}`);
   if (ground) parts.push(`${key}:on:${ground}`);
   if (hearth) parts.push(`${key}:hearth`);
   // The picture too: staff can remove a piece's picture while it stays up (picture_removed).
@@ -274,7 +282,7 @@ function tileThings(
   const notYours =
     pickup !== null && viewer !== undefined && source.mayGatherAt?.(x, y, viewer) === false;
   if (pickup) parts.push(`${key}:${pickup}${notYours ? ":not-yours" : ""}`);
-  return { block, grade, ground, hearth, display, crop, pickup, notYours, parts, firing };
+  return { block, grade, turn, ground, hearth, display, crop, pickup, notYours, parts, firing };
 }
 
 /**
@@ -318,6 +326,7 @@ export function readChunk(
           block: at.block,
           ...(at.firing ? { lit: true as const } : {}),
           ...(at.grade !== "plain" ? { grade: at.grade } : {}),
+          ...(at.turn ? { turn: at.turn } : {}),
         });
       if (at.ground) ground.push({ x, y, ground: at.ground });
       if (at.hearth) homes.push({ x, y });
@@ -434,9 +443,17 @@ function upstairsOf(
         if (!shown) continue;
         if (block) {
           const grade = source.gradeAt?.(key, floor) ?? "plain";
-          blocks.push({ x, y, block, floor, ...(grade !== "plain" ? { grade } : {}) });
+          const turn = source.turnAt?.(key, floor) ?? 0;
+          blocks.push({
+            x,
+            y,
+            block,
+            floor,
+            ...(grade !== "plain" ? { grade } : {}),
+            ...(turn ? { turn } : {}),
+          });
           parts.push(
-            `${key}@${floor}:${block}${gradePart(grade)}${lit && block === "glass" ? ":lit" : ""}`,
+            `${key}@${floor}:${block}${gradePart(grade)}${turnPart(turn)}${lit && block === "glass" ? ":lit" : ""}`,
           );
         }
         if (laid) {

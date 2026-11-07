@@ -42,6 +42,7 @@ import {
   homeFrame,
   modelFootprint,
   type PlotLayout,
+  RESTING_ORDER,
   restPose3d,
   roofTop,
   signSize,
@@ -237,12 +238,13 @@ export function buildPlot(
     const seat = f.away
       ? undefined
       : layout.blocks.find((b) => b.x === f.x && b.y === f.y && (b.floor ?? 0) === (f.floor ?? 0));
-    const rest = restPose3d(postureOn(seat?.block));
+    const rest = restPose3d(postureOn(seat?.block), seat?.turn);
     fig.position.set(
-      toX(f.x) + (stand?.x ?? 0) * pull,
+      toX(f.x) + (stand?.x ?? 0) * pull + rest.alongX,
       floorY(f.floor) + rest.lift,
-      toZ(f.y) + (stand?.y ?? 0) * pull + rest.along,
+      toZ(f.y) + (stand?.y ?? 0) * pull + rest.alongZ,
     );
+    fig.rotation.order = RESTING_ORDER;
     // Face the camera's usual side (south-east), with a little turn each, or out of the seat.
     fig.rotation.set(
       rest.pitch,

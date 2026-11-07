@@ -35,6 +35,7 @@ import type {
 import type { Pet, PetCoat, PetKind } from "./pets";
 import type { Finish, FlowerKind, Glaze } from "./pottery";
 import type { TimeOfDay } from "./time-of-day";
+import type { PastSouth, Turn } from "./turns";
 import type { Weather } from "./weather";
 
 /** Stable id for a resident (human or agent). Assigned by the server, opaque to the sim. */
@@ -371,6 +372,8 @@ export interface FloorLayer {
   edges?: Record<string, BlockKind>;
   /** Graded walls on this floor (RFC 0051), as `WorldState.grades`. Absent until the first. */
   grades?: Record<string, PastPlain>;
+  /** Turned furniture on this floor, as `WorldState.turns`. Absent until the first. */
+  turns?: Record<string, PastSouth>;
 }
 
 export const VOTE_CHOICES = ["yes", "no", "abstain"] as const;
@@ -552,6 +555,12 @@ export interface WorldState {
    * Whatever takes a wall down drops its key in the same commit (`setGrade`).
    */
   grades?: Record<string, PastPlain>;
+  /**
+   * Which way each turned piece of furniture on the ground floor faces (`turns.ts`), keyed by
+   * `tileKey`. Absent until the first; a piece facing south is never here. Whatever puts a block
+   * down or takes one up writes its key in the same commit (`setTurn`).
+   */
+  turns?: Record<string, PastSouth>;
   /**
    * The Town Hall and the shop stop walkers, from the server's `solid_buildings` on. Absent until
    * then, so older logs replay as they were made, when residents walked across both.
@@ -1941,7 +1950,11 @@ export type Command =
       side?: Side | undefined;
       /** A made material's grade (RFC 0051). Absent is plain. */
       grade?: Grade | undefined;
+      /** Which way a piece of furniture faces (`turns.ts`): degrees clockwise from south. */
+      turn?: Turn | undefined;
     }
+  /** Face the piece of furniture on a tile within reach another way (`turns.ts`). */
+  | { type: "turn"; x: number; y: number; floor?: number | undefined; turn: Turn }
   | {
       type: "remove";
       x: number;
@@ -2628,11 +2641,15 @@ export type WorldEvent =
       block: BlockKind;
       /** A made material's grade (RFC 0051), past plain only. */
       grade?: PastPlain;
+      /** Which way a piece of furniture faces (`turns.ts`), past south only. */
+      turn?: PastSouth;
       by: ResidentId;
       /** The pot set down, for a `pot` block (RFC 0047). */
       pot?: Good;
     }
   | { type: "block_removed"; x: number; y: number; floor?: number; by: ResidentId }
+  /** The piece of furniture at (x, y) was turned to face `turn` (`turns.ts`). Public. */
+  | { type: "block_turned"; x: number; y: number; floor?: number; turn: Turn; by: ResidentId }
   /** A wall went up on the line on `side` of (x, y), `n` or `w` (RFC 0050). Public. */
   | {
       type: "edge_placed";
@@ -3580,6 +3597,8 @@ export const REJECTION_CODES = [
    * changed (RFC 0039).
    */
   "listing_changed",
+  /** Only furniture turns, by 0, 90, 180 or 270 degrees, and not a low stone wall. */
+  "not_turnable",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

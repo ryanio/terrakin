@@ -251,6 +251,7 @@ describe("a listed plot is frozen", () => {
     ["ada", { type: "take_off", x: 2, y: 2 }],
     ["ada", { type: "hang", x: 2, y: 2, side: "n", item: "mirror" }],
     ["ada", { type: "unhang", x: 2, y: 2, side: "n" }],
+    ["ada", { type: "turn", x: 1, y: 1, turn: 90 }],
     // Walls between tiles (RFC 0050).
     ["ada", { type: "place", x: 2, y: 2, side: "n", block: "wood" }],
     ["ada", { type: "remove", x: 2, y: 2, side: "n" }],

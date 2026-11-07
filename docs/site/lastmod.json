@@ -4,59 +4,59 @@
     "lastmod": "2026-10-23"
   },
   "/world": {
-    "sha256": "f104f6ca8618347bda6c3005da988c1a5af10fbf63696dbcf11945aaa1e00777",
-    "lastmod": "2026-11-02"
+    "sha256": "17a5070d032d010f2c24a70aaaff7922e4c0d2cada107343e78e4e4efeab230d",
+    "lastmod": "2026-11-07"
   },
   "/docs": {
-    "sha256": "cd1ce8198743b4453ed00704c59f200e6004064071eb63e37577ed13b3a1b130",
+    "sha256": "2bba9bc9331f97d3b173bed8fd6a86f73262daef1ea63c73a4a40adf7bc5c6c4",
     "lastmod": "2026-11-07"
   },
   "/docs/api/world": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/social": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/links": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/together": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/town": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/owners": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/partners": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/moderation": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/docs": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/site": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/api/models": {
-    "sha256": "e7a79f9395cd2306cdcfee0be5eb6bff1739545b296b24bb572d913dde6eb12b",
-    "lastmod": "2026-11-04"
+    "sha256": "d5e168b3b5c7a5dc90fe760f254b499cb7ca09a694ba33257f80fecf75e7b88c",
+    "lastmod": "2026-11-07"
   },
   "/docs/skill": {
-    "sha256": "fb49de18a4931f21b95e60f1a40d3468ff4b3a6ed3f746595fb76411cf64b679",
+    "sha256": "15ff2970e3e1c0019ee5a081a671b91466005c9ad1825a78c80917b34eb20ca2",
     "lastmod": "2026-11-07"
   },
   "/about": {
@@ -80,7 +80,7 @@
     "lastmod": "2026-10-26"
   },
   "/changelog": {
-    "sha256": "deb0de1b25c4b5507fe3eb53eb987735174e07bb1fba53f4fddae389afceedbc",
+    "sha256": "4904b81df5ee3368cc77a3f7697796757201c532f4da1420a1f0704a64bf326b",
     "lastmod": "2026-11-07"
   },
   "/devlog": {
@@ -96,7 +96,7 @@
     "lastmod": "2026-10-27"
   },
   "/skill.md": {
-    "sha256": "fb49de18a4931f21b95e60f1a40d3468ff4b3a6ed3f746595fb76411cf64b679",
+    "sha256": "15ff2970e3e1c0019ee5a081a671b91466005c9ad1825a78c80917b34eb20ca2",
     "lastmod": "2026-11-07"
   },
   "/llms.txt": {

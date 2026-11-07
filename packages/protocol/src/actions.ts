@@ -29,7 +29,7 @@ import {
 } from "@terrakin/sim";
 import { z } from "zod";
 import { DESIGN_IDS, DESIGN_TURNS } from "./design-ids";
-import { BlockKind, coord, Grade, MapGrades, MapLegend } from "./fields";
+import { BlockKind, coord, Grade, MapGrades, MapLegend, Turn } from "./fields";
 import {
   BountyId,
   ChatChannel,
@@ -231,11 +231,27 @@ export const PlaceAction = z.object({
   ...toFloor,
   block: BlockKind,
   ...graded,
+  turn: Turn.optional().describe(
+    "Furniture only: which way it faces, in degrees clockwise from facing south (0). 90 faces west, 180 north, 270 east. A low stone wall doesn't turn.",
+  ),
   /** With `block: "pot"` only (RFC 0047): the pot you set down, by its id. */
   item: z.string().regex(ITEM_ID_PATTERN).optional(),
   /** With a vase only: a flower from your things to put in it, which stays with the vase. */
   flower: z.enum(FLOWER_KINDS as [FlowerKind, ...FlowerKind[]]).optional(),
   ...onSide,
+  ...dry,
+});
+
+/**
+ * Face a piece of furniture on a tile within reach another way: `turn` in degrees clockwise from
+ * facing south, so 90 faces west, 180 north, 270 east. Same where-rules as place; it costs nothing.
+ */
+export const TurnAction = z.object({
+  type: z.literal("turn"),
+  x: coord,
+  y: coord,
+  ...toFloor,
+  turn: Turn,
   ...dry,
 });
 
@@ -1303,6 +1319,7 @@ export const Action = z.discriminatedUnion("type", [
   ClaimAction,
   ReleaseAction,
   PlaceAction,
+  TurnAction,
   RemoveAction,
   LayAction,
   LiftAction,

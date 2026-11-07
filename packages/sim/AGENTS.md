@@ -155,6 +155,11 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - A roof is one `roof` field on the plot, never on tiles. What it covers is read from the walls each time it's drawn (`roofShape`), so taking a wall down never has to be checked against a roof. Every view draws from `roofShape`, so all of them agree tile for tile.
 - Its covering costs `blockNeeds(material)` times `ROOFS.blocks`, taken when it goes up and given back when it changes or comes down. `roof_set`, `roof_changed`, and `roof_top_set` are distinct so readers can count roofs. `src/fixtures/roof-log.ts` and `roofs.test.ts` pin it.
 
+## Turned furniture
+
+- A turn is a property of a placed piece, never a kind: `turns` on the ground floor and each floor, keyed by `tileKey`, 90, 180 or 270 clockwise from facing south. South is never stored. Read through `turnAt`; write with `setTurn`, and whatever puts a block down or takes one up writes its key in the same commit ([decision 0426](../../docs/knowledge/decisions/0426-a-piece-of-furniture-s-turn-lives-in-the-world-drawing-only-.md)).
+- Only furniture turns, and not the low stone wall (`isTurnable`). No rule reads a turn. `src/fixtures/turns-log.ts` and `turns.test.ts` pin it.
+
 ## Material grades (RFC 0051)
 
 - A grade is a property of a stack and a wall, never a kind: `graded` on an inventory beside `stacks` (which keeps meaning plain), and `grades` on the ground floor and each floor, keyed by `tileKey` for a block and `edgeKey` for a line. Plain is never stored, so every event and record from before grades is byte for byte the same. Read through `heldGraded` and `gradeAt`; write a wall's grade with `setGrade`, and whatever takes a block or line down sets it back to plain in the same commit.

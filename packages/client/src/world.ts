@@ -34,11 +34,14 @@ import {
   ITEM_INFO,
   inEventArea,
   isEdgeKind,
+  isFurnitureKind,
   isGroundKind,
   isHangingWall,
   isHeldBlock,
   isMaterialKind,
   isSurface,
+  isTurn,
+  isTurnable,
   onGreen,
   type PastPlain,
   pageKnown,
@@ -56,6 +59,7 @@ import {
   settleProblem,
   spawnIn,
   type Tile,
+  type Turn,
   tileKey,
   topKey,
   upstairsProblem,
@@ -99,11 +103,14 @@ import {
   paintHeldRow,
   paintMaterialRow,
   paintPotChips,
+  paintTurnChips,
   potPlaceLine,
   potsAfter,
   potsIn,
   stairsLine,
   tabOf,
+  tapTurn,
+  turnLine,
   withChanges,
   withGradedChanges,
 } from "./build-palette";
@@ -351,6 +358,11 @@ let pickGrade: Grade = "plain";
 /** `grade` for a place of the pick: only a made material at a grade past plain. */
 const gradeOfPick = (): { grade?: PastPlain } =>
   isMaterialKind(pick) && pickGrade !== "plain" ? { grade: pickGrade } : {};
+/** Which way a picked piece of furniture goes down, and turns a piece of its kind to. */
+let pickTurn: Turn = 0;
+/** `turn` for a place of the pick: only a piece that turns, facing other than south. */
+const turnOfPick = (): { turn?: Turn } =>
+  pickTurn !== 0 && isTurnable(pick as BlockKind) ? { turn: pickTurn } : {};
 /** How many of the pick you hold at its grade, for a held block. */
 const pickHeld = () =>
   isMaterialKind(pick) ? heldAt(holdings, graded, pick, pickGrade) : heldOf(holdings, pick);
@@ -1758,8 +1770,17 @@ function tapTile(tile: { x: number; y: number }) {
       if (mirror.edgeAt(tile.x, tile.y, side, floor)) tryAct({ type: "remove", ...on, side });
       else if (isHeldBlock(pick) && pickHeld() === 0) showToast(pickNoneLine(pick));
       else tryAct({ type: "place", ...on, side, block: pick, ...gradeOfPick() });
-    } else if (hasBlock) tryAct({ type: "remove", ...on });
-    else if (pick === "pot") {
+    } else if (hasBlock) {
+      // With the same piece picked, a tap turns it to face the way the picker says.
+      const turn = tapTurn(
+        mirror.blocksOn(floor).get(key),
+        mirror.turnAt(key, floor),
+        pick,
+        pickTurn,
+      );
+      if (turn !== undefined) tryAct({ type: "turn", ...on, turn });
+      else tryAct({ type: "remove", ...on });
+    } else if (pick === "pot") {
       // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
       const pot = pots.find((p) => p.id === potPick);
       if (!pot) showToast(potPlaceLine(undefined, undefined));
@@ -1777,7 +1798,7 @@ function tapTile(tile: { x: number; y: number }) {
             ? kilnPlaceLine(holdings)
             : pondLine(holdings, mirror?.clayOpen === true),
       );
-    } else tryAct({ type: "place", ...on, block: pick, ...gradeOfPick() });
+    } else tryAct({ type: "place", ...on, block: pick, ...gradeOfPick(), ...turnOfPick() });
     return;
   }
   const target = tapTarget(tile);
@@ -2318,6 +2339,13 @@ palette.addEventListener("click", (e) => {
     paintPalette();
     return;
   }
+  // Which way the picked piece of furniture faces.
+  const turn = Number(target.closest<HTMLButtonElement>("button[data-turn]")?.dataset.turn);
+  if (isTurn(turn)) {
+    pickTurn = turn;
+    paintPalette();
+    return;
+  }
   // A grade for the picked made material (RFC 0051).
   const grade = target.closest<HTMLButtonElement>("button[data-grade]")?.dataset.grade;
   if (grade === "plain" || grade === "fine" || grade === "masterwork") {
@@ -2398,6 +2426,7 @@ function paintPalette() {
   }
   paintMaterialRow(paletteRows.materials, holdings, pick);
   paintGradeChips(paletteRows.materials, pick, holdings, graded, pickGrade);
+  paintTurnChips(paletteRows.furniture, pick, pickTurn);
   for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
   const line = isGroundKind(pick)
@@ -2410,7 +2439,7 @@ function paintPalette() {
       : isMaterialKind(pick) && pickGrade !== "plain"
         ? gradedHeldLine(pick, pickGrade, pickHeld())
         : isHeldBlock(pick)
-          ? heldLine(pick, heldOf(holdings, pick))
+          ? `${heldLine(pick, heldOf(holdings, pick))}${isFurnitureKind(pick) && isTurnable(pick) ? turnLine(pick, pickTurn) : ""}`
           : pick === "pond"
             ? pondLine(holdings, mirror?.clayOpen === true)
             : pick === "stairs"

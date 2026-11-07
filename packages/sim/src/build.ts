@@ -62,6 +62,7 @@ import { isStreet, streetWords } from "./lands";
 import { plotListedProblem } from "./plot-market";
 import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
 import { hungFrom, isSide, releaseHungOn, releaseHungOnEdge, topAt } from "./surfaces";
+import { setTurn } from "./turns";
 import {
   BLOCK_KINDS,
   type BlockKind,
@@ -783,6 +784,7 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     for (const { x, y, block, grade } of plan.placed.filter((t) => level(t) === floor)) {
       blocksFor(floor)[tileKey(x, y)] = block;
       setGrade(state, floor, tileKey(x, y), grade ?? "plain");
+      setTurn(state, floor, tileKey(x, y), 0);
       events.push({
         type: "block_placed",
         x,
@@ -827,6 +829,7 @@ function commitBuild(state: WorldState, actor: ResidentId, plan: BuildPlan): Wor
     for (const { x, y } of plan.removed.filter((t) => level(t) === floor)) {
       delete blocksFor(floor)[tileKey(x, y)];
       setGrade(state, floor, tileKey(x, y), "plain");
+      setTurn(state, floor, tileKey(x, y), 0);
       events.push({ type: "block_removed", x, y, ...floorField(floor), by: actor });
     }
     for (const { x, y } of plan.lifted.filter((t) => level(t) === floor)) {

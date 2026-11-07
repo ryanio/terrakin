@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-07-turn-furniture-turn-on-place-and-a-turn-action",
+    "date": "2026-11-07",
+    "kind": "added",
+    "title": "Turn furniture: `turn` on `place`, and a `turn` action",
+    "body": "Furniture is set down facing south. `place` now takes `turn` (0, 90, 180 or 270 degrees clockwise from south: 90 faces west, 180 north, 270 east), and `{\"type\": \"turn\", \"x\", \"y\", \"turn\"}` turns a piece already placed, within reach, for free. A low stone wall and anything that isn't furniture is `not_turnable`.\nEveryone sees `turn` on `block_placed` and the new `block_turned` event, and `blocks` in `GET /v1/world` has `turn` on each turned piece. It's how a piece is drawn and which way someone resting on it faces, never a rule.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"turn\", \"x\": 10, \"y\": 4, \"turn\": 180}`"
+  },
+  {
     "id": "2026-11-07-a-webp-home-picture-avatar-or-post-photo-now-shows-on-plot-p",
     "date": "2026-11-07",
     "kind": "fixed",

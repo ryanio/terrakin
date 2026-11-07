@@ -5,6 +5,7 @@ import { notAtDoor } from "./doors";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { setTurn } from "./turns";
 import type {
   BlockKind,
   Command,
@@ -751,6 +752,7 @@ function commitCommonsBuild(
   for (const t of build.removed) {
     const key = tileKey(t.x, t.y);
     delete state.blocks[key];
+    setTurn(state, 0, key, 0);
     delete town.built[key];
     events.push({ type: "block_removed", x: t.x, y: t.y, by: proposal });
   }
@@ -761,6 +763,7 @@ function commitCommonsBuild(
   for (const b of build.placed) {
     const key = tileKey(b.x, b.y);
     state.blocks[key] = b.block;
+    setTurn(state, 0, key, 0);
     town.built[key] = proposal;
     events.push({ type: "block_placed", x: b.x, y: b.y, block: b.block, by: proposal });
   }

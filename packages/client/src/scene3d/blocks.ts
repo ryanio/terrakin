@@ -44,7 +44,15 @@ import {
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
-import { FLOOR_HEIGHT, floorY, type LayoutBlock, paneTurn, stairsTurn, tileHash } from "./layout";
+import {
+  FLOOR_HEIGHT,
+  floorY,
+  type LayoutBlock,
+  paneTurn,
+  stairsTurn,
+  tileHash,
+  turnAngle,
+} from "./layout";
 import { materialTexture, type WallTextures } from "./materials";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";
@@ -359,6 +367,7 @@ export function blockMeshes(
     const places = list.map((b) => ({
       ...placeOf(b),
       ...(kind === "stone_wall" ? { joins: joins(b) } : {}),
+      ...(b.turn ? { turn: turnAngle(b.turn) } : {}),
     }));
     out.push(...furnitureInstances(stage, kind, grain, places));
   }

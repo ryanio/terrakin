@@ -61,6 +61,8 @@ import {
   timeOfDayAt,
   topsOf,
   townHallTiles,
+  turnAt,
+  turnField,
   type WorldEvent,
   type WorldState,
   wayPickupsOpen,
@@ -498,7 +500,14 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
   const blocks = floors.flatMap((floor) =>
     Object.entries(blocksOn(state, floor)).map(([key, block]) => {
       const [x, y] = parseKey(key);
-      return { x, y, ...floorField(floor), block, ...gradeField(gradeAt(state, key, floor)) };
+      return {
+        x,
+        y,
+        ...floorField(floor),
+        block,
+        ...gradeField(gradeAt(state, key, floor)),
+        ...turnField(turnAt(state, key, floor)),
+      };
     }),
   );
   // Walls between tiles (RFC 0050), each on its `n` or `w` line, `floor` above the ground floor.

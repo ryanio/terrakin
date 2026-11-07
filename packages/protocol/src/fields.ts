@@ -3,7 +3,14 @@
  * re-export this module, so the OpenAPI document writes them out where they are used rather than
  * naming them as components.
  */
-import { BLOCK_KINDS, GRADES, PAST_PLAIN, type PastPlain } from "@terrakin/sim";
+import {
+  BLOCK_KINDS,
+  GRADES,
+  PAST_PLAIN,
+  type PastPlain,
+  type PastSouth,
+  TURNS,
+} from "@terrakin/sim";
 import { z } from "zod";
 
 /** A world tile coordinate. */
@@ -15,6 +22,11 @@ export const BlockKind = z.enum(BLOCK_KINDS);
 export const Grade = z.enum(GRADES);
 /** A grade past plain: the only grades a record or an event ever names. */
 export const PastPlainGrade = z.enum(PAST_PLAIN as [PastPlain, ...PastPlain[]]);
+
+/** Which way a piece of furniture faces: degrees clockwise from facing south, seen from above. */
+export const Turn = z.literal(TURNS);
+/** A turn past facing south: the only turns a record or an event ever names. */
+export const PastSouthTurn = z.literal(TURNS.filter((t): t is PastSouth => t !== 0));
 
 /** Which digits of a map's legend are a graded made material (RFC 0051). */
 export const MapGrades = z

@@ -85,10 +85,24 @@ import {
   type WallDecorKind as WorldWallDecorKind,
 } from "@terrakin/sim";
 import { z } from "zod";
-import { BlockKind, coord, MapGrades, MapLegend, PastPlainGrade } from "./fields";
+import {
+  BlockKind,
+  coord,
+  MapGrades,
+  MapLegend,
+  PastPlainGrade,
+  PastSouthTurn,
+  Turn,
+} from "./fields";
 
 /** `grade` on what names a made material (RFC 0051), present only past plain. */
 const pastPlain = { grade: PastPlainGrade.optional() };
+/** `turn` on a piece of furniture turned from facing south, present only when it was. */
+const turned = {
+  turn: PastSouthTurn.optional().describe(
+    "A turned piece of furniture: 90 faces west, 180 north, 270 east. Absent faces south.",
+  ),
+};
 
 /** Bump only with an RFC. Old versions keep working until a published sunset date. */
 export const PROTOCOL_VERSION = 1;
@@ -857,7 +871,7 @@ export const WorldSnapshot = z.object({
   ),
   /**
    * Blocks, one per tile on each floor: the ground floor's, then each floor's above it. A graded
-   * made material (RFC 0051) has its `grade`.
+   * made material (RFC 0051) has its `grade`, and a turned piece of furniture its `turn`.
    */
   blocks: z.array(
     z.object({
@@ -866,6 +880,7 @@ export const WorldSnapshot = z.object({
       ...onFloor,
       block: BlockKind,
       ...pastPlain,
+      ...turned,
     }),
   ),
   /**
@@ -1312,6 +1327,7 @@ export const WorldEvent = z.discriminatedUnion("type", [
     ...onFloor,
     block: BlockKind,
     ...pastPlain,
+    ...turned,
     by: z.string(),
     /** The pot set down, for a `pot` block (RFC 0047). Its `label` is its maker's words. */
     pot: GoodEventView.optional(),
@@ -1323,6 +1339,15 @@ export const WorldEvent = z.discriminatedUnion("type", [
     x: z.number().int(),
     y: z.number().int(),
     ...onFloor,
+    by: z.string(),
+  }),
+  /** The piece of furniture at (x, y) now faces `turn`: 0 south, 90 west, 180 north, 270 east. */
+  z.object({
+    type: z.literal("block_turned"),
+    x: z.number().int(),
+    y: z.number().int(),
+    ...onFloor,
+    turn: Turn,
     by: z.string(),
   }),
   /** A path or flooring went down on a tile (RFC 0016). */

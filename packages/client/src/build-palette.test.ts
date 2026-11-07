@@ -16,12 +16,25 @@ import {
   kilnPlaceLine,
   stairsLine,
   tabOf,
+  tapTurn,
   withChanges,
   withGradedChanges,
 } from "./build-palette";
 import { CLAY_WHERE } from "./things";
 
 describe("the build bar", () => {
+  it("turns a piece of the picked kind to face the picked way, and takes up anything else", () => {
+    // A sofa facing south, tapped with the sofa picked facing north: turned north.
+    expect(tapTurn("sofa", 0, "sofa", 180)).toBe(180);
+    // Already facing the picked way: the tap takes it up, as it always has.
+    expect(tapTurn("sofa", 180, "sofa", 180)).toBeUndefined();
+    // Another kind picked, a wall, a low stone wall, or an empty tile: taken up or nothing.
+    expect(tapTurn("sofa", 0, "armchair", 90)).toBeUndefined();
+    expect(tapTurn("wood", 0, "wood", 90)).toBeUndefined();
+    expect(tapTurn("stone_wall", 0, "stone_wall", 90)).toBeUndefined();
+    expect(tapTurn(undefined, 0, "sofa", 90)).toBeUndefined();
+  });
+
   it("counts what you hold and leaves out what you don't", () => {
     const held = holdingsFromStacks([
       { kind: "bench", count: 1 },

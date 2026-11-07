@@ -19,6 +19,7 @@ import {
   type MadeKind,
   MEDIA_ID_PATTERN,
   type PastPlain,
+  type PastSouth,
   type Pattern,
   type PetCoat,
   type PetKind,
@@ -115,7 +116,15 @@ export interface LayoutBlock {
   floor?: number | undefined;
   /** A graded made material's grade (RFC 0051): absent is plain. */
   grade?: PastPlain | undefined;
+  /** Which way a turned piece of furniture faces (`turns.ts` in the sim): absent faces south. */
+  turn?: PastSouth | undefined;
 }
+
+/**
+ * A piece's turn as an angle about the up axis, in the sense a figure faces (`faceAngle`): 0 faces
+ * south, and the sim's turns go clockwise seen from above, so 90 (west) is a quarter turn back.
+ */
+export const turnAngle = (turn: number | undefined): number => (-(turn ?? 0) * Math.PI) / 180;
 
 export interface LayoutFigure {
   id: string;
@@ -242,22 +251,33 @@ export function hearthPull(x: number, y: number, hx: number, hy: number): number
 
 /**
  * How a figure resting on a seat stands in 3D, in tile units and radians: sitting, raised onto the
- * cushion and a little shorter, facing out of the seat (south, its back to the north); lying,
- * tipped onto its back along the bed with its head on the pillow to the north. `along` moves it
- * south on its tile. Standing is no change. The heights follow the models in `furniture.ts`.
+ * cushion and a little shorter, facing out of the seat the way it faces (south for a seat never
+ * turned, its back to the north); lying, tipped onto its back along the bed with its head on the
+ * pillow at the bed's head. `alongX` and `alongZ` move it toward the seat's front on its tile.
+ * Standing is no change. The heights follow the models in `furniture.ts`. A figure turns about
+ * its own up axis first and tips after (`RESTING_ORDER`), so a bed lies the same at any turn.
  */
-export function restPose3d(posture: "sit" | "lie" | undefined): {
+export function restPose3d(
+  posture: "sit" | "lie" | undefined,
+  turn?: number,
+): {
   lift: number;
   pitch: number;
   squash: number;
-  along: number;
+  alongX: number;
+  alongZ: number;
   face?: number;
 } {
-  if (posture === "sit") return { lift: 0.26, pitch: 0, squash: 0.8, along: 0.06, face: 0 };
+  const face = turnAngle(turn);
+  const along = (by: number) => ({ alongX: by * Math.sin(face), alongZ: by * Math.cos(face) });
+  if (posture === "sit") return { lift: 0.26, pitch: 0, squash: 0.8, ...along(0.06), face };
   if (posture === "lie")
-    return { lift: 0.42, pitch: -Math.PI / 2, squash: 1, along: 0.36, face: 0 };
-  return { lift: 0, pitch: 0, squash: 1, along: 0 };
+    return { lift: 0.42, pitch: -Math.PI / 2, squash: 1, ...along(0.36), face };
+  return { lift: 0, pitch: 0, squash: 1, alongX: 0, alongZ: 0 };
 }
+
+/** The order a resting figure's rotation applies in: its facing first, then tipping back. */
+export const RESTING_ORDER = "YXZ";
 
 // ---------- homes with an upstairs (RFC 0028) ----------
 
@@ -635,6 +655,7 @@ export function plotLayout(
         : {}),
       ...(b.floor ? { floor: b.floor } : {}),
       ...(b.grade ? { grade: b.grade } : {}),
+      ...(b.turn ? { turn: b.turn } : {}),
     });
   }
   blocks.sort((a, b) => (a.floor ?? 0) - (b.floor ?? 0) || a.y - b.y || a.x - b.x);

@@ -35,11 +35,14 @@ import {
   isDecorKind,
   isFurnitureKind,
   isMaterialKind,
+  isTurnable,
   MATERIAL_KINDS,
   type MaterialKind,
   PAST_PLAIN,
   type PastPlain,
   type StackKind,
+  TURNS,
+  type Turn,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
@@ -425,6 +428,64 @@ export function paintHeldRow(row: HTMLElement, holdings: Holdings | null, picked
       });
     }),
   );
+}
+
+// ---------- which way a piece faces ----------
+
+/** Each turn as a way to face, with the arrow its chip shows: north is up on the map. */
+const FACINGS: Record<Turn, { word: string; arrow: string }> = {
+  0: { word: "south", arrow: "↓" },
+  90: { word: "west", arrow: "←" },
+  180: { word: "north", arrow: "↑" },
+  270: { word: "east", arrow: "→" },
+};
+
+/**
+ * The facing picker: right after a picked piece of furniture that turns, a chip for each way it
+ * can face, an arrow on each. Nothing for a pick that doesn't turn.
+ */
+export function paintTurnChips(row: HTMLElement, kind: string, picked: Turn): void {
+  if (!isTurnable(kind as BlockKind)) return;
+  const chip = row.querySelector(`[data-block="${kind}"]`);
+  if (!chip) return;
+  const chips = TURNS.map((turn) =>
+    choice(
+      { "data-turn": String(turn) },
+      `Faces ${FACINGS[turn].word}`,
+      h("span", {
+        class: "palette-arrow",
+        attrs: { "aria-hidden": "true" },
+        text: FACINGS[turn].arrow,
+      }),
+      { dim: false, picked: turn === picked },
+    ),
+  );
+  chip.after(...chips);
+}
+
+/**
+ * What a tap in the build bar does to the piece on a tile: with that same kind picked, facing
+ * another way than the picker says, the turn to send. Undefined for every other tap, which takes
+ * the piece up as a tap always has.
+ */
+export function tapTurn(
+  placed: BlockKind | undefined,
+  placedTurn: Turn,
+  pick: string,
+  pickTurn: Turn,
+): Turn | undefined {
+  if (placed === undefined || placed !== pick || !isTurnable(placed)) return undefined;
+  return placedTurn === pickTurn ? undefined : pickTurn;
+}
+
+/**
+ * The line's last sentence for a picked piece that turns, once an arrow other than south is picked:
+ * which way it goes down, and that a tap on one of yours turns it. Facing south, nothing to add.
+ */
+export function turnLine(kind: FurnitureKind, turn: Turn): string {
+  if (turn === 0) return "";
+  const word = FACINGS[turn].word;
+  return ` Goes down facing ${word}, and a tap on a ${ITEM_INFO[kind].name.toLowerCase()} of yours facing another way turns it ${word}.`;
 }
 
 // ---------- pots (RFC 0047) ----------

@@ -4,7 +4,7 @@
  * `?item=` admires one item up close on a soft ground disc.
  */
 
-import { isDecorKind } from "@terrakin/sim";
+import { isDecorKind, isFurnitureKind } from "@terrakin/sim";
 import { isModelResource } from "@terrakin/ui/format";
 import {
   BufferAttribute,
@@ -31,6 +31,7 @@ import {
 } from "./art";
 import { type GalleryRequest, jamFlavor } from "./catalog";
 import { decorInstances, decorModel } from "./decor";
+import { furnitureInstances } from "./furniture";
 import {
   jamJar,
   landscapeTexture,
@@ -211,7 +212,7 @@ function admire(
   stage.scene.add(root);
   root.add(groundDisc(3.2));
   const item = req.item ?? "jam-lemon";
-  const flavor = jamFlavor(item);
+  const flavor = isFurnitureKind(item) ? undefined : jamFlavor(item);
   let top = PEDESTAL_TOP;
   let radius = 1.1;
   if (item === "lemon-tree") {
@@ -235,6 +236,12 @@ function admire(
       radius = item === "bench" ? 0.85 : 0.95;
     }
     top = blockLook(item).height;
+  } else if (isFurnitureKind(item)) {
+    // Furniture stands on the ground, turned a little so its front and one side both show.
+    addAll(root, furnitureInstances(stage, item, grain, [{ x: 0, z: 0, tint: 0xffffff }]));
+    root.rotation.y = -0.5;
+    top = blockLook(item).height;
+    radius = Math.max(0.85, top * 0.75);
   } else if (item === "painting") {
     const pic = picture ?? stage.keep(landscapeTexture("meadow"));
     const p = painting(pic, picture ? aspect : 4 / 3, 1);

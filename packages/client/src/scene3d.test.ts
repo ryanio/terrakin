@@ -940,6 +940,8 @@ describe("gallery requests", () => {
     expect(parseGallery("?item=bomb")).toEqual({});
     for (const decor of ["lantern", "frame", "fence", "bench"])
       expect(parseGallery(`?item=${decor}`)).toEqual({ item: decor });
+    for (const piece of ["rocking_chair", "sofa"])
+      expect(parseGallery(`?item=${piece}`)).toEqual({ item: piece });
     expect(parseGallery("?item=painting&media=m_0123456789abcdef")).toEqual({
       item: "painting",
       media: "/media/m_0123456789abcdef",

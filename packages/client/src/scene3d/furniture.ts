@@ -22,13 +22,18 @@ import {
   ConeGeometry,
   CylinderGeometry,
   DodecahedronGeometry,
+  ExtrudeGeometry,
   IcosahedronGeometry,
   LatheGeometry,
   MeshLambertMaterial,
   type Object3D,
+  Quaternion,
+  Shape,
+  SphereGeometry,
   type Texture,
   TorusGeometry,
   Vector2,
+  Vector3,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { colored, paper, type Stage, unindexed } from "./art";
@@ -36,6 +41,7 @@ import { box, type DecorPlace, merged, type Part, placeParts } from "./decor";
 import { BRAND, hex } from "./palette";
 
 const WOOD_DARK = hex(WOOD_BRAND);
+const BRASS = 0xe7c27a;
 const IRON = hex(IRON_BRAND);
 const STONE = hex(BLOCK_COLORS.stone_wall);
 const STONE_CAP = hex(STONE_HI);
@@ -61,6 +67,37 @@ function flicker(stage: Stage, color: number, grain: Texture, base = 0.65): Mesh
   });
   stage.glow({ kind: "lamp", material: m, day: base * 0.3, night: base * 1.3, flicker: true });
   return m;
+}
+
+/**
+ * A fire's flames at (x, z) on the ground: three tongues of the outer color leaning out a little,
+ * and two shorter ones of the inner color in front of them, all `size` times a campfire's.
+ */
+function flames(x: number, y: number, z: number, size: number) {
+  const tongue = (r: number, h: number, dx: number, dz: number, lean: number, sides: number) => {
+    const g = new ConeGeometry(r * size, h * size, sides);
+    g.translate(0, (h * size) / 2, 0);
+    g.rotateZ(lean);
+    g.translate(x + dx * size, y, z + dz * size);
+    return g.toNonIndexed();
+  };
+  return {
+    outer: [
+      tongue(0.11, 0.36, 0, 0, 0, 7),
+      tongue(0.08, 0.26, -0.07, 0.02, 0.3, 6),
+      tongue(0.08, 0.24, 0.07, -0.01, -0.28, 6),
+    ],
+    inner: [tongue(0.065, 0.22, -0.02, 0.05, 0.1, 6), tongue(0.05, 0.16, 0.04, 0.06, -0.15, 5)],
+  };
+}
+
+/** A round log from `from` to `to`, `r` thick, for a fire's logs. */
+function log(from: Vector3, to: Vector3, r: number): BufferGeometry {
+  const dir = to.clone().sub(from);
+  const g = new CylinderGeometry(r * 0.9, r, dir.length(), 6);
+  g.applyQuaternion(new Quaternion().setFromUnitVectors(new Vector3(0, 1, 0), dir.normalize()));
+  g.translate((from.x + to.x) / 2, (from.y + to.y) / 2, (from.z + to.z) / 2);
+  return g.toNonIndexed();
 }
 
 // ---------- the models ----------
@@ -104,16 +141,37 @@ function deskParts(grain: Texture): Part[] {
   ];
 }
 
-/** A side table (RFC 0050): a small round-cornered top on four slim legs, lower than a table. */
+/**
+ * A side table (RFC 0050): a small round-cornered top over a drawer with a brass knob, on four
+ * slim legs with a shelf low between them, lower than a table.
+ */
 function sideTableParts(grain: Texture): Part[] {
   const legs = [-0.2, 0.2].flatMap((x) =>
     [-0.2, 0.2].map((z) => box(0.06, 0.5, 0.06, [x, 0.25, z], [0, 0, 0], 0.02)),
   );
   return [
     {
-      geometry: merged([box(0.56, 0.06, 0.56, [0, 0.53, 0], [0, 0, 0], 0.05), ...legs], 0.75),
+      geometry: merged(
+        [
+          box(0.56, 0.06, 0.56, [0, 0.53, 0], [0, 0, 0], 0.05),
+          box(0.46, 0.12, 0.46, [0, 0.44, 0], [0, 0, 0], 0.02),
+          box(0.44, 0.03, 0.44, [0, 0.13, 0], [0, 0, 0], 0.01),
+          ...legs,
+        ],
+        0.75,
+      ),
       material: paper(hex(BLOCK_COLORS.side_table), grain),
       cast: true,
+    },
+    {
+      geometry: merged([box(0.36, 0.08, 0.02, [0, 0.44, 0.23], [0, 0, 0], 0.01)], 0.9),
+      material: paper(0x6b4a32, grain),
+      cast: false,
+    },
+    {
+      geometry: merged([box(0.05, 0.035, 0.035, [0, 0.44, 0.25], [0, 0, 0], 0.012)], 1),
+      material: paper(BRASS, grain),
+      cast: false,
     },
   ];
 }
@@ -354,34 +412,30 @@ function stoneWallParts(grain: Texture): Part[] {
 
 function campfireParts(stage: Stage, grain: Texture): Part[] {
   const stones: BufferGeometry[] = [];
-  for (let i = 0; i < 7; i++) {
-    const a = (i / 7) * Math.PI * 2;
-    const s = new DodecahedronGeometry(0.09, 0);
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    const s = new DodecahedronGeometry(0.085, 0);
     s.scale(1.2, 0.75, 1);
-    s.translate(Math.cos(a) * 0.3, 0.06, Math.sin(a) * 0.3);
+    s.translate(Math.cos(a) * 0.32, 0.06, Math.sin(a) * 0.32);
     stones.push(s.toNonIndexed());
   }
-  const logs = [0.6, -0.6].map((turn, i) => {
-    const log = new CylinderGeometry(0.045, 0.05, 0.56, 6);
-    log.rotateZ(Math.PI / 2);
-    log.rotateY(turn);
-    log.translate(0, 0.07 + i * 0.05, 0);
-    return log.toNonIndexed();
-  });
-  const outer = new ConeGeometry(0.16, 0.44, 7);
-  outer.translate(0, 0.32, 0);
-  const inner = new ConeGeometry(0.09, 0.28, 6);
-  inner.translate(0, 0.26, 0.03);
+  // Four logs leaned together over the fire, their feet in a ring inside the stones.
+  const top = new Vector3(0, 0.34, 0);
+  const logs = [0.4, 2, 3.6, 5.2].map((a) =>
+    log(new Vector3(Math.cos(a) * 0.2, 0.03, Math.sin(a) * 0.2), top, 0.035),
+  );
+  const fire = flames(0, 0.03, 0, 1);
+  const embers = new CylinderGeometry(0.17, 0.19, 0.03, 9).translate(0, 0.02, 0).toNonIndexed();
   return [
     { geometry: merged(stones, 0.75), material: paper(hex(BLOCK_COLORS.stone), grain), cast: true },
     { geometry: merged(logs, 0.8), material: paper(WOOD_DARK, grain), cast: true },
     {
-      geometry: merged([outer.toNonIndexed()], 1),
+      geometry: merged([embers, ...fire.outer], 1),
       material: flicker(stage, hex(BLOCK_COLORS.campfire), grain, 0.75),
       cast: false,
     },
     {
-      geometry: merged([inner.toNonIndexed()], 1),
+      geometry: merged(fire.inner, 1),
       material: flicker(stage, BRAND.sun, grain, 0.9),
       cast: false,
     },
@@ -419,27 +473,46 @@ function flowerBoxParts(grain: Texture): Part[] {
 }
 
 /**
- * A jack-o'-lantern: three ribbed lobes and a stubby stem, with eyes and a grin cut in the side
- * that faces you, lit warm from inside and pooling light on the ground.
+ * A jack-o'-lantern: a squat pumpkin with eight ribs and a stubby stem, with eyes and a grin cut in
+ * the side that faces you, lit warm from inside and pooling light on the ground.
  */
 function jackOLanternParts(stage: Stage, grain: Texture): Part[] {
-  const lobes = [-0.13, 0.13, 0].map((x, i) => {
-    const g = new DodecahedronGeometry(0.2, 0);
-    g.scale(0.8, 0.75, i === 2 ? 1.05 : 0.95);
-    g.translate(x, 0.17, 0);
-    return g.toNonIndexed();
-  });
+  const R = 0.22;
+  const squash = 0.78;
+  const middle = R * squash;
+  /** How far in the grooves between the eight ribs go, as a share of the radius. */
+  const groove = 0.08;
+  const rib = (x: number, z: number) =>
+    1 - groove + groove * Math.abs(Math.cos(4 * Math.atan2(z, x)));
+  const body = new SphereGeometry(R, 24, 12);
+  const pos = body.getAttribute("position");
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    const k = rib(x, z);
+    pos.setXYZ(i, x * k, pos.getY(i) * squash, z * k);
+  }
+  body.translate(0, middle, 0);
   const stem = new CylinderGeometry(0.025, 0.04, 0.12, 5);
   stem.rotateZ(0.25);
-  stem.translate(0.02, 0.38, 0);
+  stem.translate(0.02, middle * 2 + 0.04, 0);
+  // Each cut is a thin glowing piece laid on the front of the pumpkin where it is, turned to face
+  // out from the middle, so it reads as cut in rather than stuck on.
+  const cut = (w: number, h: number, x: number, y: number, spin: number) => {
+    const across = R * Math.sqrt(Math.max(0, 1 - ((y - middle) / middle) ** 2));
+    let z = Math.sqrt(Math.max(0, across * across - x * x));
+    z = Math.sqrt(Math.max(0, (across * rib(x, z)) ** 2 - x * x));
+    return box(w, h, 0.012, [x, y, z - 0.002], [0, Math.atan2(x, z), spin], 0);
+  };
   const face = [
-    box(0.07, 0.07, 0.03, [-0.08, 0.22, 0.2], [0, 0, Math.PI / 4], 0),
-    box(0.07, 0.07, 0.03, [0.08, 0.22, 0.2], [0, 0, Math.PI / 4], 0),
-    box(0.2, 0.05, 0.03, [0, 0.11, 0.21], [0, 0, 0], 0.01),
+    cut(0.06, 0.06, -0.075, 0.21, Math.PI / 4),
+    cut(0.06, 0.06, 0.075, 0.21, Math.PI / 4),
+    cut(0.035, 0.035, 0, 0.165, Math.PI / 4),
+    ...[-0.07, -0.025, 0.025, 0.07].map((x) => cut(0.045, 0.04, x, 0.105 + Math.abs(x) * 0.25, 0)),
   ];
   return [
     {
-      geometry: merged(lobes, 0.8),
+      geometry: merged([body.toNonIndexed()], 0.75),
       material: paper(hex(BLOCK_COLORS.jack_o_lantern), grain),
       cast: true,
     },
@@ -456,42 +529,101 @@ const LINEN = hex(LINEN_BRAND);
 /** The top of an armchair's or a sofa's seat, in tile units above the floor (`restPose3d` sits on it). */
 const SEAT_TOP = 0.42;
 
-/**
- * Something upholstered: a wooden plinth on short legs, a seat `w` wide at `SEAT_TOP`, a back
- * along the north side, and an arm at each end, in the kind's cloth. A sofa's seat is split into
- * cushions by a pale seam.
- */
-function upholsteredParts(grain: Texture, cloth: number, w: number, cushions: number): Part[] {
+/** Four short turned legs under something upholstered `w` wide. */
+function stubLegs(w: number): BufferGeometry[] {
   const half = w / 2;
-  const legs = [-half + 0.06, half - 0.06].flatMap((x) =>
-    [-0.3, 0.3].map((z) => box(0.07, 0.12, 0.07, [x, 0.06, z], [0, 0, 0], 0.02)),
+  return [-half + 0.07, half - 0.07].flatMap((x) =>
+    [-0.27, 0.27].map((z) =>
+      new CylinderGeometry(0.035, 0.025, 0.11, 6).translate(x, 0.055, z).toNonIndexed(),
+    ),
   );
-  const seams = Array.from({ length: cushions - 1 }, (_, i) => {
-    const x = -half + 0.12 + ((w - 0.24) * (i + 1)) / cushions;
-    return box(0.02, 0.02, 0.5, [x, SEAT_TOP + 0.005, 0.04], [0, 0, 0], 0);
-  });
+}
+
+/**
+ * An armchair, a wingback: a deep seat cushion that tops out at `SEAT_TOP`, rolled arms, and a tall
+ * back with a wing each side and a cushion against it, on short dark legs.
+ */
+function armchairParts(grain: Texture): Part[] {
+  const cloth = hex(BLOCK_COLORS.armchair);
+  const w = 0.8;
+  const half = w / 2;
   return [
-    {
-      geometry: merged(legs, 0.75),
-      material: paper(WOOD_DARK, grain),
-      cast: true,
-    },
+    { geometry: merged(stubLegs(w), 0.75), material: paper(WOOD_DARK, grain), cast: true },
     {
       geometry: merged(
         [
-          box(w, 0.26, 0.7, [0, SEAT_TOP - 0.13, 0], [0, 0, 0], 0.06),
-          box(w, 0.5, 0.18, [0, SEAT_TOP + 0.22, -0.26], [-0.12, 0, 0], 0.07),
-          box(0.13, 0.26, 0.66, [-half + 0.065, SEAT_TOP + 0.1, 0.01], [0, 0, 0], 0.05),
-          box(0.13, 0.26, 0.66, [half - 0.065, SEAT_TOP + 0.1, 0.01], [0, 0, 0], 0.05),
+          box(w - 0.04, 0.24, 0.68, [0, 0.22, 0.01], [0, 0, 0], 0.05),
+          box(w, 0.7, 0.16, [0, 0.62, -0.28], [-0.08, 0, 0], 0.07),
+          ...[-1, 1].map((side) =>
+            box(0.14, 0.3, 0.64, [side * (half - 0.07), 0.4, 0.02], [0, 0, 0], 0.065),
+          ),
+          ...[-1, 1].map((side) =>
+            box(0.12, 0.46, 0.26, [side * (half - 0.06), 0.71, -0.17], [-0.08, 0, 0], 0.055),
+          ),
         ],
         0.72,
       ),
       material: paper(cloth, grain),
       cast: true,
     },
-    ...(seams.length > 0
-      ? [{ geometry: merged(seams, 1), material: paper(LINEN, null), cast: false }]
-      : []),
+    {
+      geometry: merged(
+        [
+          box(w - 0.3, 0.1, 0.56, [0, SEAT_TOP - 0.05, 0.06], [0, 0, 0], 0.045),
+          box(w - 0.3, 0.42, 0.09, [0, 0.66, -0.18], [-0.14, 0, 0], 0.04),
+        ],
+        0.85,
+      ),
+      material: paper(cloth, grain),
+      cast: false,
+    },
+  ];
+}
+
+/**
+ * A sofa, lower and longer than the armchair: two seat cushions that top out at `SEAT_TOP` and two
+ * against a low back, between rolled arms, on short dark legs.
+ */
+function sofaParts(grain: Texture): Part[] {
+  const cloth = hex(BLOCK_COLORS.sofa);
+  const w = 0.98;
+  const half = w / 2;
+  const arm = 0.11;
+  const seat = (w - 2 * arm) / 2 - 0.01;
+  return [
+    { geometry: merged(stubLegs(w), 0.75), material: paper(WOOD_DARK, grain), cast: true },
+    {
+      geometry: merged(
+        [
+          box(w - 0.02, 0.22, 0.66, [0, 0.22, 0.01], [0, 0, 0], 0.05),
+          box(w, 0.44, 0.15, [0, 0.5, -0.27], [-0.06, 0, 0], 0.06),
+          ...[-1, 1].map((side) =>
+            box(arm, 0.26, 0.66, [side * (half - arm / 2), 0.4, 0.01], [0, 0, 0], 0.05),
+          ),
+        ],
+        0.72,
+      ),
+      material: paper(cloth, grain),
+      cast: true,
+    },
+    {
+      geometry: merged(
+        [-1, 1].flatMap((side) => [
+          box(
+            seat,
+            0.1,
+            0.54,
+            [(side * (seat + 0.01)) / 2, SEAT_TOP - 0.05, 0.06],
+            [0, 0, 0],
+            0.04,
+          ),
+          box(seat, 0.3, 0.09, [(side * (seat + 0.01)) / 2, 0.58, -0.17], [-0.16, 0, 0], 0.04),
+        ]),
+        0.85,
+      ),
+      material: paper(cloth, grain),
+      cast: false,
+    },
   ];
 }
 
@@ -531,8 +663,6 @@ function bedParts(grain: Texture): Part[] {
 
 // ---------- more for a home ----------
 
-const BRASS = 0xe7c27a;
-
 /** A wardrobe: a tall cabinet under a crown, two doors with brass knobs, on four short feet. */
 function wardrobeParts(grain: Texture): Part[] {
   const feet = [-0.36, 0.36].flatMap((x) =>
@@ -570,35 +700,100 @@ function wardrobeParts(grain: Texture): Part[] {
   ];
 }
 
-/** One rocker: an arc along the tile from north to south, its low point on the ground at `x`. */
-function rocker(x: number): BufferGeometry {
-  const radius = 1.3;
-  const arc = 0.62;
-  const g = new TorusGeometry(radius, 0.03, 4, 10, arc);
-  g.rotateZ(-Math.PI / 2 - arc / 2);
-  g.translate(0, radius + 0.03, 0);
-  g.rotateY(Math.PI / 2);
-  g.translate(x, 0, 0);
-  return g.toNonIndexed();
+/** How far a rocking chair's rockers curve: the radius of their arc, in tile units. */
+const ROCKER_RADIUS = 0.85;
+/** Where along the tile a rocker touches the ground, a little behind the middle. */
+const ROCKER_LOW = -0.04;
+
+/** How high the top of a rocker is at `z` along the tile. */
+function rockerTop(z: number): number {
+  const d = z - ROCKER_LOW;
+  return ROCKER_RADIUS - Math.sqrt(ROCKER_RADIUS * ROCKER_RADIUS - d * d) + 0.06;
 }
 
 /**
- * A rocking chair (a seat, RFC 0044): a chair's seat and a back of spindles, its legs set on two
- * rockers. Its seat is the chair's height, so `restPose3d` sits a resident in it the same way.
+ * One rocker at `x`: a flat runner 0.06 deep bent in an arc along the tile from north to south, its
+ * low point on the ground and its ends well up, so it reads from any side.
+ */
+function rocker(x: number): BufferGeometry {
+  const from = -0.47;
+  const to = 0.44;
+  const n = 16;
+  const along = Array.from({ length: n + 1 }, (_, i) => from + ((to - from) * i) / n);
+  const band = new Shape();
+  along.forEach((z, i) => {
+    if (i === 0) band.moveTo(z, rockerTop(z));
+    else band.lineTo(z, rockerTop(z));
+  });
+  for (const z of [...along].reverse()) band.lineTo(z, rockerTop(z) - 0.06);
+  band.closePath();
+  const g = new ExtrudeGeometry(band, {
+    depth: 0.05,
+    bevelEnabled: true,
+    bevelThickness: 0.01,
+    bevelSize: 0.01,
+    bevelSegments: 1,
+  });
+  // The band was drawn with the tile's north-south along x: turn it to run along z, centered on x.
+  g.rotateY(-Math.PI / 2);
+  g.translate(x + 0.025, 0, 0);
+  return g.toNonIndexed();
+}
+
+/** How far a rocking chair's back leans out of upright, in radians. */
+const ROCKING_LEAN = 0.2;
+
+/** A length of wood `len` long rising from (x, y, z), leaned back like the chair's back. */
+function backPiece(w: number, len: number, d: number, x: number, y: number, z: number) {
+  const up = new Vector3(0, Math.cos(ROCKING_LEAN), -Math.sin(ROCKING_LEAN));
+  return box(
+    w,
+    len,
+    d,
+    [x, y + (up.y * len) / 2, z + (up.z * len) / 2],
+    [-ROCKING_LEAN, 0, 0],
+    Math.min(w, d) * 0.4,
+  );
+}
+
+/**
+ * A rocking chair (a seat, RFC 0044): a seat with a cushion, arms, and a tall back of spindles leaned
+ * back under a broad crest, its legs standing on two long curved rockers that rise at both ends.
+ * Its seat is the chair's height, so `restPose3d` sits a resident in it the same way.
  */
 function rockingChairParts(grain: Texture): Part[] {
-  const legs = [-0.2, 0.2].flatMap((x) =>
-    [-0.17, 0.22].map((z) => box(0.06, 0.42, 0.06, [x, 0.25, z], [0, 0, 0], 0.02)),
+  const seatY = 0.47;
+  const backZ = -0.21;
+  const legs = [-0.21, 0.21].flatMap((x) =>
+    [backZ, 0.19].map((z) => {
+      const foot = rockerTop(z);
+      return box(0.055, seatY - foot, 0.055, [x, (seatY + foot) / 2, z], [0, 0, 0], 0.02);
+    }),
   );
+  const backTop = 0.66;
+  const arms = [-1, 1].flatMap((side) => [
+    box(0.07, 0.04, 0.46, [side * 0.25, 0.7, -0.02], [0, 0, 0], 0.02),
+    box(0.04, 0.2, 0.04, [side * 0.25, 0.6, 0.17], [0, 0, 0], 0.015),
+  ]);
   return [
     {
       geometry: merged(
         [
-          box(0.5, 0.07, 0.5, [0, 0.47, 0.03], [0, 0, 0], 0.02),
-          box(0.06, 0.64, 0.06, [-0.22, 0.79, -0.2], [0, 0, 0], 0.02),
-          box(0.06, 0.64, 0.06, [0.22, 0.79, -0.2], [0, 0, 0], 0.02),
-          box(0.52, 0.11, 0.06, [0, 1.04, -0.2], [0, 0, 0], 0.02),
-          ...[-0.1, 0, 0.1].map((x) => box(0.035, 0.46, 0.035, [x, 0.76, -0.2], [0, 0, 0], 0.01)),
+          box(0.5, 0.06, 0.48, [0, seatY, -0.01], [0, 0, 0], 0.02),
+          backPiece(0.06, backTop, 0.06, -0.22, seatY, backZ),
+          backPiece(0.06, backTop, 0.06, 0.22, seatY, backZ),
+          ...[-0.135, -0.045, 0.045, 0.135].map((x) =>
+            backPiece(0.03, backTop - 0.06, 0.03, x, seatY, backZ),
+          ),
+          backPiece(
+            0.56,
+            0.13,
+            0.05,
+            0,
+            seatY + (backTop - 0.11) * Math.cos(ROCKING_LEAN),
+            backZ - (backTop - 0.11) * Math.sin(ROCKING_LEAN),
+          ),
+          ...arms,
           ...legs,
         ],
         0.75,
@@ -607,17 +802,30 @@ function rockingChairParts(grain: Texture): Part[] {
       cast: true,
     },
     {
-      geometry: merged([rocker(-0.2), rocker(0.2)], 0.8),
+      geometry: merged([rocker(-0.21), rocker(0.21)], 0.8),
       material: paper(WOOD_DARK, grain),
       cast: true,
+    },
+    {
+      geometry: merged([box(0.42, 0.04, 0.4, [0, seatY + 0.045, 0.01], [0, 0, 0], 0.02)], 0.85),
+      material: paper(hex(BLOCK_COLORS.armchair), grain),
+      cast: false,
     },
   ];
 }
 
 /** An upright piano: a tall dark case, a keyboard of white and black keys, music, and pedals. */
 function pianoParts(grain: Texture): Part[] {
-  const blackKeys = [-0.33, -0.25, -0.09, -0.01, 0.07, 0.23, 0.31].map((x) =>
-    box(0.04, 0.03, 0.11, [x, 0.835, 0.09], [0, 0, 0], 0.005),
+  // Two octaves of white keys with the gaps between them drawn, and a black key after every white
+  // one but the third and seventh of each octave.
+  const keys = 14;
+  const keyW = 0.84 / keys;
+  const left = -0.42;
+  const blackKeys = Array.from({ length: keys - 1 }, (_, i) => i)
+    .filter((i) => i % 7 !== 2 && i % 7 !== 6)
+    .map((i) => box(0.032, 0.025, 0.11, [left + (i + 1) * keyW, 0.83, 0.1], [0, 0, 0], 0.004));
+  const gaps = Array.from({ length: keys - 1 }, (_, i) =>
+    box(0.005, 0.005, 0.19, [left + (i + 1) * keyW, 0.821, 0.14], [0, 0, 0], 0),
   );
   return [
     {
@@ -644,7 +852,7 @@ function pianoParts(grain: Texture): Part[] {
       material: paper(LINEN, grain),
       cast: false,
     },
-    { geometry: merged(blackKeys, 1), material: paper(0x1f1a18, grain), cast: false },
+    { geometry: merged([...blackKeys, ...gaps], 1), material: paper(0x1f1a18, grain), cast: false },
     {
       geometry: merged(
         [-0.07, 0.07].map((x) => box(0.05, 0.02, 0.09, [x, 0.06, 0.1], [0, 0, 0], 0.005)),
@@ -665,16 +873,31 @@ function bathtubParts(grain: Texture): Part[] {
       return g.toNonIndexed();
     }),
   );
-  const tap = new CylinderGeometry(0.025, 0.025, 0.2, 6);
-  tap.translate(0.42, 0.62, 0);
+  // A tap at the foot: a post up from the rim, a spout bent back over the water, and two handles.
+  const tap = [
+    new CylinderGeometry(0.022, 0.026, 0.2, 8).translate(0.42, 0.62, 0).toNonIndexed(),
+    new CylinderGeometry(0.02, 0.02, 0.12, 8)
+      .rotateZ(Math.PI / 2)
+      .translate(0.37, 0.71, 0)
+      .toNonIndexed(),
+    new CylinderGeometry(0.018, 0.012, 0.04, 8).translate(0.31, 0.69, 0).toNonIndexed(),
+    ...[-0.06, 0.06].map((z) =>
+      new CylinderGeometry(0.025, 0.025, 0.02, 8).translate(0.43, 0.6, z).toNonIndexed(),
+    ),
+  ];
+  // Clouds of foam: little round bubbles heaped together on the water.
   const bubbles = [
-    [-0.25, 0.04, 0.07],
-    [-0.15, -0.08, 0.05],
-    [0.05, 0.1, 0.06],
-    [0.2, -0.04, 0.045],
+    [-0.24, 0.05, 0.06],
+    [-0.17, 0.0, 0.05],
+    [-0.2, -0.06, 0.045],
+    [-0.1, 0.07, 0.04],
+    [0.06, -0.1, 0.05],
+    [0.12, -0.05, 0.04],
+    [0.02, 0.1, 0.035],
   ].map(([x, z, r]) => {
-    const g = new IcosahedronGeometry(r as number, 0);
-    g.translate(x as number, 0.53, z as number);
+    const g = new SphereGeometry(r as number, 8, 6);
+    g.scale(1, 0.75, 1);
+    g.translate(x as number, 0.515, z as number);
     return g.toNonIndexed();
   });
   return [
@@ -698,7 +921,7 @@ function bathtubParts(grain: Texture): Part[] {
       cast: false,
     },
     {
-      geometry: merged([...feet, tap.toNonIndexed()], 0.85),
+      geometry: merged([...feet, ...tap], 0.85),
       material: paper(BRASS, grain),
       cast: true,
     },
@@ -707,30 +930,25 @@ function bathtubParts(grain: Texture): Part[] {
 }
 
 /**
- * A fireplace: a stone chimney breast with an opening at the front, a wooden mantel, and logs
- * burning on the hearth, lit warm after dark like a campfire.
+ * A fireplace: a stone chimney breast as wide as the fire's surround that runs on up to the top of
+ * the wall over a wooden mantel, an opening at the front, and logs burning on the hearth, lit warm
+ * after dark like a campfire.
  */
 function fireplaceParts(stage: Stage, grain: Texture): Part[] {
-  const logs = [0.5, -0.5].map((turn, i) => {
-    const log = new CylinderGeometry(0.04, 0.045, 0.4, 6);
-    log.rotateZ(Math.PI / 2);
-    log.rotateY(turn);
-    log.translate(0, 0.06 + i * 0.045, -0.04);
-    return log.toNonIndexed();
-  });
-  const outer = new ConeGeometry(0.12, 0.34, 7);
-  outer.translate(0, 0.27, -0.04);
-  const inner = new ConeGeometry(0.07, 0.22, 6);
-  inner.translate(0, 0.22, -0.01);
+  const logs = [
+    log(new Vector3(-0.17, 0.05, 0.0), new Vector3(0.15, 0.06, -0.08), 0.04),
+    log(new Vector3(0.17, 0.05, 0.02), new Vector3(-0.13, 0.1, -0.07), 0.04),
+  ];
+  const fire = flames(0, 0.06, -0.03, 0.75);
   return [
     {
       geometry: merged(
         [
-          box(0.94, 1.2, 0.12, [0, 0.6, -0.26], [0, 0, 0], 0.03),
+          box(0.94, 0.94, 0.12, [0, 0.47, -0.26], [0, 0, 0], 0.03),
           box(0.24, 0.9, 0.44, [-0.35, 0.45, -0.02], [0, 0, 0], 0.04),
           box(0.24, 0.9, 0.44, [0.35, 0.45, -0.02], [0, 0, 0], 0.04),
           box(0.94, 0.3, 0.44, [0, 0.75, -0.02], [0, 0, 0], 0.04),
-          box(0.56, 0.36, 0.3, [0, 1.07, -0.18], [0, 0, 0], 0.03),
+          box(0.84, 0.3, 0.44, [0, 1.1, -0.02], [0, 0, 0], 0.03),
         ],
         0.65,
       ),
@@ -745,22 +963,27 @@ function fireplaceParts(stage: Stage, grain: Texture): Part[] {
     {
       geometry: merged(
         [
-          box(1.02, 0.07, 0.56, [0, 0.93, 0], [0, 0, 0], 0.02),
           box(0.9, 0.05, 0.22, [0, 0.025, 0.31], [0, 0, 0], 0.02),
+          box(0.88, 0.04, 0.47, [0, 1.23, -0.02], [0, 0, 0], 0.015),
         ],
         0.8,
       ),
       material: paper(STONE_CAP, grain),
       cast: true,
     },
+    {
+      geometry: merged([box(1.02, 0.08, 0.56, [0, 0.94, 0], [0, 0, 0], 0.02)], 0.8),
+      material: paper(hex(BLOCK_COLORS.table), grain),
+      cast: true,
+    },
     { geometry: merged(logs, 0.8), material: paper(WOOD_DARK, grain), cast: false },
     {
-      geometry: merged([outer.toNonIndexed()], 1),
+      geometry: merged(fire.outer, 1),
       material: flicker(stage, hex(BLOCK_COLORS.campfire), grain, 0.75),
       cast: false,
     },
     {
-      geometry: merged([inner.toNonIndexed()], 1),
+      geometry: merged(fire.inner, 1),
       material: flicker(stage, BRAND.sun, grain, 0.9),
       cast: false,
     },
@@ -960,9 +1183,9 @@ function partsOf(stage: Stage, kind: FurnitureKind, grain: Texture): Part[] {
     case "jack_o_lantern":
       return jackOLanternParts(stage, grain);
     case "armchair":
-      return upholsteredParts(grain, hex(BLOCK_COLORS.armchair), 0.78, 1);
+      return armchairParts(grain);
     case "sofa":
-      return upholsteredParts(grain, hex(BLOCK_COLORS.sofa), 0.96, 2);
+      return sofaParts(grain);
     case "bed":
       return bedParts(grain);
     case "desk":

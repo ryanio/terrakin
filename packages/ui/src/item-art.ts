@@ -2687,7 +2687,7 @@ function desk(): ArtShape[] {
   ];
 }
 
-/** A side table: a small top on four slim legs, lower than a table. */
+/** A side table: a small top over a drawer with a brass knob, on four slim legs with a shelf. */
 function sideTable(): ArtShape[] {
   const wood = BLOCK_COLORS.side_table;
   return [
@@ -2695,8 +2695,11 @@ function sideTable(): ArtShape[] {
     rect(15, 27, 3, 15, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
     rect(30, 27, 3, 15, 1, WOOD_DARK, out({ "stroke-width": 0.9 })),
     rect(17, 32, 14, 2.5, 0.8, WOOD, out({ "stroke-width": 0.8 })),
-    rect(11, 22, 26, 6, 3, wood, out()),
-    line("M14 24h20", "#ffffff", 1, { opacity: 0.4 }),
+    rect(13, 26, 22, 6, 1.2, wood, out({ "stroke-width": 1 })),
+    rect(18, 27.5, 12, 3, 0.8, WOOD_DARK, { opacity: 0.55 }),
+    circle(24, 29, 1.1, SUN, out({ "stroke-width": 0.6 })),
+    rect(11, 22, 26, 5, 2.5, wood, out()),
+    line("M14 23.8h20", "#ffffff", 1, { opacity: 0.4 }),
   ];
 }
 
@@ -3605,25 +3608,28 @@ function wardrobe(): ArtShape[] {
   ];
 }
 
-/** A rocking chair: a spindle back, a seat, and two curved rockers under its legs. */
+/**
+ * A rocking chair, side on so its rocker shows: a long curved runner under two legs, a cushioned
+ * seat, an arm, and a tall slatted back leaned back under its crest.
+ */
 function rockingChair(): ArtShape[] {
   const wood = BLOCK_COLORS.rocking_chair;
-  const spindle = (x: number): ArtShape =>
-    rect(x, 11, 2, 16, 0.8, wood, out({ "stroke-width": 0.8 }));
+  const leg = (d: string): ArtShape[] => [line(d, LINE, 4.4), line(d, wood, 2.6)];
+  const rocker = "M4 36.5Q22 46.5 44 36.5";
   return [
-    shadow(15, 44),
-    rect(14, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
-    rect(30, 5, 4, 26, 1.2, wood, out({ "stroke-width": 1 })),
-    spindle(19.5),
-    spindle(23),
-    spindle(26.5),
-    rect(13, 7, 22, 4.5, 1.4, wood, out({ "stroke-width": 1 })),
-    rect(14.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
-    rect(30.5, 31, 3, 8.5, 1, WOOD_DARK, out({ "stroke-width": 1 })),
-    rect(11, 26, 26, 5.5, 1.8, wood, out()),
-    line("M13 27.8h22", "#ffffff", 1, { opacity: 0.35 }),
-    line("M6 37.5c7 6 29 6 36 0", LINE, 4),
-    line("M6 37.5c7 6 29 6 36 0", WOOD_DARK, 2.4),
+    shadow(17, 44),
+    ...leg("M16.5 29L15.5 40.5"),
+    ...leg("M31 29L32 40.5"),
+    line(rocker, LINE, 5),
+    line(rocker, WOOD_DARK, 3.2),
+    path("M14 28.5h5.5L13.8 8.5H8.6z", wood, out()),
+    line("M16 26.5L11.2 10.5M17.8 26.5L13 10.5", WOOD_DARK, 0.9, { opacity: 0.55 }),
+    path("M6.4 4.6h9.2l0.8 4.6H7.4z", wood, out()),
+    rect(12, 26, 23, 5, 1.8, wood, out()),
+    rect(14.5, 23.2, 18, 3.4, 1.5, BLOCK_COLORS.armchair, out({ "stroke-width": 1 })),
+    rect(29.6, 18, 2.6, 8.5, 0.8, wood, out({ "stroke-width": 1 })),
+    rect(11, 15.8, 22.5, 3, 1.4, wood, out({ "stroke-width": 1.1 })),
+    line("M13.5 27.6h19", "#ffffff", 1, { opacity: 0.35 }),
   ];
 }
 

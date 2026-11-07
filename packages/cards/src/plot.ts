@@ -1741,7 +1741,9 @@ function furnitureSvg(
         shade,
         rect(0.3, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
         rect(0.63, 0.5, 0.07, 0.38, WOOD_DARK, 0.02, false),
-        rect(0.22, 0.36, 0.56, 0.16, fill, 0.06),
+        rect(0.26, 0.44, 0.48, 0.14, fill, 0.02),
+        rect(0.36, 0.48, 0.28, 0.07, "rgba(60, 36, 20, 0.3)", 0.02, false),
+        rect(0.22, 0.36, 0.56, 0.1, fill, 0.05),
       ];
     case "dresser":
       return [
@@ -1859,19 +1861,24 @@ function furnitureSvg(
         dot(0.55, 0.5, 0.025, "#e7c27a"),
         rect(0.14, 0.02, 0.72, 0.08, fill, 0.03),
       ];
-    case "rocking_chair":
+    case "rocking_chair": {
+      // Side on, as its picture in lists is, so the rocker shows.
+      const bar = (d: string, color: string, w: number) =>
+        `<path d="${d}" stroke="${color}" stroke-width="${w}" stroke-linecap="round" fill="none"/>`;
+      const at = (fx: number, fy: number) => `${X(fx)} ${Y(fy)}`;
       return [
         shade,
-        rect(0.27, 0.1, 0.08, 0.5, fill, 0.02),
-        rect(0.65, 0.1, 0.08, 0.5, fill, 0.02),
-        rect(0.41, 0.2, 0.04, 0.36, fill, 0.01, false),
-        rect(0.55, 0.2, 0.04, 0.36, fill, 0.01, false),
-        rect(0.26, 0.13, 0.48, 0.09, fill, 0.02),
-        rect(0.3, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
-        rect(0.64, 0.66, 0.06, 0.2, WOOD_DARK, 0.02, false),
-        rect(0.2, 0.56, 0.6, 0.12, fill, 0.03),
-        `<path d="M${X(0.1)} ${Y(0.82)}Q${X(0.5)} ${Y(1)} ${X(0.9)} ${Y(0.82)}" stroke="${WOOD_DARK}" stroke-width="0.06" stroke-linecap="round" fill="none"/>`,
+        bar(`M${at(0.34, 0.6)}L${at(0.32, 0.84)}`, WOOD_DARK, 0.06),
+        bar(`M${at(0.65, 0.6)}L${at(0.67, 0.84)}`, WOOD_DARK, 0.06),
+        bar(`M${at(0.08, 0.76)}Q${at(0.46, 0.97)} ${at(0.92, 0.76)}`, WOOD_DARK, 0.07),
+        `<path d="M${at(0.29, 0.6)}L${at(0.41, 0.6)}L${at(0.29, 0.18)}L${at(0.18, 0.18)}z" fill="${fill}" ${stroke}/>`,
+        `<path d="M${at(0.13, 0.1)}L${at(0.32, 0.1)}L${at(0.34, 0.19)}L${at(0.15, 0.19)}z" fill="${fill}" ${stroke}/>`,
+        rect(0.25, 0.54, 0.48, 0.1, fill),
+        rect(0.3, 0.48, 0.38, 0.07, DOOR_PANEL, 0.03),
+        rect(0.62, 0.38, 0.05, 0.17, fill, 0.02),
+        rect(0.23, 0.33, 0.47, 0.06, fill, 0.03),
       ];
+    }
     case "piano":
       return [
         shade,

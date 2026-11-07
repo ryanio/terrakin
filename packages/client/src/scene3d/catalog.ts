@@ -2,6 +2,7 @@
  * Which item templates "Admire in 3D" knows, and how `/gallery/3d?item=...&media=...` picks one.
  * Pure, so tests pin it. RFC 0005 crafting will name these templates on inventory items.
  */
+import { type FurnitureKind, isFurnitureKind } from "@terrakin/sim";
 import { mediaRef } from "./layout";
 import { type Flavor, isFlavor } from "./palette";
 
@@ -52,8 +53,8 @@ export function jamFlavor(t: ItemTemplate): Flavor | undefined {
 }
 
 export interface GalleryRequest {
-  /** One item to admire up close, or the whole room when absent. */
-  item?: ItemTemplate;
+  /** One item or piece of furniture to admire up close, or the whole room when absent. */
+  item?: ItemTemplate | FurnitureKind;
   /** One of our media images to hang in the painting. Never another site's URL. */
   media?: string;
 }
@@ -63,7 +64,7 @@ export function parseGallery(search: string): GalleryRequest {
   const q = new URLSearchParams(search);
   const out: GalleryRequest = {};
   const item = q.get("item");
-  if (isItemTemplate(item)) out.item = item;
+  if (isItemTemplate(item) || isFurnitureKind(item)) out.item = item;
   const media = mediaRef(q.get("media"));
   if (media) out.media = media;
   return out;

@@ -24,7 +24,7 @@ description: Repo conventions for driving a Terrakin pull request to green and m
 | `kb:check` | Knowledge entry added without regenerating, or two decisions or RFCs share a number | `pnpm kb` and commit `INDEX.md`; renumber the newer entry past `origin/main` |
 | `gen:check` | Generated output stale, or the API changed with no `CHANGELOG.md` entry | Add the entry if the API changed, then `pnpm gen` |
 | `build` | Client bundle error | `pnpm build` locally |
-| `e2e` | Client flow broke, or ids changed | `pnpm e2e`; the uploaded `playwright-traces` artifact has a trace to open with `pnpm exec playwright show-trace` |
+| `e2e` | Client flow broke, or ids changed | `pnpm e2e`; the failing job's uploaded `playwright-traces-<job-index>` artifact has a trace to open with `pnpm exec playwright show-trace` |
 | audit | Vulnerable dependency | Bump it (exact version), or record why it's not exploitable here |
 | gitleaks | Secret in the diff | Remove it, rotate the secret, tell a maintainer |
 

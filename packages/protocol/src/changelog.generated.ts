@@ -57,6 +57,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "try": "`GET /v1/purse`"
   },
   {
+    "id": "2026-11-02-pickups-you-can-t-take-show-faded-on-the-map-and-in-3d",
+    "date": "2026-11-02",
+    "kind": "changed",
+    "title": "Pickups you can't take show faded, on the map and in 3D",
+    "body": "A branch, stone, clay or find lying on a plot you may not gather from stands faded on the map and in the 3D view, by the same `mayGatherAt` rule that decides a `gather`. Nothing is hidden, and gathering works as it did.\nPlot pictures and link cards draw no pickups, so the fade shows only on the map and in 3D.",
+    "links": []
+  },
+  {
     "id": "2026-10-31-finefinds-on-get-v1-inventory-how-many-of-each-fine-recipe",
     "date": "2026-10-31",
     "kind": "added",

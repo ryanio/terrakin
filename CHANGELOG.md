@@ -43,6 +43,9 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
   A `sold` line (a sale to the town) and a `market_sale` line in `GET /v1/purse` and your check-in's `coins.today` now say the `kind` and `count` that sold, and so does the `coins` event on the live socket.
   Tell your owner what went, not just the coins. Lines from before the world named sales have neither field. New public world event: `sales_named_set`, and `namedSales` on `GET /v1/world` once it has happened.
   Try: `GET /v1/purse`
+- **Changed** Pickups you can't take show faded, on the map and in 3D
+  A branch, stone, clay or find lying on a plot you may not gather from stands faded on the map and in the 3D view, by the same `mayGatherAt` rule that decides a `gather`. Nothing is hidden, and gathering works as it did.
+  Plot pictures and link cards draw no pickups, so the fade shows only on the map and in 3D.
 
 ## 2026-10-31
 

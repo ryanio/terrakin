@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
+import { Resvg } from "@resvg/resvg-wasm";
 import satori from "satori";
 import { describe, expect, it } from "vitest";
 import { type Drawing, drawingSvg } from "./drawing";
@@ -363,10 +364,100 @@ describe("pictures", () => {
     const side = Math.ceil(Math.sqrt(MAX_IMAGE_PIXELS)) + 1;
     expect(imageDataUri(png(side, side))).toBeUndefined();
     expect(imageDataUri(png(100, 100))).toMatch(/^data:image\/png;base64,/);
+    // A WebP is decoded to pixels before it's drawn, so it has a smaller cap of its own.
+    const vp8x = (w: number, h: number) =>
+      riff("VP8X", [0, 0, 0, 0, ...[w - 1, h - 1].flatMap((v) => [v & 0xff, (v >> 8) & 0xff, 0])]);
+    expect(imageDataUri(vp8x(2048, 2048))).toMatch(/^data:image\/webp;base64,/);
+    expect(imageDataUri(vp8x(2049, 2048))).toBeUndefined();
+  });
+});
+
+describe("WebP pictures", () => {
+  // Lossless WebPs from cwebp: 4 by 4, red over blue, and 2048 by 8 of green.
+  const RED_OVER_BLUE =
+    "data:image/webp;base64,UklGRh4AAABXRUJQVlA4TBIAAAAvA8AAAA8Q87//8x8O5iGi/zE=";
+  const WIDE_GREEN =
+    "data:image/webp;base64,UklGRiQAAABXRUJQVlA4TBcAAAAv/8cBAAdQ0ChU/8MAJIT//5WI/qf+AQA=";
+  const homeArt = (src: string, width: number, height: number) => ({
+    ...samplePlot("Juniper"),
+    homeArt: { src, width, height },
+    sky: { night: 1, weather: "clear" as const },
+  });
+  /** The PNG pictures a card's SVG embeds, each with its size. */
+  const pngsIn = (svg: string) =>
+    [...svg.matchAll(/data:image\/png;base64,[A-Za-z0-9+/=]+/g)].map(([uri]) => {
+      const bytes = Uint8Array.from(atob(uri.slice(uri.indexOf(",") + 1)), (c) => c.charCodeAt(0));
+      return { uri, ...probeImage(bytes) };
+    });
+  /** One pixel of a picture as resvg draws it, as [r, g, b, a]. */
+  const pixel = (p: { uri: string; width?: number; height?: number }, x: number, y: number) => {
+    const w = p.width ?? 1;
+    const h = p.height ?? 1;
+    const drawn = new Resvg(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><image href="${p.uri}" width="${w}" height="${h}"/></svg>`,
+    ).render();
+    const i = (y * w + x) * 4;
+    return [...drawn.pixels.subarray(i, i + 4)];
+  };
+
+  it("draws a WebP, which resvg can't, as the PNG it decodes to", async () => {
+    const svg = await cards.svg(homeArt(RED_OVER_BLUE, 4, 4));
+    expect(svg).not.toContain("data:image/webp");
+    const art = pngsIn(svg).find((p) => p.width === 4 && p.height === 4);
+    expect(art).toBeDefined();
+    if (!art) return;
+    expect(pixel(art, 0, 0)).toEqual([255, 0, 0, 255]);
+    expect(pixel(art, 3, 3)).toEqual([0, 0, 255, 255]);
+    // The night still falls on it, as on any home picture.
+    expect(svg).toContain(nightWash({ night: 1, weather: "clear" }));
   });
 
-  it("refuses WebP, which resvg sizes but draws as nothing", () => {
-    for (const file of [lossless, lossy, extended]) expect(imageDataUri(file)).toBeUndefined();
+  it("draws a WebP in every place a card shows a picture", async () => {
+    const someone = {
+      name: "Juniper",
+      kind: "agent" as const,
+      color: "sun",
+      shape: "round" as const,
+    };
+    const withWebp: Card[] = [
+      {
+        kind: "profile",
+        person: { ...someone, avatar: RED_OVER_BLUE },
+        bio: "",
+        posts: 0,
+        followers: 0,
+        following: 0,
+      },
+      {
+        kind: "post",
+        author: { ...someone, avatar: RED_OVER_BLUE },
+        text: "",
+        image: RED_OVER_BLUE,
+        likes: 0,
+        replies: 0,
+        date: "2026-11-07T00:00:00Z",
+      },
+    ];
+    for (const card of withWebp) {
+      const svg = await cards.svg(card);
+      expect(svg, card.kind).not.toContain("data:image/webp");
+      expect(pngsIn(svg).filter((p) => p.width === 4).length, card.kind).toBeGreaterThan(0);
+    }
+  });
+
+  it("scales a big WebP down to a size a card draws", async () => {
+    const wide = pngsIn(await cards.svg(homeArt(WIDE_GREEN, 2048, 8))).find((p) => p.width === 640);
+    expect(wide?.height).toBe(3);
+    if (wide) expect(pixel(wide, 320, 1)).toEqual([0, 160, 80, 255]);
+  });
+
+  it("leaves off a WebP it can't decode, and the night's wash with it", async () => {
+    // The header of a 4 by 4 WebP and nothing a decoder can read.
+    const header = atob(RED_OVER_BLUE.slice(RED_OVER_BLUE.indexOf(",") + 1)).slice(0, 25);
+    const broken = `data:image/webp;base64,${btoa(header + "\0".repeat(16))}`;
+    const svg = await cards.svg(homeArt(broken, 4, 4));
+    expect(svg).not.toContain("data:image/webp");
+    expect(svg).not.toContain(nightWash({ night: 1, weather: "clear" }));
   });
 });
 

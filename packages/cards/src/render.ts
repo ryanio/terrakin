@@ -5,7 +5,9 @@
 
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import satori, { init as initSatori } from "satori/standalone";
+import { base64 } from "./images";
 import { type Art, type Card, cardSize, element, PAPER_SVG, W } from "./templates";
+import { type WebpToPng, webpToPng } from "./webp";
 
 /** Whatever each runtime can hand the wasm loaders: bytes in Node, a compiled module in a Worker. */
 type Wasm = Parameters<typeof initWasm>[0] & Parameters<typeof initSatori>[0];
@@ -20,6 +22,8 @@ export interface FontFile {
 export interface Engine {
   yoga: Wasm;
   resvg: Wasm;
+  /** libwebp's decoder (`webp.ts`), compiled or as bytes: resvg draws nothing for a WebP. */
+  webp: Parameters<typeof webpToPng>[0];
   fonts: FontFile[];
 }
 
@@ -71,14 +75,14 @@ export interface SceneDrawer {
 }
 
 export function createCards(load: () => Promise<Engine>): Cards {
-  let ready: Promise<{ fonts: FontFile[]; art: Art }> | undefined;
+  let ready: Promise<{ fonts: FontFile[]; art: Art; toPng: WebpToPng }> | undefined;
   // Once per process or isolate: resvg refuses a second initWasm.
   const boot = () => {
     ready ??= load().then(async (e) => {
       await Promise.all([initSatori(e.yoga), initWasm(e.resvg)]);
       // The grain filter is the slowest thing on a card, so draw the paper once and reuse it.
       const paper = `data:image/png;base64,${base64(rasterize(PAPER_SVG))}`;
-      return { fonts: e.fonts, art: { paper } };
+      return { fonts: e.fonts, art: { paper }, toPng: webpToPng(e.webp) };
     });
     ready.catch(() => {
       ready = undefined;
@@ -86,8 +90,9 @@ export function createCards(load: () => Promise<Engine>): Cards {
     return ready;
   };
 
-  async function svg(card: Card): Promise<string> {
-    const { fonts, art } = await boot();
+  async function svg(given: Card): Promise<string> {
+    const { fonts, art, toPng } = await boot();
+    const card = await withoutWebp(given, toPng);
     // satori's types want a ReactNode; our plain element objects are what it reads.
     const { width, height } = cardSize(card);
     return satori(element(card, art) as unknown as Parameters<typeof satori>[0], {
@@ -104,6 +109,32 @@ export function createCards(load: () => Promise<Engine>): Cards {
   }
 
   return { svg, render };
+}
+
+/**
+ * The card with each WebP picture as a PNG, since resvg draws nothing for a WebP. One that can't
+ * be decoded is left off, as `imageDataUri` leaves off any picture a card can't draw.
+ */
+async function withoutWebp(card: Card, toPng: WebpToPng): Promise<Card> {
+  const png = async (uri: string | undefined) =>
+    uri?.startsWith("data:image/webp;") ? await toPng(uri) : uri;
+  switch (card.kind) {
+    case "profile":
+      return { ...card, person: { ...card.person, avatar: await png(card.person.avatar) } };
+    case "post":
+      return {
+        ...card,
+        author: { ...card.author, avatar: await png(card.author.avatar) },
+        image: await png(card.image),
+      };
+    case "plot": {
+      if (!card.homeArt) return card;
+      const src = await png(card.homeArt.src);
+      return { ...card, homeArt: src ? { ...card.homeArt, src } : undefined };
+    }
+    default:
+      return card;
+  }
 }
 
 /**
@@ -145,12 +176,4 @@ function rasterize(markup: string, width = W): Uint8Array {
   } finally {
     resvg.free();
   }
-}
-
-function base64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
 }

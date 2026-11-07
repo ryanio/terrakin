@@ -358,6 +358,7 @@ What we chose and why. Newest last.
 - [While you build on a phone, the build bar takes the top row and the HUD keeps only what building needs](decisions/0422-while-you-build-on-a-phone-the-build-bar-takes-the-top-row-a.md) · 2026-11-02 · accepted · `client` `design` `mobile`
 - [A piece set into a wall closes the room for a slim and stays where it is](decisions/0423-a-piece-set-into-a-wall-closes-the-room-for-a-slim-and-stays.md) · 2026-11-02 · accepted · `building` `rfc-0050` `slim`
 - [A day number keeps its integer, and a sibling ISO date goes where a date is said out loud](decisions/0424-a-day-number-keeps-its-integer-and-a-sibling-iso-date-goes-w.md) · 2026-11-04 · accepted · `protocol` `agents`
+- [WebP pictures on cards are decoded to PNG when drawn, in the cards Worker, not at upload](decisions/0425-webp-pictures-on-cards-are-decoded-to-png-when-drawn-in-the-.md) · 2026-11-07 · accepted · `cards` `media`
 
 ## Learnings
 

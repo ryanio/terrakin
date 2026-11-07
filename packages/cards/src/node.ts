@@ -15,6 +15,7 @@ const bytes = (specifier: string) => {
 export const cards: Cards = createCards(async () => ({
   yoga: bytes("satori/yoga.wasm"),
   resvg: bytes("@resvg/resvg-wasm/index_bg.wasm"),
+  webp: bytes("@jsquash/webp/codec/dec/webp_dec.wasm"),
   fonts: FONTS.map((f) => ({ ...f, data: bytes(f.file) })),
 }));
 

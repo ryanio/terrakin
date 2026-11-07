@@ -14,6 +14,7 @@ import fraunces400 from "@fontsource/fraunces/files/fraunces-latin-400-normal.wo
 import fraunces600 from "@fontsource/fraunces/files/fraunces-latin-600-normal.woff";
 import frauncesExt400 from "@fontsource/fraunces/files/fraunces-latin-ext-400-normal.woff";
 import frauncesExt600 from "@fontsource/fraunces/files/fraunces-latin-ext-600-normal.woff";
+import webp from "@jsquash/webp/codec/dec/webp_dec.wasm";
 import resvg from "@resvg/resvg-wasm/index_bg.wasm";
 import yoga from "satori/yoga.wasm";
 import { type Cards, createCards, type FontFile } from "./render";
@@ -30,6 +31,6 @@ const fonts: FontFile[] = [
   { name: "Figtree", weight: 800, data: figtree800 },
 ];
 
-export const cards: Cards = createCards(async () => ({ yoga, resvg, fonts }));
+export const cards: Cards = createCards(async () => ({ yoga, resvg, webp, fonts }));
 
 export * from "./index";

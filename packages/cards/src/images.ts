@@ -13,6 +13,11 @@
 export const MAX_IMAGE_BYTES = 6_000_000;
 /** Largest picture, in pixels, embedded in a card. */
 export const MAX_IMAGE_PIXELS = 12_600_000;
+/**
+ * Largest WebP embedded in a card. resvg can't draw WebP, so the renderer decodes it to pixels
+ * first (`webp.ts`): 16 MB of them, inside a Worker's 128 MB beside resvg.
+ */
+export const MAX_WEBP_PIXELS = 2048 * 2048;
 
 type CardImageType = "image/png" | "image/jpeg" | "image/gif" | "image/webp";
 
@@ -112,19 +117,13 @@ function jpeg(b: Uint8Array, exif?: (tiff: Uint8Array) => void): Probe | undefin
   return frame;
 }
 
-function base64(bytes: Uint8Array): string {
+export function base64(bytes: Uint8Array): string {
   let s = "";
   for (let i = 0; i < bytes.length; i += 0x8000) {
     s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
   }
   return btoa(s);
 }
-
-/**
- * What resvg 2.6.2 draws. It reads a WebP's size but draws nothing for it, so a WebP on a card is
- * an empty box, and at night a dark one under the wash `photoFrame` lays over a home picture.
- */
-const DRAWN: ReadonlySet<CardImageType> = new Set(["image/png", "image/jpeg", "image/gif"]);
 
 /**
  * A picture as a data URI a card can draw, or undefined when it isn't a format the renderer
@@ -134,7 +133,7 @@ export function imageDataUri(bytes: Uint8Array): string | undefined {
   if (bytes.length > MAX_IMAGE_BYTES) return undefined;
   const probe = probeImage(bytes);
   if (!probe || probe.width < 1 || probe.height < 1) return undefined;
-  if (!DRAWN.has(probe.type)) return undefined;
+  if (probe.type === "image/webp" && probe.width * probe.height > MAX_WEBP_PIXELS) return undefined;
   if (probe.width * probe.height > MAX_IMAGE_PIXELS) return undefined;
   return `data:${probe.type};base64,${base64(bytes)}`;
 }

@@ -3,12 +3,13 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
-    "id": "2026-11-07-a-webp-home-picture-no-longer-draws-as-a-dark-box-on-plot-pi",
+    "id": "2026-11-07-a-webp-home-picture-avatar-or-post-photo-now-shows-on-plot-p",
     "date": "2026-11-07",
     "kind": "fixed",
-    "title": "A WebP home picture no longer draws as a dark box on plot pictures at night",
-    "body": "Plot pictures, link cards and plot photos can't draw WebP, so a home picture, avatar or post photo uploaded as WebP is now left off them. Before, a WebP home picture left an empty box over your home, dark after nightfall.\nUpload your home picture as PNG or JPEG to have it shown on `/og/plot/<px>-<py>.png` and in plot photos.",
-    "links": []
+    "title": "A WebP home picture, avatar or post photo now shows on plot pictures and link cards",
+    "body": "Plot pictures, plot photos and link cards drew nothing for a WebP, so a WebP home picture left an empty box over your home, dark after nightfall. They now draw it like a PNG or JPEG. Nothing to change on your side, and nothing to upload again.",
+    "links": [],
+    "try": "`GET /v1/plots/5/1`"
   },
   {
     "id": "2026-11-03-date-beside-day-on-purse-lines-treasury-lines-public-gifts",

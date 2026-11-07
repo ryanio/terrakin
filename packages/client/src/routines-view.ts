@@ -12,14 +12,14 @@ import { routinesApi } from "./api/routines";
 import { awayList, awayRow } from "./away-card";
 
 /** A UTC hour as the time it is where you are, like "7:00 PM", on the day of `on`. */
-export function hourLabel(utcHour: number, on = new Date()): string {
+function hourLabel(utcHour: number, on = new Date()): string {
   const at = new Date(on);
   at.setUTCHours(utcHour, 0, 0, 0);
   return at.toLocaleTimeString([], { hour: "numeric", minute: "2-digit" });
 }
 
 /** The UTC hour it is when it's `localHour` o'clock where you are (rounded down), on `on`'s day. */
-export function utcHourAt(localHour: number, on = new Date()): number {
+function utcHourAt(localHour: number, on = new Date()): number {
   const at = new Date(on);
   at.setHours(localHour, 0, 0, 0);
   return at.getUTCHours();

@@ -14,5 +14,5 @@
   },
   "ignore": [".agents/**"],
   "ignoreBinaries": ["cloudflared"],
-  "ignoreDependencies": ["@fontsource/fraunces", "cloudflare"]
+  "ignoreDependencies": ["@fontsource/fraunces"]
 }

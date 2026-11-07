@@ -260,13 +260,15 @@ const forcedTraces = new ForcedTraceBudget();
 
 /**
  * The Sentry options for the Worker and the World object. `dsn` undefined means no client and no
- * reports. Every outgoing kind of data has a scrubber here.
+ * reports. Every outgoing kind of data has a scrubber here. Reports go straight to Sentry, never
+ * through a tunnel, so the type leaves `tunnel` out: the Cloudflare SDK types it more narrowly
+ * than the core does.
  */
 export function sentryOptions(
   dsn: string | undefined,
   release: string | undefined,
   budget: ForcedTraceBudget = forcedTraces,
-): Partial<Options> {
+): Omit<Partial<Options>, "tunnel"> {
   return {
     ...(dsn ? { dsn } : {}),
     ...(release ? { release } : {}),

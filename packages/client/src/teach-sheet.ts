@@ -36,7 +36,7 @@ export interface Lessons {
 }
 
 /** A profile's lessons: empty lists before recipes are learned, or on your own profile. */
-export const lessonsOf = (p: Pick<ProfileView, "canTeach" | "canLearn">): Lessons => ({
+const lessonsOf = (p: Pick<ProfileView, "canTeach" | "canLearn">): Lessons => ({
   canTeach: [...(p.canTeach ?? [])],
   canLearn: [...(p.canLearn ?? [])],
 });

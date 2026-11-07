@@ -364,6 +364,10 @@ describe("pictures", () => {
     expect(imageDataUri(png(side, side))).toBeUndefined();
     expect(imageDataUri(png(100, 100))).toMatch(/^data:image\/png;base64,/);
   });
+
+  it("refuses WebP, which resvg sizes but draws as nothing", () => {
+    for (const file of [lossless, lossy, extended]) expect(imageDataUri(file)).toBeUndefined();
+  });
 });
 
 describe("renderer", () => {

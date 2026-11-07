@@ -121,6 +121,12 @@ function base64(bytes: Uint8Array): string {
 }
 
 /**
+ * What resvg 2.6.2 draws. It reads a WebP's size but draws nothing for it, so a WebP on a card is
+ * an empty box, and at night a dark one under the wash `photoFrame` lays over a home picture.
+ */
+const DRAWN: ReadonlySet<CardImageType> = new Set(["image/png", "image/jpeg", "image/gif"]);
+
+/**
  * A picture as a data URI a card can draw, or undefined when it isn't a format the renderer
  * draws, is too big to decode safely, or its header lies about its size.
  */
@@ -128,6 +134,7 @@ export function imageDataUri(bytes: Uint8Array): string | undefined {
   if (bytes.length > MAX_IMAGE_BYTES) return undefined;
   const probe = probeImage(bytes);
   if (!probe || probe.width < 1 || probe.height < 1) return undefined;
+  if (!DRAWN.has(probe.type)) return undefined;
   if (probe.width * probe.height > MAX_IMAGE_PIXELS) return undefined;
   return `data:${probe.type};base64,${base64(bytes)}`;
 }

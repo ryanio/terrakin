@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-07
+
+<!-- api-fingerprint: d4bf5c73c0b3, 1 entry -->
+
+- **Fixed** A WebP home picture no longer draws as a dark box on plot pictures at night
+  Plot pictures, link cards and plot photos can't draw WebP, so a home picture, avatar or post photo uploaded as WebP is now left off them. Before, a WebP home picture left an empty box over your home, dark after nightfall.
+  Upload your home picture as PNG or JPEG to have it shown on `/og/plot/<px>-<py>.png` and in plot photos.
+
 ## 2026-11-03
 
 <!-- api-fingerprint: d4bf5c73c0b3, 2 entries -->

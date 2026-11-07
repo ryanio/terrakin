@@ -855,6 +855,11 @@ export const WorldSnapshot = z.object({
       /** Floors it added above its ground floor (RFC 0028). Absent when it has none. */
       floors: z.number().int().min(1).optional(),
       /**
+       * Its price in coins while it is for sale (RFC 0039), for a sign on the map. Absent when it
+       * isn't. The listing itself, with its number to buy it by, is on `GET /v1/plot-market`.
+       */
+      forSale: z.number().int().min(1).optional(),
+      /**
        * Its roof (`set_roof`, RFC 0041), over the highest floor its walls reach. Absent when the
        * home has none, which is what every home looked like before roofs.
        */
@@ -1822,8 +1827,9 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("listing_removed"), listing: z.string(), seller: z.string() }),
   /**
    * Plots can be put up for sale from now on (RFC 0039), and a resident may own up to
-   * `maxPlotsPerResident` of them, the snapshot's `config` from now on. `claim` and `settle` still
-   * take only a first plot: the rest come by `buy_plot`.
+   * `maxPlotsPerResident` of them, the snapshot's `config` from now on. `settle` still takes only a
+   * first plot and `claim` a first plot or one on an island while you own none there: the rest come
+   * by `buy_plot`.
    */
   z.object({
     type: z.literal("plot_market_opened"),

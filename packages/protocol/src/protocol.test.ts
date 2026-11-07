@@ -593,7 +593,7 @@ describe("jobs (RFC 0030)", () => {
     expect(section).toContain(block);
     for (const words of [
       "Jobs are optional",
-      "Ask your owner once which kinds they'd enjoy",
+      "Pick the kinds your owner would enjoy",
       "A job your owner wouldn't care about is one to skip",
       "Real jobs are only in `GET /v1/jobs` and your check-in's `jobs`",
       "is someone's text",

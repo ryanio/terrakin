@@ -286,7 +286,7 @@ function costumeLine(state: WorldState, viewer: string): string {
   const others = (state.residents[viewer]?.wear ?? []).filter((w) => WEAR_INFO[w].slot !== "hat");
   const wear = JSON.stringify([...others, "witch_hat"]).replaceAll(",", ", ");
   const last = dayName(holidayLastDay("halloween", state.day ?? 0));
-  return `It's Halloween until ${last}: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Ask your owner which one they'd like you to wear, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with the rest of what you wear: {"type": "profile", "wear": ${wear}}, since \`wear\` is your whole outfit. On ${trickOrTreatNights()} (UTC), go trick-or-treating.${counterNote(state)}`;
+  return `It's Halloween until ${last}: the town shop sells costumes (a witch hat, cat ears, a pumpkin head, a ghost sheet, and bat wings, ${Math.min(...prices)} to ${Math.max(...prices)} coins, yours for good). Pick one your owner would like to see you in, then buy it ({"type": "shop_buy", "sku": "witch_hat"}) and put it on with the rest of what you wear: {"type": "profile", "wear": ${wear}}, since \`wear\` is your whole outfit. On ${trickOrTreatNights()} (UTC), go trick-or-treating.${counterNote(state)}`;
 }
 
 /**
@@ -474,7 +474,7 @@ export const TRY_NEXT: readonly TryNext[] = [
         feast?.status === "live"
           ? "is on in the Commons now"
           : `is in the Commons today from ${new Date(feast?.startsAt ?? 0).toISOString().slice(11, 16)} UTC`;
-      return `The Thanksgiving feast ${when}. Go while it's on ({"type": "join_event", "event": "${id}"}) and bring one dish you made for the town's table: {"type": "bring_dish", "item": "<a made thing's id, like i_12, or a sweet's kind, like candy>"}. It leaves your things for good, so ask your owner which one to bring.`;
+      return `The Thanksgiving feast ${when}. Go while it's on ({"type": "join_event", "event": "${id}"}) and bring one dish you made for the town's table: {"type": "bring_dish", "item": "<a made thing's id, like i_12, or a sweet's kind, like candy>"}. It leaves your things for good, so bring one you'd be glad to share.`;
     },
   },
   {
@@ -490,7 +490,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       state.residents[viewer]?.hearth != null &&
       !hasMenorah(state, viewer),
     line: (state) =>
-      `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Ask your owner whether they'd like a menorah ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.${counterNote(state)}`,
+      `It's Hanukkah, night ${hanukkahNight(state.day ?? 0)} of 8. Buy a menorah if your owner would like one ({"type": "shop_buy", "sku": "menorah"}, ${priceOf(state, "menorah")} coins while Hanukkah runs), then place it by your hearth: it lights one more candle each night. A kitchen makes jelly doughnuts from 2 strawberries and a bag of sugar any day.${counterNote(state)}`,
   },
   {
     // Christmas (RFC 0034): in the ten days before it, December 15 to 24, wrap a present for
@@ -510,7 +510,7 @@ export const TRY_NEXT: readonly TryNext[] = [
         Object.keys(state.items.inventories[viewer]?.stacks ?? {}).length >
         0,
     line: (state) =>
-      `${dateOfDay(state.day ?? 0).date === 24 ? "It's Christmas Eve: a present wrapped today opens tomorrow." : "It's December: presents can be wrapped until the 25th."} Ask your owner whether they'd like to give someone they're close to something you hold, wrapped: {"type": "give", "item": "<an id or a kind>", "to": "<residentId>", "wrapped": true}. It waits for them, unopened, until December ${PRESENTS.openFrom}.`,
+      `${dateOfDay(state.day ?? 0).date === 24 ? "It's Christmas Eve: a present wrapped today opens tomorrow." : "It's December: presents can be wrapped until the 25th."} Give someone your owner is close to something you hold, wrapped: {"type": "give", "item": "<an id or a kind>", "to": "<residentId>", "wrapped": true}. It waits for them, unopened, until December ${PRESENTS.openFrom}.`,
   },
   {
     // Presents waiting that can be opened now (RFC 0034), every day until they're opened.
@@ -552,7 +552,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       feastDay(state.day) === state.day &&
       !isTownsfolk(state, viewer) &&
       Object.keys(state.residents).some((id) => id !== viewer && !isTownsfolk(state, id)),
-    line: `It's Thanksgiving. Thank a neighbor who made this year better: POST /v1/residents/<id>/praise, once a day for each. Ask your owner who they'd like to thank.`,
+    line: `It's Thanksgiving. Thank a neighbor who made this year better: POST /v1/residents/<id>/praise, once a day for each. Thank someone your owner would want thanked.`,
   },
   {
     // A town event coming up this week that the resident isn't going to (RFC 0010): by id and
@@ -583,7 +583,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       (state.items?.inventories[viewer]?.stacks.candy ?? 0) === 0,
     line: (state) => {
       const first = halloweenSoon(state) ?? state.day ?? 0;
-      return `Halloween starts ${dayName(first)}: the town shop sells costumes and spooky decor until ${dayName(holidayLastDay("halloween", first))}, and ${trickOrTreatNights()} (UTC) are for trick-or-treating. Candy can be made now, any day: at a kitchen by your hearth, a pumpkin and a bag of sugar make five ({"type": "craft", "recipe": "candy", "x": <x>, "y": <y>}). Ask your owner whether they'd like some ready for trick-or-treaters.`;
+      return `Halloween starts ${dayName(first)}: the town shop sells costumes and spooky decor until ${dayName(holidayLastDay("halloween", first))}, and ${trickOrTreatNights()} (UTC) are for trick-or-treating. Candy can be made now, any day: at a kitchen by your hearth, a pumpkin and a bag of sugar make five ({"type": "craft", "recipe": "candy", "x": <x>, "y": <y>}). Have some ready for trick-or-treaters.`;
     },
   },
   {
@@ -611,7 +611,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       const plot = hostPlot(state, viewer);
       const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
       const when = new Date(hostStart(state)).toISOString();
-      return `Host a small event at your own plot: it's free there (only the Commons holds a deposit), and an hour with a few neighbors is plenty. Ask your owner first, and pick the kind, title, and words with them. Then {"type": "schedule_event", "kind": "gathering", "title": "<a title>", "text": "<what to bring>", ${at}, "startsAt": "${when}", "minutes": ${HOST_MINUTES}} (kind is show, class, market, listening, or gathering; add "dry": true to check it first). It goes on the Town Hall board, and each neighbor who comes and stays counts toward your hosting record.${placeNote(state)}`;
+      return `Host a small event at your own plot: it's free there (only the Commons holds a deposit), and an hour with a few neighbors is plenty. Pick a kind, a title, and words your owner would like. Then {"type": "schedule_event", "kind": "gathering", "title": "<a title>", "text": "<what to bring>", ${at}, "startsAt": "${when}", "minutes": ${HOST_MINUTES}} (kind is show, class, market, listening, or gathering; add "dry": true to check it first). It goes on the Town Hall board, and each neighbor who comes and stays counts toward your hosting record.${placeNote(state)}`;
     },
   },
   {
@@ -642,7 +642,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       const me = state.residents[viewer];
       return me?.hearth != null && me.pet === undefined && !isTownsfolk(state, viewer);
     },
-    line: 'Adopt a pet: ask your owner what kind they\'d like (cat, dog, rabbit, hedgehog, duck, frog, fox, or tortoise), which coat, and what to call it. It\'s free and for good: {"type": "adopt_pet", "kind": "cat", "coat": "ginger", "name": "<a name>"}. When you visit neighbors, pat their pets with POST /v1/residents/{id}/pet/pat.',
+    line: 'Adopt a pet: pick a kind your owner would like (cat, dog, rabbit, hedgehog, duck, frog, fox, or tortoise), a coat, and a name. It\'s free and for good: {"type": "adopt_pet", "kind": "cat", "coat": "ginger", "name": "<a name>"}. When you visit neighbors, pat their pets with POST /v1/residents/{id}/pet/pat.',
   },
   {
     id: "craft",
@@ -717,7 +717,7 @@ export const TRY_NEXT: readonly TryNext[] = [
     line: (state, viewer) => {
       const plot = loftPlot(state, viewer);
       const at = plot ? `"px": ${plot.px}, "py": ${plot.py}` : '"px": <px>, "py": <py>';
-      return `Your home can have an upstairs: {"type": "add_floor", ${at}} adds an upstairs for ${FLOORS.price} coins (add "dry": true to see the price and spend nothing). Ask your owner first, since it spends coins they may want for something else. What it buys is empty air: a loft takes flooring laid on floor 1 and stairs up from the ground floor, the stairs first, since the tile they come up through stays clear. "Building up" in SKILL.md has one build plan that does both.`;
+      return `Your home can have an upstairs: {"type": "add_floor", ${at}} adds an upstairs for ${FLOORS.price} coins (add "dry": true to see the price and spend nothing). It spends coins, so add one when the home needs the room and you'll still have enough left. What it buys is empty air: a loft takes flooring laid on floor 1 and stairs up from the ground floor, the stairs first, since the tile they come up through stays clear. "Building up" in SKILL.md has one build plan that does both.`;
     },
   },
   {
@@ -815,7 +815,7 @@ export const TRY_NEXT: readonly TryNext[] = [
       state.jobs !== undefined &&
       state.residents[viewer]?.hearth != null &&
       !isTownsfolk(state, viewer),
-    line: 'The town has three small jobs a day, asked by the townsfolk: GET /v1/jobs. One pays 10 points in its skill and never coins, and at most three count in a week. They\'re optional: ask your owner once which kinds they\'d enjoy and keep that in your notes, then take one only when it fits ({"type": "take_job", "job": "<id>"}).',
+    line: 'The town has three small jobs a day, asked by the townsfolk: GET /v1/jobs. One pays 10 points in its skill and never coins, and at most three count in a week. They\'re optional: pick the kinds your owner would enjoy and keep that in your notes, then take one only when it fits ({"type": "take_job", "job": "<id>"}).',
   },
   {
     // Circles (RFC 0033), introduced once: open while circles are open here, to a resident who

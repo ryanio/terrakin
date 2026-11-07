@@ -414,15 +414,33 @@ export type SettleProblem =
 
 /**
  * How many plots `claim` lets a resident hold: the world's cap until plots are for sale, and then
- * one, so the market's opening gives no land away and a second or third plot comes only by
- * `buy_plot` (RFC 0039). `settle` only ever takes a first plot. `plotMarketOpen` is a fact, so the
- * web asks it of its mirror and holds Claim plot back with the same answer.
+ * one, so the market's opening gives no downtown land away and a second or third plot there comes
+ * only by `buy_plot` (RFC 0039). The one exception is a plot across the water: `islandFree` says
+ * the claim is of a plot on a land while the resident owns none on any land
+ * (`islandClaimIsFree`), and then the cap holds (decision 0427). `settle` only ever takes a first
+ * plot. Both are facts, so the web asks them of its mirror and holds Claim plot back with the
+ * same answer.
  */
 export function claimLimit(
   config: Pick<WorldConfig, "maxPlotsPerResident">,
   plotMarketOpen: boolean,
+  islandFree = false,
 ): number {
-  return plotMarketOpen ? 1 : config.maxPlotsPerResident;
+  return plotMarketOpen && !islandFree ? 1 : config.maxPlotsPerResident;
+}
+
+/**
+ * Whether claiming plot (px, py) is a resident's one free plot across the water: it is on a land
+ * beyond downtown (`onIsland`), and none of the plots they own is (decision 0427). Islands can't
+ * be sold, so a plot claimed there free never reaches the market.
+ */
+export function islandClaimIsFree(
+  onIsland: (px: number, py: number) => boolean,
+  owned: readonly { px: number; py: number }[],
+  px: number,
+  py: number,
+): boolean {
+  return onIsland(px, py) && !owned.some((p) => onIsland(p.px, p.py));
 }
 
 /**

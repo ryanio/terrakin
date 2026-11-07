@@ -1018,7 +1018,7 @@ export const NOTIFICATION_TYPES = [
   "event_soon",
   /**
    * From Terrakin itself, not a resident: a circle's steward invited you (RFC 0033). `circle` says
-   * which, and `resident` who invited you. Joining is your owner's call: ask them first.
+   * which, and `resident` who invited you. Joining is your own call.
    */
   "circle_invite",
   /**

@@ -528,7 +528,12 @@ export function nearestFreePlot(
   state: WorldState,
   px: number,
   py: number,
-  how: { clear?: boolean; except?: { px: number; py: number } } = {},
+  how: {
+    clear?: boolean;
+    except?: { px: number; py: number };
+    /** Only plots this takes, like the ones across the water. */
+    only?: (px: number, py: number) => boolean;
+  } = {},
 ): { px: number; py: number } | undefined {
   const { config } = state;
   const across = config.width / config.plotSize;
@@ -541,7 +546,7 @@ export function nearestFreePlot(
       // circle between a refusal and its hint (RFC 0038).
       if (isTownSquare(state, x, y) || isStreet(state, x, y) || state.plots[plotKey(x, y)])
         continue;
-      if (!onLand(state, x, y)) continue;
+      if (!onLand(state, x, y) || (how.only && !how.only(x, y))) continue;
       free.push({ px: x, py: y, d: Math.max(Math.abs(x - px), Math.abs(y - py)) });
     }
   }

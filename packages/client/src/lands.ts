@@ -5,7 +5,16 @@
  * the server walks us around, rather than a copy of the rule that could drift from it.
  */
 import type { WorldSnapshot } from "@terrakin/protocol";
-import { landedFrom, landsFromSnapshot, seaFrom, tileKey, type WorldConfig } from "@terrakin/sim";
+import {
+  claimLimit,
+  isLandPlot,
+  islandClaimIsFree,
+  landedFrom,
+  landsFromSnapshot,
+  seaFrom,
+  tileKey,
+  type WorldConfig,
+} from "@terrakin/sim";
 
 /** The lands as the snapshot carries them. */
 export type LandsView = NonNullable<WorldSnapshot["lands"]>;
@@ -56,4 +65,22 @@ export function landNameAt(
 /** Every bridge tile, by tileKey, so a view draws planks where the crossing runs. */
 export function bridgeOf(lands: LandsView | undefined): Set<string> {
   return new Set((lands?.list ?? []).flatMap((l) => l.bridge.map((t) => tileKey(t.x, t.y))));
+}
+
+/**
+ * How many plots `claim` would let a resident hold, claiming plot `at`: the sim's `claimLimit`,
+ * with its island exception (decision 0427) asked of the snapshot's lands, so Claim plot shows
+ * exactly where the claim would go through. `mine` is every plot the resident owns.
+ */
+export function claimLimitAt(
+  config: Pick<WorldConfig, "maxPlotsPerResident">,
+  plotMarketOpen: boolean,
+  lands: LandsView | undefined,
+  mine: readonly { px: number; py: number }[],
+  at: { px: number; py: number },
+): number {
+  const facts = lands && landsFromSnapshot(lands);
+  const island = (px: number, py: number) => isLandPlot(facts, px, py);
+  const free = plotMarketOpen && islandClaimIsFree(island, mine, at.px, at.py);
+  return claimLimit(config, plotMarketOpen, free);
 }

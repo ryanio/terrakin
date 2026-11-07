@@ -580,7 +580,7 @@ describe("the check-in suggesting a first event", () => {
     expect(picked?.id).toBe("host_event");
     expect(picked?.line).toContain('"px": 0, "py": 0');
     expect(picked?.line).toContain('"startsAt": "2026-10-24T19:00:00.000Z"');
-    expect(picked?.line).toContain("Ask your owner first");
+    expect(picked?.line).toContain("words your owner would like");
     // The call in the line, filled in as an owner might, is one the server takes.
     const call = JSON.parse(
       (picked?.line ?? "")

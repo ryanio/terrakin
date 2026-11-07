@@ -616,6 +616,23 @@ export class AgentLinkService {
       | undefined;
   }
 
+  /**
+   * Whether two residents are characters one keeper holds, as their links last read it: both have
+   * a partner match and the same holder, compared by hash (no holder address is stored). The plot
+   * sale watch reads it, since nothing in the world ties one keeper's characters together.
+   */
+  oneHolder(a: string, b: string): boolean {
+    if (a === b) return false;
+    const rows = [
+      ...this.sql.exec(
+        "SELECT holder_hash FROM agent_links WHERE resident_id IN (?, ?) AND holder_hash != ''",
+        a,
+        b,
+      ),
+    ];
+    return rows.length === 2 && rows[0]?.holder_hash === rows[1]?.holder_hash;
+  }
+
   /** The partner's badge for a resident, for profiles and post authors. */
   badge(residentId: string): PartnerBadge | undefined {
     const row = [

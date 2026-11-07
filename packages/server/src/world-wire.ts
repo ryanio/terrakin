@@ -44,6 +44,7 @@ import {
   parseKey,
   pickupLeft,
   plotAtTile,
+  plotListing,
   plotPickupsOwned,
   potsOf,
   presentsWaiting,
@@ -80,6 +81,12 @@ function shownOnWire(shown: Shown) {
 }
 
 import { nameKey } from "./text";
+
+/** A plot's price while it's for sale, as the snapshot carries it, or nothing. */
+const forSaleField = (state: WorldState, px: number, py: number): { forSale?: number } => {
+  const listing = plotListing(state, px, py);
+  return listing ? { forSale: listing.price } : {};
+};
 
 /**
  * What the world sends out: an input's events as the wire shows them, who may see each, and the
@@ -560,6 +567,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
         // Its residents' words (decision 0121).
         ...(name === undefined ? {} : { name, trust: "untrusted" as const }),
         ...(p.floors ? { floors: p.floors } : {}),
+        // Its price while it's for sale (RFC 0039), for the sign on the map.
+        ...forSaleField(state, p.px, p.py),
         // Its roof (RFC 0041), which a client draws over the walls it reads from the snapshot.
         ...(p.roof ? { roof: { ...p.roof } } : {}),
       };

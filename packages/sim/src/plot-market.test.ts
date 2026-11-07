@@ -8,7 +8,14 @@ import {
   PLOT_MARKET_SETUP,
 } from "./fixtures/plot-market-log";
 import { hashWorld } from "./hash";
-import { buyPlotProblem, PLOTS, plotListing, plotSale } from "./plot-market";
+import {
+  anotherPlotWords,
+  buyPlotProblem,
+  freeIslandClaim,
+  PLOTS,
+  plotListing,
+  plotSale,
+} from "./plot-market";
 import { replay } from "./replay";
 import { expectSupplyHolds, fund } from "./test-support";
 import { type Command, type Input, type RejectionCode, TOWN_ACTOR, type WorldState } from "./types";
@@ -399,7 +406,7 @@ describe("buying a plot", () => {
     ]);
   });
 
-  it("is the only way to a second plot: claim and settle take only a first one, before the switch and after it", () => {
+  it("is the only way to a second plot downtown: claim and settle take only a first one there, before the switch and after it", () => {
     // Ada owns plot (0, 0) and stands in plot (1, 0), which nobody has claimed.
     const free = { x: 9, y: 2 };
     const before = replay(
@@ -413,6 +420,11 @@ describe("buying a plot", () => {
     walkTo(after, "ada", free);
     refused(after, "ada", { type: "claim" }, "plot_limit");
     refused(after, "ada", { type: "settle", px: 1, py: 0 }, "plot_limit");
+    // The refusal names the one plot still free to her: the nearest across the water.
+    const words = apply(after, { actor: "ada", command: { type: "claim" } });
+    expect(words.ok ? "" : words.rejection.message).toContain(
+      "The nearest free plot across the water is px 4, py 1: walk there and claim.",
+    );
     // A first plot is still free: Bob, who has none, claims one, and is refused a second.
     walkTo(after, "bob", { x: 17, y: 2 });
     ok(after, "bob", { type: "claim" });
@@ -440,6 +452,46 @@ describe("buying a plot", () => {
     ok(later, "dee", buy(later, 2, 0));
     expect(plotsOwnedBy(later, "dee")).toHaveLength(3);
     refused(later, "dee", buy(later, 0, 2), "plot_limit");
+  });
+
+  it("gives one more plot free across the water once plots are for sale, and only one", () => {
+    // Ada owns downtown's (0, 0); the island's (4, 1) and (5, 1) are free, and Dee owns (4, 0).
+    const state = world();
+    // Over the bridge, in two walks, since a route looks 24 tiles out.
+    walkTo(state, "ada", { x: 27, y: 11 });
+    walkTo(state, "ada", { x: 34, y: 12 });
+    expect(freeIslandClaim(state, "ada", 4, 1)).toBe(true);
+    ok(state, "ada", { type: "claim" });
+    expect(plotsOwnedBy(state, "ada").map((p) => [p.px, p.py])).toEqual([
+      [0, 0],
+      [4, 1],
+    ]);
+    // A plot of hers is across the water now, so another there is bought like one downtown, and
+    // islands aren't sold.
+    walkTo(state, "ada", { x: 42, y: 12 });
+    refused(state, "ada", { type: "claim" }, "plot_limit");
+    // Dee's first plot is on the island, so it was her free one there.
+    walkTo(state, "dee", { x: 42, y: 2 });
+    refused(state, "dee", { type: "claim" }, "plot_limit");
+    // Ivy settles downtown: an island plot is hers to claim, and the words say so until
+    // someone takes it, and then never promise one.
+    ok(state, "ivy", { type: "join", name: "Ivy", kind: "human" });
+    ok(state, "ivy", { type: "settle", px: 2, py: 0 });
+    expect(anotherPlotWords(state, "ivy", 1)).toContain("One more is free across the water");
+    ok(state, "jo", { type: "join", name: "Jo", kind: "human" });
+    ok(state, "jo", { type: "settle", px: 5, py: 0 });
+    ok(state, "kai", { type: "join", name: "Kai", kind: "human" });
+    ok(state, "kai", { type: "settle", px: 5, py: 1 });
+    expect(anotherPlotWords(state, "ivy", 1)).not.toContain("across the water: claim");
+    // Before the switch the cap was 1, and a resident with a plot claims nothing anywhere.
+    const before = replay(
+      PLOT_MARKET_CONFIG,
+      PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market"),
+    );
+    expect(freeIslandClaim(before, "ada", 4, 1)).toBe(false);
+    walkTo(before, "ada", { x: 27, y: 11 });
+    walkTo(before, "ada", { x: 34, y: 12 });
+    refused(before, "ada", { type: "claim" }, "plot_limit");
   });
 
   it("replays its fixture to the hash pinned when it landed", () => {

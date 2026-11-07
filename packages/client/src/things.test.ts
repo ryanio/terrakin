@@ -416,7 +416,12 @@ describe("things", () => {
       ["plot_limit", "You can own at most 1 plot(s).", {}],
       [
         "plot_limit",
-        "Only a first plot is free to claim. Another comes only by buying it: GET /v1/plot-market lists the plots for sale.",
+        "Only a first plot and one across the water are free to claim. Another comes only by buying it: GET /v1/plot-market lists the plots for sale.",
+        {},
+      ],
+      [
+        "plot_limit",
+        "Downtown, only a first plot is free to claim, and another there comes only by buying it: GET /v1/plot-market lists the plots for sale. One more is free across the water: claim a plot on an island. The nearest free plot across the water is px 4, py 1: walk there and claim.",
         {},
       ],
       [

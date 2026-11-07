@@ -233,18 +233,20 @@ export function wireSocial(
   service.onAwardPaid = (id, coins) => layer.awarded(id, coins);
   // Plots for sale (RFC 0039): a sale tells its seller what reached them, here or away.
   service.onPlotSold = (seller, { px, py, price, buyer }) => {
-    // A large sale with a young account in it gets a line staff read (decision 0416). It goes
-    // first and on its own, so a seller's notice that fails never costs staff the line.
+    // A large sale with a young account in it, or one keeper's characters on both sides, gets a
+    // line staff read (decisions 0416 and 0427). It goes first and on its own, so a seller's
+    // notice that fails never costs staff the line.
     try {
       const sellerDays = service.residentAgeDays(seller);
       const buyerDays = service.residentAgeDays(buyer);
-      if (watchesPlotSale(price, sellerDays, buyerDays)) {
+      const oneKeeper = layer.agentLinks.oneHolder(seller, buyer);
+      if (watchesPlotSale(price, sellerDays, buyerDays, oneKeeper)) {
         layer.safety.recordNote(
           WATCH_ACTOR,
           "watch_plot_sale",
           "resident",
           buyer,
-          `Plot ${px},${py} sold for ${price} coins. Seller ${seller}, ${sellerDays} days in Terrakin; buyer ${buyer}, ${buyerDays} days.`,
+          `Plot ${px},${py} sold for ${price} coins. Seller ${seller}, ${sellerDays} days in Terrakin; buyer ${buyer}, ${buyerDays} days.${oneKeeper ? " One keeper holds both." : ""}`,
         );
       }
     } catch (err) {

@@ -254,9 +254,19 @@ describe("Mirror", () => {
       ...snapshot,
       residents: [{ ...ada, hearth: { x: 1, y: 1 } }],
       plots: [
-        { px: 0, py: 0, ownerId: "a", coOwners: ["b"], name: "Lemon Grove", trust: "untrusted" },
+        {
+          px: 0,
+          py: 0,
+          ownerId: "a",
+          coOwners: ["b"],
+          name: "Lemon Grove",
+          trust: "untrusted",
+          forSale: 300,
+        },
       ],
     });
+    // Its sign is up from the snapshot, and comes down with the sale.
+    expect(m.forSale.get("0,0")).toBe(300);
     const events = [
       { seq: 4, event: { type: "plot_unshared", px: 0, py: 0, residentId: "b" } },
       { seq: 4, event: { type: "hearth_cleared", residentId: "a" } },
@@ -267,6 +277,21 @@ describe("Mirror", () => {
     expect(m.coOwnersAt(1, 1)).toEqual([]);
     expect(m.residents.get("a")?.hearth).toBeNull();
     expect(m.plotNames.get("0,0")).toBe("Lemon Grove");
+    expect(m.forSale.has("0,0")).toBe(false);
+  });
+
+  it("puts a plot's sign up when it's listed and takes it down when it's taken back or off (RFC 0039)", () => {
+    const m = new Mirror({ ...snapshot, plots: [{ px: 0, py: 0, ownerId: "a" }] });
+    const listed = { type: "plot_listed", px: 0, py: 0, seller: "a", price: 400 } as const;
+    for (const off of [
+      { type: "plot_unlisted", px: 0, py: 0, seller: "a" },
+      { type: "plot_listing_removed", px: 0, py: 0, seller: "a" },
+    ] as const) {
+      expect(m.apply({ seq: 4, event: listed })).toBe("applied");
+      expect(m.forSale.get("0,0")).toBe(400);
+      expect(m.apply({ seq: 4, event: off })).toBe("applied");
+      expect(m.forSale.has("0,0")).toBe(false);
+    }
   });
 
   it("knows plots are for sale from the snapshot and the switch, which raises the cap (RFC 0039)", () => {

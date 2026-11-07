@@ -195,6 +195,7 @@ import {
   checkOpenPlotMarket,
   checkRemovePlotListing,
   checkUnlistPlot,
+  freeIslandClaim,
   plotListedProblem,
   tileListedProblem,
 } from "./plot-market";
@@ -683,10 +684,12 @@ function landingTile(state: WorldState, actor: string, px: number, py: number): 
  */
 function freePlotHint(state: WorldState, actor: string, px: number, py: number): string {
   const owned = plotsOwnedBy(state, actor).length;
+  const across = acrossHint(state, actor, px, py);
+  if (across) return across;
   // Pointing at a free plot would only lead to plot_limit.
   if (owned >= claimLimit(state.config, !!state.plotMarket)) {
     return state.plotMarket
-      ? ` ${anotherPlotWords(state, owned)}`
+      ? ` ${anotherPlotWords(state, actor, owned)}`
       : " You already own as many plots as you can.";
   }
   const free = nearestFreePlot(state, px, py);
@@ -695,6 +698,20 @@ function freePlotHint(state: WorldState, actor: string, px: number, py: number):
   return owned === 0
     ? ` Try settle at px ${free.px}, py ${free.py}.`
     : ` The nearest free plot is px ${free.px}, py ${free.py}: walk there and claim.`;
+}
+
+/**
+ * Past a first plot, once plots are for sale, the one plot left to claim is across the water
+ * (decision 0427): the nearest free one there, as a walk and a claim, or "" when there's none.
+ */
+function acrossHint(state: WorldState, actor: string, px: number, py: number): string {
+  const owned = plotsOwnedBy(state, actor).length;
+  if (!state.plotMarket || owned === 0 || owned >= state.config.maxPlotsPerResident) return "";
+  const island = (x: number, y: number) => freeIslandClaim(state, actor, x, y);
+  const across = nearestFreePlot(state, px, py, { only: island });
+  return across
+    ? ` The nearest free plot across the water is px ${across.px}, py ${across.py}: walk there and claim.`
+    : "";
 }
 
 /** The same, from the plot a resident is standing in. */
@@ -1169,13 +1186,14 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           `This plot is already claimed.${freePlotHint(state, actor, px, py)}`,
         );
       }
-      // Only a first plot, once plots are for sale: the rest are bought (`claimLimit`).
+      // Once plots are for sale, only a first plot, or one across the water while you own none
+      // there: the rest are bought (`claimLimit`, decision 0427).
       const owned = plotsOwnedBy(state, actor).length;
-      if (owned >= claimLimit(config, !!state.plotMarket)) {
+      if (owned >= claimLimit(config, !!state.plotMarket, freeIslandClaim(state, actor, px, py))) {
         return reject(
           "plot_limit",
           state.plotMarket
-            ? anotherPlotWords(state, owned)
+            ? `${anotherPlotWords(state, actor, owned)}${acrossHint(state, actor, px, py)}`
             : `You can own at most ${config.maxPlotsPerResident} plot(s).`,
         );
       }
@@ -1533,7 +1551,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
           return reject(
             problem,
             state.plotMarket
-              ? `You already have a plot, and settle is for your first one. ${anotherPlotWords(state, plotsOwnedBy(state, actor).length)}`
+              ? `You already have a plot, and settle is for your first one. ${anotherPlotWords(state, actor, plotsOwnedBy(state, actor).length)}${acrossHint(state, actor, px, py)}`
               : "You already have a plot. Settle is for your first one; walk to another and claim it.",
           );
       }

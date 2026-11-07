@@ -92,7 +92,7 @@ import { type MapGlow, mapGlow } from "./render/glow";
 import { groundWash } from "./render/ground-blend";
 import { groundPicture } from "./render/ground-picture";
 import { paintHover } from "./render/hover";
-import { labelWidth, ownerHue, paintPlotLabels } from "./render/labels";
+import { labelWidth, ownerHue, paintPlotLabels, saleSign } from "./render/labels";
 import { paintMapMarks } from "./render/marks";
 import { blockColor, CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
 import { drawPlazaEdges } from "./render/plaza";
@@ -385,6 +385,7 @@ export function render(
   const plotLabels: {
     text?: string;
     sub?: string;
+    sale?: true;
     left: number;
     top: number;
     fade: number;
@@ -397,17 +398,21 @@ export function render(
       const top = Math.round(sy - half);
       const owner = mirror.plots.get(plotKey(px, py));
       const named = owner ? mirror.plotNames.get(plotKey(px, py)) : undefined;
-      // A circle's hall (RFC 0033) carries the circle's name under the plot's own.
+      // A circle's hall (RFC 0033) carries the circle's name under the plot's own, and a plot for
+      // sale (RFC 0039) its sign with the price. A hall is never for sale, so they never meet.
+      const price = owner ? mirror.forSale.get(plotKey(px, py)) : undefined;
       const hall = owner ? mirror.halls.get(plotKey(px, py))?.name : undefined;
+      const sub = price === undefined ? hall : saleSign(price);
       // Zoomed out, the lands' names take their place (`paintMapMarks`).
       const fade =
-        (named || hall) && !detail.marks
+        (named || sub) && !detail.marks
           ? plotLabelFade(plotDistance(config, here, px, py), scale)
           : 0;
-      if ((named || hall) && fade > 0) {
+      if ((named || sub) && fade > 0) {
         plotLabels.push({
           ...(named ? { text: named } : {}),
-          ...(hall ? { sub: hall } : {}),
+          ...(sub ? { sub } : {}),
+          ...(price === undefined ? {} : { sale: true as const }),
           left,
           top,
           fade,

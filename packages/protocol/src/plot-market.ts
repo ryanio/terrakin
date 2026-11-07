@@ -106,9 +106,28 @@ export const PLOT_MARKET_RULES = {
   feePercent: MARKET.feePercent,
 } as const;
 
+/** A plot that sold on the plot market, for a going price: where, for how much, and when. */
+export const PlotSoldView = z.object({
+  px: z.number().int(),
+  py: z.number().int(),
+  price: z.number().int(),
+  /** The world's day it sold. */
+  day: z.number().int(),
+});
+export type PlotSoldView = z.infer<typeof PlotSoldView>;
+
+/** How many recent sales `GET /v1/plot-market` lists. */
+export const RECENT_PLOT_SALES = 5;
+
 export const PlotMarketResponse = z.object({
-  /** Null until plots go on sale in this world. Newest listing first. */
-  plotMarket: z.object({ listings: z.array(PlotListingView) }).nullable(),
+  /**
+   * Null until plots go on sale in this world. `listings` newest first. `sold` is the most recent
+   * sales, newest first, each plot's latest, at most `RECENT_PLOT_SALES`: what plots have gone for,
+   * for a seller pricing one and a buyer weighing one. Empty until a plot sells.
+   */
+  plotMarket: z
+    .object({ listings: z.array(PlotListingView), sold: z.array(PlotSoldView) })
+    .nullable(),
   /** With a token, once plots are for sale. */
   you: PlotMarketYouView.nullable(),
   rules: PlotMarketRules,

@@ -526,7 +526,7 @@ export const LINK_ROUTES = [
     once: true,
     summary: "Bring one dish you made to the Thanksgiving feast's table while it's on.",
     description:
-      "`bring_dish` by link (RFC 0034). With `item`, a made thing's id like `i_12` or a sweet's kind like `candy`, it sets that dish on the town's table; without it, it lists the dishes you hold, each with its link. It works only while the feast is on, from the feast's area, so open your join-event link first. The dish leaves your things for good: ask your owner which one to bring.",
+      "`bring_dish` by link (RFC 0034). With `item`, a made thing's id like `i_12` or a sweet's kind like `candy`, it sets that dish on the town's table; without it, it lists the dishes you hold, each with its link. It works only while the feast is on, from the feast's area, so open your join-event link first. The dish leaves your things for good: bring one you'd be glad to share.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({
@@ -557,7 +557,7 @@ export const LINK_ROUTES = [
     once: true,
     summary: "Adopt a pet with `kind`, `coat`, and `name`, or pat a neighbor's with `pat`.",
     description:
-      "Without a query, this shows your pet, or the kinds and coats to choose from. A pet is free and for good, and lives at your hearth, so ask your owner which kind, coat, and name first. `pat=<resident id>` pats that resident's pet, once a UTC day for each pet. Pats earn nothing.",
+      "Without a query, this shows your pet, or the kinds and coats to choose from. A pet is free and for good, and lives at your hearth, so pick a kind, coat, and name your owner would like. `pat=<resident id>` pats that resident's pet, once a UTC day for each pet. Pats earn nothing.",
     tags: ["Links"],
     params: LinkKeyParams,
     query: z.object({

@@ -360,6 +360,7 @@ What we chose and why. Newest last.
 - [A day number keeps its integer, and a sibling ISO date goes where a date is said out loud](decisions/0424-a-day-number-keeps-its-integer-and-a-sibling-iso-date-goes-w.md) · 2026-11-04 · accepted · `protocol` `agents`
 - [WebP pictures on cards are decoded to PNG when drawn, in the cards Worker, not at upload](decisions/0425-webp-pictures-on-cards-are-decoded-to-png-when-drawn-in-the-.md) · 2026-11-07 · accepted · `cards` `media`
 - [A piece of furniture's turn lives in the world, drawing only, absent for south](decisions/0426-a-piece-of-furniture-s-turn-lives-in-the-world-drawing-only-.md) · 2026-11-07 · accepted · `sim` `protocol` `client` `design`
+- [Plots for sale open with one free island plot, a going price, a sign on the map, and agents that decide on their own](decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md) · 2026-11-07 · accepted · `sim` `server` `client` `protocol` `economy` `plots` `agents`
 
 ## Learnings
 

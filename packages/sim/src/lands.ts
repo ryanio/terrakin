@@ -77,6 +77,15 @@ export interface SnapshotLands {
 }
 
 /** The snapshot's lands as the rules read them, so every reader of the wire asks the same rules. */
+/**
+ * Whether plot slot (px, py) is one of a land's plots beyond downtown: never its square or a
+ * street, which nobody claims. The free plot across the water asks it (decision 0427), the sim of
+ * its state and the web of its snapshot, so the two can't drift.
+ */
+export function isLandPlot(lands: Pick<LandsFacts, "list"> | undefined, px: number, py: number) {
+  return (lands?.list ?? []).some((l) => l.plots.some(([x, y]) => x === px && y === py));
+}
+
 export function landsFromSnapshot(lands: SnapshotLands): LandsFacts {
   return {
     home: lands.home,

@@ -13,6 +13,7 @@ import {
 } from "./market-view";
 import { listingAction } from "./market-words";
 import {
+  goingPriceLine,
   listingFacts,
   noListingsLine,
   ownPlotLine,
@@ -368,9 +369,25 @@ describe("plots for sale (RFC 0039)", () => {
     expect(plotBuyAction(l, null, null, rules).kind).toBe("none");
   });
 
-  it("says a first plot is free only to someone who owns none, since a second is only bought", () => {
-    expect(noListingsLine(false)).toMatch(/Your first plot is free to claim\.$/);
-    expect(noListingsLine(true)).not.toMatch(/free/);
+  it("says how selling works on an empty market, and that a first plot is free only to someone with none", () => {
+    expect(noListingsLine(false, rules)).toBe(
+      "A resident who has had a downtown plot for 14 days can sell it here, with everything built on it. Listing costs 25 coins, and the town keeps 5% of a sale. Your first plot is free to claim.",
+    );
+    // With a plot, no first plot is free.
+    expect(noListingsLine(true, rules)).not.toMatch(/free/);
+  });
+
+  it("gives a going price from recent sales, or says there is none yet", () => {
+    expect(goingPriceLine([], 40)).toMatch(/^No plot has sold yet/);
+    const sold = [
+      { price: 300, day: 38 },
+      { price: 1, day: 30 },
+    ];
+    expect(goingPriceLine(sold, 40)).toBe(
+      "Recent sales: 300 coins 2 days ago and 1 coin 10 days ago.",
+    );
+    // Before the world's day is known, the prices alone.
+    expect(goingPriceLine(sold, undefined)).toBe("Recent sales: 300 coins and 1 coin.");
   });
 
   it("gives each of your plots its line: for sale, ready to sell, or why not", () => {

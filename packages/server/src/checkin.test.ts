@@ -794,7 +794,7 @@ describe("first-visit steps and things to try", () => {
     expect(pick()?.id).toBe("upstairs");
     expect(pick()?.line).toContain('{"type": "add_floor", "px": 1, "py": 1}');
     expect(pick()?.line).toContain(`${FLOORS.price} coins`);
-    expect(pick()?.line).toContain("Ask your owner first");
+    expect(pick()?.line).toContain("It spends coins");
     // The line says what the coins leave her with, so the loft isn't a surprise.
     expect(pick()?.line).toContain("empty air");
     // With the upstairs added there's no room for another, whatever the purse holds.

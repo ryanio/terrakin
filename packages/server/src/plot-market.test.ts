@@ -4,6 +4,7 @@ import { afterEach, describe, expect, it } from "vitest";
 import {
   PLOT_MARKET_CONFIG,
   PLOT_MARKET_DAY,
+  PLOT_MARKET_LOG,
   PLOT_MARKET_SETUP,
 } from "../../sim/src/fixtures/plot-market-log";
 import { createApp, TEST_OPEN_PLOT_MARKET_PATH } from "./app";
@@ -145,7 +146,7 @@ describe("plots for sale on the API (RFC 0039)", () => {
       (await t.call("GET", "/v1/plot-market", undefined, t.token(id))).body;
 
     const ada = await read("ada");
-    expect(ada.plotMarket).toEqual({ listings: [] });
+    expect(ada.plotMarket).toEqual({ listings: [], sold: [] });
     expect(ada.you).toEqual({
       balance: coins(t, "ada"),
       listings: [],
@@ -229,6 +230,13 @@ describe("plots for sale on the API (RFC 0039)", () => {
       }),
     ]);
     expect(market.plotMarket.listings[0].blocks).toBeGreaterThan(0);
+    // Nothing has sold yet, so there's no going price.
+    expect(market.plotMarket.sold).toEqual([]);
+    // The world's snapshot carries the price, for a sign on the map, and only on that plot.
+    const shown = (await t.call("GET", "/v1/world")).body.plots;
+    expect(shown.filter((p: Json) => p.forSale !== undefined)).toEqual([
+      expect.objectContaining({ px: 0, py: 0, forSale: 300 }),
+    ]);
     const plot = (await t.call("GET", "/v1/plots/0/0")).body.plot;
     // With a token, each listing says whether its reader could buy it, in the sim's own words.
     expect(market.plotMarket.listings[0]).not.toHaveProperty("canBuy");
@@ -330,7 +338,45 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(after.news).toBe("A new owner moved in today");
     // It keeps what it sold for, and when, for whoever looks at it next.
     expect(after.lastSold).toEqual({ price: 300, day: t.service.state.day });
-    expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.listings).toEqual([]);
+    const afterwards = (await t.call("GET", "/v1/plot-market")).body.plotMarket;
+    expect(afterwards.listings).toEqual([]);
+    // The sale is the market's going price now, and the sign is down.
+    expect(afterwards.sold).toEqual([{ px: 0, py: 0, price: 300, day: t.service.state.day }]);
+    const signs = (await t.call("GET", "/v1/world")).body.plots;
+    expect(signs.filter((p: Json) => p.forSale !== undefined)).toEqual([]);
+  });
+
+  it("lists recent sales newest first, each plot once at its last price", async () => {
+    // Bob bought Ada's plot for 300 in the fixture. Fay sells hers to Dee a day later than she may,
+    // then Bob sells his on to Eve the day after.
+    const log: Input[] = [
+      ...PLOT_MARKET_LOG,
+      { actor: "fay", command: { type: "join", name: "Fay", kind: "human" } },
+      { actor: "fay", command: { type: "settle", px: 2, py: 0 } },
+      { actor: TOWN_ACTOR, command: { type: "test_grant", to: "fay", coins: 100 } },
+      { actor: TOWN_ACTOR, command: { type: "test_grant", to: "dee", coins: 1000 } },
+      { actor: TOWN_ACTOR, command: { type: "test_grant", to: "eve", coins: 1000 } },
+      { actor: TOWN_ACTOR, command: { type: "new_day", day: PLOT_MARKET_DAY + 29 } },
+      { actor: "fay", command: { type: "list_plot", px: 2, py: 0, price: 200 } },
+    ];
+    log.push({
+      actor: "dee",
+      command: { type: "buy_plot", px: 2, py: 0, price: 200, listed: log.length },
+    });
+    log.push(
+      { actor: TOWN_ACTOR, command: { type: "new_day", day: PLOT_MARKET_DAY + 30 } },
+      { actor: "bob", command: { type: "list_plot", px: 0, py: 0, price: 500 } },
+    );
+    log.push({
+      actor: "eve",
+      command: { type: "buy_plot", px: 0, py: 0, price: 500, listed: log.length },
+    });
+    const t = await start(log);
+    expect(t.service.state.plots[plotKey(0, 0)]?.ownerId).toBe("eve");
+    expect((await t.call("GET", "/v1/plot-market")).body.plotMarket.sold).toEqual([
+      { px: 0, py: 0, price: 500, day: PLOT_MARKET_DAY + 30 },
+      { px: 2, py: 0, price: 200, day: PLOT_MARKET_DAY + 29 },
+    ]);
   });
 
   it("notes a large sale with a young resident in it for staff, and leaves a smaller or older one be", async () => {
@@ -363,6 +409,43 @@ describe("plots for sale on the API (RFC 0039)", () => {
     expect(watchesPlotSale(PLOT_SALE_WATCH.price, old, young)).toBe(true);
     expect(watchesPlotSale(PLOT_SALE_WATCH.price, young, old)).toBe(true);
     expect(watchesPlotSale(PLOT_SALE_WATCH.price, old, old)).toBe(false);
+  });
+
+  it("notes a large sale between two characters one keeper holds, however old they are", async () => {
+    const old = PLOT_SALE_WATCH.youngDays + 10;
+    const watched = async (price: number, holders: [string, string]) => {
+      const t = await start(PLOT_MARKET_SETUP, { now: () => (PLOT_MARKET_DAY + old) * DAY_MS });
+      // Ada and Bob as verified characters, as a partner match leaves them: the holder hashed.
+      for (const [i, id] of ["ada", "bob"].entries()) {
+        t.sql.exec(
+          `INSERT INTO agent_links (resident_id, chain_id, registry, agent_id, name, partner_id,
+            subject, holder_hash, linked_at, checked_at, due_at)
+           VALUES (?, 1, '0xregistry', ?, ?, 'musegod', ?, ?, 0, 0, 0)`,
+          id,
+          String(i + 1),
+          id,
+          String(i + 1),
+          holders[i] ?? "",
+        );
+      }
+      await t.act(t.token("ada"), { type: "list_plot", px: 0, py: 0, price });
+      const bought = await t.act(t.token("bob"), {
+        type: "buy_plot",
+        px: 0,
+        py: 0,
+        price,
+        listed: listed(t),
+      });
+      expect(bought.ok).toBe(true);
+      return [...t.sql.exec("SELECT * FROM moderation_log WHERE action = 'watch_plot_sale'")];
+    };
+    const rows = await watched(PLOT_SALE_WATCH.price, ["h1", "h1"]);
+    expect(rows).toHaveLength(1);
+    expect(String(rows[0]?.reason)).toBe(
+      `Plot 0,0 sold for ${PLOT_SALE_WATCH.price} coins. Seller ada, ${old} days in Terrakin; buyer bob, ${old} days. One keeper holds both.`,
+    );
+    expect(await watched(PLOT_SALE_WATCH.price, ["h1", "h2"])).toEqual([]);
+    expect(await watched(PLOT_SALE_WATCH.price - 1, ["h1", "h1"])).toEqual([]);
   });
 
   it("tells no share_ended to a co-owner who buys the plot they share, who owns it now", async () => {

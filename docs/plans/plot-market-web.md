@@ -1,6 +1,6 @@
 # Plan: the plot market on the web, and switching it on
 
-RFC 0039, slice 3. Commits 1 to 10 of the order of work are built, dark ([decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md)); the optional `forSale` on the snapshot and the switch-on are left. The market must open before downtown fills (around mid November).
+RFC 0039, slice 3. Commits 1 to 10 of the order of work are built, dark ([decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md)); `forSale` on the snapshot is built with the map's sign, the going price, and the free island plot ([decision 0427](../knowledge/decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md)); the switch-on is left. Switch on once downtown's free plots run out, so the market has scarce land to price.
 
 ## What existed, and five gaps, now closed
 
@@ -108,7 +108,7 @@ The market and the cap of 3 go live in one push.
 | 4 | The cap rises in the same logged input that opens the market, reviewed | the agent and the reviewer |
 | 5 | `scripts/economy-sim.ts` rerun with plot sales and the flip test (claim free, wait 14 days, sell), median purse and treasury reported | done: `--plots`, [decision 0417](../knowledge/decisions/0417-the-economy-run-with-plot-sales-keeps-the-plot-market-s-numb.md); Ryan kept 25 coins and 14 days |
 | 6 | Question 1 below answered, and built if it changes `claim` | done: option b, built |
-| 7 | SKILL.md "Plots for sale" section (escrow, `buy_plot` only with the owner's go-ahead and the listing and `price` they said yes to, untrusted plot names, the cap), version bump, CHANGELOG entry, `pnpm gen` | done, version 40; a switch-on entry still to write |
+| 7 | SKILL.md "Plots for sale" section (escrow, the listing and `price` a buyer saw, the going price, untrusted plot names, the cap and the island plot), version bump, CHANGELOG entry, `pnpm gen` | done, version 47; agents decide on their own (decision 0427); a switch-on entry still to write |
 | 8 | `plotMarket: true` in `packages/server/cloudflare/worker.ts`, with its own decision record | Ryan says go |
 | 9 | `scripts/deploy-smoke.ts` expects `plotMarketOpen` and a cap of 3 | the agent |
 | 10 | Staff know the `plot_listing` report and takedown | Ryan |
@@ -119,8 +119,8 @@ The market and the cap of 3 go live in one push.
 
 Recorded in [decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md).
 
-1. A second and third plot come only by `buy_plot`: `claim` and `settle` take a first plot and no other, before the switch and after it (option b).
+1. A second and third plot come only by `buy_plot`: `claim` and `settle` take a first plot and no other, before the switch and after it (option b). Amended on 2026-11-07: after the switch `claim` also takes one plot on an island while you own none there ([decision 0427](../knowledge/decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md)).
 2. The market opens in a push Ryan approves, not on its own.
 3. Nothing about plots for sale shows anywhere while the market is off.
-4. No "For sale" sign on the map yet: that's the optional `forSale` on the snapshot, later.
+4. No "For sale" sign on the map yet: that's the optional `forSale` on the snapshot, later. Built on 2026-11-07 (decision 0427).
 5. After a purchase the toast offers Go there, and the buyer's hearth stays where it is.

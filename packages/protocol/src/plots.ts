@@ -131,7 +131,7 @@ export const PlotView = z.object({
   /**
    * `GET /v1/plots/{px}/{py}` only, while the plot is for sale (RFC 0039): its price and the day it
    * was listed. Its owner sells it, and it is frozen as it stands until it sells. Buy it with
-   * `buy_plot`, only with your owner's go-ahead.
+   * `buy_plot`.
    */
   listing: PlotForSaleView.optional(),
   /** Opened as a gallery with `set_gallery`. Absent otherwise. */

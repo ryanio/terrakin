@@ -1,4 +1,12 @@
+import { formatCount, pluralWord } from "@terrakin/ui/format";
 import { CLAY, CLAY_DEEP, INK, PAPER_EDGE } from "./palette";
+
+/** A for-sale sign's soft clay fill, under clay ink. */
+const SALE_FILL = "rgba(250, 226, 208, 0.92)";
+
+/** What a plot for sale's sign says (RFC 0039): "For sale, 400 coins". */
+export const saleSign = (price: number) =>
+  `For sale, ${formatCount(price)} ${pluralWord(price, "coin", "coins")}`;
 
 // Stable hue per owner so neighbors' plots are easy to tell apart.
 export function ownerHue(id: string): number {
@@ -33,7 +41,8 @@ function fitText(ctx: CanvasRenderingContext2D, font: string, text: string, max:
  * stays in view while its plot does: it slides down the plot when the plot's top edge is off the
  * screen or under the top bar and the visit card (`labelTop`), and along it when the plot's middle
  * is off one side. A circle's hall (RFC 0033) carries the circle's name on a smaller tag of its
- * own, under the plot's name or alone, and the two move as one so neither leaves the plot. Canvas
+ * own, under the plot's name or alone, and a plot for sale (RFC 0039) its sign there in clay; the
+ * tags move as one so neither leaves the plot. Canvas
  * text can't execute anything, so a name is drawn as written.
  */
 export function paintPlotLabels(
@@ -41,8 +50,10 @@ export function paintPlotLabels(
   labels: readonly {
     /** The plot's name, when it has one. */
     text?: string;
-    /** The circle whose hall the plot is. */
+    /** The circle whose hall the plot is, or the sign of a plot for sale. */
     sub?: string;
+    /** The sub line is a for-sale sign, drawn in clay so it reads apart from a circle's name. */
+    sale?: true;
     left: number;
     top: number;
     fade: number;
@@ -98,13 +109,13 @@ export function paintPlotLabels(
     if (sub) {
       const sy = y + mainH + gap;
       ctx.font = subFont;
-      ctx.fillStyle = "rgba(255, 250, 240, 0.8)";
-      ctx.strokeStyle = PAPER_EDGE;
+      ctx.fillStyle = l.sale ? SALE_FILL : "rgba(255, 250, 240, 0.8)";
+      ctx.strokeStyle = l.sale ? CLAY : PAPER_EDGE;
       ctx.beginPath();
       ctx.roundRect(x - sw / 2, sy, sw, subH, subH / 2);
       ctx.fill();
       ctx.stroke();
-      ctx.fillStyle = INK;
+      ctx.fillStyle = l.sale ? CLAY_DEEP : INK;
       ctx.fillText(sub, x, sy + subH / 2 + 0.5);
     }
   }

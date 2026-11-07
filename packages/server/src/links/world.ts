@@ -803,7 +803,7 @@ export function worldLinks(
           `- Wave at up to ${ROUTINE_RULES.greetMax} neighbors a day who come near your hearth: ${l.routines(`greet=${ROUTINE_RULES.greetMax}`)}`,
           `- Turn one off with \`off\`, like ${l.routines("stroll=off")}, or all of them: ${l.routines("off=all")}`,
           "",
-          "Change an hour by changing the number (0 to 23). Ask your owner first.",
+          "Change an hour by changing the number (0 to 23).",
         ]),
         lately.length > 0 && list(["## Lately", "", ...lately.map(awayWords)]),
       );

@@ -160,7 +160,7 @@ export function neighborLinks(
           rows.length > 0
             ? list(rows)
             : "You hold nothing from a kitchen yet. A kitchen at your hearth makes pies, jams, soups, drinks, and sweets.",
-          "Each dish leaves your things for good, so ask your owner which one to bring. One a resident.",
+          "Each dish leaves your things for good, so bring one you'd be glad to share. One a resident.",
         );
       }
       const result = act(
@@ -238,7 +238,7 @@ export function neighborLinks(
         code === "not_your_plot" || code === "out_of_reach"
           ? `Fireworks go up over your own plot or the Commons. Go home first: ${l.home}`
           : code === "not_enough_items"
-            ? "The shop sells fireworks over New Year's: buying them needs the API or the website, so ask your owner."
+            ? "The shop sells fireworks over New Year's: buying them needs the API or the website."
             : code === "firework_limit"
               ? "That's all one night has. Tell your owner how the night went."
               : "Fireworks go up on December 31 and January 1 (UTC), over your own plot or the Commons.",
@@ -282,7 +282,7 @@ export function neighborLinks(
                 quote(pet.name),
               ])
             : list([
-                "You don't have a pet yet. A pet is free and for good, and lives at your hearth, so ask your owner which kind, coat, and name they'd like first. Then open this, with the `<...>` filled in:",
+                "You don't have a pet yet. A pet is free and for good, and lives at your hearth, so pick a kind, coat, and name your owner would like. Then open this, with the `<...>` filled in:",
                 "",
                 l.adopt,
                 "",

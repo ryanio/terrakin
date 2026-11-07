@@ -117,12 +117,19 @@ export function openBuySheet(
 }
 
 /**
- * Put plot `at` up for sale, under the sheet title `title` ("Sell your home"): a price, "Check
+ * Put plot `at` up for sale, under the sheet title `title` ("Sell your home"): a price, with
+ * `going`, what plots have gone for, under it, "Check
  * the sale" (a dry `list_plot`) to see what listing costs and what a sale would bring, then the
  * listing on a second tap. Changing the price clears what was checked. `done` reads the market
  * again once it went through.
  */
-export function openListSheet(at: At, title: string, rules: Rules, done: () => void) {
+export function openListSheet(
+  at: At,
+  title: string,
+  rules: Rules,
+  going: string,
+  done: () => void,
+) {
   const problem = errorLine("plot-list-problem");
   const price = coinField({ id: "plot-price", max: rules.priceMax });
   const check = h("button", {
@@ -152,6 +159,8 @@ export function openListSheet(at: At, title: string, rules: Rules, done: () => v
       text: "Price for the plot",
     }),
     h("div", { class: "coin-row" }, price, check),
+    // What plots have gone for, so a price has something to stand on.
+    h("p", { class: "hint", attrs: { id: "plot-going" }, text: going }),
     shown,
     problem,
     list,

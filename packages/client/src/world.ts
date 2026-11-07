@@ -38,6 +38,7 @@ import {
   isGroundKind,
   isHangingWall,
   isHeldBlock,
+  islandClaimIsFree,
   isMaterialKind,
   isSurface,
   isTurn,
@@ -124,7 +125,7 @@ import { type Cutaway, cutaway, pickedFloor, tapFloor } from "./floors";
 import { openHomeSheet } from "./home-sheet";
 import { joinProblem } from "./join-form";
 import { createLanding } from "./landing";
-import { onLandPlot, onStreet } from "./lands";
+import { claimLimitAt, onLandPlot, onStreet } from "./lands";
 import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import {
   clampScale,
@@ -2247,11 +2248,23 @@ claimButton.addEventListener("click", () => {
   tryAct({ type: "claim" });
 });
 
+/** How many plots `claim` would let you hold, claiming the plot you stand on. */
+function claimLimitHere(m: Mirror, id: string): number {
+  const r = m.residents.get(id);
+  if (!r) return claimLimit(m.config, m.plotMarketOpen);
+  const mine = [...m.plots].flatMap(([key, owner]) => {
+    if (owner !== id) return [];
+    const [px, py] = parseKey(key);
+    return [{ px, py }];
+  });
+  return claimLimitAt(m.config, m.plotMarketOpen, m.lands, mine, plotOf(m.config, r.x, r.y));
+}
+
 /** Claim plot while you may claim one, else Your things in its place (one plot per resident). */
 function paintClaim() {
-  // The sim's own limit: once plots are for sale, claim takes only a first plot.
-  const full =
-    !!mirror && !!me && myPlots().owned >= claimLimit(mirror.config, mirror.plotMarketOpen);
+  // The sim's own limit: once plots are for sale, claim takes a first plot, or one across the
+  // water while you own none there (decision 0427), so the plot you stand on decides.
+  const full = !!mirror && !!me && myPlots().owned >= claimLimitHere(mirror, me);
   claimButton.hidden = full;
   thingsLink.hidden = !full;
   // A guest's way in: Live here on a plot that's free to claim, Move in anywhere else.

@@ -422,7 +422,7 @@ export function circleTodo(circle: CheckinCircle | undefined, now: number): stri
     // steward's note, when it lapses, and what joining means. The line never quotes any of it.
     const noted = circle.invites.some((i) => i.note !== null);
     lines.push(
-      `A circle invited you${noted ? ", with a note from the steward" : ""} (see circle.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.`,
+      `A circle invited you${noted ? ", with a note from the steward" : ""} (see circle.invites: who founded it, what it's for, and when the invite lapses). Join it if your owner would like the company.`,
     );
   }
   const night = circle.mine?.nextNight;

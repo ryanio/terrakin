@@ -131,13 +131,33 @@ export function plotBuyAction(
 }
 
 /**
- * What the market says with no plot for sale. A first plot is free to claim, which is worth saying
- * to someone without one; to someone with a plot it would be wrong, since a second is only bought.
+ * What the market says with no plot for sale: how selling works and what it costs, so an empty
+ * shelf reads as a market waiting for its first seller. A first plot is free to claim, which is
+ * worth saying to someone without one; to someone with a plot it would be wrong.
  */
-export function noListingsLine(ownsAPlot: boolean): string {
-  return ownsAPlot
-    ? "When a resident lists a plot, it shows here."
-    : "When a resident lists a plot, it shows here. Your first plot is free to claim.";
+export function noListingsLine(
+  ownsAPlot: boolean,
+  rules: Pick<Rules, "listingFee" | "settleDays" | "feePercent">,
+): string {
+  const how = `A resident who has had a downtown plot for ${rules.settleDays} days can sell it here, with everything built on it. Listing costs ${coins(rules.listingFee)}, and the town keeps ${rules.feePercent}% of a sale.`;
+  return ownsAPlot ? how : `${how} Your first plot is free to claim.`;
+}
+
+/**
+ * What plots have gone for (`sold`, newest first), for a seller pricing one and a buyer weighing
+ * one: "Recent sales: 300 coins 2 days ago and 450 coins 10 days ago." With none yet, that there is no
+ * going price. Without the world's day, prices alone.
+ */
+export function goingPriceLine(
+  sold: readonly { price: number; day: number }[],
+  today: number | undefined,
+): string {
+  if (sold.length === 0)
+    return "No plot has sold yet, so there's no going price. Look at what's for sale, and what a plot like yours holds.";
+  const sales = sold.map((s) =>
+    today === undefined ? coins(s.price) : `${coins(s.price)} ${relativeDayWords(s.day, today)}`,
+  );
+  return `Recent sales: ${listOf(sales)}.`;
 }
 
 /** The numbers a dry run gives back, as label and value rows for a sheet. */

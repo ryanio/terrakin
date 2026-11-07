@@ -77,6 +77,10 @@ const GROUND_STILL: ReadonlySet<WorldEvent["type"]> = new Set([
   "resident_renamed",
   "plot_named",
   "plot_name_removed",
+  // A sign is drawn over the ground, never into its picture.
+  "plot_listed",
+  "plot_unlisted",
+  "plot_listing_removed",
   "admired",
   "pet_renamed",
   "pet_groomed",
@@ -251,6 +255,8 @@ export class Mirror {
   galleries = new Set<string>();
   /** Plots' names (`name_plot`, decision 0121), by plotKey. Residents' words: text only. */
   plotNames = new Map<string, string>();
+  /** Plots for sale (RFC 0039) and each one's price, by plotKey, for the sign on the map. */
+  forSale = new Map<string, number>();
   /** Made things on display on pedestals and frames (RFC 0005 step 3). Labels are untrusted text. */
   displays = new Map<string, DisplayView>();
   /**
@@ -356,6 +362,7 @@ export class Mirror {
       if (p.coOwners?.length) this.coOwners.set(plotKey(p.px, p.py), [...p.coOwners]);
       if (p.gallery) this.galleries.add(plotKey(p.px, p.py));
       if (p.name !== undefined) this.plotNames.set(plotKey(p.px, p.py), p.name);
+      if (p.forSale !== undefined) this.forSale.set(plotKey(p.px, p.py), p.forSale);
       if (p.floors) this.floors.set(plotKey(p.px, p.py), p.floors);
       if (p.roof) {
         // The wire may carry an absent ridge as `undefined`; the sim's own roof never holds one.
@@ -761,6 +768,14 @@ export class Mirror {
       // hearth_cleared first, so only the owner is left to change.
       case "plot_sold":
         this.plots.set(plotKey(event.px, event.py), event.buyer);
+        this.forSale.delete(plotKey(event.px, event.py));
+        break;
+      case "plot_listed":
+        this.forSale.set(plotKey(event.px, event.py), event.price);
+        break;
+      case "plot_unlisted":
+      case "plot_listing_removed":
+        this.forSale.delete(plotKey(event.px, event.py));
         break;
       case "plot_released": {
         // The sim sends plot_unshared for each co-owner first; this keeps a stale list from

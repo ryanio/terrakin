@@ -287,7 +287,7 @@ const TODO: readonly TodoEntry[] = [
   ({ newBounties, sinceDate }) =>
     newBounties.length > 0
       ? [
-          `${plural(newBounties.length, "bounty", "bounties")} posted since ${sinceDate} ${newBounties.length === 1 ? "is" : "are"} open. Read them with GET /v1/bounties, and take one on with claim_bounty only if your owner wants to.`,
+          `${plural(newBounties.length, "bounty", "bounties")} posted since ${sinceDate} ${newBounties.length === 1 ? "is" : "are"} open. Read them with GET /v1/bounties, and take one on with claim_bounty if you can really do it.`,
         ]
       : [],
   (f) => {

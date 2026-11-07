@@ -45,7 +45,7 @@ export function plotMarketWithLinks(origin: string, m: PlotMarketResponse): Plot
   const withLinks = (l: PlotListingView) => plotWithLinks(origin, l);
   return {
     ...m,
-    plotMarket: m.plotMarket && { listings: m.plotMarket.listings.map(withLinks) },
+    plotMarket: m.plotMarket && { ...m.plotMarket, listings: m.plotMarket.listings.map(withLinks) },
     you: m.you && { ...m.you, listings: m.you.listings.map(withLinks) },
   };
 }

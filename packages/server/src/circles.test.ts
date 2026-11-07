@@ -399,7 +399,7 @@ describe("the check-in", () => {
       },
     ]);
     expect(checkin.todo).toContain(
-      "A circle invited you, with a note from the steward (see circle.invites: who founded it, what it's for, and when the invite lapses). Ask your owner before you join.",
+      "A circle invited you, with a note from the steward (see circle.invites: who founded it, what it's for, and when the invite lapses). Join it if your owner would like the company.",
     );
     // A line says a note is there and quotes nobody: not the name, the note, or the notice.
     const lines = checkin.todo.join(" ");

@@ -4,6 +4,8 @@ import {
   type PlotListingView,
   type PlotMarketResponse,
   type PlotSaleView,
+  type PlotSoldView,
+  RECENT_PLOT_SALES,
 } from "@terrakin/protocol";
 import {
   buyPlotProblem,
@@ -40,11 +42,13 @@ import {
  */
 
 /**
- * When a plot sale gets a line in the moderation log for staff to look at (decision 0416): a price
- * of at least `price` coins with a resident on either side who joined fewer than `youngDays` days
- * ago. A sale is exempt from the gift caps, so it is the one way coins move between residents in
- * large amounts; a day's receiving cap is the size worth a look, and a month is how long an
- * account that exists only to pass coins along tends to be new. Nothing is refused or held.
+ * When a plot sale gets a line in the moderation log for staff to look at (decisions 0416 and
+ * 0427): a price of at least `price` coins with a resident on either side who joined fewer than
+ * `youngDays` days ago, or with one keeper holding both sides' characters. A sale is exempt from the
+ * gift caps, so it is the one way coins move between residents in large amounts; a day's receiving
+ * cap is the size worth a look, a month is how long an account that exists only to pass coins
+ * along tends to be new, and one keeper's characters are the household the sim can't see, since
+ * agents buy and sell on their own. Nothing is refused or held.
  */
 export const PLOT_SALE_WATCH = {
   /** `ECONOMY.receiveCap`: more than gifts could move to one resident in a day. */
@@ -57,12 +61,16 @@ export const WATCH_ACTOR = "watch";
 
 /**
  * Whether a sale at `price` between residents `sellerDays` and `buyerDays` old (whole days since
- * each first joined) is one staff should look at.
+ * each first joined), with `oneKeeper` when one keeper holds both, is one staff should look at.
  */
-export function watchesPlotSale(price: number, sellerDays: number, buyerDays: number): boolean {
-  return (
-    price >= PLOT_SALE_WATCH.price && Math.min(sellerDays, buyerDays) < PLOT_SALE_WATCH.youngDays
-  );
+export function watchesPlotSale(
+  price: number,
+  sellerDays: number,
+  buyerDays: number,
+  oneKeeper = false,
+): boolean {
+  if (price < PLOT_SALE_WATCH.price) return false;
+  return oneKeeper || Math.min(sellerDays, buyerDays) < PLOT_SALE_WATCH.youngDays;
 }
 
 /** What the plot market's views read from outside the world. */
@@ -164,7 +172,22 @@ export function plotMarketView(
       plots,
     };
   }
-  return { plotMarket: { listings }, you, rules: PLOT_MARKET_RULES };
+  return { plotMarket: { listings, sold: recentSales(state) }, you, rules: PLOT_MARKET_RULES };
+}
+
+/**
+ * The most recent plot sales, newest first, then north to south and west to east: each plot keeps
+ * its latest sale (`boughtFor`, `boughtDay`), so a plot sold twice counts once, at its last price.
+ */
+function recentSales(state: WorldState): PlotSoldView[] {
+  return Object.values(state.plots)
+    .flatMap((p) =>
+      p.boughtFor === undefined || p.boughtDay === undefined
+        ? []
+        : [{ px: p.px, py: p.py, price: p.boughtFor, day: p.boughtDay }],
+    )
+    .sort((a, b) => b.day - a.day || a.py - b.py || a.px - b.px)
+    .slice(0, RECENT_PLOT_SALES);
 }
 
 /**

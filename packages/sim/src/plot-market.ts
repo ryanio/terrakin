@@ -3,7 +3,7 @@ import { hallAt } from "./circles";
 import { isTownsfolk, movePurse, moveTreasury, sameHousehold } from "./economy";
 import { eventsAt } from "./events";
 import { parseKey, plotKey } from "./keys";
-import { landOfPlot } from "./lands";
+import { isLandPlot, landOfPlot } from "./lands";
 import { MARKET, marketFee } from "./market";
 import { potsOf } from "./pottery";
 import { isSide, SIDE_STEP } from "./surfaces";
@@ -18,7 +18,7 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { plotOf, plotsOwnedBy } from "./world";
+import { islandClaimIsFree, plotOf, plotsOwnedBy } from "./world";
 
 /**
  * The plot market ([RFC 0039](../../../docs/rfcs/0039-plot-market.md), decision 0344): a plot's
@@ -40,8 +40,9 @@ import { plotOf, plotsOwnedBy } from "./world";
  *
  * Nothing here runs until the server sends `open_plot_market`, which needs the item market open
  * and a second land, so free land exists whenever prices do, and raises the plot cap. Before it
- * every command here is refused, so older logs replay to the hash they always had. After it `claim`
- * and `settle` still take only a first plot (`claimLimit`), so the plots past it are bought.
+ * every command here is refused, so older logs replay to the hash they always had. After it `settle`
+ * still takes only a first plot, and `claim` a first plot or one across the water (`claimLimit`,
+ * decision 0427), so the downtown plots past the first are bought.
  */
 
 /** The numbers (RFC 0039's decisions of 2026-10-21). Changing one needs a logged switch. */
@@ -152,18 +153,41 @@ export function checkOpenPlotMarket(
   });
 }
 
+/** Whether plot (px, py) is on a land beyond downtown (RFC 0038), which can't be sold. */
+const onIsland = (state: WorldState) => (px: number, py: number) => isLandPlot(state.lands, px, py);
+
+/**
+ * Whether `claim` would take plot (px, py) from `actor` as their one free plot across the water
+ * (decision 0427): plots are for sale, it is on a land, and nothing they own is.
+ */
+export function freeIslandClaim(state: WorldState, actor: ResidentId, px: number, py: number) {
+  return (
+    !!state.plotMarket && islandClaimIsFree(onIsland(state), plotsOwnedBy(state, actor), px, py)
+  );
+}
+
 /**
  * Why a resident who owns `owned` plots gets no other by `claim` or `settle` once plots are for
- * sale: they hold the most a resident can, or a plot past the first comes only by buying it.
+ * sale: they hold the most a resident can, or a plot past the first comes by buying it, or, while
+ * they own nothing across the water and a plot there is free, by claiming one there (decision
+ * 0427).
  */
-export function anotherPlotWords(state: WorldState, owned: number): string {
+export function anotherPlotWords(state: WorldState, actor: ResidentId, owned: number): string {
   const cap = state.config.maxPlotsPerResident;
-  if (owned < cap) {
-    return "Only a first plot is free to claim. Another comes only by buying it: GET /v1/plot-market lists the plots for sale.";
+  if (owned >= cap) {
+    return cap === 1
+      ? "You already own a plot, and a resident owns one here."
+      : `You already own ${cap} plots, the most a resident can.`;
   }
-  return cap === 1
-    ? "You already own a plot, and a resident owns one here."
-    : `You already own ${cap} plots, the most a resident can.`;
+  const buy = "GET /v1/plot-market lists the plots for sale.";
+  const mine = plotsOwnedBy(state, actor);
+  const freeAcross = (state.lands?.list ?? []).some((l) =>
+    l.plots.some(([x, y]) => !state.plots[plotKey(x, y)]),
+  );
+  if (freeAcross && !mine.some((p) => onIsland(state)(p.px, p.py))) {
+    return `Downtown, only a first plot is free to claim, and another there comes only by buying it: ${buy} One more is free across the water: claim a plot on an island.`;
+  }
+  return `Only a first plot and one across the water are free to claim. Another comes only by buying it: ${buy}`;
 }
 
 // ---------- listing ----------
@@ -457,7 +481,7 @@ export function checkBuyPlot(
   }
   const owned = plotsOwnedBy(state, actor).length;
   if (owned >= state.config.maxPlotsPerResident) {
-    return refuse("plot_limit", anotherPlotWords(state, owned));
+    return refuse("plot_limit", anotherPlotWords(state, actor, owned));
   }
   const have = econ.coins[actor] ?? 0;
   if (have < price) {

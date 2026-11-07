@@ -2349,8 +2349,9 @@ export type Command =
   | { type: "open_market" }
   /**
    * Plots may be listed and bought from now on (RFC 0039), and a resident may own up to
-   * `maxPlotsPerResident`, which this sets in `config` and never lowers. `claim` and `settle` still
-   * take only a first plot, so every plot past it comes by `buy_plot`.
+   * `maxPlotsPerResident`, which this sets in `config` and never lowers. `settle` still takes only a
+   * first plot, and `claim` a first plot or one on a land while the resident owns none there
+   * (decision 0427), so every downtown plot past the first comes by `buy_plot`.
    */
   | { type: "open_plot_market"; maxPlotsPerResident: number }
   /** Staff took a plot off the market after a report. */

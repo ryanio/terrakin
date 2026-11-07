@@ -920,7 +920,11 @@ export function worldProblem(
       if (!message.includes("streets")) return message;
       return `${firstSentence(message)} ${you.hasPlot === false ? "Tap Claim plot to pick an empty plot." : "Build on your own plot."}`;
     case "plot_limit":
-      // Once plots are for sale a plot past the first is bought, never claimed (RFC 0039).
+      // Once plots are for sale a plot past the first is bought downtown, or claimed once across
+      // the water (RFC 0039, decision 0427).
+      if (message.includes("One more is free across the water")) {
+        return "You already have a plot. Another one downtown is bought at the market, but one more on an island is free to claim.";
+      }
       return message.includes("buying it")
         ? "You already have a plot. Another one is bought at the market, not claimed."
         : "You already have as many plots as you can own.";

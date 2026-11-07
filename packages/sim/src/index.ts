@@ -433,6 +433,7 @@ export {
 } from "./jobs";
 export { parseKey, plotKey, tileKey } from "./keys";
 export {
+  isLandPlot,
   isSea,
   isStreet,
   LANDS,
@@ -806,6 +807,7 @@ export {
   homePlotOf,
   inBounds,
   isCommons,
+  islandClaimIsFree,
   isShopTile,
   isSolid,
   isTownHallTile,

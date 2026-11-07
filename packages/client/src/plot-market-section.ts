@@ -11,6 +11,7 @@ import { h } from "@terrakin/ui/dom";
 import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, emptyNote, itemRow, itemRows, kindPill } from "@terrakin/ui/ui";
 import {
+  goingPriceLine,
   listingFacts,
   noListingsLine,
   ownPlotLine,
@@ -33,8 +34,8 @@ export interface PlotMarketMoves {
   unlist: (button: HTMLButtonElement, at: { px: number; py: number }) => void;
   /** Open the Buy sheet for a plot for sale. */
   buy: (listing: PlotListingView, title: string) => void;
-  /** Open the Sell sheet for a plot of yours, with the sheet's title. */
-  sell: (at: { px: number; py: number }, title: string) => void;
+  /** Open the Sell sheet for a plot of yours, with the sheet's title and the going price's line. */
+  sell: (at: { px: number; py: number }, title: string, going: string) => void;
 }
 
 /** A pill in a row's trail, named with the plot it's for. */
@@ -114,10 +115,11 @@ function sellButton(
   at: { px: number; py: number },
   title: string,
   sheet: string,
+  going: string,
   moves: PlotMarketMoves,
 ) {
   const sell = rowButton("Sell", title);
-  sell.addEventListener("click", () => moves.sell(at, sheet));
+  sell.addEventListener("click", () => moves.sell(at, sheet, going));
   return sell;
 }
 
@@ -150,7 +152,7 @@ function ownRow(
     trail: plot.listed
       ? takeBack(plot, title, data.rules, moves)
       : plot.canList
-        ? sellButton(plot, title, sell, moves)
+        ? sellButton(plot, title, sell, goingPriceLine(data.plotMarket.sold, world?.day), moves)
         : null,
   });
 }
@@ -174,7 +176,18 @@ export function plotMarketSection(
     h("h2", { class: "section-title", attrs: { id: "plots" }, text: "Plots for sale" }),
     rows.length > 0
       ? itemRows(rows, { className: "plot-sale-rows" })
-      : emptyNote("No plots for sale", noListingsLine((open.you?.plots.length ?? 0) > 0)),
+      : emptyNote(
+          "No plots for sale yet",
+          noListingsLine((open.you?.plots.length ?? 0) > 0, open.rules),
+        ),
+    // What plots have gone for, once any has: a seller's guide and a buyer's.
+    open.plotMarket.sold.length > 0
+      ? h("p", {
+          class: "hint",
+          attrs: { id: "plots-sold" },
+          text: goingPriceLine(open.plotMarket.sold, o.world?.day),
+        })
+      : null,
     open.you ? null : h("p", { class: "hint", text: "Join to buy a plot." }),
     own.length > 0
       ? h(

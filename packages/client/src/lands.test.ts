@@ -1,7 +1,7 @@
 import type { WorldSnapshot } from "@terrakin/protocol";
 import { counterTiles, hallTiles, landSquare, route, stepFrom } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
-import { landNameAt } from "./lands";
+import { claimLimitAt, landNameAt } from "./lands";
 import { Mirror } from "./mirror";
 
 /**
@@ -205,5 +205,24 @@ describe("a land's name", () => {
     expect(landNameAt(lands, ISLAND.square.px, ISLAND.square.py)).toBe("Willowmere");
     expect(landNameAt(lands, 4, 0)).toBe("Willowmere");
     expect(landNameAt(lands, 1, 1)).toBeUndefined();
+  });
+});
+
+describe("Claim plot past a first plot", () => {
+  it("shows on a free island plot to someone with none there once plots are for sale, and nowhere else", () => {
+    const { lands } = new Mirror(opened);
+    const cap = { maxPlotsPerResident: 3 };
+    const downtown = [{ px: 0, py: 0 }];
+    const limit = (open: boolean, mine: { px: number; py: number }[], px: number, py: number) =>
+      claimLimitAt(cap, open, lands, mine, { px, py });
+    // On an island plot, with a plot downtown: the cap, so Claim plot shows.
+    expect(limit(true, downtown, 4, 1)).toBe(3);
+    // Downtown, or the island's own square, which nobody claims: one plot.
+    expect(limit(true, downtown, 1, 1)).toBe(1);
+    expect(limit(true, downtown, ISLAND.square.px, ISLAND.square.py)).toBe(1);
+    // With a plot on the island already, another there is bought too.
+    expect(limit(true, [...downtown, { px: 4, py: 0 }], 4, 1)).toBe(1);
+    // Before plots are for sale, the world's cap, as `claim` has always read it.
+    expect(limit(false, downtown, 4, 1)).toBe(3);
   });
 });

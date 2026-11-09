@@ -449,7 +449,7 @@ const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
  */
 const FOUR_YEARS_MS = 20_000;
 /** How many of those days have a pumpkin or a cranberry job for home, in each edition. */
-const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94, 3: 94 };
+const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94 };
 
 describe("the numbers", () => {
   it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
@@ -585,7 +585,14 @@ describe("the board", () => {
   });
 });
 
-describe.each(EDITIONS)("the board in edition %i", (shipped) => {
+/**
+ * The editions whose boards differ in a world without clay. The third gives the second's boards
+ * until clay is out, which the four-year pins in "an edition's boards" prove, and its clay boards
+ * are checked in "the third edition".
+ */
+const BOARD_EDITIONS = EDITIONS.filter((n) => n !== 3);
+
+describe.each(BOARD_EDITIONS)("the board in edition %i", (shipped) => {
   const boardOn = boardIn(shipped);
 
   it("has one job for home, one for a walk, and one with neighbors, each day of four years", () => {
@@ -655,11 +662,6 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
     // Every other even day's walk is a fish, as the lanes' turns have it.
     const evens = DAYS.filter((day) => day % 2 === 0 && !seasonal.includes(day));
     expect(evens.filter((day) => boardOn(day)[1]?.deed?.type !== "fish")).toEqual([]);
-    // In a world with no finds out there's no find to give, and the board is as the turns have it.
-    const { findsOpen: _findsOpen, ...items } = opened.items ?? {};
-    const bare = { ...openedIn(shipped), day: seasonal[0] ?? 0, items } as WorldState;
-    expect(jobsOn(bare).map((j) => j.deed?.type)).toEqual(["harvest", "fish", "host"]);
-    expect(jobsOn(bare).some(soloJob)).toBe(false);
   });
 
   it("has every skill at least three days in every seven", () => {
@@ -747,6 +749,20 @@ describe.each(EDITIONS)("the board in edition %i", (shipped) => {
         JSON.stringify(dateOfDay(start)),
       ).toEqual([]);
     }
+  });
+});
+
+// The four-year pins read a world with finds, lessons, and bounties open, so a world with less open
+// is checked in every edition.
+describe.each(EDITIONS)("the board in edition %i, in a world with less open", (shipped) => {
+  it("gives the turns' own board with no finds out, on a day whose walk would be a find", () => {
+    const seasonal = DAYS.find((day) =>
+      ["juniper_pumpkins", "juniper_cranberries"].includes(boardIn(shipped)(day)[0]?.id ?? ""),
+    );
+    const { findsOpen: _findsOpen, ...items } = opened.items ?? {};
+    const bare = { ...openedIn(shipped), day: seasonal ?? 0, items } as WorldState;
+    expect(jobsOn(bare).map((j) => j.deed?.type)).toEqual(["harvest", "fish", "host"]);
+    expect(jobsOn(bare).some(soloJob)).toBe(false);
   });
 
   it("leaves out what the world hasn't opened, and gives that slot's other lane every day", () => {

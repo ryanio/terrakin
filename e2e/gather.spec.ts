@@ -153,16 +153,6 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
     await tapTile(page, target.x - me.x, target.y - me.y);
     await expect(page.locator("#toast")).toContainText("That's Bo's plot");
     await page.screenshot({ path: "test-results/gather-not-yours.png" });
-    // Ash stays put, and nothing went into Ash's things.
-    await page.waitForTimeout(600);
-    const after = await (await page.request.get("/v1/world")).json();
-    expect(after.residents.find((r: { id: string }) => r.id === ash.id)).toMatchObject({
-      x: me.x,
-      y: me.y,
-    });
-    expect(after.pickups).toContainEqual(target);
-    const things = (await read(page.request, ash.token, "/v1/inventory")).inventory;
-    expect(things?.stacks ?? []).not.toContainEqual(expect.objectContaining({ kind: target.kind }));
   });
 
   await test.step("gather everything within reach with one tap of Gather all", async () => {

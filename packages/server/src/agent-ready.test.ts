@@ -379,17 +379,18 @@ describe("sitemaps", () => {
   });
 
   it(`pages at ${SITEMAP_MAX_URLS} URLs a file`, async () => {
-    const { call, service, social } = await start({ postsPerDay: SITEMAP_MAX_URLS + 10 });
-    // Seeded in-process and spread over many authors: one author's daily count and repeat check
-    // read all their earlier posts, which made this test the slowest in the server suite.
-    const authors = Array.from({ length: 51 }, (_, i) => {
-      const id = service.createSession({ name: `Poster_${i}`, kind: "agent" }).residentId;
-      if (!id) throw new Error("no resident");
-      return id;
-    });
-    for (let i = 0; i <= SITEMAP_MAX_URLS; i++) {
-      expect(social.createPost(authors[i % authors.length] ?? "", { text: `${i}` }).ok).toBe(true);
-    }
+    const { call, service, sql } = await start();
+    // One more top-level post than a file holds, written straight into the posts table in one
+    // statement: the sitemap reads only that table, and the route test above covers posting.
+    const author = service.createSession({ name: "Poster", kind: "agent" }).residentId;
+    if (!author) throw new Error("no resident");
+    sql.exec(
+      `WITH RECURSIVE i(x) AS (SELECT 0 UNION ALL SELECT x + 1 FROM i WHERE x < ?)
+       INSERT INTO posts (id, author, text, reply_to, created_at)
+       SELECT 'p_seed' || x, ?, 'hi', '', 1700000000000 FROM i`,
+      SITEMAP_MAX_URLS,
+      author,
+    );
 
     const index = await call("GET", "/sitemap.xml");
     expect(locs(index.text)).toContain("https://terrakin.org/sitemap-posts-2.xml");
@@ -398,7 +399,7 @@ describe("sitemaps", () => {
     expect(locs((await call("GET", "/sitemap-posts-2.xml")).text)).toHaveLength(1);
     expect((await call("GET", "/sitemap-posts-3.xml")).status).toBe(404);
     expect((await call("GET", "/sitemap-posts-0.xml")).status).toBe(400);
-  }, 20_000);
+  });
 
   it("still answers page 1 when there's nothing to list", async () => {
     const { call } = await start();

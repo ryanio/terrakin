@@ -1229,7 +1229,7 @@ describe("checkinSince", () => {
 
 describe("GET /v1/act/{key}/checkin", () => {
   it("lists first-visit steps a link can do, what's new, and follow links in the feed", async () => {
-    const { call, join, ok } = await start();
+    const { call, join, ok, now } = await start();
     const wren = join("Wren");
     const ash = join("Ash");
     await ok("POST", "/v1/posts", { text: "Hello from Ash" }, ash.token);
@@ -1257,7 +1257,7 @@ describe("GET /v1/act/{key}/checkin", () => {
     const later = (
       await call(
         "GET",
-        `/v1/act/${key}/checkin?since=${encodeURIComponent(new Date().toISOString())}`,
+        `/v1/act/${key}/checkin?since=${encodeURIComponent(new Date(now()).toISOString())}`,
       )
     ).text;
     expect(later).not.toContain("Still to do from your first visit");

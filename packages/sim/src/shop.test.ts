@@ -12,6 +12,7 @@ import {
 } from "./fixtures/shop-counter-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
 import { hashWorld } from "./hash";
+import { HOLIDAY_INFO, HOLIDAYS, holidaySpan } from "./holiday";
 import {
   CROPS,
   GOOD_KINDS,
@@ -29,7 +30,9 @@ import { replay } from "./replay";
 import { dayOfDate, SEASONS, seasonOf } from "./season";
 import {
   BUY_ORDERS,
+  HOLIDAY_STOCK,
   notAtTheCounter,
+  priceOf,
   ROTATION_CROPS,
   ROTATION_GOODS,
   SEASON_BUYS,
@@ -478,6 +481,55 @@ describe("shop wear", () => {
       "not_owned",
     );
     w.ok("cy", { type: "join", name: "Cy", kind: "human", wear: ["apron"] });
+  });
+});
+
+describe("holiday stock", () => {
+  it("sells every sku on the first and last day of its holiday, and refuses it the day before and after", () => {
+    const wrong: string[] = [];
+    for (const holiday of HOLIDAYS) {
+      const run = holidaySpan(holiday, 2026);
+      if (!run) throw new Error(`${holiday} has no run in 2026`);
+      for (const sku of HOLIDAY_STOCK[holiday]) {
+        if (stockHoliday(sku) !== holiday) wrong.push(`${sku}: sold for ${stockHoliday(sku)}`);
+      }
+      for (const day of [run.first, run.last]) {
+        const w = shop(day);
+        fund(w.state, "ada", 1000);
+        for (const sku of HOLIDAY_STOCK[holiday]) {
+          const coins = w.coins("ada");
+          const price = priceOf(w.state, sku);
+          const wear = (SHOP_WEAR as readonly string[]).includes(sku);
+          const had = wear ? 0 : w.has("ada", sku as StackKind);
+          const result = w.send("ada", { type: "shop_buy", sku });
+          if (!result.ok) {
+            wrong.push(`${holiday} ${sku} on ${day}: ${result.rejection.code}`);
+            continue;
+          }
+          if (w.coins("ada") !== coins - price) wrong.push(`${sku} on ${day}: paid wrong`);
+          const got = wear
+            ? shopFor(w.state, "ada")?.wardrobe.includes(sku as never)
+            : w.has("ada", sku as StackKind) === had + 1;
+          if (!got) wrong.push(`${sku} on ${day}: not in hand`);
+        }
+      }
+      for (const day of [run.first - 1, run.last + 1]) {
+        const w = shop(day);
+        fund(w.state, "ada", 1000);
+        for (const sku of HOLIDAY_STOCK[holiday]) {
+          // `send` checks a refusal leaves the world as it was.
+          const result = w.send("ada", { type: "shop_buy", sku });
+          if (result.ok) wrong.push(`${holiday} ${sku} on ${day}: sold`);
+          else if (
+            result.rejection.code !== "out_of_holiday" ||
+            !result.rejection.message.includes(`only for ${HOLIDAY_INFO[holiday].name}, `)
+          ) {
+            wrong.push(`${holiday} ${sku} on ${day}: ${result.rejection.code}`);
+          }
+        }
+      }
+    }
+    expect(wrong).toEqual([]);
   });
 });
 

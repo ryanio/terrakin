@@ -9,7 +9,7 @@ import { plotKey } from "./keys";
 import { COSTUMES, wearProblem } from "./looks";
 import { replay } from "./replay";
 import { dayOfDate } from "./season";
-import { HOLIDAY_PRICES_BEFORE, HOLIDAY_STOCK, priceOf, SHOP_CATALOG, stockHoliday } from "./shop";
+import { HOLIDAY_PRICES_BEFORE, HOLIDAY_STOCK, SHOP_CATALOG } from "./shop";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import {
   type Command,
@@ -36,7 +36,6 @@ const CONFIG: WorldConfig = {
   maxPlotsPerResident: 1,
   reach: 3,
 };
-const FIRST = dayOfDate(2026, 10, 24);
 const NIGHT = dayOfDate(2026, 10, 31);
 const LAST = dayOfDate(2026, 11, 1);
 
@@ -166,30 +165,13 @@ describe("Halloween's numbers", () => {
 });
 
 describe("Halloween's stock", () => {
-  it("is sold from October 24 to November 1, and refused the day before and the day after", () => {
-    for (const sku of HOLIDAY_STOCK.halloween) {
-      expect(stockHoliday(sku)).toBe("halloween");
-      for (const day of [FIRST, NIGHT, LAST]) {
-        const state = town(day);
-        fund(state, "ada", 200);
-        const before = coins(state, "ada");
-        ok(state, "ada", { type: "shop_buy", sku });
-        expect(coins(state, "ada")).toBe(before - priceOf(state, sku));
-      }
-      for (const day of [FIRST - 1, LAST + 1, dayOfDate(2027, 6, 1)]) {
-        const state = town(day);
-        fund(state, "ada", 200);
-        const message = refused(state, "ada", { type: "shop_buy", sku }, "out_of_holiday");
-        expect(message).toContain("only for Halloween, October 24 to November 1");
-      }
-    }
-  });
-
-  it("says when it's back", () => {
+  // Every holiday's stock is sold on its first and last day and refused either side of them, in
+  // shop.test.ts.
+  it("says its dates and when it's back", () => {
     const state = town(LAST + 1);
     fund(state, "ada", 200);
     const message = refused(state, "ada", { type: "shop_buy", sku: "witch_hat" }, "out_of_holiday");
-    expect(message).toContain("the witch hat only for Halloween");
+    expect(message).toContain("the witch hat only for Halloween, October 24 to November 1");
     expect(message).toContain("back on October 24");
     expect(message).toContain("What you already have is yours to wear any day.");
     // Candy and decor are used, never worn.

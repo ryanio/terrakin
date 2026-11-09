@@ -56,18 +56,23 @@ describe("a snapshot plus the rest of the log", () => {
       const want = hashWorld(straight);
       expect(hashWorld(replay(config, log))).toBe(want);
 
-      for (let split = 0; split <= log.length; split++) {
-        const state = JSON.parse(prefixes[split] as string);
-        for (let i = split; i < log.length; i++) {
-          const result = apply(state, log[i] as Input);
-          expect(result.ok, `${name} split ${split}, input ${i}`).toBe(true);
-          if (!result.ok) break;
-          expect(JSON.stringify(result.events), `${name} split ${split}, input ${i}`).toBe(
-            events[i],
-          );
+      // One step from each snapshot: read back at `k`, input `k` must give exactly the straight
+      // replay's events and the straight replay's next snapshot. By induction from `k = 0`, a
+      // boot from any split point then walks the same bytes to the same final world. The snapshot
+      // at the end equals the straight world's bytes, so its hash is `want` too.
+      const wrong: string[] = [];
+      for (let k = 0; k < log.length; k++) {
+        const state = JSON.parse(prefixes[k] as string);
+        const result = apply(state, log[k] as Input);
+        if (!result.ok) {
+          wrong.push(`input ${k}: refused ${result.rejection.code}`);
+          continue;
         }
-        expect(hashWorld(state), `${name} split ${split}`).toBe(want);
+        if (JSON.stringify(result.events) !== events[k]) wrong.push(`input ${k}: events differ`);
+        if (JSON.stringify(state) !== prefixes[k + 1]) wrong.push(`input ${k}: world differs`);
       }
+      expect(wrong, name).toEqual([]);
+      expect(hashWorld(JSON.parse(prefixes[log.length] as string))).toBe(want);
     });
   }
 });

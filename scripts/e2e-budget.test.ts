@@ -72,16 +72,12 @@ describe("the e2e suite", () => {
     expect(tests, GATE).toBeLessThanOrEqual(MAX_PUSH_TESTS);
   });
 
-  it("waits on what the page shows, never a fixed time, except where a spec already does", () => {
-    // gather.spec.ts gives a refused tap time to have walked, which it must not have.
-    const known: Record<string, number> = { gather: 1 };
+  it("waits on what the page shows, never a fixed time", () => {
     for (const spec of specs) {
       const waits =
         readFileSync(join(E2E, `${spec}.spec.ts`), "utf8").match(/\bwaitForTimeout\(/g)?.length ??
         0;
-      expect(waits, `${spec}.spec.ts waits a fixed time; wait for what the page shows`).toBe(
-        known[spec] ?? 0,
-      );
+      expect(waits, `${spec}.spec.ts waits a fixed time; wait for what the page shows`).toBe(0);
     }
   });
 

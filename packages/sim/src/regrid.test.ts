@@ -33,6 +33,17 @@ const fixtures: Fixture[] = await Promise.all(
     }),
 );
 
+/**
+ * Each log's straight replay, worked out once and shared by every test that only reads it. A
+ * test that changes the world works on a `cloneWorld` of it.
+ */
+const replays = new Map<Input[], WorldState>();
+function replayed(config: WorldConfig, log: Input[]): WorldState {
+  const known = replays.get(log) ?? replay(config, log);
+  replays.set(log, known);
+  return known;
+}
+
 /** The ground-floor tiles a walk from the spawn tile reaches. */
 function reachable(state: WorldState): Set<string> {
   const ground = worldGround(state);
@@ -166,7 +177,7 @@ describe("regrid (RFC 0052)", () => {
   it.each(fixtures.filter((f) => !f.log.some((i) => i.command.type === "regrid")))(
     "moves $name onto 16-tile slots and keeps everything",
     ({ config, log }) => {
-      const before = replay(config, log);
+      const before = replayed(config, log);
       const after = cloneWorld(before);
       const given = regridWorld(after);
       expect(after.config.plotSize).toBe(16);
@@ -225,7 +236,7 @@ describe("regrid (RFC 0052)", () => {
     const known = new Set([...MOVED, ...NO_TILES]);
     const unknown = new Set<string>();
     for (const { config, log } of fixtures) {
-      for (const key of Object.keys(replay(config, log))) if (!known.has(key)) unknown.add(key);
+      for (const key of Object.keys(replayed(config, log))) if (!known.has(key)) unknown.add(key);
     }
     expect([...unknown]).toEqual([]);
   });
@@ -301,13 +312,13 @@ describe("regrid (RFC 0052)", () => {
   });
 
   it("comes once, from the town, in a world of 8-tile plots", () => {
-    const state = replay(REGRID_CONFIG, REGRID_LOG);
+    const state = cloneWorld(replayed(REGRID_CONFIG, REGRID_LOG));
     const again = apply(state, { actor: TOWN_ACTOR, command: { type: "regrid" } });
     expect(again).toMatchObject({ ok: false, rejection: { code: "already_open" } });
   });
 
   it("refuses building in the wild yard past the lot, and builds in the lot", () => {
-    const state = replay(REGRID_CONFIG, REGRID_LOG);
+    const state = cloneWorld(replayed(REGRID_CONFIG, REGRID_LOG));
     const ada = state.residents.ada as { x: number; y: number };
     // Ada's plot (0, 0) is tiles 0 to 15 now, its lot 4 to 11.
     const yard = apply(state, {
@@ -319,6 +330,6 @@ describe("regrid (RFC 0052)", () => {
   });
 
   it("replays the regrid log to its pinned hash", () => {
-    expect(hashWorld(replay(REGRID_CONFIG, REGRID_LOG))).toBe(REGRID_HASH);
+    expect(hashWorld(replayed(REGRID_CONFIG, REGRID_LOG))).toBe(REGRID_HASH);
   });
 });

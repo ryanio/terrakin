@@ -273,7 +273,7 @@ describe("the snapshot's lands", () => {
     // And a photo of the shore plot draws the channel as water, not as meadow with flowers on
     // it. The map and the 3D view both draw it; a cached public PNG that disagrees with the
     // live client is the one a link preview shows.
-    const photo = plotPhotoSpec(w.service.state, isla.id, { now: Date.now() });
+    const photo = plotPhotoSpec(w.service.state, isla.id, { now: 0 });
     expect(photo, "no photo spec for the island settler").toBeTruthy();
     const fills = new Set((photo?.ground ?? []).map((g) => g.fill));
     expect([...fills], `the photo's ground fills`).toContain(SEA_LOOK.water);

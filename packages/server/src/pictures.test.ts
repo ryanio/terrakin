@@ -223,7 +223,7 @@ describe("picture data", () => {
     const state = structuredClone(w.service.state);
     const gone = state.residents[bram.residentId];
     if (gone) gone.online = false;
-    const o = { nowMs: Date.now(), held: () => false, artShown: () => true };
+    const o = { nowMs: 0, held: () => false, artShown: () => true };
     const later = pictureSpec(state, { kind: "near", id: ivy.residentId }, o) as NearSpec;
     expect(later.area.figures).toHaveLength(1);
     // An away resident's own picture is centered where they live and says they're away.

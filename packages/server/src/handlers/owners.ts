@@ -1,6 +1,7 @@
 import type { AreaRouteIds } from "@terrakin/protocol";
 import type { Api } from "../api";
 import type { LinkRouteId } from "../links";
+import { report } from "../telemetry";
 import { fail, fromResult, type Handlers } from "./shared";
 
 /** Why `POST /v1/owner/rekey-codes/{id}` is refused while staff sign in through Access. */
@@ -71,9 +72,15 @@ export function ownerHandlers(
       }
       const made = owners().maintainerRekey(viewer, params.id);
       if (made.ok) {
-        api
-          .requireSocial()
-          .safety.recordNote(viewer, "rekey_agent", "resident", params.id, REKEY_BY_TOKEN);
+        // The code is made and the owner link ended by now, so a log write that fails is reported
+        // and the maintainer still gets the code they need to hand over.
+        try {
+          api
+            .requireSocial()
+            .safety.recordNote(viewer, "rekey_agent", "resident", params.id, REKEY_BY_TOKEN);
+        } catch (err) {
+          report(err, "owner.rekey_note");
+        }
       }
       return fromResult(made, (code) => ({ status: 201 as const, body: code }));
     },

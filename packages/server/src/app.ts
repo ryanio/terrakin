@@ -168,17 +168,8 @@ const KEEP_ALIVE_MS = 65_000;
 export const isLoopback = (address: string | undefined) =>
   address === "::1" || /^(::ffff:)?127\./.test(address ?? "");
 
-/** Every test route, each answered only to `fromThisMachine` callers. */
-const TEST_PATHS: ReadonlySet<string> = new Set([
-  TEST_ADVANCE_DAY_PATH,
-  TEST_SWEEP_PATH,
-  TEST_MAINTAINER_PATH,
-  TEST_GRANT_PATH,
-  TEST_OPEN_LAND_PATH,
-  TEST_OPEN_PLOT_MARKET_PATH,
-  TEST_OPEN_CLAY_PATH,
-  TEST_OPEN_GRADES_PATH,
-]);
+/** Every test route lives under this, and each answers only `fromThisMachine` callers. */
+const TEST_PREFIX = "/v1/test/";
 
 /**
  * A caller on this machine with nothing in between: a loopback socket, no trusted proxies
@@ -347,7 +338,7 @@ export function createApp(options: AppOptions): Server {
     if (
       options.testClock &&
       req.method === "POST" &&
-      TEST_PATHS.has(url.pathname) &&
+      url.pathname.startsWith(TEST_PREFIX) &&
       !fromThisMachine(req, options.trustedProxies)
     ) {
       return send(res, {

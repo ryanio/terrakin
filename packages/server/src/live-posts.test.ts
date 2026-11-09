@@ -6,8 +6,9 @@ import { Api } from "./api";
 import { createApp } from "./app";
 import { ipKey } from "./handlers/shared";
 import {
+  HELLO_QUIET_MS,
+  type HelloSocket,
   type LiveSocket,
-  MAX_HELLOS_PER_RESIDENT,
   MAX_WATCHERS,
   MAX_WATCHERS_PER_NETWORK,
   type PostListener,
@@ -300,7 +301,6 @@ describe("post messages on /v1/live", () => {
   });
 
   it("caps how many hello sockets one token can hold open", async () => {
-    expect(MAX_HELLOS_PER_RESIDENT).toBeGreaterThanOrEqual(3);
     const { join, hello } = await start({ maxHellosPerResident: 3 });
     const ash = join("Ash");
     const open = Array.from({ length: 3 }, () => hello(ash.token, true));
@@ -336,12 +336,14 @@ describe("post messages on /v1/live", () => {
     });
     const net = "2001:db8:1::/48";
     expect(listeners.helloRefusal("r_a", net, false)).toBeUndefined();
-    listeners.addHello("r_a", net);
-    listeners.addHello("r_b", net);
+    const socket = (): HelloSocket => ({ network: net, heardAt: 0, end: () => {} });
+    const second = socket();
+    listeners.addHello("r_a", socket());
+    listeners.addHello("r_b", second);
     // A third resident from the same network is refused, and one from another network isn't.
     expect(listeners.helloRefusal("r_c", net, false)).toContain("your network");
     expect(listeners.helloRefusal("r_c", "203.0.113.7", false)).toBeUndefined();
-    listeners.removeHello("r_b", net);
+    listeners.removeHello("r_b", second);
     expect(listeners.helloRefusal("r_c", net, false)).toBeUndefined();
 
     // Listening for posts has its own total: past it, a hello with posts is refused, one without isn't.
@@ -351,6 +353,44 @@ describe("post messages on /v1/live", () => {
     expect(listeners.helloRefusal("r_c", "203.0.113.7", false)).toBeUndefined();
     listeners.removePostListener(listener);
     expect(listeners.helloRefusal("r_c", "203.0.113.7", true)).toBeUndefined();
+  });
+
+  it("lets a resident at the cap replace a socket gone quiet, and no other", () => {
+    let now = 0;
+    const listeners = new PostListeners({
+      social: undefined,
+      maxWatchers: 10,
+      maxWatchersPerNetwork: 10,
+      maxHellosPerResident: 2,
+      now: () => now,
+    });
+    const ended: string[] = [];
+    const socket = (name: string, heardAt: number): HelloSocket => ({
+      network: "203.0.113.7",
+      heardAt,
+      end: () => ended.push(name),
+    });
+    const dropped = socket("dropped", 0);
+    const busy = socket("busy", 0);
+    listeners.addHello("r_a", dropped);
+    listeners.addHello("r_a", busy);
+
+    // Both heard from lately: the cap refuses, so hellos in a loop can't each cost a snapshot.
+    now = HELLO_QUIET_MS - 1;
+    expect(listeners.helloRefusal("r_a", "203.0.113.7", false)).toContain("sockets open");
+
+    // One has been silent long enough to be a dropped connection: the new socket takes its place.
+    now = HELLO_QUIET_MS;
+    busy.heardAt = now;
+    expect(listeners.helloRefusal("r_a", "203.0.113.7", false)).toBeUndefined();
+    listeners.addHello("r_a", socket("new", now));
+    expect(ended).toEqual(["dropped"]);
+    expect(listeners.helloRefusal("r_a", "203.0.113.7", false)).toContain("sockets open");
+
+    // The replaced socket's own close is counted once, so the network's count stays right.
+    listeners.removeHello("r_a", dropped);
+    listeners.removeHello("r_a", busy);
+    expect(listeners.helloRefusal("r_a", "203.0.113.7", false)).toBeUndefined();
   });
 
   it("counts IPv6 watchers by /48", () => {

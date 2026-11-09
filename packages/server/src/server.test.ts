@@ -875,27 +875,6 @@ describe("hardening", () => {
     expect(statuses.slice(burst)).toEqual([429, 429]);
   });
 
-  it("counts new sessions from IPv6 by /48, so /64s in one network share a bucket", async () => {
-    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
-    const server = createApp({ service, sessionsPerMinute: 1, trustedProxies: 1, onResponse });
-    const base = await listenOnFreePort(server, cleanups);
-    const burst = RATE_LIMITS.sessions.burst;
-    const join = async (ip: string, name: string) =>
-      (
-        await fetch(`${base}/v1/session`, {
-          method: "POST",
-          headers: { "content-type": "application/json", "x-forwarded-for": ip },
-          body: JSON.stringify({ name, kind: "agent" }),
-        })
-      ).status;
-    const statuses = [];
-    // Each call from a /64 of its own, all in 2001:db8:1::/48.
-    for (let i = 0; i < burst + 1; i++) statuses.push(await join(`2001:db8:1:${i}::1`, `n${i}`));
-    expect(statuses.slice(0, burst)).toEqual(Array(burst).fill(201));
-    expect(statuses[burst]).toBe(429);
-    expect(await join("2001:db8:2::1", "other")).toBe(201);
-  });
-
   it("reads the client IP from X-Forwarded-For only for trusted hops", () => {
     const req = (xff?: string) =>
       ({
@@ -984,7 +963,17 @@ describe("test routes", () => {
         body: "{}",
       }).then((r) => r.status);
     const forwarded = { "x-forwarded-for": "198.51.100.7" };
-    for (const path of [TEST_ADVANCE_DAY_PATH, TEST_SWEEP_PATH, TEST_GRANT_PATH]) {
+    for (const path of [
+      TEST_ADVANCE_DAY_PATH,
+      TEST_SWEEP_PATH,
+      TEST_GRANT_PATH,
+      "/v1/test/maintainer",
+      "/v1/test/open-land",
+      "/v1/test/open-plot-market",
+      "/v1/test/open-clay",
+      "/v1/test/open-grades",
+      "/v1/test/a-route-added-later",
+    ]) {
       expect(await post(direct, path, forwarded), path).toBe(404);
       expect(await post(proxied, path), path).toBe(404);
     }

@@ -82,7 +82,6 @@ import {
   type Handlers,
   INVITE_GONE,
   ipKey,
-  ipLimitKey,
   RATE_LIMITED,
   type Reply,
   STAFF_ONLY,
@@ -653,9 +652,7 @@ export class Api {
     let limitHeaders: Record<string, string> = {};
     if (route.rateLimit) {
       const key =
-        RATE_LIMITS[route.rateLimit].scope === "resident" && viewer
-          ? viewer
-          : ipLimitKey(route.rateLimit, req.ip);
+        RATE_LIMITS[route.rateLimit].scope === "resident" && viewer ? viewer : ipKey(req.ip);
       const limiter = this.limiters[route.rateLimit];
       const take = limiter.takeInfo(key);
       limitHeaders = rateLimitHeaders(route.rateLimit, limiter, take);
@@ -1631,7 +1628,7 @@ export class Api {
 
   /** @internal Used by LiveSession. */
   takeSession(ip: string) {
-    return this.limiters.sessions.take(ipLimitKey("sessions", ip));
+    return this.limiters.sessions.take(ipKey(ip));
   }
 
   /** @internal Used by LiveSession. */

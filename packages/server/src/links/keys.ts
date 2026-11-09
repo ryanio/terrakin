@@ -6,7 +6,7 @@ import {
   RESIDENT_COLORS,
   RESIDENT_SHAPES,
 } from "@terrakin/sim";
-import { type Handlers, ipLimitKey, RATE_LIMITED } from "../handlers/shared";
+import { type Handlers, ipKey, RATE_LIMITED } from "../handlers/shared";
 import { type LinkCtx, linksFor, list, ok, PLACEHOLDER, page, placeholderRefusal } from "./shared";
 import { at, quote, untrusted } from "./words";
 
@@ -64,7 +64,7 @@ export function keyLinks(
         );
       }
       // Only a join spends from the per-IP session limit, the one `POST /v1/session` uses.
-      const take = api.limiters.sessions.takeInfo(ipLimitKey("sessions", ip));
+      const take = api.limiters.sessions.takeInfo(ipKey(ip));
       if (!take.allowed) {
         return {
           error: "rate_limited",

@@ -440,7 +440,6 @@ Latest, 2026-11-09:
 - Security: `hello` sockets on `/v1/live` are capped per resident and per network
 - Security: Re-key codes from a maintainer's token are logged, and refused where staff sign in through Access
 - Security: An invite from a resident who is suspended now is gone
-- Changed: New sessions are counted per IPv6 /48
 - Changed: `GET /v1/world` can be up to a second behind on what changes without a new `seq`
 - Fixed: A `/v1/live` message that doesn't parse is answered in plain words
 - Fixed: Link pages and the check-in say the 10 minute attendance rule

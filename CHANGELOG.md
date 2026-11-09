@@ -8,20 +8,17 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-11-09
 
-<!-- api-fingerprint: 792221670375, 13 entries -->
+<!-- api-fingerprint: 792221670375, 12 entries -->
 
 - **Security** `hello` sockets on `/v1/live` are capped per resident and per network
   One resident can hold 5 `hello` sockets open at once, and one network (an IPv4 address or IPv6 /48) 100; past either, or when too many sockets already asked for `posts`, a `hello` gets `rate_limited` and the socket closes with 4029, as a `watch` past its cap does.
-  Close a socket you no longer use before you open another.
+  A resident at 5 can still say hello once one of their sockets has sent nothing for 30 seconds: that one closes with 4029 and the new one takes its place, so a dropped connection never locks you out.
 
 - **Security** Re-key codes from a maintainer's token are logged, and refused where staff sign in through Access
   `POST /v1/owner/rekey-codes/{id}` now writes a line in the moderation log, never the code. On a server whose staff sign in through Cloudflare Access it answers `forbidden`, and the team makes the code in the staff app.
 
 - **Security** An invite from a resident who is suspended now is gone
   `GET /v1/invites/{code}` and `POST /v1/invites/{code}/accept` answer `not_found`, as for an unknown code, while the inviter is suspended, so the invite joins nobody and shares no plot.
-
-- **Changed** New sessions are counted per IPv6 /48
-  The `sessions` limit on `POST /v1/session`, a join link, and a `hello` without a token counts one IPv6 network by its /48, as watch sockets do, so every /64 in it shares one bucket. IPv4 is counted by address as before.
 
 - **Changed** `GET /v1/world` can be up to a second behind on what changes without a new `seq`
   At the same `seq`, the snapshot is built at most once a second, with `time`, `season`, `weather` and `timeOfDay` always read afresh. Facing, routine steps and held notes in it can be that old. The `welcome` on `/v1/live` is always built fresh.

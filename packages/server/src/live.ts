@@ -41,7 +41,23 @@ export const MAX_WATCHERS_PER_NETWORK = 50;
  * and `hello` sockets that asked for `posts` in all. Each gets a whole snapshot and is held by the
  * one World object, so past a cap a hello gets `rate_limited` and the socket closes.
  */
-export const MAX_HELLOS_PER_RESIDENT = 5;
+const MAX_HELLOS_PER_RESIDENT = 5;
+/**
+ * A resident at the cap may still say hello once their quietest socket has sent nothing this long:
+ * that socket closes and the new one takes its place. A dropped connection (a phone changing
+ * networks, a laptop waking) stays counted until TCP gives up, so without this a resident's own
+ * dead sockets would lock them out.
+ */
+export const HELLO_QUIET_MS = 30_000;
+
+/** One open `hello` socket, as `PostListeners` counts it. */
+export interface HelloSocket {
+  network: string;
+  /** When the socket last sent anything, on the clock `PostListeners` reads. */
+  heardAt: number;
+  /** Close the socket because a newer one took its place. */
+  end(): void;
+}
 const MAX_HELLOS_PER_NETWORK = 100;
 const MAX_HELLO_POSTS = 2_000;
 /** A watch socket closes this long after it opened; the page opens another on the next interaction. */
@@ -91,7 +107,7 @@ export class PostListeners {
   private readonly helloPosts = new Set<PostListener>();
   private readonly watchersByNetwork = new Map<string, number>();
   /** Open `hello` sockets by resident and by network, each capped. */
-  private readonly hellosByResident = new Map<string, number>();
+  private readonly hellosByResident = new Map<string, HelloSocket[]>();
   private readonly hellosByNetwork = new Map<string, number>();
   private readonly social: SocialService | undefined;
   private readonly maxWatchers: number;
@@ -181,7 +197,11 @@ export class PostListeners {
     if ((this.hellosByNetwork.get(network) ?? 0) >= this.maxHellosPerNetwork) {
       return "Too many sockets from your network are open. Close one, then say hello again.";
     }
-    if (residentId && (this.hellosByResident.get(residentId) ?? 0) >= this.maxHellosPerResident) {
+    const mine = residentId ? (this.hellosByResident.get(residentId) ?? []) : [];
+    if (
+      mine.length >= this.maxHellosPerResident &&
+      mine.every((h) => this.now() - h.heardAt < HELLO_QUIET_MS)
+    ) {
       return `You have ${this.maxHellosPerResident} sockets open already. Close one, then say hello again.`;
     }
     if (posts && this.helloPosts.size >= this.maxHelloPosts) {
@@ -190,22 +210,32 @@ export class PostListeners {
     return undefined;
   }
 
-  /** @internal Used by LiveSession, after `helloRefusal` passed: count an open hello socket. */
-  addHello(residentId: string, network: string) {
-    this.hellosByResident.set(residentId, (this.hellosByResident.get(residentId) ?? 0) + 1);
-    this.hellosByNetwork.set(network, (this.hellosByNetwork.get(network) ?? 0) + 1);
+  /**
+   * @internal Used by LiveSession, after `helloRefusal` passed: count an open hello socket. A
+   * resident past the cap loses their quietest socket, which `helloRefusal` found quiet enough.
+   */
+  addHello(residentId: string, hello: HelloSocket) {
+    const mine = this.hellosByResident.get(residentId) ?? [];
+    this.hellosByResident.set(residentId, mine);
+    while (mine.length >= this.maxHellosPerResident) {
+      const quietest = mine.reduce((a, b) => (b.heardAt < a.heardAt ? b : a));
+      this.removeHello(residentId, quietest);
+      quietest.end();
+    }
+    mine.push(hello);
+    this.hellosByNetwork.set(hello.network, (this.hellosByNetwork.get(hello.network) ?? 0) + 1);
   }
 
-  /** @internal Used by LiveSession when a hello socket closes. */
-  removeHello(residentId: string, network: string) {
-    for (const [map, key] of [
-      [this.hellosByResident, residentId],
-      [this.hellosByNetwork, network],
-    ] as const) {
-      const left = (map.get(key) ?? 1) - 1;
-      if (left > 0) map.set(key, left);
-      else map.delete(key);
-    }
+  /** @internal Used by LiveSession when a hello socket closes. Counts each socket once. */
+  removeHello(residentId: string, hello: HelloSocket) {
+    const mine = this.hellosByResident.get(residentId);
+    const at = mine?.indexOf(hello) ?? -1;
+    if (!mine || at < 0) return;
+    mine.splice(at, 1);
+    if (mine.length === 0) this.hellosByResident.delete(residentId);
+    const left = (this.hellosByNetwork.get(hello.network) ?? 1) - 1;
+    if (left > 0) this.hellosByNetwork.set(hello.network, left);
+    else this.hellosByNetwork.delete(hello.network);
   }
 
   /** @internal Used by LiveSession: a hello socket that asked for posts, after `helloRefusal`. */
@@ -252,7 +282,7 @@ export class LiveSession {
   private unsubscribe: (() => void) | undefined;
   private unwatch: (() => void) | undefined;
   /** The resident and network this socket's hello is counted under, once it's open. */
-  private hello: { residentId: string; network: string } | undefined;
+  private hello: { residentId: string; socket: HelloSocket } | undefined;
   private readonly helloTimer: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -335,7 +365,7 @@ export class LiveSession {
     this.unwatch = undefined;
     if (this.posts) this.api.postListeners.removePostListener(this.posts);
     this.posts = undefined;
-    if (this.hello) this.api.postListeners.removeHello(this.hello.residentId, this.hello.network);
+    if (this.hello) this.api.postListeners.removeHello(this.hello.residentId, this.hello.socket);
     this.hello = undefined;
     if (this.residentId) this.api.service.socketClosed(this.residentId);
     this.residentId = undefined;
@@ -368,6 +398,7 @@ export class LiveSession {
     if (!parsed.success) return this.fail("bad_request", messageProblem(raw));
     const msg = parsed.data;
     if (this.posts) this.posts.heardAt = this.api.clock();
+    if (this.hello) this.hello.socket.heardAt = this.api.clock();
     // A message on a socket signed in with a token is a call with it, so it cancels an owner's
     // re-key for that agent as a REST call does (RFC 0025).
     const signedIn = this.residentId ?? this.watchingAs;
@@ -464,8 +495,17 @@ export class LiveSession {
       }
       // Only now is this socket bound to a resident.
       this.residentId = id;
-      this.hello = { residentId: id, network };
-      listeners.addHello(id, network);
+      const mine: HelloSocket = {
+        network,
+        heardAt: this.api.clock(),
+        end: () => {
+          this.fail("rate_limited", "A newer socket of yours took this one's place.");
+          this.onClose();
+          this.socket.close(4029, "replaced");
+        },
+      };
+      this.hello = { residentId: id, socket: mine };
+      listeners.addHello(id, mine);
       clearTimeout(this.helloTimer);
       service.socketOpened(id);
       this.send({ type: "welcome", residentId: id, token, world: service.snapshot() });

@@ -39,15 +39,6 @@ export function ipKey(ip: string, groups = 4): string {
     .join(":")}::/${groups * 16}`;
 }
 
-/**
- * The key an IP-scoped limit counts a caller under. New sessions count an IPv6 network by /48, as
- * watch sockets do, since one home or office can hold many /64s and each session is a resident;
- * every other limit counts by /64 (`ipKey`).
- */
-export function ipLimitKey(name: RateLimitName, ip: string): string {
-  return name === "sessions" ? ipKey(ip, 3) : ipKey(ip);
-}
-
 /** Uploads the one world object will buffer at once. Each can be up to 25 MB. */
 export const MAX_UPLOADS_IN_FLIGHT = 2;
 

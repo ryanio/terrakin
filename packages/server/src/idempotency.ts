@@ -121,6 +121,8 @@ export class IdempotencyStore {
     if (!mine) return;
     for (const id of mine.ids) {
       if (mine.ids.size <= maxEntries && mine.bytes <= maxBytes) break;
+      // A request still running holds no bytes yet; forgetting its key would let a retry run twice.
+      if (this.entries.get(id)?.bytes === 0) continue;
       this.remove(id);
     }
   }

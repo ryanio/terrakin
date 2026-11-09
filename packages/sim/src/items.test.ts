@@ -20,7 +20,7 @@ import {
   type StackKind,
 } from "./items";
 import { replay } from "./replay";
-import { stock } from "./test-support";
+import { holdingProblems, stock } from "./test-support";
 import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldEvent } from "./types";
 import { createWorld } from "./world";
 
@@ -53,10 +53,7 @@ function world(config = CONFIG) {
     const result = apply(state, { actor, command });
     if (result.ok) log.push({ actor, command });
     else expect(hashWorld(state)).toBe(before);
-    for (const inv of Object.values(state.items?.inventories ?? {})) {
-      expect(inventorySize(inv)).toBeLessThanOrEqual(inventoryMaxOf(state));
-      for (const n of Object.values(inv.stacks)) expect(n).toBeGreaterThan(0);
-    }
+    expect(holdingProblems(state)).toEqual([]);
     return result;
   };
   const ok = (actor: string, command: Command): WorldEvent[] => {

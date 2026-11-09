@@ -4,7 +4,7 @@ import { edgesOn } from "./edges";
 import { eventHeld } from "./events";
 import { blocksOn } from "./floors";
 import { type Grade, gradeAt, gradesOn, type PastPlain, unitKey } from "./grades";
-import type { StackKind } from "./items";
+import { inventoryMaxOf, inventorySize, type StackKind } from "./items";
 import { isMaterialKind, MATERIAL_KINDS } from "./materials";
 import { roofNeeds } from "./roofs";
 import type { WorldEvent, WorldState } from "./types";
@@ -21,18 +21,59 @@ import { cloneWorld } from "./world";
  * burned`.
  */
 export function expectSupplyHolds(state: WorldState) {
+  expect(supplyProblems(state)).toEqual([]);
+}
+
+/** What `expectSupplyHolds` finds wrong, as lines, for a loop that collects and checks once. */
+export function supplyProblems(state: WorldState): string[] {
   const econ = state.economy;
-  if (!econ) return;
+  if (!econ) return [];
+  const wrong: string[] = [];
   let held = 0;
-  for (const n of Object.values(econ.coins)) {
-    expect(Number.isInteger(n) && n > 0).toBe(true);
+  for (const [id, n] of Object.entries(econ.coins)) {
+    if (!(Number.isInteger(n) && n > 0)) wrong.push(`purse ${id} holds ${n}`);
     held += n;
   }
-  expect(Number.isInteger(econ.treasury) && econ.treasury >= 0).toBe(true);
-  expect(Number.isInteger(econ.burned) && econ.burned >= 0).toBe(true);
-  expect(held + econ.treasury + bountyHeld(state) + eventHeld(state)).toBe(
-    econ.minted - econ.burned,
-  );
+  if (!(Number.isInteger(econ.treasury) && econ.treasury >= 0)) {
+    wrong.push(`treasury holds ${econ.treasury}`);
+  }
+  if (!(Number.isInteger(econ.burned) && econ.burned >= 0)) wrong.push(`burned is ${econ.burned}`);
+  const total = held + econ.treasury + bountyHeld(state) + eventHeld(state);
+  if (total !== econ.minted - econ.burned) {
+    wrong.push(`coins held ${total}, minted less burned ${econ.minted - econ.burned}`);
+  }
+  return wrong;
+}
+
+/**
+ * Counts that can't go wrong: no inventory over the cap, every stack, graded stack, market lot
+ * and wrapped present a whole number above zero, and every listing's price whole and above zero.
+ */
+export function holdingProblems(state: WorldState): string[] {
+  const wrong: string[] = [];
+  const positive = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n > 0;
+  const max = inventoryMaxOf(state);
+  for (const [id, inv] of Object.entries(state.items?.inventories ?? {})) {
+    const size = inventorySize(inv);
+    if (size > max) wrong.push(`${id} holds ${size}, over ${max}`);
+    for (const [kind, n] of Object.entries(inv.stacks)) {
+      if (!positive(n)) wrong.push(`${id} holds ${n} ${kind}`);
+    }
+    for (const [kind, grades] of Object.entries(inv.graded ?? {})) {
+      for (const [grade, n] of Object.entries(grades ?? {})) {
+        if (!positive(n)) wrong.push(`${id} holds ${n} ${grade} ${kind}`);
+      }
+    }
+  }
+  for (const l of Object.values(state.market?.listings ?? {})) {
+    if (!positive(l.count) || !positive(l.price)) {
+      wrong.push(`listing ${l.id} is ${l.count} for ${l.price}`);
+    }
+  }
+  for (const p of Object.values(state.items?.presents ?? {})) {
+    if (!positive(p.count)) wrong.push(`present ${p.id} holds ${p.count}`);
+  }
+  return wrong;
 }
 
 /** Put coins straight into a purse, minting them so the supply identity still holds. */

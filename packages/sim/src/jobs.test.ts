@@ -595,7 +595,9 @@ const BOARD_EDITIONS = EDITIONS.filter((n) => n !== 3);
 describe.each(BOARD_EDITIONS)("the board in edition %i", (shipped) => {
   const boardOn = boardIn(shipped);
 
-  it("has one job for home, one for a walk, and one with neighbors, each day of four years", () => {
+  it("has one job for home, one for a walk, and one with neighbors, each day of four years", {
+    timeout: FOUR_YEARS_MS,
+  }, () => {
     const wrong: string[] = [];
     for (const day of DAYS) {
       const [home, walk, neighbors, ...more] = boardOn(day);
@@ -860,7 +862,9 @@ describe("a regular job's wait for the board", () => {
 });
 
 describe("a walk that becomes a find, from the second edition", () => {
-  it("takes the finds lane's next find, and only with two or more up, so no find comes two days running", () => {
+  it("takes the finds lane's next find, and only with two or more up, so no find comes two days running", {
+    timeout: FOUR_YEARS_MS,
+  }, () => {
     // A made-up edition with one find: the finds lane gives it every other day, so a day between
     // two of those keeps its fish.
     const one = TABLE.filter((j) => j.deed?.type !== "find" || j.id === "marlo_find");

@@ -46,6 +46,7 @@ import {
   walkInWorld,
 } from "./things";
 import { failInto, notOpenCard, type View, type ViewContext } from "./view";
+import "./shop-view.css";
 
 type Section = ShopItemView["section"];
 

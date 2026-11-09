@@ -19,6 +19,7 @@ import { pageData } from "./page-data";
 import { postCard } from "./post-card";
 import { pulseShell } from "./pulse-cards";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
+import "./post-view.css";
 
 /** How many more of the author's posts the sidebar lists. */
 const MORE_POSTS = 3;

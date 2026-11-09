@@ -33,6 +33,7 @@ import { aThing, recipeWords, thingCount, thingName } from "./things";
 import { gestureInfo } from "./together";
 import { failInto, joinCard, staticView, type View, type ViewContext } from "./view";
 import { worldLinkPath } from "./world-link";
+import "./notifications-view.css";
 
 const ICONS: Record<NotificationView["type"], IconName> = {
   mention: "at",

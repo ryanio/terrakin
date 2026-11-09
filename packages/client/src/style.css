@@ -1963,32 +1963,6 @@ body.in-world .veil {
   color: var(--ink-soft);
 }
 
-/* Beside a post: who wrote it, and a few more of their posts, each cut to three lines. */
-.post-about-bio {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--ink-soft);
-}
-
-.post-others-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.post-others-text:hover {
-  text-decoration: underline;
-}
-
-.post-page .composer {
-  margin-top: var(--space-2xs);
-}
-
 /* ---------- viewers ---------- */
 
 dialog.viewer {
@@ -2196,29 +2170,6 @@ dialog.model-viewer {
   text-decoration-thickness: 1px;
   text-underline-offset: 2px;
   overflow-wrap: anywhere;
-}
-
-/* ---------- /away: the stop before a link out of Terrakin ---------- */
-
-.away-url {
-  width: 100%;
-  margin: 0;
-  padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-md);
-  background: var(--paper-2);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  text-align: start;
-  overflow-wrap: anywhere;
-}
-
-.away-warning {
-  max-width: 40ch;
-  margin: 0;
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
 }
 
 /* ---------- quoted post ---------- */
@@ -2526,105 +2477,6 @@ dialog.model-viewer {
   box-shadow: none;
 }
 
-/* ---------- notifications ---------- */
-
-.notif {
-  display: flex;
-  gap: var(--space-md);
-  min-height: 44px;
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--r-card);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.notif.unread {
-  border-color: rgba(180, 83, 47, 0.4);
-  background:
-    linear-gradient(90deg, rgba(242, 184, 75, 0.16), rgba(242, 184, 75, 0) 70%), var(--paper-fill);
-}
-
-.notif-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(143, 179, 106, 0.2);
-  color: var(--moss);
-}
-
-.notif-icon.reaction {
-  background: rgba(194, 65, 45, 0.12);
-  color: #c2412d;
-}
-
-.notif-icon.mention,
-.notif-icon.reply {
-  background: rgba(124, 185, 221, 0.22);
-  color: #2f6f95;
-}
-
-.notif-icon .icon {
-  width: 18px;
-  height: 18px;
-}
-
-/* A notice from Terrakin itself: a neutral mark instead of a resident's color. */
-.notif-icon.system {
-  border: 1px solid var(--paper-edge);
-  background: var(--paper-2);
-  color: var(--ink-soft);
-}
-
-.notif-next {
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-}
-
-.notif-links {
-  column-gap: var(--space-lg);
-}
-
-.notif-body {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: var(--space-2xs);
-}
-
-.notif-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.notif-time {
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.notif-line {
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  overflow-wrap: anywhere;
-}
-
-.notif-excerpt {
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
 /* ---------- bell ---------- */
 
 /* ---------- purse (RFC 0008) ---------- */
@@ -2741,22 +2593,6 @@ dialog.model-viewer {
   font-weight: var(--weight-bold);
 }
 
-.purse-streak {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.purse-how-list {
-  margin: 0;
-  padding-left: 1.2em;
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.purse-line-who {
-  display: flex;
-}
-
 .purse-line-mark {
   display: grid;
   place-items: center;
@@ -2765,44 +2601,6 @@ dialog.model-viewer {
   border-radius: 50%;
   background: var(--coin-light);
   color: var(--coin);
-}
-
-.purse-line-amount {
-  font-weight: var(--weight-heavy);
-  font-variant-numeric: tabular-nums;
-}
-
-.purse-line.in .purse-line-amount {
-  color: var(--coin-deep);
-}
-
-.purse-line.out .purse-line-amount {
-  color: var(--ink-soft);
-}
-
-/* The /inventory page (RFC 0005): your garden, made things, and stacks. */
-
-.things-crop {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: 44px;
-  color: var(--ink-soft);
-}
-
-.things-crop .icon {
-  color: var(--moss);
-}
-
-.things-crop-name {
-  color: var(--ink);
-  font-weight: var(--weight-bold);
-}
-
-.things-crop.ready .things-crop-when {
-  color: var(--moss-deep);
-  font-weight: var(--weight-bold);
 }
 
 /* The sheet a planter, kitchen, or workbench opens in the world. */
@@ -3092,34 +2890,6 @@ dialog.model-viewer {
   font-size: var(--text-md);
 }
 
-/* A gallery (RFC 0005 step 3): who it belongs to, and each piece large enough to see. */
-.gallery-piece .thing-picture,
-.gallery-piece .item-art {
-  border-radius: var(--r-sm);
-}
-
-.profile-galleries .galleries-all {
-  justify-self: start;
-  text-decoration: none;
-}
-
-/* A gallery's Visit button (RFC 0020) ends the row of whose gallery it is. */
-.gallery-visit {
-  margin-left: auto;
-}
-
-/* ---------- plots to visit (RFC 0020) ---------- */
-
-/* Which order the plots come in: a switch the width of its words, under the page's tabs. */
-.visit-sorts {
-  justify-self: start;
-  grid-auto-columns: auto;
-}
-
-.visit-sorts .link-tab {
-  font-size: var(--text-md);
-}
-
 /* A plot drawn from above (plot-thumb.ts), sized by its card. */
 .plot-thumb {
   display: block;
@@ -3129,108 +2899,6 @@ dialog.model-viewer {
   border: 2px solid var(--paper-edge);
   background: var(--field);
   box-shadow: var(--shadow-pill);
-}
-
-/*
- * The plots in a row are as tall as the tallest, since one with a name of its own or a busy week
- * carries a line the others don't. Each card's buttons then sit at its foot, so a row's Visit
- * buttons land on one line instead of wherever that card's words happened to end.
- */
-.visit-body {
-  align-items: stretch;
-}
-
-/*
- * One plot to visit: its drawing down the whole left side, with whose it is, how lately it
- * changed, and Visit beside it. The drawing is what the page is for, so it takes the card's
- * height rather than sitting in a 96px corner with the foot's left half left empty.
- */
-.plot-card {
-  display: flex;
-  gap: var(--space-lg);
-  align-items: stretch;
-}
-
-/*
- * The drawing takes a share of the card, never its canvas's own pixels, so a wide card gives it
- * more and a phone keeps the words readable beside it. Square, and parked at the top, since a card
- * stretched to match a taller one in its row would otherwise stretch the plot with it.
- */
-.plot-card .plot-thumb {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  width: clamp(112px, 34%, 156px);
-  height: auto;
-  aspect-ratio: 1;
-}
-
-.plot-card-side {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.plot-card-body {
-  min-width: 0;
-  justify-items: start;
-}
-
-/* A plot's own name (decision 0121), over whose it is. */
-.plot-card-name {
-  margin: 0;
-  max-width: 100%;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
-  overflow-wrap: anywhere;
-}
-
-.plot-card-changed,
-.plot-card-furnished,
-.plot-card-week {
-  font-size: var(--text-md);
-  line-height: var(--leading-snug);
-  color: var(--ink-soft);
-}
-
-/* Under the words, beside the drawing rather than below it. */
-.plot-card-foot {
-  justify-content: flex-end;
-}
-
-/*
- * On a phone the column beside the drawing is too narrow for Copy link and Visit side by side, so
- * the card goes back to words beside the drawing and the buttons on a line of their own under
- * both, which is the widest the two can be.
- */
-@media (max-width: 480px) {
-  .plot-card {
-    display: grid;
-    grid-template-columns: clamp(112px, 34%, 156px) minmax(0, 1fr);
-    gap: var(--space-md) var(--space-lg);
-    align-content: start;
-  }
-
-  /* The column holds the share now, so the drawing just fills it. */
-  .plot-card .plot-thumb {
-    width: 100%;
-  }
-
-  .plot-card-side {
-    display: contents;
-  }
-
-  .plot-card-foot {
-    grid-column: 1 / -1;
-  }
-}
-
-.visit-button .icon {
-  color: var(--moss);
 }
 
 /* The home wall's few plots to visit, as many a row as fit (two on a phone and in the sidebar),
@@ -3314,11 +2982,6 @@ dialog.model-viewer {
   line-height: var(--leading-snug);
   color: var(--clay-deep);
   overflow-wrap: anywhere;
-}
-
-/* Make a piece of art on your things page: the picture you chose, before it has a title. */
-.piece-preview .thing-picture {
-  border-width: 3px;
 }
 
 /* Sits in the top bar next to letters, and looks like it. */
@@ -3413,10 +3076,6 @@ dialog.model-viewer {
 
   .composer-skeleton {
     min-height: 123px;
-  }
-
-  .invite-hero .avatar.xl {
-    --size: 104px;
   }
 
   .new-pill-wrap {
@@ -3842,15 +3501,6 @@ a.btn-primary {
   text-align: center;
 }
 
-/* `/i/:code` */
-.invite-hero {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-2xl) var(--space-xl) var(--space-2xl);
-  text-align: center;
-}
-
 .invite-title {
   margin: 0;
   font-family: var(--font-display);
@@ -3863,19 +3513,6 @@ a.btn-primary {
   line-height: var(--leading-tight);
   text-wrap: balance;
   overflow-wrap: anywhere;
-}
-
-.invite-name {
-  color: var(--clay-deep);
-}
-
-.invite-lede {
-  max-width: 34em;
-  margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-  text-wrap: pretty;
 }
 
 .gift-row {
@@ -5075,11 +4712,6 @@ a.btn-primary {
 
 /* ---------- town hall (/town) ---------- */
 
-.town-title {
-  font-size: var(--text-4xl);
-  line-height: var(--leading-tight);
-}
-
 .town-lede,
 .town-you,
 .town-next {
@@ -5087,11 +4719,6 @@ a.btn-primary {
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--ink-soft);
-}
-
-.town-you {
-  color: var(--ink);
-  font-weight: var(--weight-semibold);
 }
 
 .proposal-head {
@@ -5144,18 +4771,6 @@ a.btn-primary {
   font-weight: var(--weight-semibold);
 }
 
-.notice-when {
-  margin-left: auto;
-  min-height: 44px;
-  padding: 0 var(--space-2xs);
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: var(--weight-medium);
-  color: var(--ink-soft);
-  cursor: help;
-}
-
 .proposal.compact .proposal-title {
   font-size: var(--text-xl);
 }
@@ -5193,37 +4808,6 @@ a.btn-primary {
 .tally-abstain,
 .dot.abstain::before {
   background: #cbbfa8;
-}
-
-.tally-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs) var(--space-md);
-  margin: 0;
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-}
-
-.dot {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.dot::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.tally-quorum {
-  margin-left: auto;
-  font-weight: var(--weight-semibold);
-}
-
-.tally-quorum.met {
-  color: var(--moss-deep);
 }
 
 .proposal-why,
@@ -5345,10 +4929,6 @@ a.btn-primary {
   color: var(--moss-deep);
 }
 
-.events-board > .pill-button {
-  justify-self: start;
-}
-
 .pulse-events.is-live {
   background: linear-gradient(180deg, rgba(242, 184, 75, 0.2), var(--paper) 70%);
 }
@@ -5382,33 +4962,6 @@ a.btn-primary {
 
 .sheet-body .btn-primary {
   justify-self: stretch;
-}
-
-/* The notice board: notes pinned slightly askew. */
-
-.notice {
-  display: grid;
-  gap: var(--space-xs);
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--r-note);
-  background: #fffdf3;
-  border: 1px solid var(--paper-edge);
-  box-shadow: 0 6px 14px -10px rgba(92, 60, 30, 0.5);
-}
-
-.notice:nth-child(odd) {
-  transform: rotate(-0.4deg);
-}
-
-.notice:nth-child(even) {
-  transform: rotate(0.4deg);
-}
-
-.notice-text {
-  margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  overflow-wrap: anywhere;
 }
 
 /* ---------- the home wall: a main column of posts and a sidebar of the town's pulse ----------
@@ -6681,34 +6234,6 @@ a.btn-primary {
   margin: 0;
 }
 
-/* Your things: the count beside the heading, and each family a card, what it's for in smaller words. */
-.things-hold-head {
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.things-family-hint {
-  font-size: var(--text-md);
-}
-
-/* Shop art */
-.things-stack.has-art {
-  gap: var(--space-xs);
-  padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-xs);
-}
-
-/* The town shop page (/shop) */
-
-.shop-keeper {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.shop-keeper .person-link {
-  color: var(--ink);
-  font-weight: var(--weight-bold);
-}
-
 /* Why filing or trading is held back: a soft fill, no accent stroke, with the way to the world. */
 .town-away,
 .shop-away {
@@ -6721,75 +6246,6 @@ a.btn-primary {
   border-radius: var(--r-xs);
   background: color-mix(in oklab, var(--sun) 12%, var(--field));
   color: var(--ink);
-}
-
-.shop-section .hint {
-  margin: 0;
-}
-
-.shop-item-meta {
-  color: var(--ink-soft);
-  font-size: var(--text-md);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Two to a row on a phone, more as the screen allows. */
-.shop-shelf {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-}
-
-.shop-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2xs);
-  padding: var(--space-lg) var(--space-md) var(--space-md);
-  border-radius: var(--r-card);
-  text-align: center;
-}
-
-/*
- * A card in a row is as tall as the tallest, so the slack goes above the button rather than
- * under it: the buttons across a row sit on one line however long the words above them run.
- */
-.shop-item > :has(+ .shop-buy) {
-  margin-bottom: auto;
-}
-
-.shop-item-name {
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-snug);
-}
-
-/* A recipe's name keeps two lines, so the cards in a row start what it uses together. */
-.shop-card-recipe .shop-item-name {
-  min-height: calc(2em * var(--leading-snug));
-}
-
-/*
- * Only some stock carries a season or holiday tag. On a shelf that has any, the cards without one
- * keep its line free (the pill's own height and the gap above it), so a row's names start together
- * whether or not the thing beside them is seasonal.
- */
-.shop-shelf:has(.kind-pill) .shop-item:not(:has(.kind-pill)) .shop-item-name {
-  margin-top: calc(var(--text-sm) * var(--leading-snug) + 3 * var(--space-2xs));
-}
-
-.shop-item-3d {
-  /* A link on its own line, so it gets a target of its own, not an inline link's. */
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  font-size: var(--text-md);
-  color: var(--clay-deep);
-}
-
-/* Drawn 32px tall, it taps as 44, reaching past it above and below. */
-.shop-item-3d::after {
-  content: "";
-  position: absolute;
-  inset: calc((32px - 44px) / 2) 0;
 }
 
 .shop-buy {

@@ -1,7 +1,7 @@
 /*
- * The Town Hall (town-view.ts): voting, a proposal's answer, the map of the Commons, and pinning a
- * note. Loaded with the page. What the home wall shows of the town too (proposals, tallies, events,
- * notes) is in style.css.
+ * The Town Hall (town-view.ts): voting, a proposal's answer, the map of the Commons, the notice
+ * board, and pinning a note. Loaded with the page. What the home wall or the bounties page shows of
+ * the town too (proposals, tallies, events) is in style.css.
  */
 
 .vote-row {
@@ -172,4 +172,88 @@
   flex: 1;
   min-width: 0;
   resize: none;
+}
+
+.town-title {
+  font-size: var(--text-4xl);
+  line-height: var(--leading-tight);
+}
+
+.town-you {
+  color: var(--ink);
+  font-weight: var(--weight-semibold);
+}
+
+.notice-when {
+  margin-left: auto;
+  min-height: 44px;
+  padding: 0 var(--space-2xs);
+  border: 0;
+  background: none;
+  font: inherit;
+  font-weight: var(--weight-medium);
+  color: var(--ink-soft);
+  cursor: help;
+}
+
+.tally-counts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2xs) var(--space-md);
+  margin: 0;
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+}
+
+.dot {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-xs);
+}
+
+.dot::before {
+  content: "";
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+}
+
+.tally-quorum {
+  margin-left: auto;
+  font-weight: var(--weight-semibold);
+}
+
+.tally-quorum.met {
+  color: var(--moss-deep);
+}
+
+.events-board > .pill-button {
+  justify-self: start;
+}
+
+/* The notice board: notes pinned slightly askew. */
+
+.notice {
+  display: grid;
+  gap: var(--space-xs);
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--r-note);
+  background: #fffdf3;
+  border: 1px solid var(--paper-edge);
+  box-shadow: 0 6px 14px -10px rgba(92, 60, 30, 0.5);
+}
+
+.notice:nth-child(odd) {
+  transform: rotate(-0.4deg);
+}
+
+.notice:nth-child(even) {
+  transform: rotate(0.4deg);
+}
+
+.notice-text {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
 }

@@ -1,0 +1,28 @@
+/* An invite's page, `/i/:code` (invite-view.ts). Loaded with the page. */
+
+.invite-hero {
+  display: grid;
+  justify-items: center;
+  gap: var(--space-sm);
+  padding: var(--space-2xl) var(--space-xl) var(--space-2xl);
+  text-align: center;
+}
+
+.invite-name {
+  color: var(--clay-deep);
+}
+
+.invite-lede {
+  max-width: 34em;
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+  text-wrap: pretty;
+}
+
+@media (min-width: 640px) {
+  .invite-hero .avatar.xl {
+    --size: 104px;
+  }
+}

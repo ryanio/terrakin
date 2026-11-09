@@ -1,0 +1,27 @@
+/* A post's own page (post-view.ts). Loaded with the page. */
+
+/* Beside a post: who wrote it, and a few more of their posts, each cut to three lines. */
+.post-about-bio {
+  margin: 0;
+  overflow-wrap: anywhere;
+  color: var(--ink-soft);
+}
+
+.post-others-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.post-others-text:hover {
+  text-decoration: underline;
+}
+
+.post-page .composer {
+  margin-top: var(--space-2xs);
+}

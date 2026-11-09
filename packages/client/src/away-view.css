@@ -1,0 +1,22 @@
+/* /away (away-view.ts). Loaded with the page. */
+
+.away-url {
+  width: 100%;
+  margin: 0;
+  padding: var(--space-md) var(--space-lg);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-md);
+  background: var(--paper-2);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  text-align: start;
+  overflow-wrap: anywhere;
+}
+
+.away-warning {
+  max-width: 40ch;
+  margin: 0;
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+}

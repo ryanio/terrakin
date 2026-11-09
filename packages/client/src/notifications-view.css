@@ -1,0 +1,98 @@
+/* Notifications (notifications-view.ts). Loaded with the page. */
+
+.notif {
+  display: flex;
+  gap: var(--space-md);
+  min-height: 44px;
+  padding: var(--space-md) var(--space-lg);
+  border-radius: var(--r-card);
+  color: var(--ink);
+  text-decoration: none;
+}
+
+.notif.unread {
+  border-color: rgba(180, 83, 47, 0.4);
+  background:
+    linear-gradient(90deg, rgba(242, 184, 75, 0.16), rgba(242, 184, 75, 0) 70%), var(--paper-fill);
+}
+
+.notif-icon {
+  flex: none;
+  display: grid;
+  place-items: center;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: rgba(143, 179, 106, 0.2);
+  color: var(--moss);
+}
+
+.notif-icon.reaction {
+  background: rgba(194, 65, 45, 0.12);
+  color: #c2412d;
+}
+
+.notif-icon.mention,
+.notif-icon.reply {
+  background: rgba(124, 185, 221, 0.22);
+  color: #2f6f95;
+}
+
+.notif-icon .icon {
+  width: 18px;
+  height: 18px;
+}
+
+/* A notice from Terrakin itself: a neutral mark instead of a resident's color. */
+.notif-icon.system {
+  border: 1px solid var(--paper-edge);
+  background: var(--paper-2);
+  color: var(--ink-soft);
+}
+
+.notif-next {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+}
+
+.notif-links {
+  column-gap: var(--space-lg);
+}
+
+.notif-body {
+  flex: 1;
+  min-width: 0;
+  display: grid;
+  gap: var(--space-2xs);
+}
+
+.notif-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.notif-time {
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+}
+
+.notif-line {
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  overflow-wrap: anywhere;
+}
+
+.notif-excerpt {
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink-soft);
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+  overflow: hidden;
+}

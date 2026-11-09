@@ -1,0 +1,80 @@
+/* The town shop page (shop-view.ts). Loaded with the page. */
+
+.shop-keeper {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.shop-keeper .person-link {
+  color: var(--ink);
+  font-weight: var(--weight-bold);
+}
+
+.shop-section .hint {
+  margin: 0;
+}
+
+.shop-item-meta {
+  color: var(--ink-soft);
+  font-size: var(--text-md);
+  font-variant-numeric: tabular-nums;
+}
+
+/* Two to a row on a phone, more as the screen allows. */
+.shop-shelf {
+  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+}
+
+.shop-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-2xs);
+  padding: var(--space-lg) var(--space-md) var(--space-md);
+  border-radius: var(--r-card);
+  text-align: center;
+}
+
+/*
+ * A card in a row is as tall as the tallest, so the slack goes above the button rather than
+ * under it: the buttons across a row sit on one line however long the words above them run.
+ */
+.shop-item > :has(+ .shop-buy) {
+  margin-bottom: auto;
+}
+
+.shop-item-name {
+  font-weight: var(--weight-bold);
+  line-height: var(--leading-snug);
+}
+
+/* A recipe's name keeps two lines, so the cards in a row start what it uses together. */
+.shop-card-recipe .shop-item-name {
+  min-height: calc(2em * var(--leading-snug));
+}
+
+/*
+ * Only some stock carries a season or holiday tag. On a shelf that has any, the cards without one
+ * keep its line free (the pill's own height and the gap above it), so a row's names start together
+ * whether or not the thing beside them is seasonal.
+ */
+.shop-shelf:has(.kind-pill) .shop-item:not(:has(.kind-pill)) .shop-item-name {
+  margin-top: calc(var(--text-sm) * var(--leading-snug) + 3 * var(--space-2xs));
+}
+
+.shop-item-3d {
+  /* A link on its own line, so it gets a target of its own, not an inline link's. */
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  min-height: 32px;
+  font-size: var(--text-md);
+  color: var(--clay-deep);
+}
+
+/* Drawn 32px tall, it taps as 44, reaching past it above and below. */
+.shop-item-3d::after {
+  content: "";
+  position: absolute;
+  inset: calc((32px - 44px) / 2) 0;
+}

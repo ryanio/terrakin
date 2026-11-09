@@ -1,0 +1,17 @@
+/* Galleries (galleries-view.ts). Loaded with the page, and with a profile, which shows a few. */
+
+/* A gallery (RFC 0005 step 3): who it belongs to, and each piece large enough to see. */
+.gallery-piece .thing-picture,
+.gallery-piece .item-art {
+  border-radius: var(--r-sm);
+}
+
+.profile-galleries .galleries-all {
+  justify-self: start;
+  text-decoration: none;
+}
+
+/* A gallery's Visit button (RFC 0020) ends the row of whose gallery it is. */
+.gallery-visit {
+  margin-left: auto;
+}

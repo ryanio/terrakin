@@ -1,0 +1,116 @@
+/*
+ * Plots to visit (visit-view.ts). Loaded with the page, and with galleries, whose Visit button is
+ * this page's. The plot drawing itself is in style.css, since the home wall shows it too.
+ */
+
+/* Which order the plots come in: a switch the width of its words, under the page's tabs. */
+.visit-sorts {
+  justify-self: start;
+  grid-auto-columns: auto;
+}
+
+.visit-sorts .link-tab {
+  font-size: var(--text-md);
+}
+
+/*
+ * The plots in a row are as tall as the tallest, since one with a name of its own or a busy week
+ * carries a line the others don't. Each card's buttons then sit at its foot, so a row's Visit
+ * buttons land on one line instead of wherever that card's words happened to end.
+ */
+.visit-body {
+  align-items: stretch;
+}
+
+/*
+ * One plot to visit: its drawing down the whole left side, with whose it is, how lately it
+ * changed, and Visit beside it. The drawing is what the page is for, so it takes the card's
+ * height rather than sitting in a 96px corner with the foot's left half left empty.
+ */
+.plot-card {
+  display: flex;
+  gap: var(--space-lg);
+  align-items: stretch;
+}
+
+/*
+ * The drawing takes a share of the card, never its canvas's own pixels, so a wide card gives it
+ * more and a phone keeps the words readable beside it. Square, and parked at the top, since a card
+ * stretched to match a taller one in its row would otherwise stretch the plot with it.
+ */
+.plot-card .plot-thumb {
+  flex: 0 0 auto;
+  align-self: flex-start;
+  width: clamp(112px, 34%, 156px);
+  height: auto;
+  aspect-ratio: 1;
+}
+
+.plot-card-side {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: var(--space-md);
+}
+
+.plot-card-body {
+  min-width: 0;
+  justify-items: start;
+}
+
+/* A plot's own name (decision 0121), over whose it is. */
+.plot-card-name {
+  margin: 0;
+  max-width: 100%;
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+
+.plot-card-changed,
+.plot-card-furnished,
+.plot-card-week {
+  font-size: var(--text-md);
+  line-height: var(--leading-snug);
+  color: var(--ink-soft);
+}
+
+/* Under the words, beside the drawing rather than below it. */
+.plot-card-foot {
+  justify-content: flex-end;
+}
+
+/*
+ * On a phone the column beside the drawing is too narrow for Copy link and Visit side by side, so
+ * the card goes back to words beside the drawing and the buttons on a line of their own under
+ * both, which is the widest the two can be.
+ */
+@media (max-width: 480px) {
+  .plot-card {
+    display: grid;
+    grid-template-columns: clamp(112px, 34%, 156px) minmax(0, 1fr);
+    gap: var(--space-md) var(--space-lg);
+    align-content: start;
+  }
+
+  /* The column holds the share now, so the drawing just fills it. */
+  .plot-card .plot-thumb {
+    width: 100%;
+  }
+
+  .plot-card-side {
+    display: contents;
+  }
+
+  .plot-card-foot {
+    grid-column: 1 / -1;
+  }
+}
+
+.visit-button .icon {
+  color: var(--moss);
+}

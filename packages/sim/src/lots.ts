@@ -54,21 +54,47 @@ export function inLot(state: Pick<WorldState, "config" | "lots">, x: number, y: 
   return x >= x0 && x < x0 + side && y >= y0 && y < y0 + side;
 }
 
-/** `outside_lot` for building on (x, y) past its plot's lot, or null. */
+/**
+ * `outside_lot` for building on (x, y) past its plot's lot, or null. It names the first size whose
+ * lot holds the tile, how many `grow_lot` steps away that is, and the next step.
+ */
 export function outsideLotProblem(
   state: Pick<WorldState, "config" | "lots">,
   x: number,
   y: number,
 ): Rejection | null {
   if (inLot(state, x, y)) return null;
+  const slot = state.config.plotSize;
   const { px, py } = plotOf(state.config, x, y);
   const { side } = lotBounds(state, px, py);
-  const next = LOTS.steps.find((s) => s.side > side && s.side <= state.config.plotSize);
+  const ahead = LOTS.steps.filter((s) => s.side > side && s.side <= slot);
+  const holds = (grown: number) => {
+    const inset = Math.floor((slot - grown) / 2);
+    const dx = x - px * slot;
+    const dy = y - py * slot;
+    return dx >= inset && dx < inset + grown && dy >= inset && dy < inset + grown;
+  };
+  const reach = ahead.findIndex((s) => holds(s.side));
+  const lot = `this plot's lot of ${side} by ${side}`;
+  const next = ahead[0];
+  if (!next) return refuse("outside_lot", `That's past ${lot}, where nothing is built.`);
+  const nextWords = `grow_lot at px ${px}, py ${py} grows it to ${next.side} by ${next.side}`;
+  if (reach === 0) {
+    return refuse(
+      "outside_lot",
+      `That's in the wild yard, past ${lot}. ${nextWords}, which reaches it.`,
+    );
+  }
+  const at = ahead[reach]?.side;
+  if (at === undefined) {
+    return refuse(
+      "outside_lot",
+      `That's in the wild yard, past ${lot}, and no lot size reaches it. ${nextWords}.`,
+    );
+  }
   return refuse(
     "outside_lot",
-    next
-      ? `That's in the wild yard, past this plot's lot of ${side} by ${side}. grow_lot at px ${px}, py ${py} grows it to ${next.side} by ${next.side}.`
-      : `That's past this plot's lot of ${side} by ${side}, where nothing is built.`,
+    `That's in the wild yard, past ${lot}. A lot of ${at} by ${at} reaches it, ${reach + 1} grow_lot steps from now; ${nextWords} first.`,
   );
 }
 

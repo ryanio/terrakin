@@ -1,11 +1,11 @@
 ---
 title: "Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs"
 date: 2026-10-10
-status: accepted
+status: superseded
 tags: [server, levels, deploy]
 ---
 
-The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens levels too.
+Superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): the Node server passes `levels` too, so every self-hosted, dev, and e2e world opens levels, and `POST /v1/test/open-levels` is gone.
 
 # Levels are on at terrakin.org: the Worker sets levels, the Node server leaves it off, and the switch ships in the same push as its docs
 

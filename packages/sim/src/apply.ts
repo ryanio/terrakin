@@ -1588,7 +1588,7 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
             problem,
             state.plotMarket
               ? `You already have a plot, and settle is for your first one. ${anotherPlotWords(state, actor, plotsOwnedBy(state, actor).length)}${acrossHint(state, actor, px, py)}`
-              : "You already have a plot. Settle is for your first one; walk to another and claim it.",
+              : "You already have a plot, and each resident has one. To move, release this one first (stand on it, with every block, path and floor cleared and the roof down), then settle the new one.",
           );
       }
       const to = landingTile(state, actor, px, py);

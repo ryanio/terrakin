@@ -8,6 +8,10 @@
  *   pnpm kb new learning "Title"    create a dated learning note
  *   pnpm kb new handoff "Title"     create a dated session handoff
  *
+ * The index lists binding decisions first and superseded or rejected ones after them, each with
+ * the record its "Superseded by [decision NNNN](...)" line points to, and only the newest
+ * handoffs, with a link to the rest.
+ *
  * Plain Node (type stripping), no dependencies, so any agent can run it right after cloning.
  */
 import { execFileSync } from "node:child_process";
@@ -49,13 +53,29 @@ type Kind = keyof typeof KINDS;
 
 const DECISION_STATUSES = ["proposed", "accepted", "superseded", "rejected"];
 
-interface Entry {
+/** Decision statuses that no longer bind, listed after the rest. */
+const RETIRED = ["superseded", "rejected"];
+
+/** Handoffs the index lists, newest first; the folder holds the rest. */
+const HANDOFFS_SHOWN = 3;
+
+export interface Entry {
   kind: Kind;
+  /** Path from docs/knowledge. */
   file: string;
   title: string;
   date: string;
   status?: string;
   tags: string[];
+  /** The decision that replaced this one, from its "Superseded by" line, as a path from docs/knowledge. */
+  replacedBy?: { number: string; file: string };
+}
+
+/** The decision a record's "Superseded by [decision NNNN](file)" line names, if it has one. */
+export function replacedByOf(body: string, dir: string): Entry["replacedBy"] {
+  const match = /^Superseded by \[decision (\d{4})\]\(([^)#\s]+)/m.exec(body);
+  if (!match?.[1] || !match[2]) return undefined;
+  return { number: match[1], file: `${dir}/${match[2]}` };
 }
 
 function parseFrontmatter(text: string): Record<string, string> | undefined {
@@ -83,7 +103,8 @@ function load(): { entries: Entry[]; problems: string[] } {
       if (!name.endsWith(".md") || name === "TEMPLATE.md") continue;
       const file = join(dir, name);
       const rel = relative(ROOT, file);
-      const fm = parseFrontmatter(readFileSync(file, "utf8"));
+      const text = readFileSync(file, "utf8");
+      const fm = parseFrontmatter(text);
       if (!fm) {
         problems.push(`${rel}: missing frontmatter (--- title/date/tags ---)`);
         continue;
@@ -99,6 +120,7 @@ function load(): { entries: Entry[]; problems: string[] } {
         .split(",")
         .map((t) => t.trim())
         .filter(Boolean);
+      const replacedBy = kind === "decision" ? replacedByOf(text, KINDS[kind].dir) : undefined;
       entries.push({
         kind,
         file: relative(KB, file),
@@ -106,6 +128,7 @@ function load(): { entries: Entry[]; problems: string[] } {
         date: fm.date ?? "",
         ...(fm.status ? { status: fm.status } : {}),
         tags,
+        ...(replacedBy ? { replacedBy } : {}),
       });
     }
   }
@@ -153,7 +176,14 @@ function numbersOnMain(dir: string): number[] {
   }
 }
 
-function renderIndex(entries: Entry[]): string {
+function entryLine(e: Entry): string {
+  const status = e.status ? ` · ${e.status}` : "";
+  const tags = e.tags.length ? ` · ${e.tags.map((t) => `\`${t}\``).join(" ")}` : "";
+  const by = e.replacedBy ? ` by [${e.replacedBy.number}](${e.replacedBy.file})` : "";
+  return `- [${e.title}](${e.file}) · ${e.date}${status}${by}${tags}`;
+}
+
+export function renderIndex(entries: Entry[]): string {
   const lines = [
     "# Knowledge index",
     "",
@@ -163,19 +193,32 @@ function renderIndex(entries: Entry[]): string {
     "",
   ];
   for (const kind of Object.keys(KINDS) as Kind[]) {
-    const { heading, blurb } = KINDS[kind];
+    const { heading, blurb, dir } = KINDS[kind];
     const list = entries.filter((e) => e.kind === kind);
     lines.push(`## ${heading}`, "", blurb, "");
-    if (list.length === 0) lines.push("_None yet._", "");
-    else {
-      // Handoffs: newest first, since the latest one is the one you need. Filenames start with
-      // YYYY-MM-DD-HHMM, so filename order is creation order.
-      if (kind === "handoff") list.reverse();
-      for (const e of list) {
-        const status = e.status ? ` · ${e.status}` : "";
-        const tags = e.tags.length ? ` · ${e.tags.map((t) => `\`${t}\``).join(" ")}` : "";
-        lines.push(`- [${e.title}](${e.file}) · ${e.date}${status}${tags}`);
+    if (list.length === 0) {
+      lines.push("_None yet._", "");
+    } else if (kind === "decision") {
+      const retired = (e: Entry) => RETIRED.includes(e.status ?? "");
+      for (const e of list.filter((e) => !retired(e))) lines.push(entryLine(e));
+      lines.push("");
+      const gone = list.filter(retired);
+      if (gone.length > 0) {
+        lines.push("### Superseded", "", "No longer binding: read what replaced each one.", "");
+        for (const e of gone) lines.push(entryLine(e));
+        lines.push("");
       }
+    } else if (kind === "handoff") {
+      // Newest first, since the latest one is the one you need. Filenames start with
+      // YYYY-MM-DD-HHMM, so filename order is creation order.
+      const newest = [...list].reverse();
+      for (const e of newest.slice(0, HANDOFFS_SHOWN)) lines.push(entryLine(e));
+      lines.push("");
+      if (newest.length > HANDOFFS_SHOWN) {
+        lines.push(`The other ${newest.length - HANDOFFS_SHOWN} are in [${dir}/](${dir}/).`, "");
+      }
+    } else {
+      for (const e of list) lines.push(entryLine(e));
       lines.push("");
     }
   }
@@ -224,30 +267,32 @@ function create(kind: Kind, title: string) {
   console.log(relative(ROOT, file));
 }
 
-const [cmd, kind, ...titleWords] = process.argv.slice(2);
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const [cmd, kind, ...titleWords] = process.argv.slice(2);
 
-if (cmd === "new") {
-  if (!kind || !Object.hasOwn(KINDS, kind) || titleWords.length === 0) {
-    console.error('Usage: pnpm kb new <decision|learning|handoff> "Title"');
+  if (cmd === "new") {
+    if (!kind || !Object.hasOwn(KINDS, kind) || titleWords.length === 0) {
+      console.error('Usage: pnpm kb new <decision|learning|handoff> "Title"');
+      process.exit(1);
+    }
+    create(kind as Kind, titleWords.join(" "));
+  }
+
+  const { entries, problems } = load();
+  if (problems.length) {
+    console.error(`Knowledge base problems:\n  ${problems.join("\n  ")}`);
     process.exit(1);
   }
-  create(kind as Kind, titleWords.join(" "));
-}
-
-const { entries, problems } = load();
-if (problems.length) {
-  console.error(`Knowledge base problems:\n  ${problems.join("\n  ")}`);
-  process.exit(1);
-}
-const index = renderIndex(entries);
-if (cmd === "--check") {
-  const current = existsSync(INDEX) ? readFileSync(INDEX, "utf8") : "";
-  if (current !== index) {
-    console.error("docs/knowledge/INDEX.md is stale. Run `pnpm kb` and commit the result.");
-    process.exit(1);
+  const index = renderIndex(entries);
+  if (cmd === "--check") {
+    const current = existsSync(INDEX) ? readFileSync(INDEX, "utf8") : "";
+    if (current !== index) {
+      console.error("docs/knowledge/INDEX.md is stale. Run `pnpm kb` and commit the result.");
+      process.exit(1);
+    }
+    console.log(`Knowledge index OK (${entries.length} entries).`);
+  } else {
+    writeFileSync(INDEX, index);
+    console.log(`Wrote docs/knowledge/INDEX.md (${entries.length} entries).`);
   }
-  console.log(`Knowledge index OK (${entries.length} entries).`);
-} else {
-  writeFileSync(INDEX, index);
-  console.log(`Wrote docs/knowledge/INDEX.md (${entries.length} entries).`);
 }

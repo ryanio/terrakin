@@ -93,12 +93,6 @@ const REMOVE_LINE_FAR = 0.6;
  * instead: only a tap close to the line takes the wall.
  */
 const REMOVE_LINE_NEAR = 0.22;
-/**
- * Placing a wall next to one that's there: an empty line this little farther than the taken one
- * takes the wall instead, so a tap by a corner carries the wall on round it.
- */
-const PLACE_LINE_SLACK = 0.15;
-
 /** Every line within `radius` tiles of a point, nearest first, with how far each is. */
 export function linesNear(p: GroundPoint, radius: number): (Line & { distance: number })[] {
   const out: (Line & { distance: number })[] = [];
@@ -133,7 +127,6 @@ export function nearestLine(p: GroundPoint): Line {
 
 const lineSpot = (l: Line): BuildSpot => ({ kind: "line", x: l.x, y: l.y, side: l.side });
 const tileSpot = (t: Tile): BuildSpot => ({ kind: "tile", x: t.x, y: t.y });
-const sameLine = (a: Line, b: Line) => a.x === b.x && a.y === b.y && a.side === b.side;
 
 /** What a tap does with this pick, on what's built here now. */
 export function buildTap(pick: BuildPick, touch: BuildTouch, ground: BuildGround): BuildTap {
@@ -163,13 +156,7 @@ export function buildTap(pick: BuildPick, touch: BuildTouch, ground: BuildGround
       const near = touch.line ?? nearestLine(point);
       const there = ground.edgeAt(near);
       if (!there) return { do: "place_line", spot: lineSpot(near), line: near };
-      // Taken: an empty line about as near carries the wall on round a corner.
-      const reach = toLine(point, near) + PLACE_LINE_SLACK;
-      const free = linesNear(point, reach).find((l) => !sameLine(l, near) && !ground.edgeAt(l));
-      if (free) {
-        const at = { x: free.x, y: free.y, side: free.side };
-        return { do: "place_line", spot: lineSpot(at), line: at };
-      }
+      // Taken: say what's there, and put nothing up on another line the tap didn't mean.
       return { do: "taken", spot: lineSpot(near), block: there, line: true };
     }
     case "ground": {
@@ -193,13 +180,6 @@ export function buildTap(pick: BuildPick, touch: BuildTouch, ground: BuildGround
       return { do: "taken", spot, block };
     }
   }
-}
-
-/** How far a point is from a line. */
-function toLine(p: GroundPoint, l: Line): number {
-  return l.side === "n"
-    ? toSegment(p.x - l.x, p.y - (l.y - 0.5))
-    : toSegment(p.y - l.y, p.x - (l.x - 0.5));
 }
 
 /**

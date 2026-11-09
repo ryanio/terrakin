@@ -71,12 +71,13 @@ describe("a tap with a wall picked", () => {
     });
   });
 
-  it("carries the wall round a corner when the taken line is barely nearer than an empty one", () => {
+  it("puts up nothing on another line by a corner when the nearest is taken", () => {
     const g = ground({ edges: { [edgeKey(5, 5, "n")]: "wood" } });
-    // By the corner where the taken line meets the east side of the tile.
+    // By the corner where the taken line meets the east side of the tile: the empty line there is
+    // only a little farther, and a second tap on a wall must never grow a wall beside it.
     expect(buildTap(wood, at(5.38, 4.4), g)).toMatchObject({
-      do: "place_line",
-      line: { x: 6, y: 4, side: "w" },
+      do: "taken",
+      spot: { kind: "line", x: 5, y: 5, side: "n" },
     });
   });
 

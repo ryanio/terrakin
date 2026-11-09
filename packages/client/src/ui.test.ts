@@ -1,5 +1,6 @@
 import type { Result } from "@terrakin/ui/http";
-import { makeRequest } from "@terrakin/ui/http";
+import { makeRequest, Nothing, OFFLINE } from "@terrakin/ui/http";
+import { visiblePoll } from "@terrakin/ui/poll";
 import { tipPlace } from "@terrakin/ui/tooltip-bubble";
 import { confirmTwice, toastMs, whileBusyAll } from "@terrakin/ui/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -97,6 +98,189 @@ describe("request errors", () => {
     const r = await request("GET", "/v1/purse", { safeParse: () => ({ success: true }) } as never);
     expect(r).toMatchObject({ ok: false, status: 401, message: "Restore your key." });
     vi.unstubAllGlobals();
+  });
+
+  const passes = { safeParse: (data: unknown) => ({ success: true as const, data }) };
+  const fails = { safeParse: () => ({ success: false as const, error: "no" }) };
+  it.each([
+    {
+      what: "a fetch that throws is offline",
+      fetch: async () => {
+        throw new TypeError("Failed to fetch");
+      },
+      schema: passes,
+      want: { ok: false, status: 0, code: "offline", message: OFFLINE },
+      badResponse: false,
+    },
+    {
+      what: "a 200 the schema refuses is a bad response, told to the app",
+      fetch: async () => Response.json({ coins: "lots" }),
+      schema: fails,
+      want: { ok: false, status: 200, code: "bad_response" },
+      badResponse: true,
+    },
+    {
+      what: "a schema dump from the server reads as plain words",
+      fetch: async () =>
+        Response.json(
+          { error: { code: "bad_request", message: '[{"path":["name"]}]' } },
+          { status: 400 },
+        ),
+      schema: passes,
+      want: { ok: false, code: "bad_request", message: "Something went wrong. Try again." },
+      badResponse: false,
+    },
+    {
+      what: "an object dump does too",
+      fetch: async () =>
+        Response.json(
+          { error: { code: "bad_request", message: ' {"name":"bad"}' } },
+          { status: 400 },
+        ),
+      schema: passes,
+      want: { ok: false, message: "Something went wrong. Try again." },
+      badResponse: false,
+    },
+    {
+      what: "a plain message comes through",
+      fetch: async () =>
+        Response.json({ error: { code: "already_owned", message: "Taken." } }, { status: 409 }),
+      schema: passes,
+      want: { ok: false, status: 409, code: "already_owned", message: "Taken." },
+      badResponse: false,
+    },
+    {
+      what: "an empty 204 parses",
+      fetch: async () => new Response(null, { status: 204 }),
+      schema: Nothing,
+      want: { ok: true, data: null },
+      badResponse: false,
+    },
+  ])("$what", async ({ fetch, schema, want, badResponse }) => {
+    vi.stubGlobal("fetch", vi.fn(fetch));
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+    const onBadResponse = vi.fn();
+    const request = makeRequest({ headers: () => ({}), onBadResponse });
+    expect(await request("GET", "/v1/purse", schema as never)).toMatchObject(want);
+    expect(onBadResponse).toHaveBeenCalledTimes(badResponse ? 1 : 0);
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it("says the body is JSON only when it sends one", async () => {
+    const fetch = vi.fn(async (_path: string, _init: RequestInit) => new Response(null));
+    vi.stubGlobal("fetch", fetch);
+    const request = makeRequest({ headers: () => ({ authorization: "Bearer t" }) });
+    await request("GET", "/v1/purse", Nothing);
+    await request("POST", "/v1/act", Nothing, { type: "leave" });
+    const [get, post] = fetch.mock.calls.map(([, init]) => init);
+    expect(get?.headers).toEqual({ authorization: "Bearer t" });
+    expect(get?.body).toBeUndefined();
+    expect(post?.headers).toEqual({
+      authorization: "Bearer t",
+      "content-type": "application/json",
+    });
+    expect(post?.body).toBe('{"type":"leave"}');
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("a visible poll", () => {
+  /** A visible page whose visibility listeners the test can call, and asks it settles by hand. */
+  function page() {
+    vi.useFakeTimers();
+    const doc = { visibilityState: "visible", listeners: [] as (() => void)[] };
+    vi.stubGlobal("document", {
+      get visibilityState() {
+        return doc.visibilityState;
+      },
+      addEventListener: (_: string, f: () => void) => doc.listeners.push(f),
+    });
+    let open = 0;
+    let most = 0;
+    const settle: (() => void)[] = [];
+    const ask = vi.fn(() => {
+      open += 1;
+      most = Math.max(most, open);
+      return new Promise<void>((resolve) => {
+        settle.push(() => {
+          open -= 1;
+          resolve();
+        });
+      });
+    });
+    /** Settles the oldest ask and lets its `finally` run. */
+    const finish = async () => {
+      settle.shift()?.();
+      await vi.advanceTimersByTimeAsync(0);
+    };
+    return { doc, ask, finish, most: () => most };
+  }
+  afterEach(() => {
+    vi.useRealTimers();
+    vi.unstubAllGlobals();
+  });
+
+  it("skips an unforced ask inside the gap, but not a forced one", async () => {
+    const { ask, finish } = page();
+    const poll = visiblePoll(ask, { everyMs: 60_000, minGapMs: 1000 });
+    poll.refresh();
+    await finish();
+    vi.advanceTimersByTime(500);
+    poll.refresh();
+    expect(ask).toHaveBeenCalledTimes(1);
+    poll.refresh(true);
+    expect(ask).toHaveBeenCalledTimes(2);
+    await finish();
+    vi.advanceTimersByTime(1000);
+    poll.refresh();
+    expect(ask).toHaveBeenCalledTimes(3);
+  });
+
+  it("asks nothing, forced or not, while it isn't ready", () => {
+    const { ask } = page();
+    const poll = visiblePoll(ask, { everyMs: 1000, minGapMs: 0, ready: () => false });
+    poll.refresh();
+    poll.refresh(true);
+    poll.start();
+    vi.advanceTimersByTime(5000);
+    expect(ask).not.toHaveBeenCalled();
+  });
+
+  it("runs forced asks made during one exactly once after it, never two at once", async () => {
+    const { ask, finish, most } = page();
+    const poll = visiblePoll(ask, { everyMs: 60_000, minGapMs: 0 });
+    poll.refresh(true);
+    poll.refresh(true);
+    poll.refresh(true);
+    poll.refresh();
+    expect(ask).toHaveBeenCalledTimes(1);
+    await finish();
+    expect(ask).toHaveBeenCalledTimes(2);
+    await finish();
+    expect(ask).toHaveBeenCalledTimes(2);
+    expect(most()).toBe(1);
+  });
+
+  it("asks on the timer only while the page is visible and `when` says so", async () => {
+    const { doc, ask, finish } = page();
+    let when = false;
+    const poll = visiblePoll(ask, { everyMs: 1000, minGapMs: 0, when: () => when });
+    poll.start();
+    vi.advanceTimersByTime(1000);
+    expect(ask).not.toHaveBeenCalled();
+    when = true;
+    doc.visibilityState = "hidden";
+    vi.advanceTimersByTime(1000);
+    expect(ask).not.toHaveBeenCalled();
+    doc.visibilityState = "visible";
+    vi.advanceTimersByTime(1000);
+    expect(ask).toHaveBeenCalledTimes(1);
+    await finish();
+    // Coming back to the tab asks too, though `when` only gates the timer.
+    when = false;
+    for (const f of doc.listeners) f();
+    expect(ask).toHaveBeenCalledTimes(2);
   });
 });
 

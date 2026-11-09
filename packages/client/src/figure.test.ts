@@ -28,6 +28,8 @@ import {
   RESIDENT_COLOR_HEX,
 } from "@terrakin/ui/looks";
 import { describe, expect, it } from "vitest";
+// By path: `@terrakin/ui/figure-svg` declares only what the server reads (`figure-drawing.ts`).
+import { plainColor } from "../../ui/src/figure-svg";
 import {
   Feelings,
   gestureReaction,
@@ -437,5 +439,27 @@ describe("feelings", () => {
       expect(FEELING_ICON[p.feeling]).toBe("spark");
       expect(p).toMatchObject({ lift: 0, rise: 0, fade: 1 });
     }
+  });
+});
+
+describe("the server's figure pictures", () => {
+  it("keep only colors a picture can carry, in one spelling", () => {
+    const cases: [unknown, string | undefined][] = [
+      ["#AbC", "#aabbcc"],
+      [" #a1B2c3 ", "#a1b2c3"],
+      ["rgb(10, 20, 30)", "rgba(10, 20, 30, 1)"],
+      ["rgba(60, 40, 20, 0.2)", "rgba(60, 40, 20, 0.2)"],
+      ["rgba(300, 0, 0, 0.12345)", "rgba(255, 0, 0, 0.123)"],
+      // Alpha past either end is clamped, never passed on.
+      ["rgba(1, 2, 3, 7)", "rgba(1, 2, 3, 1)"],
+      ["rgba(1, 2, 3, 0)", "rgba(1, 2, 3, 0)"],
+      ["red", undefined],
+      ["#abcd", undefined],
+      ['#fff" onload="x', undefined],
+      ["rgba(1, 2, 3, -1)", undefined],
+      ["url(#p)", undefined],
+      [{ addColorStop: () => {} }, undefined],
+    ];
+    for (const [value, want] of cases) expect(plainColor(value), String(value)).toBe(want);
   });
 });

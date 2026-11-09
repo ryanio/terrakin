@@ -1,4 +1,10 @@
-import { leaveOverlay } from "@terrakin/ui/ui";
+import {
+  closeOverlay,
+  interceptPop,
+  leaveOverlay,
+  openOverlay,
+  overlayShowing,
+} from "@terrakin/ui/ui";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { createRouter, isAppLink, matchRoute, type Route, routeTemplate } from "./router";
 
@@ -29,9 +35,34 @@ function fakeBrowser(entries: { path: string; state: unknown }[]) {
       return here().path;
     },
   });
-  vi.stubGlobal("window", { addEventListener: () => {}, scrollY: 0 });
-  vi.stubGlobal("document", { addEventListener: () => {} });
-  return { entries, at: () => at };
+  // The overlay code asks whether focus can go back to an element; none here can.
+  vi.stubGlobal("HTMLElement", class {});
+  // `back()` only asks: the browser steps back and fires popstate later, which `pop` does.
+  let backs = 0;
+  (history as { back?: () => void }).back = () => {
+    backs += 1;
+  };
+  const popListeners: (() => void)[] = [];
+  vi.stubGlobal("window", {
+    addEventListener: (type: string, f: () => void) => {
+      if (type === "popstate") popListeners.push(f);
+    },
+    scrollY: 0,
+    matchMedia: () => ({ matches: true }),
+  });
+  vi.stubGlobal("document", {
+    addEventListener: () => {},
+    activeElement: null,
+    body: { append: () => {} },
+    documentElement: { classList: { add: () => {}, remove: () => {} } },
+  });
+  /** The browser steps back one entry, for the back gesture or a `back()` asked for. */
+  const pop = () => {
+    if (backs > 0) backs -= 1;
+    at -= 1;
+    for (const f of popListeners) f();
+  };
+  return { entries, at: () => at, pop, backsOwed: () => backs };
 }
 
 describe("leaving a page from an overlay", () => {
@@ -71,6 +102,106 @@ describe("leaving a page from an overlay", () => {
     expect(browser.entries.map((e) => e.path)).toEqual(["/world", "/inventory"]);
     expect(browser.entries[1]?.state).toMatchObject({ idx: 1 });
     expect(routes).toEqual(["inventory"]);
+  });
+});
+
+describe("an overlay's history entry", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  /** A dialog with only what opening and closing one touches. */
+  const dialog = () => {
+    const d = {
+      open: false,
+      classList: { add: () => {}, remove: () => {} },
+      showModal: () => {
+        d.open = true;
+      },
+      close: () => {
+        d.open = false;
+      },
+      remove: () => {},
+      addEventListener: () => {},
+      getAnimations: () => [],
+    };
+    return d as unknown as HTMLDialogElement;
+  };
+
+  const start = () => {
+    const browser = fakeBrowser([{ path: "/world", state: { key: "w", idx: 0 } }]);
+    const routes: Route["name"][] = [];
+    createRouter({ onNavigate: (nav) => routes.push(nav.route.name), interceptPop, leaveOverlay });
+    return { browser, routes };
+  };
+
+  it("closes on back and leaves the page where it is", () => {
+    const { browser, routes } = start();
+    const sheet = dialog();
+    const closed = vi.fn();
+    openOverlay(sheet, closed);
+    expect(browser.entries).toEqual([
+      { path: "/world", state: { key: "w", idx: 0 } },
+      { path: "/world", state: { key: "w", idx: 0, overlay: true } },
+    ]);
+    browser.pop();
+    expect(closed).toHaveBeenCalledOnce();
+    expect(sheet.open).toBe(false);
+    expect(overlayShowing(sheet)).toBe(false);
+    expect(browser.at()).toBe(0);
+    // The popstate was the overlay's: the router drew no page for it.
+    expect(routes).toEqual([]);
+  });
+
+  it("closed by hand, steps back off its entry and swallows that popstate", () => {
+    const { browser, routes } = start();
+    const sheet = dialog();
+    openOverlay(sheet);
+    closeOverlay(sheet);
+    expect(browser.backsOwed()).toBe(1);
+    browser.pop();
+    expect(browser.at()).toBe(0);
+    expect(routes).toEqual([]);
+  });
+
+  it("replaced by another, shares one entry, and back closes the one on top", () => {
+    const { browser, routes } = start();
+    const first = dialog();
+    const second = dialog();
+    const firstClosed = vi.fn();
+    const secondClosed = vi.fn();
+    openOverlay(first, firstClosed);
+    openOverlay(second, secondClosed);
+    expect(firstClosed).toHaveBeenCalledOnce();
+    expect(browser.entries).toHaveLength(2);
+    expect(browser.backsOwed()).toBe(0);
+    browser.pop();
+    expect(secondClosed).toHaveBeenCalledOnce();
+    expect(browser.at()).toBe(0);
+    expect(routes).toEqual([]);
+  });
+
+  it("opened while a step back is on its way, takes an entry once it lands", () => {
+    const { browser, routes } = start();
+    const first = dialog();
+    const second = dialog();
+    openOverlay(first);
+    closeOverlay(first);
+    openOverlay(second);
+    // Nothing pushed in the same tick as the step back.
+    expect(browser.entries).toHaveLength(2);
+    browser.pop();
+    expect(browser.entries).toEqual([
+      { path: "/world", state: { key: "w", idx: 0 } },
+      { path: "/world", state: { key: "w", idx: 0, overlay: true } },
+    ]);
+    expect(browser.at()).toBe(1);
+    expect(overlayShowing(second)).toBe(true);
+    // And back closes it, still on the same page.
+    browser.pop();
+    expect(overlayShowing(second)).toBe(false);
+    expect(browser.at()).toBe(0);
+    expect(routes).toEqual([]);
   });
 });
 

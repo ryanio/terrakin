@@ -2,16 +2,18 @@ import { expect, test } from "@playwright/test";
 import {
   join,
   openMoveIn,
-  SMOKE_STEPS,
   signedInAs,
   skipPasskey,
+  smokeSteps,
   standingAt,
   tapTile,
+  walkTo,
   watchErrors,
 } from "./support";
 
-// Default world: spawn (36,36) is inside the Commons (tiles 32..39), so SMOKE_STEPS (5) steps west
-// and north reach plot (3,3), which `freePlots` never hands another spec (`walkedOnto`). See
+// Default world: spawn (72,72) is inside the Commons (tiles 64..79 once slots are 16, RFC 0052),
+// so `smokeSteps` (10) steps west and north reach the yard of plot (3,3), which `freePlots` never
+// hands another spec (`walkedOnto`). See
 // docs/knowledge/learnings/2026-10-02-leaving-the-commons-from-spawn.md.
 
 test("a human can join, claim, build, and chat safely next to an agent", async ({ page }) => {
@@ -89,15 +91,21 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   });
 
   await test.step("on a free plot, Move in says Live here, and a name makes it hers", async () => {
-    // The plot nobody else claims (`walkedOnto`): SMOKE_STEPS west and north of spawn.
-    const here = await at();
-    await tapTile(page, spawn.x - SMOKE_STEPS - here.x, spawn.y - SMOKE_STEPS - here.y);
-    await expect
-      .poll(async () => {
-        const r = await at();
-        return [r.x, r.y];
-      })
-      .toEqual([spawn.x - SMOKE_STEPS, spawn.y - SMOKE_STEPS]);
+    // The plot nobody else claims (`walkedOnto`): `smokeSteps` west and north of spawn, in two
+    // taps, halfway across the Commons' plaza and on, so each lands on the phone's screen.
+    const steps = smokeSteps(
+      (await page.request.get("/v1/world").then((r) => r.json())).config.plotSize,
+    );
+    for (const go of [Math.floor(steps / 2), steps]) {
+      const here = await at();
+      await tapTile(page, spawn.x - go - here.x, spawn.y - go - here.y);
+      await expect
+        .poll(async () => {
+          const r = await at();
+          return [r.x, r.y];
+        })
+        .toEqual([spawn.x - go, spawn.y - go]);
+    }
     await expect(page.locator("#claim")).toHaveText("Live here");
     await page.click("#claim");
     // A name is all the card asks for, and one is already in it: the look stays folded away.
@@ -122,8 +130,8 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   const { x, y } = start;
   const size = (await world()).config.plotSize as number;
   expect([Math.floor(x / size), Math.floor(y / size)]).toEqual([
-    Math.floor((spawn.x - SMOKE_STEPS) / size),
-    Math.floor((spawn.y - SMOKE_STEPS) / size),
+    Math.floor((spawn.x - smokeSteps(size)) / size),
+    Math.floor((spawn.y - smokeSteps(size)) / size),
   ]);
 
   await test.step("the home sheet comes with no picker, then the passkey sheet, and Skip", async () => {
@@ -208,7 +216,9 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
   await expect(page.locator("#chat-log li")).toContainText("<img src=x onerror=alert(1)> hi");
   await expect(page.locator("#chat-log img")).toHaveCount(0);
 
-  // The agent's chat arrives too, still as plain text.
+  // The agent's chat arrives too, still as plain text, once it has walked over from spawn: her
+  // plot's yard is past earshot of the Commons (RFC 0052).
+  await walkTo(page.request, { id: agent.residentId, token: agent.token }, await me(), 3);
   await page.request.post("/v1/actions", {
     headers: { authorization: `Bearer ${agent.token}` },
     data: { type: "chat", text: "hello neighbor" },

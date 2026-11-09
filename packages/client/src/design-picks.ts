@@ -13,7 +13,7 @@ import {
 } from "@terrakin/protocol";
 import type { BlockKind, Season, WorldConfig } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
-import { mapThumb } from "./design-thumb";
+import { type LotBox, mapSize, mapThumb } from "./design-thumb";
 
 export interface DesignChoice {
   design: DesignId;
@@ -39,16 +39,21 @@ function drawn(view: DesignView, walls: BlockKind): PlotMapView {
 /** A wall material in words, for its chip. */
 const WALL_WORDS: Partial<Record<BlockKind, string>> = { wood: "Wood", stone: "Stone" };
 
+/** The designs that fit a lot `side` tiles across (RFC 0052), in the catalog's order. */
+export function designsFitting(designs: readonly DesignView[], side: number): DesignView[] {
+  return designs.filter((d) => mapSize(d.map) <= side);
+}
+
 /**
- * The picker: a row of the designs drawn on your plot in the walls picked, scrolling sideways on a
- * phone, the first picked, what the picked one is, and its wall materials. `choice()` says what's
- * picked now.
+ * The picker: a row of the designs that fit your lot, drawn in its middle in the walls picked,
+ * scrolling sideways on a phone, the first picked, what the picked one is, and its wall materials.
+ * `choice()` says what's picked now.
  */
 export function designPicker(
   where: { config: WorldConfig; season?: Season | undefined },
-  plot: { px: number; py: number },
+  lot: LotBox,
 ): { element: HTMLElement; choice: () => DesignChoice } {
-  const designs: readonly DesignView[] = designViews().designs;
+  const designs = designsFitting(designViews().designs, lot.side);
   const first = designs[0];
   if (!first) throw new Error("no designs");
   let picked: DesignView = first;
@@ -65,7 +70,7 @@ export function designPicker(
         class: "design-pick",
         attrs: { type: "button", "data-design": d.id, "aria-pressed": String(d === picked) },
       },
-      mapThumb(where, plot, drawn(d, walls), undefined, 88),
+      mapThumb(where, lot, drawn(d, walls), undefined, 88),
       h("span", { class: "design-name", text: d.name }),
     );
     button.addEventListener("click", () => {
@@ -84,7 +89,7 @@ export function designPicker(
       for (const [i, d] of designs.entries()) {
         buttons[i]
           ?.querySelector("canvas")
-          ?.replaceWith(mapThumb(where, plot, drawn(d, walls), undefined, 88));
+          ?.replaceWith(mapThumb(where, lot, drawn(d, walls), undefined, 88));
       }
     }
     about.textContent = picked.about;

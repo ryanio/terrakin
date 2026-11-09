@@ -54,8 +54,9 @@ import { wallTextures } from "./materials";
 import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometry, petMaterial } from "./pets";
 import { roofMesh } from "./roofs";
-import { scenery } from "./scenery";
+import { scenery, yardScenery } from "./scenery";
 import { createWeather } from "./weather";
+import { yardIn } from "./world-layout";
 
 export interface PlotSceneOptions {
   /** A note for the page when the owner's own model or picture couldn't be shown. */
@@ -191,7 +192,26 @@ export function buildPlot(
     covered,
     layout.season,
   );
+  // The wild yard past the lot (RFC 0052): what isn't built, laid, or in the lot.
+  const { lot } = layout;
+  const wild = yardIn(
+    {
+      config: layout.config,
+      wildAt: (x, y) =>
+        x >= lot.x0 && x < lot.x0 + lot.side && y >= lot.y0 && y < lot.y0 + lot.side
+          ? null
+          : covered.has(`${x},${y}`)
+            ? null
+            : "yard",
+    },
+    layout.plot.px,
+    layout.plot.py,
+    layout.season,
+  );
+  tufts.push(...wild.tufts);
+  flowers.push(...wild.flowers);
   root.add(scenery(stage, origin, tufts, flowers, leaves, layout.season));
+  root.add(yardScenery(stage, origin, wild.yard, layout.season));
   // Whatever stands under their own model gives way to it, like the blocks.
   const shown = <T extends { x: number; y: number }>(list: readonly T[]) =>
     footprint ? list.filter((t) => !underFootprint(footprint, t.x, t.y)) : list;
@@ -303,7 +323,8 @@ export function buildPlot(
   }
 
   // The whole home, its top floor too, whichever floor is shown: a photo frames it all.
-  const framed = homeFrame(layout.size, roofTop(layout));
+  // The lot, which holds the home, with the yard round it in the haze's edge (RFC 0052).
+  const framed = homeFrame(layout.lot.side, roofTop(layout));
   stage.light(new Vector3(0, 0, 0), layout.size / 2 + layout.margin);
   stage.frame(new Vector3(0, framed.y, 0), framed.radius, new Vector3(0.55, 0.78, 1));
   // Signs keep a readable size as the camera pulls back. Only a zoom changes it.

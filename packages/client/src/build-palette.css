@@ -168,3 +168,8 @@
 .palette-floors button {
   text-transform: none;
 }
+
+/* Grow lot while the world says not yet (RFC 0052): still tappable, so a tap can say why. */
+.palette-floors button.dim {
+  opacity: 0.55;
+}

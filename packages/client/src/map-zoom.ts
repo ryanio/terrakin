@@ -16,7 +16,7 @@ const OVERVIEW_FIT = 0.94;
 export interface ZoomBounds {
   /** Pixels per tile with the whole world on screen. */
   min: number;
-  /** The usual view, about 13 tiles across (`fitScale`). */
+  /** The usual view, `usualTiles` across (`fitScale`). */
   base: number;
   /** The close view. */
   max: number;

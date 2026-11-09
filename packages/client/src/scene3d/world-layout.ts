@@ -14,6 +14,7 @@ import {
   type Grade,
   type GroundKind,
   groundTile,
+  insetOf,
   type PickupKind,
   parseEdgeKey,
   type Resident,
@@ -26,6 +27,7 @@ import {
   type WorldConfig,
 } from "@terrakin/sim";
 import { type PileSource, type PresentPile, presentPiles } from "../presents";
+import { featureOn, type Wild, yardGrowth } from "../wild-yard";
 import {
   type Bounds,
   cropIn,
@@ -154,6 +156,12 @@ export interface PlotChunk {
   tufts: { x: number; y: number; turn: number }[];
   flowers: { x: number; y: number; warm: boolean }[];
   leaves: GroundLeaf[];
+  /**
+   * The wild yard past the lot (RFC 0052, `wild-yard.ts`): bushes and trees where they grow, and
+   * the slot's feature as more of them (an old tree is a big tree) or as stones (a boulder, an old
+   * wall), with `size` in tiles. Drawing only.
+   */
+  yard: YardThings;
   /** Today's fallen branches, loose stones, and finds still lying there, from the sim's spawn. */
   /** `notYours`: on a plot the viewer may not gather on, so it's drawn faded. */
   pickups: { x: number; y: number; kind: PickupKind; notYours?: true }[];
@@ -165,9 +173,24 @@ export interface PlotChunk {
   signature: string;
 }
 
+/** What a chunk's wild yard draws beyond tufts and flowers (RFC 0052). */
+export interface YardThings {
+  bushes: { x: number; y: number; size: number }[];
+  trees: { x: number; y: number; size: number; tone: 0 | 1 | 2 }[];
+  /** A stone's middle, its half-size across (`sx`) and down (`sz`) in tiles, and its height. */
+  stones: { x: number; y: number; sx: number; sz: number; high: number }[];
+}
+
 /** The parts of the mirror a chunk reads. */
 export interface ChunkSource {
   config: WorldConfig;
+  /**
+   * Whether a tile draws as wild ground (`Mirror.wildAt`, RFC 0052): a slot's yard past its lot or
+   * a street's verge. Absent reads as none, as in a world before its regrid.
+   */
+  wildAt?(x: number, y: number): Wild | null;
+  /** A slot's lot side (`Mirror.lotOf`), in a chunk's signature so a lot that grew redraws. */
+  lotSide?(px: number, py: number): number;
   commons: { px: number; py: number };
   blocks: ReadonlyMap<string, BlockKind>;
   /** Paths and flooring by tile key. Absent reads as none. */
@@ -314,7 +337,9 @@ export function readChunk(
   const flowers: PlotChunk["flowers"] = [];
   const leaves: GroundLeaf[] = [];
   const pickups: PlotChunk["pickups"] = [];
-  const parts: string[] = [owner ?? "", season ?? ""];
+  const parts: string[] = [owner ?? "", season ?? "", lotPart(source, px, py)];
+  const yard: YardThings = { bushes: [], trees: [], stones: [] };
+  const featured = yardFeature(source, px, py, yard, flowers, tufts, season);
   for (let y = bounds.y0; y <= bounds.y1; y++) {
     for (let x = bounds.x0; x <= bounds.x1; x++) {
       const at = tileThings(source, x, y, hearths, lit, viewer);
@@ -342,7 +367,13 @@ export function readChunk(
       }
       // Nothing grows or falls on open water (RFC 0038), as on the map.
       if (at.block || at.hearth || at.ground || source.isSea?.(x, y)) continue;
-      const scenery: Scenery | null = groundTile(source.config, x, y, inCommons, season).scenery;
+      const tile = groundTile(source.config, x, y, inCommons, season);
+      const wild = source.wildAt?.(x, y) ?? null;
+      if (wild && !featured.has(tileKey(x, y))) {
+        growYard(yardGrowth(x, y, tile.biome, season, wild), x, y, yard, tufts, flowers);
+      }
+      // On wild ground the yard's own growth takes the place of the palette's, all but leaves.
+      const scenery: Scenery | null = wild && tile.scenery?.kind !== "leaf" ? null : tile.scenery;
       if (scenery?.kind === "tuft")
         tufts.push({ x: x + scenery.fx - 0.5, y: y + 0.2, turn: ((x * 7 + y * 13) % 63) / 10 });
       else if (scenery?.kind === "flower")
@@ -400,11 +431,135 @@ export function readChunk(
     tufts,
     flowers,
     leaves,
+    yard,
     pickups,
     lit,
     presents,
     signature: parts.join("|"),
   };
+}
+
+/**
+ * The wild yard of slot (px, py) on its own (RFC 0052), for a view that draws one plot rather than
+ * the world's chunks: every tile `wildAt` calls wild, with the slot's feature.
+ */
+export function yardIn(
+  source: { config: WorldConfig; wildAt(x: number, y: number): Wild | null },
+  px: number,
+  py: number,
+  season?: Season,
+): { yard: YardThings; tufts: PlotChunk["tufts"]; flowers: PlotChunk["flowers"] } {
+  const yard: YardThings = { bushes: [], trees: [], stones: [] };
+  const tufts: PlotChunk["tufts"] = [];
+  const flowers: PlotChunk["flowers"] = [];
+  const featured = yardFeature(source, px, py, yard, flowers, tufts, season);
+  const bounds = plotBounds(source.config.plotSize, px, py);
+  for (let y = bounds.y0; y <= bounds.y1; y++) {
+    for (let x = bounds.x0; x <= bounds.x1; x++) {
+      const wild = source.wildAt(x, y);
+      if (!wild || featured.has(tileKey(x, y))) continue;
+      const biome = groundTile(source.config, x, y, false, season).biome;
+      growYard(yardGrowth(x, y, biome, season, wild), x, y, yard, tufts, flowers);
+    }
+  }
+  return { yard, tufts, flowers };
+}
+
+/** A slot's lot in a chunk's signature: what's wild changes when it grows. */
+const lotPart = (source: ChunkSource, px: number, py: number) =>
+  source.lotSide ? `lot:${source.lotSide(px, py)}` : "";
+
+/** One wild tile's growth, in scene tiles, onto the chunk's lists. */
+function growYard(
+  g: ReturnType<typeof yardGrowth>,
+  x: number,
+  y: number,
+  yard: YardThings,
+  tufts: PlotChunk["tufts"],
+  flowers: PlotChunk["flowers"],
+) {
+  if (!g) return;
+  const at = { x: x + g.fx - 0.5, y: y + g.fy - 0.5 };
+  if (g.kind === "grass") {
+    tufts.push({ ...at, turn: ((x * 7 + y * 13) % 63) / 10 });
+    tufts.push({ x: at.x + 0.22, y: at.y + 0.12, turn: ((x * 11 + y * 5) % 63) / 10 });
+  } else if (g.kind === "flowers") {
+    for (let i = 0; i < g.count; i++) {
+      const a = (i / g.count) * Math.PI * 2 + g.tone;
+      const d = i === 0 ? 0 : 0.13;
+      flowers.push({ x: at.x + Math.cos(a) * d, y: at.y + Math.sin(a) * d, warm: g.tone === 1 });
+    }
+  } else if (g.kind === "bush") yard.bushes.push({ ...at, size: g.size });
+  else yard.trees.push({ ...at, size: g.size, tone: g.tone });
+}
+
+/**
+ * Slot (px, py)'s feature (RFC 0052) onto the chunk's lists, when it draws whole on wild ground:
+ * an old tree as a big tree, a boulder and an old wall as stones, a flowering bank as flowers and
+ * tufts. Returns the tiles it covers, which grow nothing else.
+ */
+function yardFeature(
+  source: Pick<ChunkSource, "config" | "wildAt">,
+  px: number,
+  py: number,
+  yard: YardThings,
+  flowers: PlotChunk["flowers"],
+  tufts: PlotChunk["tufts"],
+  season: Season | undefined,
+): Set<string> {
+  const covered = new Set<string>();
+  if (!source.wildAt) return covered;
+  const S = source.config.plotSize;
+  const f = featureOn(
+    px,
+    py,
+    S,
+    insetOf(source.config),
+    (x, y) => source.wildAt?.(x, y) === "yard",
+  );
+  if (!f) return covered;
+  for (const t of f.world) covered.add(tileKey(t.x, t.y));
+  const xs = f.world.map((t) => t.x);
+  const ys = f.world.map((t) => t.y);
+  const mid = {
+    x: (Math.min(...xs) + Math.max(...xs)) / 2,
+    y: (Math.min(...ys) + Math.max(...ys)) / 2,
+  };
+  if (f.kind === "old_tree") {
+    yard.trees.push({ ...mid, size: 0.95, tone: 2 });
+  } else if (f.kind === "boulder") {
+    const wide = Math.max(...xs) - Math.min(...xs) + 1;
+    const deep = Math.max(...ys) - Math.min(...ys) + 1;
+    yard.stones.push({ ...mid, sx: wide * 0.42, sz: deep * 0.4, high: 0.55 });
+  } else if (f.kind === "stone_wall") {
+    const across = f.side === "n" || f.side === "s";
+    for (const t of f.world) {
+      for (const along of [-0.3, 0, 0.3]) {
+        yard.stones.push({
+          x: t.x + (across ? along : 0),
+          y: t.y + (across ? 0 : along),
+          sx: across ? 0.17 : 0.13,
+          sz: across ? 0.13 : 0.17,
+          high: 0.28,
+        });
+      }
+    }
+  } else {
+    for (const [i, t] of f.world.entries()) {
+      tufts.push({ x: t.x - 0.2, y: t.y + 0.25, turn: i });
+      if (season === "winter") continue;
+      for (const [dx, dy, warm] of [
+        [0, -0.05, false],
+        [-0.25, -0.3, i % 2 === 1],
+        [0.25, 0.2, true],
+        [0.2, -0.25, false],
+        [-0.2, 0.15, true],
+      ] as const) {
+        flowers.push({ x: t.x + dx, y: t.y + dy, warm });
+      }
+    }
+  }
+  return covered;
 }
 
 /**
@@ -490,7 +645,11 @@ export function chunkSignature(
   viewer?: string,
 ): string {
   const bounds = plotBounds(source.config.plotSize, px, py);
-  const parts: string[] = [source.plots.get(`${px},${py}`) ?? "", season ?? ""];
+  const parts: string[] = [
+    source.plots.get(`${px},${py}`) ?? "",
+    season ?? "",
+    lotPart(source, px, py),
+  ];
   for (let y = bounds.y0; y <= bounds.y1; y++)
     for (let x = bounds.x0; x <= bounds.x1; x++)
       parts.push(...tileThings(source, x, y, hearths, lit, viewer).parts);

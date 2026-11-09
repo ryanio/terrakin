@@ -5,7 +5,7 @@
  *
  * - `portrait`: one resident head to toe, filling most of the frame's height, seen from the front.
  * - `near`: about nine tiles across where the subject stands.
- * - `wide`: the whole plot and a ring of its neighbors.
+ * - `wide`: the whole plot slot and a ring of its neighbors.
  */
 
 export type PhotoFramingName = "portrait" | "near" | "wide";
@@ -35,7 +35,7 @@ export interface FramingInput {
   figureTop?: number;
   /** Where the subject's feet stand: their floor's height (RFC 0028). */
   floorY?: number;
-  /** A plot's size in tiles, for `wide`. */
+  /** A plot slot's size in tiles, for `wide`. */
   plotSize: number;
   /** The camera's vertical field of view, in degrees, and the frame's width over its height. */
   fovDeg: number;
@@ -46,8 +46,12 @@ export interface FramingInput {
 export const PORTRAIT_FILL = 0.82;
 /** Tiles across a `near` shot, where the subject stands. */
 export const NEAR_ACROSS = 9;
-/** How many plots' width a `wide` shot shows: the plot and most of a ring on each side. */
-export const WIDE_PLOTS = 2.4;
+/**
+ * How many tiles of the neighbors a `wide` shot shows on each side of the plot slot: most of an
+ * 8-tile plot's width, so a slot of 16 tiles (RFC 0052) shows its yard and its neighbors' near
+ * yards rather than shrinking the home to fit twice the town.
+ */
+export const WIDE_RING = 5.6;
 
 const unit = (v: Vec): Vec => {
   const l = Math.hypot(v.x, v.y, v.z) || 1;
@@ -91,7 +95,7 @@ export function photoView(framing: PhotoFramingName, o: FramingInput): PhotoView
       lightRadius: 10,
     };
   }
-  const across = o.plotSize * WIDE_PLOTS;
+  const across = o.plotSize + 2 * WIDE_RING;
   const target = { x: o.focus.x, y: 0, z: o.focus.z };
   const dir = unit({ x: 0, y: 1.15, z: 1 });
   const distance = across / 2 / Math.tan(hHalf);

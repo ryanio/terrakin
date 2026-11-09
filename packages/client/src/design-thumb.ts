@@ -17,39 +17,60 @@ import {
 import { h } from "@terrakin/ui/dom";
 import { type PlotMark, paint } from "./plot-thumb";
 
+/** A plot's lot (RFC 0052): its corner tile and side, as `Mirror.lotOf` gives it. */
+export interface LotBox {
+  x0: number;
+  y0: number;
+  side: number;
+}
+
+/** How many tiles a side a map takes: its longest row or column on any floor. */
+export function mapSize(map: PlotMapView): number {
+  let size = 0;
+  for (const f of map.floors) {
+    size = Math.max(size, f.blocks.length, f.ground.length);
+    for (const row of [...f.blocks, ...f.ground]) size = Math.max(size, row.length);
+  }
+  return size;
+}
+
 /**
- * What to paint for a map of a home (RFC 0032), as if it stood on plot (`px`, `py`): that plot's
- * ground in its season, then the map's paths and flooring, its blocks, the hearth its `h` marks,
- * and its walls between tiles (RFC 0050), ground floor first. A design is drawn this way before it's built. Pure, so tests pin it.
+ * What to paint for a map of a home (RFC 0032), as if it stood on `lot`: that lot's ground in its
+ * season, then the map's paths and flooring, its blocks, the hearth its `h` marks, and its walls
+ * between tiles (RFC 0050), ground floor first, the map in the middle of a lot bigger than it.
+ * A design is drawn this way before it's built. Pure, so tests pin it.
  */
 export function mapMarks(
   where: { config: WorldConfig; season?: Season | undefined },
-  plot: { px: number; py: number },
+  lot: LotBox,
   map: PlotMapView,
 ): { size: number; marks: PlotMark[] } {
-  const size = where.config.plotSize;
+  const size = lot.side;
+  const drawn = mapSize(map);
+  // Centred, as the home's middle is the lot's (RFC 0052).
+  const off = Math.max(0, Math.floor((size - drawn) / 2));
   const marks: PlotMark[] = [];
   for (let y = 0; y < size; y++) {
     for (let x = 0; x < size; x++) {
-      const at = { x: plot.px * size + x, y: plot.py * size + y };
-      const fill = groundTile(where.config, at.x, at.y, false, where.season).fill;
+      const fill = groundTile(where.config, lot.x0 + x, lot.y0 + y, false, where.season).fill;
       marks.push({ x, y, kind: "ground", fill });
     }
   }
   const floors = [...map.floors].sort((a, b) => a.floor - b.floor);
-  const lines = mapEdges(map, size);
+  const lines = mapEdges(map, drawn);
+  const fits = (x: number, y: number) => x < drawn && y < drawn && x + off < size && y + off < size;
   for (const floor of floors) {
     for (const [y, row] of floor.ground.entries()) {
       for (const [x, c] of [...row].entries()) {
         const ground = MAP_GROUND[c];
-        if (ground && x < size && y < size) marks.push({ x, y, kind: "path", ground });
+        if (ground && fits(x, y)) marks.push({ x: x + off, y: y + off, kind: "path", ground });
       }
     }
     for (const [y, row] of floor.blocks.entries()) {
       for (const [x, c] of [...row].entries()) {
-        if (x >= size || y >= size) continue;
+        if (!fits(x, y)) continue;
         if (c === "h" && floor.floor === 0) {
-          marks.push({ x, y, kind: "hearth" });
+          marks.push({ x: x + off, y: y + off, kind: "hearth" });
           continue;
         }
         const block: BlockKind | undefined =
@@ -58,8 +79,8 @@ export function mapMarks(
         if (!block) continue;
         const glass = block === "glass";
         marks.push({
-          x,
-          y,
+          x: x + off,
+          y: y + off,
           kind: "block",
           fill: blockFill(block),
           glass,
@@ -69,19 +90,19 @@ export function mapMarks(
     }
     for (const e of lines) {
       if (e.floor !== floor.floor) continue;
-      marks.push({ x: e.x, y: e.y, kind: "edge", side: e.side, block: e.block });
+      marks.push({ x: e.x + off, y: e.y + off, kind: "edge", side: e.side, block: e.block });
     }
   }
   return { size, marks };
 }
 
 /**
- * A map of a home drawn on a canvas `px` CSS pixels square, as it would stand on a plot. Without a
+ * A map of a home drawn on a canvas `px` CSS pixels square, as it would stand on a lot. Without a
  * `label` it's left to the button around it to name, and screen readers pass over it.
  */
 export function mapThumb(
   where: { config: WorldConfig; season?: Season | undefined },
-  plot: { px: number; py: number },
+  lot: LotBox,
   map: PlotMapView,
   label: string | undefined,
   px = 96,
@@ -97,7 +118,7 @@ export function mapThumb(
   canvas.height = Math.round(px * dpr);
   const ctx = canvas.getContext("2d");
   if (!ctx) return canvas;
-  const { size, marks } = mapMarks(where, plot, map);
+  const { size, marks } = mapMarks(where, lot, map);
   const t = canvas.width / size;
   for (const mark of marks) paint(ctx, mark, mark.x * t, mark.y * t, t);
   return canvas;

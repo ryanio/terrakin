@@ -12,9 +12,11 @@ import {
   Vector3,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
+import { canopyTone, YARD_LOOK, yardTone } from "../wild-yard";
 import { addWind, bakeShade, lin, noShade, type Stage, unindexed } from "./art";
 import type { GroundLeaf } from "./layout";
 import { BRAND, blockLook, hex, mix } from "./palette";
+import type { YardThings } from "./world-layout";
 
 // ---------- tufts and flowers ----------
 
@@ -102,6 +104,94 @@ export function scenery(
     mesh.receiveShadow = true;
     group.add(mesh);
   }
+  return group;
+}
+
+// ---------- the wild yard (RFC 0052) ----------
+
+/**
+ * The wild yard's bushes, trees, and stones (`YardThings`, from `wild-yard.ts`): each kind one
+ * instanced draw, sized and colored per instance, a tree a trunk and a canopy. Trees and stones
+ * cast the sun's shadow; bushes sit low enough not to. Canopies sway a little in the breeze.
+ */
+export function yardScenery(
+  stage: Stage,
+  origin: { x: number; y: number },
+  yard: YardThings,
+  season?: Season,
+): Group {
+  const group = new Group();
+  const m = new Matrix4();
+  const q = new Quaternion();
+  const up = new Vector3(0, 1, 0);
+  const at = (x: number, y: number) => new Vector3(x - origin.x, 0, y - origin.y);
+  const turn = (x: number, y: number) => q.setFromAxisAngle(up, ((x * 7 + y * 13) % 63) / 10);
+  if (yard.bushes.length) {
+    const geo = bakeShade(new IcosahedronGeometry(1, 1).translate(0, 0.55, 0), 0.62, 1.05);
+    const mat = new MeshLambertMaterial({ color: 0xffffff, vertexColors: true, flatShading: true });
+    const mesh = new InstancedMesh(geo, mat, yard.bushes.length);
+    const color = lin(hex(yardTone(YARD_LOOK.bush, season)));
+    yard.bushes.forEach((b, i) => {
+      const s = b.size;
+      m.compose(at(b.x, b.y), turn(b.x, b.y), new Vector3(s, s * 0.8, s));
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, color);
+    });
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  if (yard.trees.length) {
+    // A trunk a tile's height for every size, and a canopy over it scaled by its size.
+    const trunkGeo = bakeShade(new CylinderGeometry(0.05, 0.08, 1, 6).translate(0, 0.5, 0));
+    const trunk = new InstancedMesh(
+      trunkGeo,
+      new MeshLambertMaterial({ color: hex(YARD_LOOK.bark), vertexColors: true }),
+      yard.trees.length,
+    );
+    const crownGeo = bakeShade(new IcosahedronGeometry(1, 1), 0.7, 1.1);
+    const crownMat = new MeshLambertMaterial({
+      color: 0xffffff,
+      vertexColors: true,
+      flatShading: true,
+    });
+    const wind = addWind(crownMat, 0.025);
+    stage.animate(({ time }) => wind.tick(time));
+    const crown = new InstancedMesh(crownGeo, crownMat, yard.trees.length);
+    yard.trees.forEach((t, i) => {
+      const s = t.size;
+      const height = 0.5 + s * 1.6;
+      m.compose(at(t.x, t.y), turn(t.x, t.y), new Vector3(s * 1.4, height, s * 1.4));
+      trunk.setMatrixAt(i, m);
+      const top = at(t.x, t.y);
+      top.y = height + s * 0.5;
+      m.compose(top, turn(t.x, t.y), new Vector3(s * 1.15, s * 1.05, s * 1.15));
+      crown.setMatrixAt(i, m);
+      crown.setColorAt(i, lin(hex(canopyTone(t.tone, season))));
+    });
+    trunk.castShadow = true;
+    crown.castShadow = true;
+    crown.receiveShadow = true;
+    group.add(trunk, crown);
+  }
+  if (yard.stones.length) {
+    const geo = new DodecahedronGeometry(1, 0);
+    geo.translate(0, 0.35, 0);
+    const mesh = new InstancedMesh(
+      geo,
+      new MeshLambertMaterial({ color: hex(yardTone(YARD_LOOK.stone, season)), flatShading: true }),
+      yard.stones.length,
+    );
+    yard.stones.forEach((s, i) => {
+      m.compose(at(s.x, s.y), turn(s.x, s.y), new Vector3(s.sx, s.high, s.sz));
+      mesh.setMatrixAt(i, m);
+    });
+    mesh.castShadow = true;
+    mesh.receiveShadow = true;
+    group.add(mesh);
+  }
+  // A photo's tags look past the yard (`heads` in `world.ts`): someone among the trees is still
+  // the one a tag would point at.
+  for (const part of group.children) part.userData.seeThrough = true;
   return group;
 }
 

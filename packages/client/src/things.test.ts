@@ -7,7 +7,9 @@ import {
   FINISH_NAMES,
   GOOD_KINDS,
   type GoodKind,
+  outsideLotProblem,
   TOWN_ACTOR,
+  type WorldConfig,
 } from "@terrakin/sim";
 import { growth } from "@terrakin/ui/item-art";
 import { describe, expect, it } from "vitest";
@@ -477,6 +479,13 @@ describe("things", () => {
         "recipe_unknown",
         'You don\'t know that one. Buy its card: {"type": "shop_buy", "sku": "recipe:tea"}.',
         {},
+      ],
+      // A build in the wild yard past a lot (RFC 0052), in the sim's own words, which name grow_lot.
+      [
+        "outside_lot",
+        outsideLotProblem({ config: { plotSize: 16 } as WorldConfig, lots: {} }, 1, 1)?.message ??
+          "",
+        { hasPlot: true },
       ],
     ];
     const agentOnly = /\{"|with (gather|craft|harvest)\b/;

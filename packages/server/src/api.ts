@@ -126,10 +126,10 @@ import type { SocialService } from "./social-service";
 import { keyAllows, keyedActor, STAFF_KEY_PREFIX, staffOwner } from "./staff-keys";
 import { count, crumb, nameRequest, report, span, task } from "./telemetry";
 import { anchorPlot, suggestPlots } from "./together";
-import type { LessonsRun, TownsfolkLessons } from "./townsfolk-lessons";
+import type { TownsfolkLessons } from "./townsfolk-lessons";
 import { chatterStatus, tipsStatus, townsfolkActivity } from "./townsfolk-status";
 import type { TipsResult, TownsfolkTips } from "./townsfolk-tips";
-import type { TownsfolkWelcome, WelcomeRun } from "./townsfolk-welcome";
+import type { TownsfolkWelcome } from "./townsfolk-welcome";
 import { planWalkTo, walkLegs } from "./walk-to";
 import type { ActResult, WalkStop, WorldService } from "./world-service";
 
@@ -1259,26 +1259,6 @@ export class Api {
       this.service.tick();
       return tips.run();
     });
-  }
-
-  /**
-   * Greetings and welcome visits that are due (decisions 0237 and 0142). The minute sweep runs them
-   * after routines; this runs them alone, for tests.
-   */
-  runWelcomes(): WelcomeRun | { skipped: "off" } {
-    const welcome = this.welcome;
-    if (!welcome) return { skipped: "off" };
-    return task("welcome.run", () => welcome.run());
-  }
-
-  /**
-   * Townsfolk lessons that are due (RFC 0024). The minute sweep runs them after welcome visits;
-   * this runs them alone, for tests.
-   */
-  runLessons(): LessonsRun | { skipped: "off" } {
-    const lessons = this.lessons;
-    if (!lessons) return { skipped: "off" };
-    return task("lessons.run", () => lessons.run());
   }
 
   /**

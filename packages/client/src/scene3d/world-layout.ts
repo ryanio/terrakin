@@ -6,6 +6,7 @@
 import {
   type BlockKind,
   type Crop,
+  chebyshev,
   type Direction,
   type DrawnGround,
   edgeKey,
@@ -80,11 +81,6 @@ export function plotsAround(focus: Tile, radius: number, config: WorldConfig): T
   return out;
 }
 
-/** Chebyshev distance between two tiles, the way reach and the view radius count. */
-export function tileDistance(a: Tile, b: Tile): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-}
-
 /**
  * Who to draw: online residents within `radius` of `focus`, nearest first, at most `max`. The
  * resident `me` is always first when online, even past the radius.
@@ -104,7 +100,7 @@ export function figuresAround<R extends Pick<Resident, "id" | "x" | "y" | "onlin
       mine = r;
       continue;
     }
-    const d = tileDistance(r, focus);
+    const d = chebyshev(r, focus);
     if (d <= radius) near.push({ r, d });
   }
   near.sort((a, b) => a.d - b.d || (a.r.id < b.r.id ? -1 : 1));
@@ -125,7 +121,7 @@ export function dozersAround<R extends { id: string }>(
 ): Dozer<R>[] {
   if (room <= 0) return [];
   return asleep
-    .map((d) => ({ d, far: tileDistance(d, focus) }))
+    .map((d) => ({ d, far: chebyshev(d, focus) }))
     .filter((n) => n.far <= radius)
     .sort((a, b) => a.far - b.far || (a.d.r.id < b.d.r.id ? -1 : 1))
     .slice(0, room)

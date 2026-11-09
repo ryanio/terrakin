@@ -7,7 +7,7 @@
  * the one picked, the rest cut away, and its neighbors whole.
  */
 
-import { postureOn } from "@terrakin/sim";
+import { postureOn, tileHash } from "@terrakin/sim";
 import { Group, Mesh, type Texture, Vector3 } from "three";
 import { dayPhase } from "../time";
 import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
@@ -47,7 +47,6 @@ import {
   roofTop,
   signSize,
   smokeStart,
-  tileHash,
   underFootprint,
 } from "./layout";
 import { wallTextures } from "./materials";

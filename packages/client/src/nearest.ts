@@ -4,6 +4,8 @@
  * mirror through the sim's own functions by the caller.
  */
 
+import { chebyshev } from "@terrakin/sim";
+
 export interface Spot {
   x: number;
   y: number;
@@ -21,7 +23,7 @@ export function nearestTile(
   for (let d = 0; d <= radius; d++) {
     for (let y = from.y - d; y <= from.y + d; y++) {
       for (let x = from.x - d; x <= from.x + d; x++) {
-        if (Math.max(Math.abs(x - from.x), Math.abs(y - from.y)) !== d) continue;
+        if (chebyshev({ x, y }, from) !== d) continue;
         if (wanted(x, y)) return { x, y };
       }
     }

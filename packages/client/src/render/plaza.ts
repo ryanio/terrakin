@@ -1,4 +1,4 @@
-import { groundTile, type Season, tileHash, tileKey } from "@terrakin/sim";
+import { groundTile, inBounds, type Season, tileHash, tileKey } from "@terrakin/sim";
 import { type Camera, tileToScreen } from "../camera";
 import type { Mirror } from "../mirror";
 
@@ -57,7 +57,7 @@ export function drawPlazaEdges(
       ] as const) {
         const nx = tx + ox;
         const ny = ty + oy;
-        if (nx < 0 || ny < 0 || nx >= config.width || ny >= config.height) continue;
+        if (!inBounds(config, nx, ny)) continue;
         if (drawn.has(tileKey(nx, ny)) || mirror.isSea(nx, ny)) continue;
         const fill = groundTile(config, nx, ny, false, season).fill;
         const path = grassOf(fill);

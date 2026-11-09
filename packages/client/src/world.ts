@@ -33,6 +33,7 @@ import {
   type Grade,
   type GroundKind,
   ITEM_INFO,
+  inBounds,
   inEventArea,
   isEdgeKind,
   isFurnitureKind,
@@ -1293,7 +1294,7 @@ function walkFar(tile: Tile, near: number, legs = 8, last = Number.POSITIVE_INFI
   walkToward(tile, near, () => {
     const at = self();
     if (!at) return;
-    const left = Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y));
+    const left = chebyshev(tile, at);
     if (left <= near || legs <= 1 || left >= last) return;
     walkFar(tile, near, legs - 1, left);
   });
@@ -1312,7 +1313,7 @@ const STATIONS: readonly BlockKind[] = [
 /** Whether a tile is within the world's reach of where you stand. Only a hint: the server checks. */
 function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): boolean {
   const reach = mirror?.config.reach ?? 0;
-  return Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= reach;
+  return chebyshev(tile, r) <= reach;
 }
 
 /**
@@ -1361,11 +1362,7 @@ function openStation(x: number, y: number) {
     m.recipesOpen && at && (kind === "kitchen" || kind === "workbench")
       ? [...m.residents.values()]
           .filter((r) => r.online && r.id !== me && !m.townsfolk.has(r.id) && inReach(at, r))
-          .sort(
-            (a, b) =>
-              Math.max(Math.abs(a.x - at.x), Math.abs(a.y - at.y)) -
-              Math.max(Math.abs(b.x - at.x), Math.abs(b.y - at.y)),
-          )
+          .sort((a, b) => chebyshev(a, at) - chebyshev(b, at))
           .map((r) => ({ id: r.id, name: r.name, kind: r.kind, note: r.note }))
       : [];
   void import("./garden-sheet").then((g) =>
@@ -1605,7 +1602,7 @@ function goToPlace(place: MapPlace) {
   if (me && at) {
     stopLooking();
     stopRoaming();
-    if (Math.max(Math.abs(place.x - at.x), Math.abs(place.y - at.y)) <= place.near) {
+    if (chebyshev(place, at) <= place.near) {
       showToast(place.kind === "home" ? "You're home." : "You're there already.");
       return;
     }
@@ -1721,7 +1718,7 @@ function roomTarget(tile: Tile, at: Tile): TapTarget | undefined {
   }
   if (!isHangingWall(block) || !buildableHere(m, tile.x, tile.y)) return undefined;
   const face = wallFace(tile, at, (x, y) => {
-    if (x < 0 || y < 0 || x >= m.config.width || y >= m.config.height) return false;
+    if (!inBounds(m.config, x, y)) return false;
     return !blocksWalkers(here.get(tileKey(x, y))) && buildableHere(m, x, y);
   });
   return face ? { kind: "wall", face } : undefined;
@@ -1986,7 +1983,7 @@ function tapTile(tile: { x: number; y: number }) {
   };
   // Water (RFC 0023): cast a line into it from beside it, walking there first when it's farther.
   if (target?.kind === "pond") {
-    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
+    if (chebyshev(tile, at) <= 1) castLine();
     else walkToward(tile, 1, castLine);
     return;
   }
@@ -1994,7 +1991,7 @@ function tapTile(tile: { x: number; y: number }) {
   // has the last word, and its refusal (someone's on it, a corner in the way) says why.
   if (target?.kind === "seat") {
     const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
-    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
+    if (chebyshev(tile, at) === 1) rest();
     else walkToward(tile, 1, rest);
     return;
   }
@@ -3536,9 +3533,8 @@ function nearestPickup(kinds: readonly string[]): string | undefined {
   const at = here();
   const id = me;
   if (!m || !at || !id) return undefined;
-  const { width, height } = m.config;
   const spot = nearestTile(at, (x, y) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    if (!inBounds(m.config, x, y)) return false;
     const kind = m.pickupAt(x, y);
     return kind !== null && kinds.includes(kind) && m.mayGatherAt(x, y, id);
   });

@@ -1,4 +1,4 @@
-import { SEASON_GROUND, seasonTone } from "@terrakin/sim";
+import { SEASON_GROUND, seasonTone, tileHash } from "@terrakin/sim";
 import {
   BufferAttribute,
   type Color,
@@ -14,7 +14,7 @@ import {
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { bakeShade, lin, paper, unindexed } from "./art";
-import { type Bounds, cornerLight, type PlotLayout, tileHash } from "./layout";
+import { type Bounds, cornerLight, type PlotLayout } from "./layout";
 import { BRAND, hex, mix, SKY } from "./palette";
 
 // ---------- ground ----------

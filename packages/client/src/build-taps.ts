@@ -14,6 +14,7 @@
  */
 import {
   type BlockKind,
+  chebyshev,
   type EdgeSide,
   edgeTiles,
   type GroundKind,
@@ -188,7 +189,7 @@ export function buildTap(pick: BuildPick, touch: BuildTouch, ground: BuildGround
  */
 export function lineFrom(line: Line, me: Tile): Tile & { side: Side } {
   const [a, b] = edgeTiles(line.x, line.y, line.side);
-  const far = (t: Tile) => Math.max(Math.abs(t.x - me.x), Math.abs(t.y - me.y));
+  const far = (t: Tile) => chebyshev(t, me);
   if (far(a) < far(b)) return { ...a, side: line.side === "n" ? "s" : "e" };
   return { ...b, side: line.side };
 }

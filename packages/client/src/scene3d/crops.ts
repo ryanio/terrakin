@@ -1,3 +1,4 @@
+import { tileHash } from "@terrakin/sim";
 import { CROP_HEX, onVine } from "@terrakin/ui/item-art";
 import {
   BufferAttribute,
@@ -15,7 +16,7 @@ import {
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { addWind, lin, noShade, type Stage, unindexed } from "./art";
-import { type LayoutCrop, tileHash } from "./layout";
+import type { LayoutCrop } from "./layout";
 import { blockLook, hex, mix } from "./palette";
 
 // ---------- crops in planters ----------

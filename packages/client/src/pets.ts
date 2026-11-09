@@ -19,6 +19,7 @@
 import {
   CROPS,
   type Crop,
+  chebyshev,
   type Ground,
   onGreen,
   type Pet,
@@ -447,7 +448,7 @@ export class PetMotion {
     if (goal !== t.goal) {
       t.goal = goal;
       const from = { x: Math.round(t.x), y: Math.round(t.y) };
-      const far = Math.max(Math.abs(to.x - t.x), Math.abs(to.y - t.y)) > MAX_WALK;
+      const far = chebyshev(to, t) > MAX_WALK;
       t.path = still || far ? [] : walkTiles(ground, from, to);
       // Too far, or no way there: it skips ahead rather than walk through a wall.
       if (still || far || !sameTile(t.path.at(-1) ?? from, to)) {

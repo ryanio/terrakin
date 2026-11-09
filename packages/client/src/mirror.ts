@@ -28,6 +28,7 @@ import {
   groundOf,
   hallTiles,
   holdsRoof,
+  inBounds,
   inLot,
   insetOf,
   LOOK_KEYS,
@@ -743,7 +744,7 @@ export class Mirror {
   wildAt(x: number, y: number): Wild | null {
     const { config } = this;
     if (insetOf(config) === 0) return null;
-    if (x < 0 || y < 0 || x >= config.width || y >= config.height) return null;
+    if (!inBounds(config, x, y)) return null;
     if (this.drawnPaving.has(tileKey(x, y))) return null;
     if (this.#sea?.(x, y) || this.onBridge(x, y)) return null;
     const S = config.plotSize;

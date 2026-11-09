@@ -7,6 +7,7 @@ import {
   type Grade,
   holdsRoof,
   POND_LOOK,
+  tileHash,
   WALL_LOOK,
   type WallKind,
 } from "@terrakin/sim";
@@ -44,15 +45,7 @@ import {
 import { glowsAfterDark } from "./daylight";
 import { decorInstances } from "./decor";
 import { furnitureInstances } from "./furniture";
-import {
-  FLOOR_HEIGHT,
-  floorY,
-  type LayoutBlock,
-  paneTurn,
-  stairsTurn,
-  tileHash,
-  turnAngle,
-} from "./layout";
+import { FLOOR_HEIGHT, floorY, type LayoutBlock, paneTurn, stairsTurn, turnAngle } from "./layout";
 import { materialTexture, type WallTextures } from "./materials";
 import { BRAND, blockLook, hex, mix, SKY, shade } from "./palette";
 import { LAID_DEPTH_OFFSET } from "./paths";

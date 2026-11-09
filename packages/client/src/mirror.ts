@@ -877,6 +877,10 @@ export class Mirror {
       // Every coordinate this copy holds moved (RFC 0052): load the world again, as after a gap.
       case "world_regridded":
         return "gap";
+      // The town named its townsfolk again: the counts leave out the new list.
+      case "townsfolk_set":
+        this.townsfolk = new Set(event.ids);
+        break;
       case "roof_top_set": {
         // Only the ridge changed: the roof itself is the one the mirror already holds.
         const was = this.roofs.get(plotKey(event.px, event.py));

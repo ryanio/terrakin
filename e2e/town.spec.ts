@@ -114,14 +114,15 @@ test.describe("the Town Hall", () => {
     // Phone first: nothing on the page scrolls sideways.
     expect(await overflowsSideways(page)).toBe(false);
 
-    // Draw it on the map of the Commons with the build bar's tabs: a glass fountain from Blocks, a
-    // cobble path from Paths, and a bench from Furniture.
+    // Draw it on the map of the Commons with the build bar's tabs: a fountain of pond tiles from
+    // Blocks (a Town Hall build puts up no walls once walls go on lines), a cobble path from Paths,
+    // and a bench from Furniture.
     await page.click("#town-propose");
     await page.click('.kind-row [data-value="commons_build"]');
     await page.fill("#propose-title", "A fountain");
     await page.fill("#propose-text", "Glass water by the south path, for <b>everyone</b>.");
     const tap = (x: number, y: number) => page.click(`.commons-map.editor [data-tile="${x},${y}"]`);
-    await page.click('#commons-blocks [data-block="glass"]');
+    await page.click('#commons-blocks [data-block="pond"]');
     for (const [x, y] of FOUNTAIN) await tap(x, y);
     await page.click("#commons-tab-ground");
     await page.click('#commons-ground [data-ground="cobble"]');
@@ -161,7 +162,7 @@ test.describe("the Town Hall", () => {
     for (const [x, y] of [...FOUNTAIN, BENCH]) {
       expect(world.townBuilt).toContainEqual({ x, y, proposal: id });
     }
-    for (const [x, y] of FOUNTAIN) expect(world.blocks).toContainEqual({ x, y, block: "glass" });
+    for (const [x, y] of FOUNTAIN) expect(world.blocks).toContainEqual({ x, y, block: "pond" });
     expect(world.blocks).toContainEqual({ x: BENCH[0], y: BENCH[1], block: "bench" });
     for (const [x, y] of PATH) expect(world.ground).toContainEqual({ x, y, ground: "cobble" });
     await page.reload();

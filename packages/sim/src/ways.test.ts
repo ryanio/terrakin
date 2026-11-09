@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
 import { claimNotes } from "./design";
+import { edgeAt } from "./edges";
 import { WAYS_CONFIG, WAYS_HASH, WAYS_LOG, WAYS_TILES } from "./fixtures/ways-log";
 import { hashWorld } from "./hash";
 import { landlocked, plotOpenings } from "./openings";
@@ -184,6 +185,29 @@ describe("rebuild_home", () => {
     const state = replay(WAYS_CONFIG, WAYS_LOG.slice(0, WAYS_LOG.length - 5));
     expect(code(state, TOWN_ACTOR, command)).toBe(refused);
     expect(code(state, "ada", command)).toBe("server_only");
+  });
+
+  it("puts its door on a line once walls go on lines, and refuses one on a tile", () => {
+    const state = replay(WAYS_CONFIG, WAYS_LOG.slice(0, WAYS_LOG.length - 5));
+    expect(code(state, TOWN_ACTOR, { type: "walls_on_lines" })).toBe(null);
+    const onTile: Command = {
+      type: "rebuild_home",
+      px: 0,
+      py: 0,
+      blocks: [{ x: 2, y: 3, block: "door" }],
+      remove: [],
+    };
+    expect(code(state, TOWN_ACTOR, onTile)).toBe("needs_side");
+    const onLine: Command = {
+      type: "rebuild_home",
+      px: 0,
+      py: 0,
+      blocks: [],
+      remove: [],
+      edges: [{ x: 2, y: 3, side: "w", block: "door" }],
+    };
+    expect(code(state, TOWN_ACTOR, onLine)).toBe(null);
+    expect(edgeAt(state, 2, 3, "w")).toBe("door");
   });
 });
 

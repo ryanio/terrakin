@@ -2281,7 +2281,8 @@ export type Command =
   | { type: "close_way"; tiles: [number, number][] }
   /**
    * The town rebuilds a home a public way cut through, as a build by the plot's owner: blocks to
-   * place and blocks to take up, on the ground floor, in plot tiles (RFC 0046).
+   * place and blocks to take up, and walls to put on the lines between tiles, on the ground floor,
+   * in plot tiles (RFC 0046). Rebuilds logged before walls went on lines have no `edges`.
    */
   | {
       type: "rebuild_home";
@@ -2289,6 +2290,7 @@ export type Command =
       py: number;
       blocks: { x: number; y: number; block: BlockKind }[];
       remove: { x: number; y: number }[];
+      edges?: PlanEdge[];
     }
   | { type: "open_economy" }
   | { type: "set_owner_pairs"; pairs: [ResidentId, ResidentId][] }

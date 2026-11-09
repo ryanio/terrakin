@@ -449,18 +449,6 @@ export const SettleAction = z.object({ type: z.literal("settle"), px: coord, py:
  */
 export const VisitAction = z.object({ type: z.literal("visit"), px: coord, py: coord, ...dry });
 
-/**
- * Turn the wall blocks of the home on plot (px, py) into walls between tiles (RFC 0050), so its
- * rooms gain the floor its walls took. The server plans it and logs it as a build of yours; the
- * plot's first one tops up any made material the new walls need past what the blocks give back.
- */
-export const SlimWallsAction = z.object({
-  type: z.literal("slim_walls"),
-  px: coord,
-  py: coord,
-  ...dry,
-});
-
 /** Build the SKILL.md starter hut on your plot, server-side, without walking. */
 export const BuildStarterHomeAction = z.object({
   type: z.literal("build_starter_home"),
@@ -1352,7 +1340,6 @@ export const Action = z.discriminatedUnion("type", [
   TakeOffAction,
   HangAction,
   UnhangAction,
-  SlimWallsAction,
   AdmireAction,
   SetGalleryAction,
   NamePlotAction,

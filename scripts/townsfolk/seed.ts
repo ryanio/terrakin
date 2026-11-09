@@ -41,6 +41,7 @@ import type {
   RoutinesResponse,
   WorldSnapshot,
 } from "../../packages/protocol/src/index";
+import type { Side } from "../../packages/sim/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
 import { describeStep, planHandle } from "./handle-plan.ts";
@@ -490,31 +491,37 @@ async function ensureHome(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot
   for (const d of missing) {
     const result = await act(s.token, { type: "place", ...d });
     if (result.ok) placed++;
-    else say(p.name, `place at (${d.x}, ${d.y}): ${result.error.message}`);
+    else say(p.name, `place on the ${d.side} side of (${d.x}, ${d.y}): ${result.error.message}`);
     await sleep(150);
   }
-  if (placed) say(p.name, `placed ${placed} signature block${placed === 1 ? "" : "s"}`);
+  if (placed) say(p.name, `put up ${placed} signature wall${placed === 1 ? "" : "s"}`);
 }
 
+/** A wall's line as the snapshot keys it: a tile's north or west line. */
+const lineKey = (x: number, y: number, side: Side) =>
+  side === "s" ? `${x},${y + 1},n` : side === "e" ? `${x + 1},${y},w` : `${x},${y},${side}`;
+
 /**
- * The persona's signature blocks on its plot: the ones still to place, and how many are skipped
- * because the tile is already taken (by its own block or anything else) or out of reach.
+ * The persona's signature walls on its plot: the ones still to put up, and how many are skipped
+ * because a wall already stands on the line (its own or another) or it's out of reach.
  */
 function decorPlan(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot) {
   const { plotSize, reach } = snap.config;
-  const blocks = new Set(snap.blocks.map((b) => `${b.x},${b.y}`));
-  const hearths = new Set(
-    everyone(snap).flatMap((r) => (r.hearth ? [`${r.hearth.x},${r.hearth.y}`] : [])),
-  );
+  const lines = new Set((snap.edges ?? []).map((e) => lineKey(e.x, e.y, e.side)));
   const hearth = everyone(snap).find((r) => r.id === s.residentId)?.hearth ?? {
     x: plot.px * plotSize + 3,
     y: plot.py * plotSize + 3,
   };
   const all = p.home.decor
     .filter((d) => d.dx < plotSize && d.dy < plotSize)
-    .map((d) => ({ x: plot.px * plotSize + d.dx, y: plot.py * plotSize + d.dy, block: d.block }))
+    .map((d) => ({
+      x: plot.px * plotSize + d.dx,
+      y: plot.py * plotSize + d.dy,
+      side: d.side,
+      block: d.block,
+    }))
     .filter((d) => Math.max(Math.abs(d.x - hearth.x), Math.abs(d.y - hearth.y)) <= reach);
-  const missing = all.filter((d) => !blocks.has(`${d.x},${d.y}`) && !hearths.has(`${d.x},${d.y}`));
+  const missing = all.filter((d) => !lines.has(lineKey(d.x, d.y, d.side)));
   return { missing, taken: all.length - missing.length };
 }
 
@@ -694,7 +701,7 @@ async function printRefreshPlan(creds: Creds): Promise<void> {
       if (missing.length || taken) {
         say(
           p.name,
-          `would place ${missing.length} signature block${missing.length === 1 ? "" : "s"}` +
+          `would put up ${missing.length} signature wall${missing.length === 1 ? "" : "s"}` +
             (taken ? ` (${taken} already there or taken, skipped)` : ""),
         );
       }

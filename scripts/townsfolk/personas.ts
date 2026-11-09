@@ -15,7 +15,7 @@ import { aimedAtReader } from "../../packages/server/src/injection.ts";
 import { SPECIALTIES } from "../../packages/server/src/lesson-plan.ts";
 import { cleanText } from "../../packages/server/src/text.ts";
 import { TIP_NOTES } from "../../packages/server/src/tip-plan.ts";
-import type { BlockKind, ResidentColor, ResidentShape } from "../../packages/sim/src/index";
+import type { BlockKind, ResidentColor, ResidentShape, Side } from "../../packages/sim/src/index";
 import type { BuildingKind } from "./buildings.ts";
 import type { PetChoice } from "./pet-plan.ts";
 import type { RoofChoice } from "./roof-plan.ts";
@@ -79,12 +79,13 @@ export interface Persona {
      */
     roof: RoofChoice;
     /**
-     * Signature blocks placed after the starter home, so each home in the world echoes its
-     * postcard. In tiles from the plot's north-west corner. The starter home fills the ring from
-     * (1, 1) to (5, 5) with its door at (3, 5) and the hearth at (3, 3); everything here must be
-     * within reach of the hearth and keep the doorway and the tile in front of it clear.
+     * Signature walls put up after the starter home, so each home in the world echoes its
+     * postcard. Each stands on the line on `side` of a tile, in tiles from the plot's north-west
+     * corner, since walls go only on the lines between tiles. The starter home walls in the tiles
+     * from (1, 1) to (5, 5) with its door south of (3, 5) and the hearth at (3, 3); every wall here
+     * stands outside it, within reach of the hearth, and off the tile in front of the door.
      */
-    decor: { dx: number; dy: number; block: BlockKind }[];
+    decor: { dx: number; dy: number; side: Side; block: BlockKind }[];
   };
   spot: Spot;
   scene: { sky: Sky; accents: Accent[]; prop: AvatarProp };
@@ -135,21 +136,14 @@ export const PERSONAS: Persona[] = [
       // The glass gable her postcard draws over the greenhouse: light on the seedlings.
       roof: { style: "gable", material: "glass" },
       decor: [
-        { dx: 6, dy: 1, block: "leaf" },
-        { dx: 6, dy: 2, block: "leaf" },
-        { dx: 6, dy: 4, block: "leaf" },
-        { dx: 6, dy: 5, block: "leaf" },
-        { dx: 1, dy: 6, block: "leaf" },
-        { dx: 2, dy: 6, block: "leaf" },
-        { dx: 4, dy: 6, block: "leaf" },
-        { dx: 5, dy: 6, block: "leaf" },
-        { dx: 2, dy: 2, block: "leaf" },
-        // Greenhouse panes along the north side.
-        { dx: 1, dy: 0, block: "glass" },
-        { dx: 2, dy: 0, block: "glass" },
-        { dx: 3, dy: 0, block: "glass" },
-        { dx: 4, dy: 0, block: "glass" },
-        { dx: 5, dy: 0, block: "glass" },
+        { dx: 6, dy: 1, side: "e", block: "leaf" },
+        { dx: 6, dy: 2, side: "e", block: "leaf" },
+        { dx: 6, dy: 4, side: "e", block: "leaf" },
+        { dx: 6, dy: 5, side: "e", block: "leaf" },
+        { dx: 1, dy: 6, side: "s", block: "leaf" },
+        { dx: 2, dy: 6, side: "s", block: "leaf" },
+        { dx: 4, dy: 6, side: "s", block: "leaf" },
+        { dx: 5, dy: 6, side: "s", block: "leaf" },
       ],
     },
     spot: { near: "commons", dx: -1, dy: 0 },
@@ -202,18 +196,9 @@ export const PERSONAS: Persona[] = [
       // A barn in sawn boards. His pillars and lumber count as walls, so it covers the yard too.
       roof: { style: "gable", material: "wood" },
       decor: [
-        { dx: 0, dy: 0, block: "stone" },
-        { dx: 6, dy: 0, block: "stone" },
-        { dx: 0, dy: 6, block: "stone" },
-        { dx: 6, dy: 6, block: "stone" },
-        { dx: 6, dy: 2, block: "wood" },
-        { dx: 6, dy: 3, block: "wood" },
-        // A yard of stone pillars, and lumber by the bench.
-        { dx: 2, dy: 0, block: "stone" },
-        { dx: 4, dy: 0, block: "stone" },
-        { dx: 0, dy: 2, block: "stone" },
-        { dx: 0, dy: 4, block: "stone" },
-        { dx: 6, dy: 4, block: "wood" },
+        { dx: 6, dy: 2, side: "e", block: "wood" },
+        { dx: 6, dy: 3, side: "e", block: "wood" },
+        { dx: 6, dy: 4, side: "e", block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 1, dy: 0 },
@@ -263,16 +248,13 @@ export const PERSONAS: Persona[] = [
       // Green and sloping to all four sides, over a corner building with tables on two of them.
       roof: { style: "hip", material: "leaf" },
       decor: [
-        { dx: 0, dy: 6, block: "leaf" },
-        { dx: 1, dy: 6, block: "glass" },
-        { dx: 5, dy: 6, block: "glass" },
-        { dx: 6, dy: 6, block: "leaf" },
-        { dx: 4, dy: 2, block: "wood" },
-        // Terrace tables down the east side, and a counter inside.
-        { dx: 6, dy: 1, block: "wood" },
-        { dx: 6, dy: 3, block: "wood" },
-        { dx: 6, dy: 5, block: "wood" },
-        { dx: 2, dy: 2, block: "wood" },
+        { dx: 0, dy: 6, side: "s", block: "leaf" },
+        { dx: 1, dy: 6, side: "s", block: "glass" },
+        { dx: 5, dy: 6, side: "s", block: "glass" },
+        { dx: 6, dy: 6, side: "s", block: "leaf" },
+        { dx: 6, dy: 1, side: "e", block: "wood" },
+        { dx: 6, dy: 3, side: "e", block: "wood" },
+        { dx: 6, dy: 5, side: "e", block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 0, dy: 1 },
@@ -326,13 +308,12 @@ export const PERSONAS: Persona[] = [
       // A green roof over the post stop, low and plain like the rest of the house.
       roof: { style: "gable", material: "leaf" },
       decor: [
-        { dx: 4, dy: 6, block: "wood" },
-        { dx: 2, dy: 6, block: "glass" },
-        // A stone mailbox by the path, parcels stacked at the corner, a sorting desk.
-        { dx: 5, dy: 6, block: "stone" },
-        { dx: 6, dy: 5, block: "wood" },
-        { dx: 6, dy: 6, block: "wood" },
-        { dx: 2, dy: 2, block: "wood" },
+        { dx: 2, dy: 6, side: "s", block: "glass" },
+        { dx: 4, dy: 6, side: "s", block: "wood" },
+        { dx: 5, dy: 6, side: "s", block: "stone" },
+        { dx: 6, dy: 6, side: "s", block: "wood" },
+        { dx: 6, dy: 5, side: "e", block: "wood" },
+        { dx: 6, dy: 6, side: "e", block: "wood" },
       ],
     },
     spot: { near: "commons", dx: 0, dy: -1 },
@@ -382,14 +363,9 @@ export const PERSONAS: Persona[] = [
       // Slate, with the ridge down the long side, like the gable the postcard draws.
       roof: { style: "gable", material: "stone" },
       decor: [
-        { dx: 2, dy: 2, block: "wood" },
-        { dx: 4, dy: 2, block: "wood" },
-        { dx: 6, dy: 3, block: "stone" },
-        { dx: 6, dy: 4, block: "stone" },
-        // More shelves inside, and a glass lantern by the bench.
-        { dx: 2, dy: 4, block: "wood" },
-        { dx: 4, dy: 4, block: "wood" },
-        { dx: 6, dy: 2, block: "glass" },
+        { dx: 6, dy: 2, side: "e", block: "glass" },
+        { dx: 6, dy: 3, side: "e", block: "stone" },
+        { dx: 6, dy: 4, side: "e", block: "stone" },
       ],
     },
     spot: { near: "commons", dx: 1, dy: 1 },
@@ -438,15 +414,9 @@ export const PERSONAS: Persona[] = [
       // The hipped cap his postcard draws, in the same boards as the stilts and the ladder.
       roof: { style: "hip", material: "wood" },
       decor: [
-        { dx: 0, dy: 5, block: "stone" },
-        { dx: 0, dy: 6, block: "stone" },
-        { dx: 6, dy: 6, block: "wood" },
-        { dx: 6, dy: 0, block: "leaf" },
-        // Wooden stilts in the northwest corner, and a glass spyglass post.
-        { dx: 0, dy: 0, block: "wood" },
-        { dx: 2, dy: 0, block: "wood" },
-        { dx: 0, dy: 2, block: "wood" },
-        { dx: 6, dy: 2, block: "glass" },
+        { dx: 0, dy: 5, side: "s", block: "stone" },
+        { dx: 6, dy: 6, side: "s", block: "wood" },
+        { dx: 6, dy: 2, side: "e", block: "glass" },
       ],
     },
     spot: { near: "edge", fx: 1, fy: 0.5 },
@@ -503,14 +473,9 @@ export const PERSONAS: Persona[] = [
       // Four slopes of glass where the postcard has a dome, so the sky stays overhead.
       roof: { style: "hip", material: "glass" },
       decor: [
-        { dx: 4, dy: 0, block: "glass" },
-        { dx: 5, dy: 0, block: "glass" },
-        { dx: 6, dy: 0, block: "glass" },
-        { dx: 6, dy: 1, block: "glass" },
-        // The deck curls round like a dome, on a stone base.
-        { dx: 6, dy: 2, block: "glass" },
-        { dx: 3, dy: 0, block: "stone" },
-        { dx: 2, dy: 0, block: "stone" },
+        { dx: 6, dy: 1, side: "e", block: "glass" },
+        { dx: 6, dy: 2, side: "e", block: "glass" },
+        { dx: 6, dy: 3, side: "e", block: "stone" },
       ],
     },
     spot: { near: "edge", fx: 1, fy: 0 },
@@ -562,13 +527,9 @@ export const PERSONAS: Persona[] = [
       // Pale slate over the white atelier. The tall glass wall is what brings the light in.
       roof: { style: "hip", material: "stone" },
       decor: [
-        { dx: 6, dy: 4, block: "wood" },
-        { dx: 6, dy: 5, block: "leaf" },
-        { dx: 0, dy: 2, block: "glass" },
-        // A tall glass wall for north light, and a second easel.
-        { dx: 0, dy: 3, block: "glass" },
-        { dx: 0, dy: 4, block: "glass" },
-        { dx: 6, dy: 2, block: "wood" },
+        { dx: 6, dy: 2, side: "e", block: "wood" },
+        { dx: 6, dy: 4, side: "e", block: "wood" },
+        { dx: 6, dy: 5, side: "e", block: "leaf" },
       ],
     },
     spot: { near: "edge", fx: 0, fy: 1 },
@@ -626,6 +587,29 @@ export const LIMITS = {
 
 /** The starter home's footprint and reach, for plots of 8 tiles with reach 3 (the defaults). */
 const HUT = { from: 1, to: 5, door: { dx: 3, dy: 5 }, hearth: { dx: 3, dy: 3 }, reach: 3, size: 8 };
+
+/**
+ * The line on `side` of plot tile (dx, dy), as a tile's north or west line, and where it stands
+ * against the starter home: on the plot's border, on the home's own walls (the lines round the
+ * tiles from (1, 1) to (5, 5)), inside the home, or beside the tile in front of its door.
+ */
+function hutLine(dx: number, dy: number, side: Side) {
+  const x = side === "e" ? dx + 1 : dx;
+  const y = side === "s" ? dy + 1 : dy;
+  const north = side === "n" || side === "s";
+  const { from, to, door, size } = HUT;
+  const along = (i: number) => i >= from && i <= to;
+  const hut = north
+    ? along(x) && (y === from || y === to + 1)
+    : along(y) && (x === from || x === to + 1);
+  const inside = north ? along(x) && y > from && y <= to : along(y) && x > from && x <= to;
+  const front = { x: door.dx, y: door.dy + 1 };
+  const doorway = north
+    ? x === front.x && (y === front.y || y === front.y + 1)
+    : y === front.y && (x === front.x || x === front.x + 1);
+  const border = north ? y <= 0 || y >= size : x <= 0 || x >= size;
+  return { key: `${x},${y},${north ? "n" : "w"}`, border, hut, inside, doorway };
+}
 
 /** Everything wrong with the cast, as readable lines. Empty when it's good to go. */
 export function checkPersonas(personas: Persona[]): string[] {
@@ -696,24 +680,20 @@ export function checkPersonas(personas: Persona[]): string[] {
     if (cleanText(p.pet.name) !== p.pet.name) {
       problems.push(`${p.name}: the server would clean up the pet's name; write it clean`);
     }
-    const tiles = new Set<string>();
-    for (const { dx, dy } of p.home.decor) {
-      const at = `${p.name}: decor at (${dx}, ${dy})`;
-      if (tiles.has(`${dx},${dy}`)) problems.push(`${at} is listed twice`);
-      tiles.add(`${dx},${dy}`);
-      if (dx === HUT.door.dx && dy === HUT.door.dy - 1) {
-        problems.push(`${at} blocks the way from the hearth to the door`);
-      }
-      const inHut = dx >= HUT.from && dx <= HUT.to && dy >= HUT.from && dy <= HUT.to;
-      const ring = inHut && (dx === HUT.from || dx === HUT.to || dy === HUT.from || dy === HUT.to);
+    const lines = new Set<string>();
+    for (const { dx, dy, side } of p.home.decor) {
+      const at = `${p.name}: decor on the ${side} side of (${dx}, ${dy})`;
+      const line = hutLine(dx, dy, side);
+      if (lines.has(line.key)) problems.push(`${at} is listed twice`);
+      lines.add(line.key);
       const reach = Math.max(Math.abs(dx - HUT.hearth.dx), Math.abs(dy - HUT.hearth.dy));
-      if (dx < 0 || dy < 0 || dx >= HUT.size || dy >= HUT.size)
+      if (dx < 0 || dy < 0 || dx >= HUT.size || dy >= HUT.size) {
         problems.push(`${at} is off the plot`);
-      else if (ring) problems.push(`${at} is on the starter home's walls`);
-      else if (dx === HUT.hearth.dx && dy === HUT.hearth.dy) problems.push(`${at} is the hearth`);
-      else if (dx === HUT.door.dx && dy === HUT.door.dy + 1) {
-        problems.push(`${at} blocks the doorway`);
-      } else if (reach > HUT.reach) problems.push(`${at} is out of reach of the hearth`);
+      } else if (line.border) problems.push(`${at} is on the plot's border`);
+      else if (line.hut) problems.push(`${at} is on the starter home's walls`);
+      else if (line.inside) problems.push(`${at} is inside the starter home`);
+      else if (line.doorway) problems.push(`${at} blocks the doorway`);
+      else if (reach > HUT.reach) problems.push(`${at} is out of reach of the hearth`);
     }
   }
   return problems;

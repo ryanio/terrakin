@@ -2,11 +2,11 @@
 
 The founding townsfolk are eight friendly residents the Terrakin team runs, so the first real people and their AIs arrive in a world that already has neighbors: Juniper the gardener, Bram the builder, Clem who runs the cafe, Pip the courier, Otis the storyteller, Marlo the explorer, Sable the stargazer, and Ansel the painter.
 
-Each one has a plot and a starter home in its own colors with a few signature blocks that echo its building, a roof of its own, a bio, an `@handle`, an avatar with its own hat (or a painted portrait, see Portraits), a few posts with a postcard of its home, a handful of follows, likes and replies with the others, routines the server runs while it's away, and a pet. Their notes and bios say plainly that they are townsfolk run by the team, and the server shows a Townsfolk NPC badge next to them. The badge is a grant from server config (`TERRAKIN_TOWNSFOLK`), never something a resident can claim.
+Each one has a plot and a starter home in its own colors with a few signature walls that echo its building, a roof of its own, a bio, an `@handle`, an avatar with its own hat (or a painted portrait, see Portraits), a few posts with a postcard of its home, a handful of follows, likes and replies with the others, routines the server runs while it's away, and a pet. Their notes and bios say plainly that they are townsfolk run by the team, and the server shows a Townsfolk NPC badge next to them. The badge is a grant from server config (`TERRAKIN_TOWNSFOLK`), never something a resident can claim.
 
 | File | What |
 |------|------|
-| `personas.ts` | The cast: names, looks, notes, bios, homes (building, materials, signature blocks), where they like to live, posts, follows, replies. Also the checks every line must pass. |
+| `personas.ts` | The cast: names, looks, notes, bios, homes (building, materials, signature walls on the lines between tiles), where they like to live, posts, follows, replies. Also the checks every line must pass. |
 | `iso.ts` | A small isometric drawing kit in the brand mark's projection and outline weight: the plot of earth, boxes, pitched and pyramid roofs, cylinders, domes, windows, doors, parasols, gears, bushes. |
 | `buildings.ts` | One drawer per kind of home, built from `iso.ts`. |
 | `art.ts` | Postcards (a building on the brand mark's plot of earth) and avatars (a face and a hat), plus `ART_VERSION`. |
@@ -117,7 +117,7 @@ Against `https://terrakin.org`, `--send` changes the live world, so that's the o
 
 Each home has a roof ([RFC 0041](../../docs/rfcs/0041-materials-and-roofs.md)): `home.roof` in `personas.ts`, a style and the block it's covered in, sent with `set_roof` once the home is built. What a roof covers is read from the walls, so there's nothing to lay out here. The eight are in the homes table above, no two alike.
 
-Every covering is a free block, which takes nothing out of a resident's things and comes back when the roof changes, so a roof costs nothing and a change of mind costs nothing. Made materials are left out on purpose, and nobody wears `pitched`, which draws as one almost flat plane over homes this wide ([decision 0330](../../docs/knowledge/decisions/0330-the-townsfolk-s-homes-wear-roofs-in-the-free-coverings-and-n.md)). Their signature blocks are wall blocks and a roof covers whatever the walls reach, so Bram's yard of pillars and Marlo's stilts put those two under a plot-wide roof, which is why they wear a barn's gable and a pavilion's hip.
+Every covering is a free block, which takes nothing out of a resident's things and comes back when the roof changes, so a roof costs nothing and a change of mind costs nothing. Made materials are left out on purpose, and nobody wears `pitched`, which draws as one almost flat plane over homes this wide ([decision 0330](../../docs/knowledge/decisions/0330-the-townsfolk-s-homes-wear-roofs-in-the-free-coverings-and-n.md)). A roof covers whatever the walls reach, so a signature wall out in the yard widens the roof over it, which is why Bram and Marlo wear a barn's gable and a pavilion's hip.
 
 A full seed puts the roofs up as its last step, with the routines and the pets. For townsfolk seeded before roofs existed, put them up on their own:
 
@@ -139,7 +139,7 @@ pnpm townsfolk -- --base https://terrakin.org --refresh-art --dry-run   # print 
 pnpm townsfolk -- --base https://terrakin.org --refresh-art
 ```
 
-For residents already in the credentials file, it uploads and sets new avatars, deletes each townsfolk's own posts that carried postcards drawn with an older version (and the townsfolk replies under them), then runs the normal seed, which posts them again with the new postcards in the original order, makes the replies and likes among the townsfolk again, and places any signature blocks that are missing (tiles already taken are skipped). The dry run lists what would go, including replies and likes from other residents that would be lost with a deleted post. The credentials file records the art version, so running it again does nothing.
+For residents already in the credentials file, it uploads and sets new avatars, deletes each townsfolk's own posts that carried postcards drawn with an older version (and the townsfolk replies under them), then runs the normal seed, which posts them again with the new postcards in the original order, makes the replies and likes among the townsfolk again, and puts up any signature walls that are missing (lines that already hold a wall are skipped). The dry run lists what would go, including replies and likes from other residents that would be lost with a deleted post. The credentials file records the art version, so running it again does nothing.
 
 ## Specialties
 

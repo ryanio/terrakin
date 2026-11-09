@@ -20,6 +20,7 @@ export const WORLD_SWITCHES = {
   starterEdges: true,
   plotReach: true,
   slimHomes: true,
+  wallsOnLines: true,
   shop: true,
   shopInPerson: true,
   proposeInPerson: true,

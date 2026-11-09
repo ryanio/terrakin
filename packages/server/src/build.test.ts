@@ -1,10 +1,19 @@
 import { BUILD_LIMITS, designViews, type ServerMessage } from "@terrakin/protocol";
-import { designNotes, FLOORS, type Input, TOWN_ACTOR, type WorldConfig } from "@terrakin/sim";
+import {
+  DAY_MS,
+  designNotes,
+  FLOORS,
+  type Input,
+  inventoryMaxOf,
+  TOWN_ACTOR,
+  type WorldConfig,
+} from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import WebSocket from "ws";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
+import { slimPlan } from "./slim-plan";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { type Cleanup, jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
@@ -24,6 +33,10 @@ const CONFIG: WorldConfig = {
   maxPlotsPerResident: 1,
   reach: 3,
 };
+
+/** `WorldService.run`, which is private: the one door every input goes through. */
+const runOn = (service: WorldService, input: Input) =>
+  (service as unknown as { run(input: Input): { ok: boolean } }).run.call(service, input);
 
 const cleanups: Cleanup[] = [];
 const { problems, onResponse } = responseChecker();
@@ -77,13 +90,10 @@ async function start(options: { starterDoors?: boolean; config?: WorldConfig } =
     if (!items) throw new Error("items aren't open");
     items.inventories[id] = { stacks: { stone: n }, goods: [] };
   };
+  /** Log an input straight into the world, as only the server's own code does. */
+  const run = (input: Input) => expect(runOn(service, input)).toMatchObject({ ok: true });
   /** Log `starter_edges` as the town does, so starter huts are built from lines (RFC 0050). */
-  const linesOn = () => {
-    const run = (service as unknown as { run(input: Input): { ok: boolean } }).run;
-    expect(
-      run.call(service, { actor: TOWN_ACTOR, command: { type: "starter_edges" } }),
-    ).toMatchObject({ ok: true });
-  };
+  const linesOn = () => run({ actor: TOWN_ACTOR, command: { type: "starter_edges" } });
   return {
     base,
     call,
@@ -91,6 +101,7 @@ async function start(options: { starterDoors?: boolean; config?: WorldConfig } =
     settler,
     stone,
     linesOn,
+    run,
     service,
     store,
     advance: (ms: number) => {
@@ -276,23 +287,6 @@ describe("build", () => {
     expect(read.map.floors[0].edges).toHaveLength(17);
   });
 
-  it("previews a slim as the home it leaves, a map and its notes, and builds the same (RFC 0050)", async () => {
-    const t = await start();
-    const ada = await t.settler("Ada", 0, 0);
-    const out = [
-      { x: 3, y: 6, ground: "dirt" },
-      { x: 3, y: 7, ground: "dirt" },
-    ];
-    await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
-    t.advance(BUILD_LIMITS.secondsBetween * 1000);
-    const dry = await t.act(ada, { type: "slim_walls", px: 0, py: 0, dry: true });
-    expect(dry).toMatchObject({ ok: true, plan: { walled: 20, notes: [] } });
-    // The door on the line south of (3, 5), and the path from it still counts.
-    expect(dry.plan.map.floors[0].edges[12]).toBe("+ +W+W+D+W+W+ + +");
-    const real = await t.act(ada, { type: "slim_walls", px: 0, py: 0 });
-    expect(real.plan).toEqual(dry.plan);
-  });
-
   it("slims every home the town can, once, and tells each owner (decision 0404)", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0, 0);
@@ -304,7 +298,9 @@ describe("build", () => {
     await t.act(ada, { type: "build", px: 0, py: 0, ground: out });
     // Cee slimmed her own hut, then walled a little room in blocks: hers to leave as it is.
     const cee = await t.settler("Cee", 0, 2);
-    await t.act(cee, { type: "slim_walls", px: 0, py: 2 });
+    const slim = slimPlan(t.service.state, 0, 2);
+    if ("problem" in slim) throw new Error(slim.problem);
+    t.run({ actor: cee.id, command: { type: "slim_walls", px: 0, py: 2, ...slim } });
     const ring = [
       [4, 1],
       [5, 1],
@@ -346,6 +342,94 @@ describe("build", () => {
     const seq = reborn.state.seq;
     reborn.tick();
     expect(reborn.state.seq).toBe(seq);
+  });
+
+  it("turns every wall block left into lines, then logs walls_on_lines in the same tick, and tries again each day", () => {
+    let now = Date.UTC(2026, 10, 8, 9);
+    const store = new MemoryStore();
+    const service = new WorldService({
+      store,
+      config: CONFIG,
+      now: () => now,
+      days: true,
+      economy: true,
+      items: true,
+      starterEdges: true,
+      wallsOnLines: true,
+    });
+    const run = (input: Input) => {
+      const done = runOn(service, input) as { ok: boolean; error?: unknown };
+      expect(done.error ?? null, input.command.type).toBeNull();
+    };
+    for (const [id, px] of [
+      ["ada", 0],
+      ["bob", 1],
+      ["cal", 2],
+    ] as const) {
+      run({ actor: id, command: { type: "join", name: id, kind: "agent" } });
+      run({ actor: id, command: { type: "settle", px, py: 0 } });
+    }
+    run({ actor: TOWN_ACTOR, command: { type: "set_townsfolk", ids: ["cal"] } });
+    // Nothing runs before the notices are wired, so the town hasn't swept yet: Ada walls a row of
+    // stone, Cal (townsfolk) a hedge, and Bob sets one brickwork block down against a wall on a
+    // line, so it comes up for no line of its own, with his things too full to take it back.
+    const row = (y: number, block: string) =>
+      [2, 3, 4].map((x) => ({ x, y, block })) as { x: number; y: number; block: "stone" }[];
+    run({ actor: "ada", command: { type: "build", px: 0, py: 0, blocks: row(2, "stone") } });
+    run({ actor: "cal", command: { type: "build", px: 2, py: 0, blocks: row(4, "leaf") } });
+    const items = service.state.items;
+    if (!items) throw new Error("items aren't open");
+    items.inventories.bob = { stacks: { brickwork: 1 }, goods: [] };
+    const brick = { x: 5, y: 6, block: "brickwork" as const };
+    const fence = { x: 5, y: 6, side: "n" as const, block: "wood" as const };
+    run({
+      actor: "bob",
+      command: { type: "build", px: 1, py: 0, blocks: [brick], edges: [fence] },
+    });
+    const full = inventoryMaxOf(service.state);
+    items.inventories.bob = { stacks: { stone: full }, goods: [] };
+    expect(service.state.wallsOnLines).toBeUndefined();
+
+    const told: { owner: string; px: number }[] = [];
+    service.onHomeSlimmed = (owner, { px }) => told.push({ owner, px });
+    const before = store.loadLog().length;
+    service.tick();
+    const logged = store
+      .loadLog()
+      .slice(before)
+      .map((i) => i.command.type);
+    // Every plot the sim takes is turned before the switch, which comes last in the same tick.
+    expect(logged.at(-1)).toBe("walls_on_lines");
+    expect(logged.filter((type) => type === "town_slim")).toHaveLength(2);
+    expect(service.state.wallsOnLines).toBe(true);
+    expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
+    expect(Object.keys(service.state.edges ?? {})).toHaveLength(7);
+    // Only Ada hears: townsfolk get no notice, and Bob's plot wasn't turned.
+    expect(told).toEqual([{ owner: "ada", px: 0 }]);
+    // A wall on a tile is refused now, and the rest of the day the town tries nothing more.
+    expect(
+      runOn(service, { actor: "ada", command: { type: "place", x: 6, y: 6, block: "wood" } }),
+    ).toMatchObject({ ok: false });
+    const seq = service.state.seq;
+    service.tick();
+    expect(service.state.seq).toBe(seq);
+
+    // Still full the next day: the town tries and leaves it.
+    now += DAY_MS;
+    service.tick();
+    expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
+    // With room, the day after, Bob's block comes back to him and he hears.
+    items.inventories.bob = { stacks: {}, goods: [] };
+    service.tick();
+    expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
+    now += DAY_MS;
+    service.tick();
+    expect(service.state.blocks).toEqual({});
+    expect(items.inventories.bob?.stacks).toEqual({ brickwork: 1 });
+    expect(told).toEqual([
+      { owner: "ada", px: 0 },
+      { owner: "bob", px: 1 },
+    ]);
   });
 
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {

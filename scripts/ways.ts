@@ -26,6 +26,7 @@ import {
 import {
   type BlockKind,
   edgeKey,
+  edgeOf,
   openingFactsFrom,
   plotKey,
   type Tile,
@@ -95,12 +96,14 @@ export function wayFactsOf(world: WaysRead): WayFacts {
 export function afterPlan(world: WaysRead, plan: WayPlan): WaysRead {
   const gone = new Set(plan.blocks.map((b) => tileKey(b.x, b.y)));
   const blocks = world.blocks.filter((b) => (b.floor ?? 0) !== 0 || !gone.has(tileKey(b.x, b.y)));
-  for (const h of plan.homes)
-    for (const b of h.rebuild) blocks.push({ x: b.x, y: b.y, block: b.block });
   const down = new Set(plan.lines.map((l) => edgeKey(l.x, l.y, l.side)));
-  const edges = world.edges?.filter(
+  const kept = world.edges?.filter(
     (e) => (e.floor ?? 0) !== 0 || !down.has(edgeKey(e.x, e.y, e.side)),
   );
+  const rebuilt = plan.homes.flatMap((h) =>
+    h.rebuild.map((b) => ({ ...edgeOf(b.x, b.y, b.side), block: b.block })),
+  );
+  const edges = kept || rebuilt.length > 0 ? [...(kept ?? []), ...rebuilt] : undefined;
   return {
     ...world,
     blocks,
@@ -181,7 +184,7 @@ export function planLines(
     ...(plan.homes.length > 0
       ? plan.homes.map(
           (h) =>
-            `  (${h.px}, ${h.py}) ${h.ownerId}: ${h.walls.length > 0 ? `walls down at ${tiles(h.walls)}; ` : ""}put up ${h.rebuild.map((b) => `${b.block} (${b.x}, ${b.y})`).join(" ") || "nothing"}${h.left.length > 0 ? `; left open at ${tiles(h.left)}` : ""}`,
+            `  (${h.px}, ${h.py}) ${h.ownerId}: ${h.walls.length > 0 ? `walls down at ${tiles(h.walls)}; ` : ""}put up ${h.rebuild.map((b) => `${b.block} on the ${b.side} of (${b.x}, ${b.y})`).join(" ") || "nothing"}${h.left.length > 0 ? `; left open at ${tiles(h.left)}` : ""}`,
         )
       : ["  none"]),
   ];

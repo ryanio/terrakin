@@ -81,13 +81,6 @@ export function wayFactsFrom(state: WorldState): WayFacts {
     blocks,
     lines: new Map(Object.entries(edgesOn(state, 0))),
     fixed: new Set([...crops, ...firing, ...shown, ...ownedThings]),
-    facing: new Set(
-      Object.keys(state.items?.hung ?? {}).flatMap((key) => {
-        if (key.includes(":")) return [];
-        const [x, y] = key.split(",");
-        return [`${x},${y}`];
-      }),
-    ),
     upstairs: new Set(upstairs),
     listed: new Set(Object.keys(state.plotMarket?.listings ?? {})),
     ways: new Set(Object.keys(state.ways ?? {})),
@@ -121,12 +114,14 @@ export function wayInputs(plan: WayPlan, plotSize: number): WayCommand[] {
           type: "rebuild_home",
           px: h.px,
           py: h.py,
-          blocks: h.rebuild.map((b) => ({
+          blocks: [],
+          remove: [],
+          edges: h.rebuild.map((b) => ({
             x: b.x - h.px * plotSize,
             y: b.y - h.py * plotSize,
+            side: b.side,
             block: b.block,
           })),
-          remove: [],
         }),
       ),
   ];

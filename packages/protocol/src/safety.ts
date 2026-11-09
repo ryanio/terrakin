@@ -508,7 +508,7 @@ export const StaffWaysResponse = z.object({
       py: z.number().int(),
       ownerId: z.string(),
       walls: z.array(TileXY),
-      rebuild: z.array(TileXY.extend({ block: z.string() })),
+      rebuild: z.array(TileXY.extend({ side: z.enum(["n", "e", "s", "w"]), block: z.string() })),
       left: z.array(TileXY),
     }),
   ),

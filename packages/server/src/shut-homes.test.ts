@@ -116,9 +116,10 @@ describe("homes nobody can walk out of", () => {
     const { call, service, mira, vee, clear } = await start();
     const act = (command: Record<string, unknown>) =>
       call("POST", "/v1/actions", command, vee.token);
-    // Her walls go up on the lines round the same 25 tiles, the wood in the doorway with them, so
-    // she is still shut in, and a block just outside them is no way out.
-    expect((await act({ type: "slim_walls", px: 0, py: 0 })).status).toBe(200);
+    // The town puts her walls up on the lines round the same 25 tiles, the wood in the doorway
+    // with them, so she is still shut in, and a block just outside them is no way out.
+    const slim = { px: 0, py: 0, reason: "Asked" };
+    expect((await call("POST", "/v1/admin/slim-home", slim, mira.token)).status).toBe(200);
     expect((await act({ type: "place", x: 3, y: 6, block: "wood" })).status).toBe(200);
     type Free = { x: number; y: number; side?: string; block: string };
     const frees = async () => {

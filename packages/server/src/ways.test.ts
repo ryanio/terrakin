@@ -1,9 +1,11 @@
 import {
   apply,
   createWorld,
+  edgeAt,
   edgeKey,
   type Input,
   landlocked,
+  type Side,
   starterHome,
   TOWN_ACTOR,
   tileKey,
@@ -492,9 +494,9 @@ describe("a home the way cuts through", () => {
       // steps onto one, and on to the Commons.
       const ground = worldGround(state);
       const shut = {
-        config: ground.config,
-        obstacle: (x: number, y: number) =>
-          state.blocks[tileKey(x, y)] === "door" ? ("block" as const) : ground.obstacle(x, y),
+        ...ground,
+        edge: (x: number, y: number, side: Side) =>
+          edgeAt(state, x, y, side) !== undefined || (ground.edge?.(x, y, side) ?? false),
       };
       const inside = walkTree(shut, hearth, 8).map((n) => tileKey(n.x, n.y));
       expect(inside.some((key) => state.ways?.[key])).toBe(false);

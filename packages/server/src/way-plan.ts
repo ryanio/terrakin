@@ -64,11 +64,6 @@ export interface WayFacts {
    */
   fixed: ReadonlySet<string>;
   /**
-   * Ground-floor tiles something hangs facing (RFC 0050), which take no block: a rebuild leaves
-   * them open, as it does a hearth. Absent reads as none.
-   */
-  facing?: ReadonlySet<string>;
-  /**
    * Tiles with anything on a floor above them (RFC 0028): a way never runs under an upstairs,
    * where the walls below may be holding it up.
    */
@@ -166,11 +161,15 @@ export interface WayPlan {
     /** The walls on way tiles, which come down. */
     walls: Tile[];
     /**
-     * What the town puts up in their place, one tile in toward the hearth, in world tiles: the
-     * same blocks, but a door onto the way in one of them.
+     * What the town puts up in their place: a wall on the line between each tile of the home and
+     * the way beside it, in world tiles and the side of the tile it stands on, with a door onto the
+     * way in one of them.
      */
-    rebuild: { x: number; y: number; block: BlockKind }[];
-    /** Walls whose tile in toward the hearth couldn't take one, for staff to look at by hand. */
+    rebuild: { x: number; y: number; side: Side; block: BlockKind }[];
+    /**
+     * Tiles of the home beside the way where no wall can stand between them, since the way's tile
+     * is on ground that isn't the owner's, for staff to look at by hand.
+     */
     left: Tile[];
   }[];
   /**
@@ -488,10 +487,12 @@ function homeOf(facts: WayFacts, hearth: Tile): Set<string> {
 
 /**
  * How the town rebuilds a home a way cuts through. Each tile of the home on its hearth's side of
- * the way, beside it, with nothing standing there and no hearth, gets a wall, so the home closes again along the way;
- * and the middle one is a door, so it opens onto the way. The walls are the home's own kind: the
- * most common of the free walls the way took down (wood, stone, or a hedge), blocks and walls
- * between tiles alike (`taken`), or wood.
+ * the way, beside it, with nothing standing there, gets a wall on the line between it and the way,
+ * so the home closes again along the way; and the middle one is a door, so it opens onto the way.
+ * A line on the plot's border, where the way's tile is on ground that isn't the owner's, can't
+ * take a wall, so that tile is left for staff. The walls are the home's own kind: the most common
+ * of the free walls the way took down (wood, stone, or a hedge), blocks and walls between tiles
+ * alike (`taken`), or wood.
  */
 function rebuildOf(
   facts: WayFacts,
@@ -500,9 +501,9 @@ function rebuildOf(
   onWay: ReadonlySet<string>,
   cut: readonly { x: number; y: number; block: BlockKind }[],
   taken: readonly BlockKind[],
+  ownerOf: (x: number, y: number) => string | undefined,
 ): Pick<WayPlan["homes"][number], "walls" | "rebuild" | "left"> {
   const { config, openings } = facts;
-  const hearths = new Set(facts.hearths.map((h) => tileKey(h.x, h.y)));
   // The hearth's side of the way: its walk on its own plot with every way tile in the way. Only
   // that side gets walls and the door, so the door always opens from the hearth onto the way; a
   // part of the home the way cuts off is left as open ground beside it.
@@ -533,7 +534,7 @@ function rebuildOf(
     }
   }
   const kind = ([...counts.entries()].sort((p, q) => q[1] - p[1])[0]?.[0] ?? "wood") as BlockKind;
-  const line: Tile[] = [];
+  const line: { x: number; y: number; side: Side }[] = [];
   const left: Tile[] = [];
   const tiles = [...home]
     .map((key) => {
@@ -544,26 +545,22 @@ function rebuildOf(
   for (const t of tiles) {
     const key = tileKey(t.x, t.y);
     if (onWay.has(key) || !side.has(key)) continue;
-    const beside = STEPS.some(
-      ([dx, dy, s]) =>
-        onWay.has(tileKey(t.x + dx, t.y + dy)) && !openings.ground.edge?.(t.x, t.y, s),
-    );
-    if (!beside) continue;
     // Something standing there closes it already.
     if (facts.blocks.has(key)) continue;
-    // A hearth stays a hearth, and the home stays open there for staff to look at. So does a tile
-    // something hangs facing, which the sim would refuse a wall on.
-    if (hearths.has(key) || facts.facing?.has(key)) {
-      left.push(t);
-      continue;
+    const mine = ownerOf(t.x, t.y);
+    for (const [dx, dy, s] of STEPS) {
+      // A wall or a door on the line closes it already.
+      if (!onWay.has(tileKey(t.x + dx, t.y + dy)) || facts.lines.has(edgeKey(t.x, t.y, s)))
+        continue;
+      if (mine === undefined || ownerOf(t.x + dx, t.y + dy) !== mine) {
+        if (!left.some((l) => l.x === t.x && l.y === t.y)) left.push(t);
+        continue;
+      }
+      line.push({ ...t, side: s });
     }
-    line.push(t);
   }
   const door = line[Math.floor((line.length - 1) / 2)];
-  const rebuild = line.map((t) => ({
-    ...t,
-    block: door && t.x === door.x && t.y === door.y ? ("door" as BlockKind) : kind,
-  }));
+  const rebuild = line.map((l) => ({ ...l, block: l === door ? ("door" as BlockKind) : kind }));
   return { walls: cut.map(({ x, y }) => ({ x, y })), rebuild, left };
 }
 
@@ -762,7 +759,11 @@ function describe(
       return home.has(tileKey(a.x, a.y)) || home.has(tileKey(b.x, b.y));
     });
     const taken = [...cut, ...cutLines].map((w) => w.block);
-    const rebuilt = rebuildOf(facts, h, home, onWay, cut, taken);
+    const ownerOf = (x: number, y: number) => {
+      const at = plotOf(config, x, y);
+      return owners.get(plotKey(at.px, at.py))?.ownerId;
+    };
+    const rebuilt = rebuildOf(facts, h, home, onWay, cut, taken, ownerOf);
     if (rebuilt.rebuild.length === 0 && rebuilt.left.length === 0 && taken.length === 0) continue;
     homes.push({ px, py, ownerId: plot.ownerId, ...rebuilt });
   }

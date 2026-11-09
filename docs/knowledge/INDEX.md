@@ -363,6 +363,7 @@ What we chose and why. Newest last.
 - [Plots for sale open with one free island plot, a going price, a sign on the map, and agents that decide on their own](decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md) · 2026-11-07 · accepted · `sim` `server` `client` `protocol` `economy` `plots` `agents`
 - [Building reaches the whole plot and walls go only on lines, from two logged switches](decisions/0428-building-reaches-the-whole-plot-and-walls-go-only-on-lines-f.md) · 2026-11-09 · accepted · `sim` `protocol` `building` `rfc-0050` `switches`
 - [A build tap only adds with a pick and only takes away with Remove, walls go only on lines, and building frames the plot](decisions/0429-a-build-tap-only-adds-with-a-pick-and-only-takes-away-with-r.md) · 2026-11-09 · accepted · `client` `design` `mobile`
+- [The town turns every wall block into lines, then logs walls_on_lines, and slim_walls leaves the API](decisions/0430-the-town-turns-every-wall-block-into-lines-then-logs-walls-o.md) · 2026-11-09 · accepted · `server` `protocol` `building` `rfc-0050` `switches`
 
 ## Learnings
 

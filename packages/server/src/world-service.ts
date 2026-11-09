@@ -122,7 +122,7 @@ import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import { plotSaleOf } from "./plot-market";
-import { slimPlan, townSlim } from "./slim-plan";
+import { slimPlan, townLines, townSlim, wallBlocksOn } from "./slim-plan";
 import {
   boot,
   encodeSnapshot,
@@ -309,6 +309,16 @@ export interface WorldServiceOptions {
    */
   slimHomes?: boolean;
   /**
+   * Walls go only on the lines between tiles: once starter homes are built from lines and the
+   * town's slim of every home has run, turn every wall block still standing on a held plot into
+   * lines (`townLines`, logged as `town_slim`), tell each owner who isn't townsfolk, then append
+   * `walls_on_lines` in the same tick, so no wall block goes up after the town took them down. On
+   * each later day, a plot that still has wall blocks (one the sim refused, say, while its owner's
+   * things were full) is turned again. It waits until `onHomeSlimmed` is wired. Both adapters turn
+   * this on. Off by default, like `items`.
+   */
+  wallsOnLines?: boolean;
+  /**
    * The town shop (RFC 0008, phase 2): once coins and items are open, append `open_shop` if it
    * never has. Both adapters turn this on. Off by default, like `items`.
    */
@@ -461,7 +471,7 @@ function gameRefused(code: string, command: string) {
   report(new Error(`${command} refused: ${code}`), "world.games", { command });
 }
 /**
- * A `build`'s or a `slim_walls`'s answer: the plan the sim prepared, the one its commit makes
+ * A `build`'s or a town slim's answer: the plan the sim prepared, the one its commit makes
  * (decision 0076), with the plot as it leaves it, as a map and its notes (RFC 0032): on a dry run from the plan laid over
  * the world (`built` false), and on a real build from the world once it's committed. A
  * `commons_build` proposal's: what it would build if it passed now (decision 0101).
@@ -479,7 +489,7 @@ function planOf(state: WorldState, input: Input, prepared: { plan?: BuildPlan },
 }
 
 /** Dry runs whose answer says what they cost some other way, or that never cost anything. */
-const NO_COST: ReadonlySet<string> = new Set(["build", "slim_walls", "move", "putter", "chat"]);
+const NO_COST: ReadonlySet<string> = new Set(["build", "move", "putter", "chat"]);
 
 /**
  * What a dry run would take from the actor's things and purse, and give (decision 0406): the input
@@ -973,6 +983,9 @@ export class WorldService {
   private readonly starterEdges: boolean;
   private readonly plotReach: boolean;
   private readonly slimHomes: boolean;
+  private readonly wallsOnLines: boolean;
+  /** The world day the town last turned wall blocks into lines, so it tries once a day. */
+  private linesDay: number | undefined;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -1087,6 +1100,7 @@ export class WorldService {
     this.starterEdges = options.starterEdges ?? false;
     this.plotReach = options.plotReach ?? false;
     this.slimHomes = options.slimHomes ?? false;
+    this.wallsOnLines = options.wallsOnLines ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;
     this.bounties = options.bounties ?? false;
@@ -1451,9 +1465,9 @@ export class WorldService {
   /**
    * The town's one sweep over every held plot not slimmed before (RFC 0050, decision 0404): each
    * home `townSlim` finds safe to slim, logged as `town_slim`, so no home comes out worse or half
-   * done. Then `slim_homes`, so it never
-   * runs again. A home it leaves keeps its walls, and its owner can still `slim_walls` it. It waits
-   * for `onHomeSlimmed`, which is wired after the constructor's own tick.
+   * done. Then `slim_homes`, so it never runs again. What it leaves, `wallsToLines` turns into
+   * lines right after. It waits for `onHomeSlimmed`, which is wired after the constructor's own
+   * tick.
    */
   private slimEveryHome() {
     if (!this.slimHomes || !this.state.starterEdges || this.state.homesSlimmed) return;
@@ -1484,6 +1498,49 @@ export class WorldService {
     console.log(`The town slimmed ${slimmed} homes and left ${left} as they were.`);
   }
 
+  /**
+   * The town turns every wall block on every held plot into lines (`townLines`), each plot logged
+   * as `town_slim` for its owner, who hears of it unless they're townsfolk. The first time, it then
+   * logs `walls_on_lines`, in the same tick, so no wall block can go up between the two; after
+   * that it comes back once a world day for any plot still holding one. It waits for starter homes
+   * on lines, for the town's slim of every home when that runs, and for `onHomeSlimmed`.
+   */
+  private wallsToLines() {
+    if (!this.wallsOnLines || !this.state.starterEdges || !this.onHomeSlimmed) return;
+    if (this.slimHomes && !this.state.homesSlimmed) return;
+    if (this.state.wallsOnLines && this.linesDay === this.state.day) return;
+    this.linesDay = this.state.day;
+    let turned = 0;
+    let left = 0;
+    const plots = Object.values(this.state.plots).sort((a, b) => a.py - b.py || a.px - b.px);
+    for (const { px, py, ownerId } of plots) {
+      if (wallBlocksOn(this.state, px, py) === 0) continue;
+      const lines = townLines(this.state, px, py);
+      const done =
+        "problem" in lines ? undefined : this.run({ actor: TOWN_ACTOR, command: lines.command });
+      if ("problem" in lines || !done?.ok) {
+        left++;
+        continue;
+      }
+      turned++;
+      if (isTownsfolk(this.state, ownerId)) continue;
+      try {
+        this.onHomeSlimmed?.(ownerId, { px, py, walls: lines.walls, back: lines.back });
+      } catch (err) {
+        report(err, "world.walls_on_lines");
+      }
+    }
+    if (!this.state.wallsOnLines) {
+      const on = this.run({ actor: TOWN_ACTOR, command: { type: "walls_on_lines" } });
+      if (!on.ok) console.error(`Couldn't put walls only on lines: ${on.error.message}`);
+    }
+    if (turned > 0 || left > 0) {
+      console.log(
+        `The town turned the wall blocks on ${turned} plots into lines and left ${left} for another day.`,
+      );
+    }
+  }
+
   private tickDays() {
     this.reconcileEntitlements();
     this.switchOn(PRESENCE_SWITCH);
@@ -1503,6 +1560,7 @@ export class WorldService {
     if (day === undefined) return;
     for (const sw of DAY_SWITCHES) this.switchOn(sw);
     this.slimEveryHome();
+    this.wallsToLines();
     // The treasury's share of shop spending follows the sim's number, logged when it changes so
     // earlier purchases replay at the share they were made at.
     if (this.shop && this.state.shop && treasuryShareOf(this.state) !== SHOP.treasuryShare) {
@@ -1684,28 +1742,17 @@ export class WorldService {
   }
 
   /**
-   * A maintainer slims the home on plot (px, py) for its owner, as `slimEveryHome` does: only a
-   * slim `townSlim` finds safe, logged as `town_slim`. With `dry`, only checked.
+   * A maintainer turns every wall block on plot (px, py) into lines for its owner, as the town's
+   * `walls_on_lines` sweep does (`townLines`), logged as `town_slim`. With `dry`, only checked.
    */
   slimHome(
     px: number,
     py: number,
     dry = false,
   ): { ok: true; walls: number; back: number } | Extract<ActResult, { ok: false }> {
-    const planned = slimPlan(this.state, px, py);
-    if ("problem" in planned) {
-      return { ok: false, error: { code: "invalid_plan", message: planned.problem } };
-    }
-    const slim = townSlim(this.state, px, py);
-    if (!slim) {
-      return {
-        ok: false,
-        error: {
-          code: "invalid_plan",
-          message:
-            "Slimming this home would leave it worse off (something skipped, a cost to its owner, or a new design note), so it stays for its owner to slim.",
-        },
-      };
+    const slim = townLines(this.state, px, py);
+    if ("problem" in slim) {
+      return { ok: false, error: { code: "invalid_plan", message: slim.problem } };
     }
     const done = this.run({ actor: TOWN_ACTOR, command: slim.command }, dry);
     if (!done.ok) return done;

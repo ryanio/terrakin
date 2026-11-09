@@ -639,9 +639,9 @@ export const SAFETY_ROUTES = [
     path: "/v1/admin/slim-home",
     auth: "staff",
     internal: true,
-    summary: "Maintainers: slim one home for its owner, as the town's sweep did.",
+    summary: "Maintainers: turn one plot's wall blocks into lines, as the town's sweep does.",
     description:
-      "The wall blocks of the home on plot (`px`, `py`) become walls between tiles, planned as the owner's own `slim_walls` would be and logged as the town's `town_slim` for them (RFC 0050). Only a slim that leaves the home no worse goes ahead: nothing skipped, nothing taken from the owner, nothing that hung on a wall moved, and no new design note; otherwise it is `invalid_plan` and the owner can still slim it. What comes up goes back to the owner, who gets the `home_slimmed` notice. `dry: true` checks it and slims nothing. Logged in the world and in the moderation log with the reason.",
+      "Every wall block on plot (`px`, `py`) becomes a wall on the lines between tiles, planned as the town's daily sweep plans it and logged as the town's `town_slim` for the owner (RFC 0050): rooms keep their shape with their doorways as doors, and a wall standing on its own becomes a line of its own. A block no line can take the place of comes up. It never takes anything from the owner; what comes up goes back to them, and a thing hung on an old wall goes back to whoever hung it. The owner gets the `home_slimmed` notice. With no wall blocks, or one the sim refuses, it is `invalid_plan` with the reason. `dry: true` checks it and changes nothing. Logged in the world and in the moderation log with the reason.",
     tags: ["Moderation"],
     body: StaffSlimHomeRequest,
     responses: { 200: json(StaffSlimHomeResponse) },

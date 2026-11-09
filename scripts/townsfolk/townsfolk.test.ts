@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { CARD_RECIPES } from "../../packages/sim/src/index";
+import { CARD_RECIPES, type Side } from "../../packages/sim/src/index";
 import { homeDrawing, MAX_IMAGE_BYTES, POSTCARD, placeHome, renderAll, SAFE } from "./art.ts";
 import { checkPersonas, PERSONAS } from "./personas.ts";
 import { choosePlot, describePlace, plotKey, type WorldShape } from "./plan.ts";
@@ -52,16 +52,20 @@ describe("townsfolk personas", () => {
     }
   });
 
-  it("catch signature blocks that would block the way in", () => {
+  it("catch signature walls that would block the way in", () => {
     const [first] = PERSONAS;
     if (!first) throw new Error("no personas");
-    const bad = (dx: number, dy: number) =>
-      checkPersonas([{ ...first, home: { ...first.home, decor: [{ dx, dy, block: "wood" }] } }]);
-    expect(bad(3, 6).join("\n")).toMatch(/doorway/);
-    expect(bad(3, 4).join("\n")).toMatch(/hearth to the door/);
-    expect(bad(3, 3).join("\n")).toMatch(/hearth/);
-    expect(bad(7, 7).join("\n")).toMatch(/out of reach/);
-    expect(bad(6, 6).filter((line) => line.includes("decor"))).toEqual([]);
+    const bad = (dx: number, dy: number, side: Side) =>
+      checkPersonas([
+        { ...first, home: { ...first.home, decor: [{ dx, dy, side, block: "wood" }] } },
+      ]);
+    expect(bad(3, 6, "e").join("\n")).toMatch(/doorway/);
+    expect(bad(3, 6, "s").join("\n")).toMatch(/doorway/);
+    expect(bad(3, 4, "s").join("\n")).toMatch(/inside the starter home/);
+    expect(bad(5, 3, "e").join("\n")).toMatch(/starter home's walls/);
+    expect(bad(3, 0, "n").join("\n")).toMatch(/border/);
+    expect(bad(7, 7, "n").join("\n")).toMatch(/out of reach/);
+    expect(bad(6, 6, "s").filter((line) => line.includes("decor"))).toEqual([]);
   });
 
   it("render small images", () => {

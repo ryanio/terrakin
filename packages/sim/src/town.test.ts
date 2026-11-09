@@ -7,7 +7,15 @@ import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixture
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
 import { fund } from "./test-support";
-import { electorate, notAtTheHall, quorum, TOWN_LIMITS, townEligibility, votesCast } from "./town";
+import {
+  electorate,
+  notAtTheHall,
+  quorum,
+  TOWN_LIMITS,
+  tallyOutcome,
+  townEligibility,
+  votesCast,
+} from "./town";
 import {
   type Command,
   type Input,
@@ -249,6 +257,23 @@ describe("eligibility", () => {
 describe("quorum", () => {
   it("is at least three, or ten percent of the electorate rounded up", () => {
     expect([0, 1, 3, 29, 30, 31, 100, 101].map(quorum)).toEqual([3, 3, 3, 3, 3, 4, 10, 11]);
+  });
+
+  it("closes a tally short of it as no quorum, then passes only on more yes than no", () => {
+    const outcomes = [
+      [{ yes: 2, no: 0 }, 3],
+      [{ yes: 2, no: 1 }, 3],
+      [{ yes: 1, no: 2 }, 3],
+      [{ yes: 2, no: 2 }, 3],
+      [{ yes: 0, no: 0 }, 0],
+    ] as const;
+    expect(outcomes.map(([t, needed]) => tallyOutcome(t, needed))).toEqual([
+      "no_quorum",
+      "passed",
+      "failed",
+      "failed",
+      "failed",
+    ]);
   });
 });
 

@@ -16,6 +16,7 @@ import {
   type PlannedBlock,
   type PlannedGround,
   type Tile,
+  tallyOutcome,
 } from "@terrakin/sim";
 import { listOf, plural } from "@terrakin/ui/format";
 
@@ -36,7 +37,8 @@ export interface TallyBar {
 export function tallyBar(t: TallyView): TallyBar {
   const total = t.yes + t.no + t.abstain;
   const counted = t.yes + t.no;
-  const quorumMet = counted >= t.quorum;
+  const outcome = tallyOutcome(t, t.quorum);
+  const quorumMet = outcome !== "no_quorum";
   let yes = 0;
   let no = 0;
   let abstain = 0;
@@ -53,7 +55,7 @@ export function tallyBar(t: TallyView): TallyBar {
   }
   const label = !quorumMet
     ? `${counted} of ${t.quorum} votes needed`
-    : t.yes > t.no
+    : outcome === "passed"
       ? "Passing"
       : "Not passing";
   return { yes, no, abstain, counted, quorum: t.quorum, quorumMet, label };
@@ -62,7 +64,7 @@ export function tallyBar(t: TallyView): TallyBar {
 /** The quorum line under a closed proposal: whether it got enough yes and no votes to count. */
 export function closedQuorum(t: TallyView): string {
   const counted = t.yes + t.no;
-  return counted >= t.quorum
+  return tallyOutcome(t, t.quorum) !== "no_quorum"
     ? `Quorum met with ${plural(counted, "vote", "votes")}`
     : `Short of quorum: ${counted} of ${t.quorum} votes`;
 }

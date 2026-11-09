@@ -9,7 +9,7 @@ import {
   recipeOf,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceDue, isTownsfolk, shopPayment } from "./economy";
 import { dayName } from "./holiday";
 import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
@@ -707,12 +707,9 @@ export function checkBuyCard(
     );
   }
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((price * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, price, "shop", at);
   return () => {
-    const events: WorldEvent[] = [movePurse(econ, actor, -price, "shop", at)];
-    // The treasury's history is public, so its share is a line that doesn't say who bought.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "shop", at));
-    econ.burned += price - toTreasury;
+    const events: WorldEvent[] = pay();
     learn(recipes, actor, recipe);
     events.push({ type: "recipe_learned", residentId: actor, recipe, how: "bought", price });
     return events;

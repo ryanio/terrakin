@@ -1,5 +1,5 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceDue, shopPayment } from "./economy";
 import { furnishing } from "./furnished";
 import { plotKey } from "./keys";
 import { plotListedProblem } from "./plot-market";
@@ -134,16 +134,9 @@ export function checkGrowLot(
     );
   }
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((step.coins * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, step.coins, "lot", at);
   return () => {
     state.lots = { ...state.lots, [plotKey(px, py)]: step.side };
-    const events: WorldEvent[] = [
-      { type: "lot_grown", px, py, lot: step.side, by: actor },
-      movePurse(econ, actor, -step.coins, "lot", at),
-    ];
-    // The treasury's history is public, so its share is a line that doesn't say who paid.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "lot", at));
-    econ.burned += step.coins - toTreasury;
-    return events;
+    return [{ type: "lot_grown", px, py, lot: step.side, by: actor }, ...pay()];
   };
 }

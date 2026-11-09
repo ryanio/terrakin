@@ -1,5 +1,5 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceDue, shopPayment } from "./economy";
 import { edgeKey, edgesOn, edgeTiles, hasEdges, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
@@ -768,18 +768,11 @@ export function checkAddFloor(
   }
   const floor = has + 1;
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((price * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, price, "floor", at);
   return () => {
     plot.floors = floor;
     state.floors ??= {};
     state.floors[String(floor)] ??= { blocks: {}, ground: {} };
-    const events: WorldEvent[] = [
-      { type: "floor_added", px, py, floor, by: actor },
-      movePurse(econ, actor, -price, "floor", at),
-    ];
-    // The treasury's history is public, so its share is a line that doesn't say who paid.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "floor", at));
-    econ.burned += price - toTreasury;
-    return events;
+    return [{ type: "floor_added", px, py, floor, by: actor }, ...pay()];
   };
 }

@@ -219,6 +219,30 @@ export const SHOP_SHARE_BEFORE = 50;
 export const treasuryShareOf = (state: WorldState) =>
   state.shop?.treasuryShare ?? SHOP_SHARE_BEFORE;
 
+/**
+ * A payment split the way a shop purchase is: `price` out of `actor`'s purse, the treasury's share
+ * (`treasuryShareOf`, rounded down) into the treasury, and the rest burned, every line under
+ * `reason`. The share is worked out when this is called, in a command's check; the returned
+ * commit moves the coins and gives the purse's event, then the treasury's when its share is above
+ * zero. The treasury's line names nobody, since its history is public.
+ */
+export function shopPayment(
+  state: WorldState,
+  econ: EconomyState,
+  actor: ResidentId,
+  price: number,
+  reason: CoinReason,
+  at: At,
+): () => WorldEvent[] {
+  const toTreasury = Math.floor((price * treasuryShareOf(state)) / 100);
+  return () => {
+    const events = [movePurse(econ, actor, -price, reason, at)];
+    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, reason, at));
+    econ.burned += price - toTreasury;
+    return events;
+  };
+}
+
 /** Move coins in (positive) or out of a resident's purse, with a ledger line and a private event. */
 export function movePurse(
   econ: EconomyState,

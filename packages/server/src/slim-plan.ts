@@ -3,6 +3,7 @@ import {
   type BlockKind,
   blockNeeds,
   blocksOn,
+  blocksWalkers,
   type Command,
   cloneWorld,
   designNotes,
@@ -520,7 +521,11 @@ function slimFloor(state: WorldState, px: number, py: number, floor: number): Fl
       const [wall, source] = room.has(next)
         ? between(key, next)
         : (pick(key) ?? pick(next) ?? [most, ""]);
-      const kind = wall.block;
+      // A piece set into the wall that walkers pass through (a sofa or a bed in the doorway) was a
+      // way in, so its outer line is a door, never a wall that shuts the room.
+      const passedThrough =
+        !room.has(next) && setIn.has(key) && !blocksWalkers(block(x, y)) && floor === 0;
+      const kind = passedThrough ? "door" : wall.block;
       if (floor === 0) {
         edges.push({ x, y, side, block: kind, ...gradeField(wall.grade) });
         from.push(source && `0:${source}`);
@@ -621,7 +626,7 @@ function looseFloor(
   // The runs, along rows and down columns, and how long the run through each tile is each way.
   const runs: Run[] = [];
   const length = [new Map<string, number>(), new Map<string, number>()];
-  for (const [i, [dx, dy]] of RUNS.entries()) {
+  for (const [i, [dx]] of RUNS.entries()) {
     for (let a = 0; a < S; a++) {
       let tiles: XY[] = [];
       for (let b = 0; b <= S; b++) {
@@ -845,6 +850,36 @@ export function townLines(
   if (!plan) return { problem: "The sim made no plan of it." };
   if (plan.changes.some((c) => c.amount < 0)) {
     return { problem: "It would take some of the owner's things." };
+  }
+  // Never shut anyone in: a hearth nobody can walk to, or open ground nobody can walk to any more,
+  // leaves the plot as it stands. A tile an old wall block stood on was never walked, so a pocket
+  // of those closed in by the new lines takes nothing from anyone.
+  const after = cloneWorld(state);
+  if (!apply(after, { actor: TOWN_ACTOR, command }).ok) return { problem: "The sim refused it." };
+  const before = designNotes(state, px, py);
+  const notesAfter = designNotes(after, px, py);
+  // By count: a note names a tile to open, which moves when blocks become lines.
+  const shutHearths = (notes: typeof before) =>
+    notes.filter((n) => n.code === "hearth_walled_in").length;
+  if (shutHearths(notesAfter) > shutHearths(before)) {
+    return { problem: "It would wall a hearth in with no way to it." };
+  }
+  const S = state.config.plotSize;
+  const lostKeys = (notes: typeof before) =>
+    new Set(
+      notes
+        .filter((n) => n.code === "walled_in")
+        .flatMap((n) => n.tiles.map((t) => `${t.x},${t.y}`)),
+    );
+  const lost = lostKeys(before);
+  const ground0 = blocksOn(state, 0);
+  const newlyLost = [...lostKeys(notesAfter)].filter((k) => {
+    if (lost.has(k)) return false;
+    const [x, y] = k.split(",").map(Number) as [number, number];
+    return ground0[tileKey(px * S + x, py * S + y)] === undefined;
+  });
+  if (newlyLost.length > 0) {
+    return { problem: "It would close open ground in with no way to it." };
   }
   const back = plan.changes.filter((c) => c.amount > 0).reduce((n, c) => n + c.amount, 0);
   return { command, walls: plan.walled.length, back };

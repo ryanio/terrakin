@@ -2,6 +2,7 @@ import {
   apply,
   type BlockKind,
   createWorld,
+  designNotes,
   edgeAt,
   edgeKey,
   edgesOn,
@@ -1044,6 +1045,26 @@ describe("turning every wall block into lines", () => {
     expect(state.items?.inventories.ada?.stacks).toMatchObject({ brickwork: 1, plaster: 1 });
     expect(state.floors?.["1"]?.blocks).toEqual({});
     expect(state.edges).toEqual({ [edgeKey(4, 4, "w")]: "wood", [edgeKey(2, 2, "n")]: "wood" });
+  });
+
+  it("puts a door on the outer line of a seat standing in the doorway, never a wall", () => {
+    // A sofa where the hut's door was: walkers go over it, so it was the way in.
+    const { state } = hut();
+    state.blocks[tileKey(3, 5)] = "sofa";
+    turned(state);
+    expect(edgeAt(state, 3, 6, "n")).toBe("door");
+    expect(designNotes(state, 0, 0).map((n) => n.code)).not.toContain("hearth_walled_in");
+  });
+
+  it("leaves a home as it stands where its lines would wall the hearth in", () => {
+    // The wall beside the door is gone, so the doorway is two tiles wide, and a door on its own
+    // stands outside it: the planner finds no door for the room, and the town won't shut Ada in.
+    const { state } = hut();
+    delete state.blocks[tileKey(2, 5)];
+    state.blocks[tileKey(2, 6)] = "door";
+    expect(townLines(state, 0, 0)).toEqual({
+      problem: "It would wall a hearth in with no way to it.",
+    });
   });
 
   it("has nothing to do on a plot with no wall blocks", () => {

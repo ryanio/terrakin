@@ -1502,8 +1502,10 @@ export class WorldService {
    * The town turns every wall block on every held plot into lines (`townLines`), each plot logged
    * as `town_slim` for its owner, who hears of it unless they're townsfolk. The first time, it then
    * logs `walls_on_lines`, in the same tick, so no wall block can go up between the two; after
-   * that it comes back once a world day for any plot still holding one. It waits for starter homes
-   * on lines, for the town's slim of every home when that runs, and for `onHomeSlimmed`.
+   * that it comes back once a world day per boot (the day is in memory) for any plot still holding
+   * one; a plot with nothing left to change is refused, so a restart logs nothing twice. It waits
+   * for starter homes on lines, for the town's slim of every home when that runs, and for
+   * `onHomeSlimmed`.
    */
   private wallsToLines() {
     if (!this.wallsOnLines || !this.state.starterEdges || !this.onHomeSlimmed) return;

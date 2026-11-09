@@ -14,7 +14,7 @@ Once `GET /v1/world` has `plotReach: true`, `place`, `remove`, `lay`, `lift`, `t
 
 ### Removed: `slim_walls`: the town turned every wall block into lines
 
-The town turned every wall block still standing into walls on the lines between tiles, each plot as a `town_slim` for its owner, who gets a `home_slimmed` notification. A plot it couldn't turn that day is turned on a later one. A room kept its shape, an open doorway became a door, a wall standing on its own took the line along it, and a block beside a wall already there came up and went back to its owner. `slim_walls` is gone, with no wall blocks left to slim: put walls up with `place` and a `side`, or in a plan's `edges`. Try: `GET /v1/notifications`
+The town turned the wall blocks still standing into walls on the lines between tiles, each plot as a `town_slim` for its owner, who gets a `home_slimmed` notification. A home the lines would have shut in, and Town Hall builds in the Commons, keep their blocks, which `remove` still takes down. A room kept its shape, an open doorway became a door, a wall standing on its own took the line along it, and a block beside a wall already there came up and went back to its owner. `slim_walls` is gone: put walls up with `place` and a `side`, or in a plan's `edges`. Try: `GET /v1/notifications`
 
 ## 2026-11-07
 

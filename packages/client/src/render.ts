@@ -971,36 +971,6 @@ export function render(
     ctx.drawImage(art, sx - w / 2, bottom - h, w, h);
   }
 
-  if (buildMode && slot) {
-    const { sx, sy } = tileToScreen(cam, slot.x0, slot.y0);
-    ctx.setLineDash([scale * 0.12, scale * 0.18]);
-    ctx.strokeStyle = "rgba(255, 250, 240, 0.4)";
-    ctx.lineWidth = 1.5;
-    ctx.strokeRect(
-      sx - half + 1,
-      sy - half + 1,
-      scale * (slot.x1 - slot.x0 + 1) - 2,
-      scale * (slot.y1 - slot.y0 + 1) - 2,
-    );
-    ctx.setLineDash([]);
-  }
-  if (buildMode && reach) {
-    const { sx, sy } = tileToScreen(cam, reach.x0, reach.y0);
-    ctx.setLineDash([scale * 0.22, scale * 0.16]);
-    ctx.strokeStyle = "rgba(255, 250, 240, 0.95)";
-    ctx.lineWidth = 2.5;
-    ctx.beginPath();
-    ctx.roundRect(
-      sx - half,
-      sy - half,
-      scale * (reach.x1 - reach.x0 + 1),
-      scale * (reach.y1 - reach.y0 + 1),
-      scale * 0.25,
-    );
-    ctx.stroke();
-    ctx.setLineDash([]);
-  }
-
   if (hover) paintHover(ctx, cam, hover);
   if (buildMode && mark) paintBuildMark(ctx, cam, mark.spot, mark.fade);
 
@@ -1400,6 +1370,37 @@ export function render(
         ctx.fill();
       });
     }
+  }
+
+  // ---- the build outlines: the slot, faintly, and the lot you reach, over the night so they show after dark ----
+  if (buildMode && slot) {
+    const { sx, sy } = tileToScreen(cam, slot.x0, slot.y0);
+    ctx.setLineDash([scale * 0.12, scale * 0.18]);
+    ctx.strokeStyle = "rgba(255, 250, 240, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(
+      sx - half + 1,
+      sy - half + 1,
+      scale * (slot.x1 - slot.x0 + 1) - 2,
+      scale * (slot.y1 - slot.y0 + 1) - 2,
+    );
+    ctx.setLineDash([]);
+  }
+  if (buildMode && reach) {
+    const { sx, sy } = tileToScreen(cam, reach.x0, reach.y0);
+    ctx.setLineDash([scale * 0.22, scale * 0.16]);
+    ctx.strokeStyle = "rgba(255, 250, 240, 0.95)";
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.roundRect(
+      sx - half,
+      sy - half,
+      scale * (reach.x1 - reach.x0 + 1),
+      scale * (reach.y1 - reach.y0 + 1),
+      scale * 0.25,
+    );
+    ctx.stroke();
+    ctx.setLineDash([]);
   }
 
   // ---- fireworks (RFC 0034), over the night so they glow ----

@@ -105,6 +105,17 @@ describe("lots (RFC 0052)", () => {
     );
   });
 
+  it("names the lot size that reaches a yard tile and how many steps away it is", () => {
+    const w = world();
+    expect(w.refused("ada", { type: "lay", x: 3, y: 6, ground: "dirt" }).message).toBe(
+      "That's in the wild yard, past this plot's lot of 8 by 8. grow_lot at px 0, py 0 grows it to 10 by 10, which reaches it.",
+    );
+    // The slot's outer ring is reached only by the last step.
+    expect(w.refused("ada", { type: "lay", x: 0, y: 6, ground: "dirt" }).message).toBe(
+      "That's in the wild yard, past this plot's lot of 8 by 8. A lot of 16 by 16 reaches it, 4 grow_lot steps from now; grow_lot at px 0, py 0 grows it to 10 by 10 first.",
+    );
+  });
+
   it("grows a step once the home shows enough and the coins are there, and the lot reaches further", () => {
     const w = world();
     const first = LOTS.steps[0];

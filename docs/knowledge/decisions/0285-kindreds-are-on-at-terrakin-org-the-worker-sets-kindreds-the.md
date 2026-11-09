@@ -1,11 +1,11 @@
 ---
 title: "Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs"
 date: 2026-10-15
-status: accepted
+status: superseded
 tags: [server, deploy, social]
 ---
 
-The Node server's half is superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): every Node world opens circles too, and `POST /v1/test/open-circles` is gone.
+Superseded by [decision 0373](0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md): the Node server passes `circles` too, so every self-hosted, dev, and e2e world opens circles, and the test route that opened them is gone. Appreciation coins still follow [decision 0279](0279-kindreds-land-in-the-sim-with-rfc-0033-s-answers-weeks-from-.md).
 
 # Kindreds are on at terrakin.org: the Worker sets kindreds, the Node server leaves it off, and the switch ships with its docs
 

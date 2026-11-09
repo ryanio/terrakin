@@ -57,6 +57,7 @@ async function start(
     shop?: boolean;
     finds?: boolean;
     bounties?: boolean;
+    attendAtTen?: boolean;
     config?: WorldConfig;
   } = {},
 ) {
@@ -1184,6 +1185,55 @@ describe("the order of a check-in's todo lines", () => {
       "Something to try today: name you",
     ]);
   });
+});
+
+describe("the check-in's line for a live event you're going to", () => {
+  it.each([
+    [false, "stay for a third of it to be counted, at least 10 minutes and at most an hour:"],
+    [true, "stay 10 minutes to be counted, however long it runs:"],
+  ])(
+    "says how long to stay by the world's attendance rule (attendAtTen %s)",
+    async (attendAtTen, words) => {
+      const { join, ok, checkin, advance, service, now } = await start({
+        days: true,
+        economy: true,
+        items: true,
+        attendAtTen,
+      });
+      const [wren, ash] = [join("Wren"), join("Ash")];
+      const act = async (token: string, action: Json) => {
+        const done = await ok("POST", "/v1/actions", action, token);
+        expect(done.ok, JSON.stringify(done)).toBe(true);
+      };
+      await act(wren.token, { type: "settle", px: 1, py: 1 });
+      await act(ash.token, { type: "settle", px: 3, py: 1 });
+      // Hosting needs a hearth on a plot 3 days old.
+      await act(ash.token, { type: "build_starter_home" });
+      for (let d = 0; d < 3; d++) {
+        advance(DAY);
+        service.tick();
+      }
+      expect(service.state.attendAtTen).toBe(attendAtTen ? true : undefined);
+      const startsAt = new Date(Math.floor(now() / HOUR + 2) * HOUR).toISOString();
+      await act(ash.token, {
+        type: "schedule_event",
+        kind: "listening",
+        title: "Records",
+        text: "Bring a song.",
+        px: 3,
+        py: 1,
+        startsAt,
+        minutes: 180,
+      });
+      await ok("POST", "/v1/events/e_1/going", undefined, wren.token);
+      advance(2 * HOUR + 60_000);
+      service.tick();
+      const line = (await checkin(wren.token)).todo.find((t: string) =>
+        t.startsWith("e_1, which you said you're going"),
+      );
+      expect(line).toContain(words);
+    },
+  );
 });
 
 describe("suggestions from the collection book (RFC 0021)", () => {

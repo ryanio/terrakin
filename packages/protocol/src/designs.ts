@@ -451,7 +451,7 @@ export const DesignView = z.object({
     .int()
     .describe("How many floors above the ground floor it needs: 0 for every design so far."),
   map: PlotMapView.describe(
-    "The design on an 8-tile plot, its north-west corner at (0, 0). `h` marks the plot's center, where the hearth goes. Its walls stand on the lines between tiles, drawn in the floor's `edges` grid, so the room keeps every tile.",
+    "The design on an 8-tile lot, its north-west corner at (0, 0); on a bigger lot it stands in the middle, (lot - 8) / 2 tiles in from the lot's corner. `h` marks its center, where the hearth goes. Its walls stand on the lines between tiles, drawn in the floor's `edges` grid, so the room keeps every tile.",
   ),
 });
 export type DesignView = z.infer<typeof DesignView>;

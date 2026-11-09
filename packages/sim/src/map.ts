@@ -4,6 +4,7 @@ import { blocksOn, groundOn, standingFloor } from "./floors";
 import { type Grade, gradeAt, type PastPlain, unitKey } from "./grades";
 import type { GroundKind } from "./ground";
 import { plotKey, tileKey } from "./keys";
+import { lotBounds } from "./lots";
 import type { BlockKind, Tile, WorldState } from "./types";
 import { plotInBounds } from "./world";
 
@@ -101,14 +102,21 @@ export interface PlotMap {
 }
 
 /**
- * One plot as it stands, or with `plan` as it would leave it, in plan coordinates (from the plot's
- * north-west corner). The map and the notes both read a plot through it, so a dry run's picture and
- * notes are about the plot the plan makes, worked out without changing the world.
+ * One plot's lot as it stands, or with `plan` as it would leave it, in plan coordinates (from the
+ * lot's north-west corner, which is the plot's own before a regrid, RFC 0052). The map and the
+ * notes both read a plot through it, so a dry run's picture and notes are about the plot the plan
+ * makes, worked out without changing the world.
  */
 export interface PlotTiles {
   px: number;
   py: number;
+  /** The lot's side. */
   size: number;
+  /**
+   * The world tile of the lot's north-west corner (`lotBounds`). Absent, it is the plot's own
+   * corner, `px * size` and `py * size`, as in a world that was never regridded.
+   */
+  corner?: Tile;
   /** The ground floor and each floor the plot added, from the ground up. */
   floors: number[];
   block(floor: number, x: number, y: number): BlockKind | undefined;
@@ -138,9 +146,8 @@ export function plotTiles(
 ): PlotTiles | undefined {
   const { config } = state;
   if (!plotInBounds(config, px, py)) return undefined;
-  const S = config.plotSize;
-  const x0 = px * S;
-  const y0 = py * S;
+  // The lot (RFC 0052), what its owners build on: plans, maps and notes count from its corner.
+  const { x0, y0, side: S } = lotBounds(state, px, py);
   const added = state.plots[plotKey(px, py)]?.floors ?? 0;
   const floors = Array.from({ length: added + 1 }, (_, i) => i);
   // The plan's changes, by floor and world tile key. Null is taken away.
@@ -179,6 +186,7 @@ export function plotTiles(
     px,
     py,
     size: S,
+    corner: { x: x0, y: y0 },
     floors,
     block: (floor, x, y) => {
       const key = at(floor, x0 + x, y0 + y);

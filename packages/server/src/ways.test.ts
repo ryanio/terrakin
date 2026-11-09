@@ -410,13 +410,13 @@ describe("a wall on the line between two tiles (RFC 0050)", () => {
         { x: 12, y: line.y },
       ]),
     );
-    const inputs = wayInputs(plan, 8);
+    const inputs = wayInputs(plan, { config: CONFIG });
     expect(inputs).toContainEqual({ type: "clear_block", x: 12, y: line.y, side: "w" });
     expect(wayConflicts(state, inputs)).toEqual([]);
     for (const command of inputs)
       expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
     expect(landlocked(state)).toEqual([]);
-    expect(wayInputs(planWays(wayFactsFrom(state)), 8)).toEqual([]);
+    expect(wayInputs(planWays(wayFactsFrom(state)), { config: CONFIG })).toEqual([]);
   });
 
   it("holding up an upstairs stays, so a plot only beyond it stays unjoined", () => {
@@ -444,7 +444,7 @@ describe("a wall on the line between two tiles (RFC 0050)", () => {
     expect(plan.unjoined).toEqual([]);
     expect(plan.lines).toEqual([]);
     expect(plan.tiles).not.toContainEqual({ x: 9, y: 3 });
-    expect(wayConflicts(state, wayInputs(plan, 8))).toEqual([]);
+    expect(wayConflicts(state, wayInputs(plan, { config: CONFIG }))).toEqual([]);
   });
 });
 
@@ -485,7 +485,7 @@ describe("a home the way cuts through", () => {
       const [home] = plan.homes;
       expect(home).toMatchObject({ px: 1, py: 0, ownerId: "bo", left: [] });
       expect(home?.rebuild.filter((b) => b.block === "door")).toHaveLength(1);
-      const inputs = wayInputs(plan, 8);
+      const inputs = wayInputs(plan, { config: CONFIG });
       expect(wayConflicts(state, inputs)).toEqual([]);
       for (const command of inputs)
         expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
@@ -506,7 +506,7 @@ describe("a home the way cuts through", () => {
   );
 
   it("planned again after a run that stopped anywhere, finishes without doing anything twice", () => {
-    const first = wayInputs(stripPlan(stripWorld({ x: 12, y: 5 }), [3]), 8);
+    const first = wayInputs(stripPlan(stripWorld({ x: 12, y: 5 }), [3]), { config: CONFIG });
     expect(first.map((c) => c.type)).toEqual([
       "clear_block",
       "clear_block",
@@ -518,7 +518,7 @@ describe("a home the way cuts through", () => {
       for (const command of first.slice(0, stop)) {
         expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
       }
-      const rest = wayInputs(stripPlan(state, [3]), 8);
+      const rest = wayInputs(stripPlan(state, [3]), { config: CONFIG });
       // Nothing that went in goes in again: no block cleared twice, no tile laid twice.
       const done = new Set(first.slice(0, stop).map((c) => JSON.stringify(c)));
       expect(rest.filter((c) => done.has(JSON.stringify(c)))).toEqual([]);
@@ -528,7 +528,7 @@ describe("a home the way cuts through", () => {
       expect(wayConflicts(state, rest)).toEqual([]);
       for (const command of rest)
         expect(apply(state, { actor: TOWN_ACTOR, command }).ok).toBe(true);
-      expect(wayInputs(stripPlan(state, [3]), 8)).toEqual([]);
+      expect(wayInputs(stripPlan(state, [3]), { config: CONFIG })).toEqual([]);
       expect(walksToCommons(state, { x: 12, y: 5 })).toBe(true);
       expect(landlocked(state)).toEqual([]);
     }
@@ -556,7 +556,7 @@ describe("a home the way cuts through", () => {
     const items = state.items;
     if (!items) throw new Error("no items");
     items.inventories.bo = { stacks: { wood: 200 }, goods: [] };
-    const conflicts = wayConflicts(state, wayInputs(stripPlan(state, [3]), 8));
+    const conflicts = wayConflicts(state, wayInputs(stripPlan(state, [3]), { config: CONFIG }));
     expect(conflicts).toContainEqual(
       expect.objectContaining({ code: "inventory_full", ownerId: "bo", x: 14, y: 3 }),
     );

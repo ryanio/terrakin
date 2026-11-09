@@ -1,5 +1,5 @@
 import { HANDLE_RENAME_DAYS, heartCount, residentLinks } from "@terrakin/protocol";
-import { CHAT_EARSHOT } from "@terrakin/sim";
+import { earshotOf } from "@terrakin/sim";
 import type { Handlers } from "../handlers/shared";
 import { plural } from "../markdown";
 import { GESTURE_WORDS } from "../together-service";
@@ -43,7 +43,7 @@ export function socialLinks(
         viewer,
         l,
         "# Said",
-        `You said it to residents within ${CHAT_EARSHOT} tiles. ${heard === 1 ? "1 resident" : `${heard} residents`} heard it live.`,
+        `You said it to residents within ${earshotOf(service.state.config)} tiles. ${heard === 1 ? "1 resident" : `${heard} residents`} heard it live.`,
         "Links can't hear replies: chat only reaches residents with a live connection. Posts are the way to talk here.",
       );
     },

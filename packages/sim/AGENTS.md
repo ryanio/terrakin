@@ -45,6 +45,14 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - Append-only lists: new patterns go on the end of `PRINTS`, new wear slots on the end of `WEAR_SLOTS`, partner wear on the end of `WEAR_ITEMS`, new holidays on the end of `HOLIDAYS`, new blocks on the end of `BLOCK_KINDS`, new stacks on the end of `STACK_KINDS`, so older records sort and hash the same. `jobs.test.ts` pins that a new holiday moves no logged day's board.
 - Whatever lists wear for everyone leaves out earned wear (`isEarnedWear`) and job wear (`isJobWear`).
 
+## Plots and lots (RFC 0052)
+
+- `src/grid.ts` is the plot grid's geometry and imports nothing but types: `BASE_PLOT` (8, the size every world starts at and town layouts and designs are drawn for), `insetOf` (how far in a slot's middle 8 by 8 starts: 0, then 4), `moveCoord`, and `baseTile`. Town buildings, table spots, the starter hut and `starterEdgeHut` sit in a slot's middle through `insetOf`, never a fixed offset.
+- Pure functions of place (`biomeAt`, pickups) read a tile through `baseTile`, which maps a regridded tile to the 8-tile grid and a yard tile to the nearest tile of its slot's middle. A world of 8-tile plots or smaller reads every tile as itself.
+- `regrid` (`src/regrid.ts`) is the town's one switch from 8-tile slots to 16 and a pure transform (`regridWorld`), so logs before it replay at 8. Its rules for what crossed a slot border (a line stays with its north or west tile, a way is carried across its yard wherever a walker could step off it, a bridge along its run, a thing hung across the border goes back) are [decision 0431](../../docs/knowledge/decisions/0431-the-regrid-moves-every-slot-to-the-middle-of-a-16-tile-slot-.md). `regrid.test.ts` lists every field of `WorldState`: a new field fails it until it's placed, and moved if it holds a tile. Every 8-tile fixture is regridded and checked for counts, standing, hearths reached, ways joined and exits kept.
+- A lot (`src/lots.ts`) is the square in the middle of a slot its owners build on: `lotSide`, `lotBounds` (its corner), `inLot`, `outsideLotProblem` (`outside_lot`), and `LOTS`, the steps `grow_lot` takes (`lot_full` at the slot). Lots are kept on the world by slot (`state.lots`), so a sale or a release keeps one. Before a regrid a lot is the whole slot.
+- Plans, `plotPlan`, maps (`plotTiles`, `plotMap`), design notes, `rebuild_home` and the town's slims count from the lot's corner, never `px * plotSize`. Read the corner from `lotBounds`.
+
 ## Lands, streets, and ways
 
 - An island is a region of the same plane. Water is what's left: a tile in bounds on no land's plots, square, or streets and not a bridge is sea. `seaFrom(config, lands)` is that one rule, built from the snapshot's facts so the web answers as the rules do. `settle` and `claim` refuse it, no pickup lies on it, and `fish` casts into it.

@@ -444,12 +444,21 @@ describe("hearth", () => {
 });
 
 describe("withinEarshot", () => {
-  it("hears at exactly CHAT_EARSHOT tiles, not one more, in any direction", () => {
-    const at = { x: 20, y: 20 };
-    expect(withinEarshot(at, at)).toBe(true);
-    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT, y: 20 - CHAT_EARSHOT })).toBe(true);
-    expect(withinEarshot(at, { x: 20 + CHAT_EARSHOT + 1, y: 20 })).toBe(false);
-    expect(withinEarshot(at, { x: 20, y: 20 - CHAT_EARSHOT - 1 })).toBe(false);
+  it("hears at exactly the world's earshot, not one more, in any direction", () => {
+    const at = { x: 40, y: 40 };
+    // CHAT_EARSHOT on 8-tile plots (and smaller), twice as far on 16-tile plots (RFC 0052), so
+    // someone in their wild yard still hears the Commons.
+    for (const [plotSize, far] of [
+      [4, CHAT_EARSHOT],
+      [8, CHAT_EARSHOT],
+      [16, CHAT_EARSHOT * 2],
+    ] as const) {
+      const config = { plotSize };
+      expect(withinEarshot(config, at, at)).toBe(true);
+      expect(withinEarshot(config, at, { x: 40 + far, y: 40 - far })).toBe(true);
+      expect(withinEarshot(config, at, { x: 40 + far + 1, y: 40 })).toBe(false);
+      expect(withinEarshot(config, at, { x: 40, y: 40 - far - 1 })).toBe(false);
+    }
   });
 });
 

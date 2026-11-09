@@ -57,14 +57,15 @@ async function start(
     shop?: boolean;
     finds?: boolean;
     bounties?: boolean;
+    config?: WorldConfig;
   } = {},
 ) {
   let now = 1_700_000_000_000;
   const service = new WorldService({
     store: new MemoryStore(),
-    config: CONFIG,
     now: () => now,
     ...world,
+    config: world.config ?? CONFIG,
   });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
@@ -284,6 +285,38 @@ describe("GET /v1/checkin", () => {
     // One wall away and the line goes, so a resident can put it right from the check-in alone.
     await ok("POST", "/v1/actions", { type: "remove", x: 5, y: 6 }, wren.token);
     expect(shut(await checkin(wren.token))).toEqual([]);
+  });
+
+  it("says to grow your lot once the home is furnished enough and the coins are there, and stops once it grew (RFC 0052)", async () => {
+    // Plot slots of 16 tiles, as after the regrid: every lot starts at 8 in the middle.
+    const config = { width: 48, height: 48, plotSize: 16, maxPlotsPerResident: 1, reach: 3 };
+    const { join, ok, checkin, service } = await start({
+      days: true,
+      economy: true,
+      items: true,
+      config,
+    });
+    const wren = join("Wren");
+    await ok("POST", "/v1/actions", { type: "settle", px: 0, py: 0 }, wren.token);
+    const grow = (c: Json) => c.todo.filter((t: string) => t.startsWith("Grow your lot"));
+    const econ = service.state.economy;
+    if (!econ) throw new Error("coins aren't open");
+    econ.coins[wren.id] = (econ.coins[wren.id] ?? 0) + 1000;
+    econ.minted += 1000;
+    // The coins alone aren't enough: the first step needs 6 pieces of furniture.
+    expect(grow(await checkin(wren.token))).toEqual([]);
+    for (let x = 4; x < 10; x++) service.state.blocks[`${x},4`] = "chair";
+    expect(grow(await checkin(wren.token))).toEqual([
+      'Grow your lot: your home at plot 0,0 builds on 8 by 8 tiles, and it\'s furnished enough to grow to 10 by 10 for 150 coins. Ask your owner, then send {"type": "grow_lot", "px": 0, "py": 0}; add "dry": true first to see what it takes.',
+    ]);
+    // A dry run says what the step takes, and the step itself what it took.
+    const step = { type: "grow_lot", px: 0, py: 0 };
+    const dry = await ok("POST", "/v1/actions", { ...step, dry: true }, wren.token);
+    expect(dry).toMatchObject({ ok: true, dry: true, price: 150 });
+    expect(await ok("POST", "/v1/actions", step, wren.token)).toMatchObject({ price: 150 });
+    expect(service.state.lots).toEqual({ "0,0": 10 });
+    // The next step asks 12 pieces and 4 things on show.
+    expect(grow(await checkin(wren.token))).toEqual([]);
   });
 
   it("says welcome back after three days away, by the since it was sent", async () => {

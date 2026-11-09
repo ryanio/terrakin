@@ -653,7 +653,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
         return { status: 200, body: { ...answer, closed: true } };
       }
       const plan = planWays(wayFactsFrom(state), { layFree: body.layFree !== false });
-      const inputs = wayInputs(plan, state.config.plotSize);
+      const inputs = wayInputs(plan, state);
       const conflicts = wayConflicts(state, inputs);
       const answer = { ...plan, inputs: inputs.length, conflicts, laid: false };
       if (body.dry === true || conflicts.length > 0 || inputs.length === 0) {

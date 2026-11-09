@@ -9,6 +9,7 @@ import {
   edgeKey,
   edgesOn,
   landlocked,
+  lotBounds,
   type OpeningFacts,
   openingFacts,
   plotKey,
@@ -85,6 +86,7 @@ export function wayFactsFrom(state: WorldState): WayFacts {
     listed: new Set(Object.keys(state.plotMarket?.listings ?? {})),
     ways: new Set(Object.keys(state.ways ?? {})),
     landing: wayLanding(config, downtown, commons),
+    lotOf: (px, py) => lotBounds(state, px, py),
   };
 }
 
@@ -92,10 +94,12 @@ export function wayFactsFrom(state: WorldState): WayFacts {
  * The town's inputs that lay a plan, in the order they must go: each block on a way tile cleared
  * and given back to its plot's owner (`clear_block`, decision 0343), then each wall on a line
  * between two way tiles (`clear_block` with its side, RFC 0050), the way opened, then each home
- * it cut through rebuilt as its owner would build it, in plot tiles. A plan read again after a run
+ * it cut through rebuilt as its owner would build it, in lot tiles. A plan read again after a run
  * that stopped partway holds only what is left to do.
  */
-export function wayInputs(plan: WayPlan, plotSize: number): WayCommand[] {
+export function wayInputs(plan: WayPlan, world: Pick<WorldState, "config" | "lots">): WayCommand[] {
+  // `rebuild_home` is a build, so its tiles count from the lot's corner (RFC 0052).
+  const corner = (px: number, py: number) => lotBounds(world, px, py);
   return [
     ...plan.blocks.map((b): WayCommand => ({ type: "clear_block", x: b.x, y: b.y })),
     ...plan.lines.map((l): WayCommand => ({ type: "clear_block", x: l.x, y: l.y, side: l.side })),
@@ -117,8 +121,8 @@ export function wayInputs(plan: WayPlan, plotSize: number): WayCommand[] {
           blocks: [],
           remove: [],
           edges: h.rebuild.map((b) => ({
-            x: b.x - h.px * plotSize,
-            y: b.y - h.py * plotSize,
+            x: b.x - corner(h.px, h.py).x0,
+            y: b.y - corner(h.px, h.py).y0,
             side: b.side,
             block: b.block,
           })),

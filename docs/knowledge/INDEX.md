@@ -364,7 +364,8 @@ What we chose and why. Newest last.
 - [Building reaches the whole plot and walls go only on lines, from two logged switches](decisions/0428-building-reaches-the-whole-plot-and-walls-go-only-on-lines-f.md) · 2026-11-09 · accepted · `sim` `protocol` `building` `rfc-0050` `switches`
 - [A build tap only adds with a pick and only takes away with Remove, walls go only on lines, and building frames the plot](decisions/0429-a-build-tap-only-adds-with-a-pick-and-only-takes-away-with-r.md) · 2026-11-09 · accepted · `client` `design` `mobile`
 - [The town turns every wall block into lines, then logs walls_on_lines, and slim_walls leaves the API](decisions/0430-the-town-turns-every-wall-block-into-lines-then-logs-walls-o.md) · 2026-11-09 · accepted · `server` `protocol` `building` `rfc-0050` `switches`
-- [The wild yard and each slot's feature are drawn from a hash, on the map and in 3D](decisions/0431-the-wild-yard-and-each-slot-s-feature-are-drawn-from-a-hash-.md) · 2026-11-09 · accepted · `client` `rendering` `3d` `rfc-0052`
+- [The regrid moves every slot to the middle of a 16-tile slot, carries ways and bridges across the yards, and waits for a dry run on a copy](decisions/0431-the-regrid-moves-every-slot-to-the-middle-of-a-16-tile-slot-.md) · 2026-11-09 · accepted · `sim` `server` `protocol` `building` `rfc-0052` `switches`
+- [The wild yard and each slot's feature are drawn from a hash, on the map and in 3D](decisions/0432-the-wild-yard-and-each-slot-s-feature-are-drawn-from-a-hash-.md) · 2026-11-09 · accepted · `client` `rendering` `3d` `rfc-0052`
 
 ## Learnings
 

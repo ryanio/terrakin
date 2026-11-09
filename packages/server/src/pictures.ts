@@ -7,6 +7,7 @@ import {
 } from "@terrakin/cards";
 import {
   alphaHex,
+  BASE_PLOT,
   DAY_LENGTH_MS,
   dayPhase,
   isCommons,
@@ -89,7 +90,10 @@ export interface PictureOptions {
   artShown: (id: string, mediaId: string) => boolean;
 }
 
-/** The map around someone, in tiles: as wide as the photo is, about 2.4 to 1. */
+/**
+ * The map around someone, in tiles on a world of 8-tile plots: as wide as the photo is, about 2.4
+ * to 1. It grows with the plot grid (RFC 0052), so it shows as many neighbors after a regrid.
+ */
 const NEAR_COLS = 24;
 const NEAR_ROWS = 10;
 /** A plot as it looks now, with whoever stands on it. Undefined for a plot nobody has claimed. */
@@ -154,8 +158,9 @@ function nearPicture(state: WorldState, id: string, o: PictureOptions): NearSpec
   const r = residentById(state, id);
   if (!r) return undefined;
   const { config } = state;
-  const cols = Math.min(NEAR_COLS, config.width);
-  const rows = Math.min(NEAR_ROWS, config.height);
+  const scale = config.plotSize / BASE_PLOT;
+  const cols = Math.min(Math.round(NEAR_COLS * scale), config.width);
+  const rows = Math.min(Math.round(NEAR_ROWS * scale), config.height);
   const here = r.online ? { x: r.x, y: r.y } : (r.hearth ?? { x: r.x, y: r.y });
   /** The plot they're standing on, which the roofs and the caption's `place` both read. */
   const spot = plotOf(config, here.x, here.y);

@@ -23,6 +23,7 @@ import {
   MEDIA_ID_PATTERN,
   NAME_MAX_LENGTH,
   planMax,
+  REGRID,
   ROUTINE_KINDS,
   SHOP,
   TOWN_LIMITS,
@@ -329,12 +330,15 @@ export const SetRoofAction = z.object({
   ...dry,
 });
 
-/** A plot's tiles counted from its north-west corner: 0 to `config.plotSize - 1` each way. */
+/**
+ * A lot's tiles counted from its north-west corner (RFC 0052): 0 to one less than the lot's side
+ * each way, and a lot is at most a regridded plot slot.
+ */
 const planCoord = z
   .number()
   .int()
   .min(0)
-  .max(DEFAULT_CONFIG.plotSize - 1);
+  .max(REGRID.to - 1);
 
 const planTile = z.object({ x: planCoord, y: planCoord, ...toFloor });
 
@@ -369,12 +373,19 @@ export const PlotMapInput = z.object({
 
 export type PlotMapInput = z.infer<typeof PlotMapInput>;
 
-/** The most entries in each of a plan's lists: a whole plot on every floor a plot may have. */
-const PLAN_MAX = planMax(DEFAULT_CONFIG);
+/**
+ * The biggest lot a plan runs across: a whole regridded plot slot (RFC 0052). The sim checks a plan
+ * against the lot it's for.
+ */
+const LOT_MAX = { ...DEFAULT_CONFIG, plotSize: REGRID.to };
+
+/** The most entries in each of a plan's lists: a whole lot on every floor a plot may have. */
+const PLAN_MAX = planMax(LOT_MAX);
 
 /**
  * Build a plan on plot (`px`, `py`), one you own or share, in one action from anywhere (RFC 0016).
- * Tiles count from the plot's north-west corner, so a plan builds the same thing on any plot, and
+ * Tiles count from the north-west corner of the plot's lot (RFC 0052), so a plan builds the same
+ * thing on any lot its size, and
  * each may name a `floor` (RFC 0028). `remove` and `lift` go first, from the top floor down,
  * then the ground floor's `blocks` and `ground`, then each floor up's `ground` and `blocks`.
  */

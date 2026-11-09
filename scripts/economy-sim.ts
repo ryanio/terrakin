@@ -44,6 +44,10 @@
  *                home's wood or stone walls for it in one `build`. Off by default, so the month
  *                without it plays exactly as before; it prints the finds fine crafts spend against
  *                those picked up, the stock left, and the masterwork pairs a regular makes
+ *   --lots       measure lots (RFC 0052) without growing any: each day, how many homes are
+ *                furnished enough for each `grow_lot` step and hold the coins for it and every
+ *                step before it. It sends nothing and draws nothing, so the month plays exactly as
+ *                without it, and the world keeps its 8-tile plots; it prints when the steps bind.
  *   --plots      the world opens the item market, its first island (the server's `planLand`) and
  *                the plot market with a cap of 3 (RFC 0039), and residents drawn from their own
  *                stream trade plots: sellers list a plot they've held 14 days now and then at a
@@ -161,6 +165,9 @@ import type {
 const {
   activeTable,
   apply,
+  furnishing,
+  homePlotOf,
+  LOTS,
   biomeAt,
   bountyHeld,
   BUY_ORDERS,
@@ -304,6 +311,7 @@ const { values: args } = parseArgs({
     kiln: { type: "boolean", default: false },
     grades: { type: "boolean", default: false },
     plots: { type: "boolean", default: false },
+    lots: { type: "boolean", default: false },
     "job-edition": { type: "string" },
     // Print only what a run with jobs compares against, as one line of JSON (`jobLines`).
     dump: { type: "boolean", default: false },
@@ -386,6 +394,8 @@ const GRADES_ON = LEVELS_ON && args.grades === true;
  * `open_plot_market` is logged; its draws are its own stream.
  */
 const PLOTS_ON = SHOP_OPEN && args.plots === true;
+/** Lots (RFC 0052), measured only: nothing is sent, so the month plays as it does without. */
+const LOTS_ON = args.lots === true;
 /** The town has a board, and some residents take its jobs (RFC 0030). Jobs pay points. */
 const JOBS_ON = LEVELS_ON && !args["no-jobs"];
 /** The edition of the jobs table the board reads, from the month's first day (decision 0265). */
@@ -1669,6 +1679,55 @@ function goMake(rules: Rules, id: string, habits: Habits) {
     bench ??= workbench(rules, id);
     if (!next || !bench || !rules.send(id, { type: "craft", recipe: next, ...bench })) break;
   }
+}
+
+// ---------- lots (RFC 0052), measured ----------
+
+/**
+ * For each `grow_lot` step, the day each resident's home first showed enough for it (`furnished`),
+ * and the day they first also held its coins and every step's before it (`paid`), as a grower who
+ * took the steps in order would need. Nothing is spent, so this says whether the steps bind, not
+ * what they drain.
+ */
+const lotDays = LOTS.steps.map(() => ({
+  furnished: new Map<string, number>(),
+  paid: new Map<string, number>(),
+}));
+
+function noteLots(rules: Rules, settled: ReadonlySet<string>, day: number) {
+  const { state } = rules;
+  for (const id of settled) {
+    const home = homePlotOf(state, id);
+    if (!home) continue;
+    const has = furnishing(state, home.px, home.py);
+    const shown = has.onSurfaces + has.onWalls + has.onDisplay;
+    let cost = 0;
+    LOTS.steps.forEach((step, i) => {
+      cost += step.coins;
+      const at = lotDays[i];
+      if (!at || has.pieces < step.pieces || shown < step.onShow) return;
+      if (!at.furnished.has(id)) at.furnished.set(id, day);
+      if (!at.paid.has(id) && rules.balance(id) >= cost) at.paid.set(id, day);
+    });
+  }
+}
+
+const settledCount = (people: readonly Person[]) =>
+  people.filter((p) => p.settles && p.arrives < DAYS).length;
+
+function lotLines(settledHere: number) {
+  const median = (m: Map<string, number>) => {
+    const days = [...m.values()].sort((a, b) => a - b);
+    return days.length ? (days[Math.floor(days.length / 2)] ?? 0) : 0;
+  };
+  console.log(`\nLots (RFC 0052), measured, of ${settledHere} settled residents:`);
+  LOTS.steps.forEach((step, i) => {
+    const at = lotDays[i];
+    if (!at) return;
+    console.log(
+      `  to ${step.side} (${step.coins} coins, ${step.pieces} pieces, ${step.onShow} on show): ${at.furnished.size} furnished enough (median day ${median(at.furnished)}), ${at.paid.size} also held the coins (median day ${median(at.paid)}).`,
+    );
+  });
 }
 
 // ---------- the plot market (RFC 0039) ----------
@@ -3739,6 +3798,7 @@ function play(rules: Rules) {
       );
     }
     if (LEVELS_ON) noteLevels(rules.state, people, settled);
+    if (LOTS_ON) noteLots(rules, settled, day);
     // What each newcomer had to spend by the end of their seventh day: their purse and what they
     // spent at the shop.
     for (const p of people) {
@@ -4669,6 +4729,7 @@ function flowLines(
   if (KILN_ON) potteryLines(people);
   if (GRADES_ON) gradeLines(rules, people);
   if (PLOTS_ON) plotLines(rules, people);
+  if (LOTS_ON) lotLines(settledCount(people));
   if (COZY_ON) {
     console.log(
       `Cozy pieces (RFC 0044): ${cozy.made} made by ${cozy.makers.size} makers, for ${cozy.cards} coins of cards and ${cozy.cushions} of cushions.`,

@@ -74,6 +74,8 @@ export interface WayFacts {
   ways: ReadonlySet<string>;
   /** The tiles on downtown's edge where a bridge to the first island arrives. */
   landing: readonly Tile[];
+  /** Each slot's lot (RFC 0052), its corner and side. Absent: every lot is its whole slot. */
+  lotOf?: (px: number, py: number) => { x0: number; y0: number; side: number };
 }
 
 /**
@@ -200,10 +202,13 @@ export function planWays(facts: WayFacts, options: WayPlanOptions = {}): WayPlan
   const inDowntown = (x: number, y: number) =>
     x >= 0 && y >= 0 && x < downtown.width && y < downtown.height;
   const isCommons = (px: number, py: number) => px === facts.commons.px && py === facts.commons.py;
+  // A lot's edge ring, or past it in the wild yard (RFC 0052), where nothing is built.
   const onEdge = (x: number, y: number) => {
-    const ix = x % S;
-    const iy = y % S;
-    return ix === 0 || iy === 0 || ix === S - 1 || iy === S - 1;
+    const { px, py } = plotOf(config, x, y);
+    const lot = facts.lotOf?.(px, py) ?? { x0: px * S, y0: py * S, side: S };
+    const ix = x - lot.x0;
+    const iy = y - lot.y0;
+    return ix <= 0 || iy <= 0 || ix >= lot.side - 1 || iy >= lot.side - 1;
   };
   // The ground with every block that stops a walker, but with the blocks the town could clear
   // left out, so a path may run through them at a price. What stays an obstacle: the buildings,

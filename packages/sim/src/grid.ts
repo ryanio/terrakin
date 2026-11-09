@@ -34,7 +34,9 @@ export function baseTile(
   y: number,
 ): { x: number; y: number; ring: boolean } {
   const size = config.plotSize;
-  if (size === BASE_PLOT) return { x, y, ring: false };
+  // Only a slot bigger than the base has a ring: a world of smaller plots (a test world) reads
+  // every tile as itself, as it always did.
+  if (size <= BASE_PLOT) return { x, y, ring: false };
   const inset = Math.floor((size - BASE_PLOT) / 2);
   const back = (v: number) => {
     const slot = Math.floor(v / size);

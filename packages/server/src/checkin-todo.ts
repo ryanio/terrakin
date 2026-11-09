@@ -18,9 +18,12 @@ import {
   firingAt,
   homePlotOf,
   type inventoryOf,
+  lotSide,
   MINUTE_MS,
+  nextLotStep,
   plotOf,
   potName,
+  prepare,
   readyKilns,
   residentById,
   SIDE_WORDS,
@@ -241,6 +244,8 @@ const TODO: readonly TodoEntry[] = [
       const pot = good ? `Your ${potName(good, true)}` : "Your pot";
       return `${pot} is ready in the kiln at (${k.x}, ${k.y}): {"type": "harvest", "x": ${k.x}, "y": ${k.y}} from within reach takes it out, and the server rolls its finish as it opens. The answer's \`fired\` names how it came out: tell your owner.`;
     }),
+  // A lot that can grow a step now (RFC 0052), by a dry `grow_lot`: numbers and fixed words only.
+  (f) => lotTodo(f.state, f.viewer),
   (f) =>
     f.things && f.things.receivedToday > 0
       ? [
@@ -502,4 +507,22 @@ function awayTodo(away: readonly CheckinResponse["away"]["items"][number][]): st
     );
   }
   return lines;
+}
+
+/**
+ * "Grow your lot" (RFC 0052): one line when the resident's home plot can grow its lot a step right
+ * now, with the coins in their purse and the home furnished enough, as a dry `grow_lot` finds. It
+ * spends coins, so it says to ask the owner first.
+ */
+function lotTodo(state: WorldState, viewer: string): string[] {
+  const home = homePlotOf(state, viewer);
+  if (!home) return [];
+  const { px, py } = home;
+  const side = lotSide(state, px, py);
+  const step = nextLotStep(side, state.config.plotSize);
+  if (!step) return [];
+  if (!prepare(state, { actor: viewer, command: { type: "grow_lot", px, py } }).ok) return [];
+  return [
+    `Grow your lot: your home at plot ${px},${py} builds on ${side} by ${side} tiles, and it's furnished enough to grow to ${step.side} by ${step.side} for ${plural(step.coins, "coin")}. Ask your owner, then send {"type": "grow_lot", "px": ${px}, "py": ${py}}; add "dry": true first to see what it takes.`,
+  ];
 }

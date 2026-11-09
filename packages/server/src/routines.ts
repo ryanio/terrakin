@@ -274,7 +274,7 @@ export class Routines {
         const g = residentById(state, id);
         const greet = routineOf(state, id, "greet");
         if (!g?.hearth || g.online || id === walker || !greet) return [];
-        if (!withinEarshot(g.hearth, me)) return [];
+        if (!withinEarshot(state.config, g.hearth, me)) return [];
         return [{ id, hearth: g.hearth, max: greet.max }];
       })
       .sort((a, b) => chebyshev(a.hearth, me) - chebyshev(b.hearth, me) || (a.id < b.id ? -1 : 1));

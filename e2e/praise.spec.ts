@@ -25,20 +25,21 @@ import {
  * How many rows of light paper the map has along the top of the plot you stand on, at your hearth,
  * in CSS pixels: where its name's label goes. At 390x844 the visit card ends above the plot's edge,
  * so the label sits right there. Labels are drawn over the night, so this holds at any hour.
+ * `plotSize` is the world's: the starter home's hearth is the plot's middle tile, `plotSize / 2 -
+ * 1` in from its west and north edges.
  */
-function labelRows(page: Page): Promise<number> {
-  return page.evaluate(() => {
+function labelRows(page: Page, plotSize: number): Promise<number> {
+  return page.evaluate((S) => {
     const canvas = document.getElementById("world") as HTMLCanvasElement;
     const ctx = canvas.getContext("2d");
     if (!ctx) return 0;
     const dpr = canvas.width / window.innerWidth;
-    const scale = Math.max(16, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 13));
-    // The starter home's hearth is 3 tiles in from the plot's west and north edges, so the plot's
-    // middle is half a tile east of you, and its top edge three and a half tiles up. The top row
-    // is open ground; the hut's wall starts on the next.
-    const cx = window.innerWidth / 2 + scale / 2;
-    // The map keeps her in the middle of the clear map, `data-lift` below the screen's middle.
-    const top = window.innerHeight / 2 + Number(canvas.dataset.lift ?? 0) - scale * 3.5;
+    // Where her tile falls on screen and a tile's size, as the map says it (`data-view`).
+    const [sx = 0, sy = 0, scale = 0] = (canvas.dataset.view ?? "").split(",").map(Number);
+    // The plot's middle is half a tile east of her, and its top edge half a tile above the row
+    // `S / 2 - 1` up. That row is the yard, or open ground; the hut's wall is further in.
+    const cx = sx + scale / 2;
+    const top = sy - scale * (S / 2 - 0.5);
     const w = Math.round(40 * dpr);
     const h = Math.round(scale * 1.2 * dpr);
     const { data } = ctx.getImageData(Math.round(cx * dpr - w / 2), Math.round(top * dpr), w, h);
@@ -53,7 +54,7 @@ function labelRows(page: Page): Promise<number> {
       if (light > w * 0.7) rows++;
     }
     return rows / dpr;
-  });
+  }, plotSize);
 }
 
 test("a resident praises a neighbor, then visits their plot and admires it", async ({ page }) => {
@@ -115,7 +116,8 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     await expect(page.locator("#visit-name")).toBeVisible();
     await expect(page.locator("#visit-admire")).toBeHidden();
     await expect(page.locator("#visit-card-owner")).toBeHidden();
-    expect(await labelRows(page)).toBeLessThan(2);
+    const { plotSize } = (await (await page.request.get("/v1/world")).json()).config;
+    expect(await labelRows(page, plotSize)).toBeLessThan(2);
 
     await page.locator("#visit-name").click();
     const sheet = page.getByRole("dialog", { name: "Name your plot" });
@@ -125,7 +127,7 @@ test("a resident praises a neighbor, then visits their plot and admires it", asy
     await expect(sheet).toBeHidden();
     await expect(page.locator("#visit-name")).toHaveText("Rename");
     // Over the plot on the map: a paper label along its top edge.
-    await expect.poll(() => labelRows(page), { timeout: 5000 }).toBeGreaterThan(6);
+    await expect.poll(() => labelRows(page, plotSize), { timeout: 5000 }).toBeGreaterThan(6);
     await page.screenshot({ path: "test-results/plot-name.png" });
   });
 

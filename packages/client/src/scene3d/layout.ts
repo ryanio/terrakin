@@ -16,6 +16,7 @@ import {
   type Holiday,
   holdsRoof,
   isSurface,
+  lotBounds,
   type MadeKind,
   MEDIA_ID_PATTERN,
   type PastPlain,
@@ -42,6 +43,7 @@ import {
   WEAR_INFO,
   type WearItem,
   type Weather,
+  type WorldConfig,
 } from "@terrakin/sim";
 import type { Feeling } from "@terrakin/ui/feelings";
 import { type FigureLook, garmentColor, garmentLook } from "@terrakin/ui/figure";
@@ -533,6 +535,13 @@ export interface PlotLayout {
   size: number;
   /** The plot's middle in tile units (tile centers are whole numbers). */
   center: { x: number; y: number };
+  /**
+   * The plot's lot (RFC 0052): its corner and side, the whole plot before a regrid. The rest of
+   * the plot is its wild yard.
+   */
+  lot: { x0: number; y0: number; side: number };
+  /** The world's size and grid, for what grows where (`yardIn`). */
+  config: WorldConfig;
   /** Neighbor tiles shown around the plot. */
   margin: number;
   blocks: LayoutBlock[];
@@ -829,6 +838,15 @@ export function plotLayout(
     plot,
     bounds,
     size: plotSize,
+    config: snapshot.config,
+    lot: lotBounds(
+      {
+        config: snapshot.config,
+        lots: Object.fromEntries((snapshot.lots ?? []).map((l) => [plotKey(l.px, l.py), l.lot])),
+      },
+      plot.px,
+      plot.py,
+    ),
     center: { x: (bounds.x0 + bounds.x1) / 2, y: (bounds.y0 + bounds.y1) / 2 },
     margin,
     // A pot set down (RFC 0047) is drawn as itself, among the displays, not as a block.

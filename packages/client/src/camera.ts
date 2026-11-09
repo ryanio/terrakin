@@ -27,3 +27,12 @@ export function screenToTile(cam: Camera, sx: number, sy: number): { x: number; 
 export function fitScale(width: number, height: number, tilesAcross = 13): number {
   return Math.max(16, Math.floor(Math.min(width, height) / tilesAcross));
 }
+
+/**
+ * Tiles across the short side of the usual view in a world of `plotSize`-tile plots: 13 for the
+ * 8-tile plots every world starts with, a plot and a ring round it; once slots are 16 tiles
+ * (RFC 0052), a whole slot, so your lot and the meadow round it fit on a phone held upright.
+ */
+export function usualTiles(plotSize: number): number {
+  return Math.max(13, plotSize);
+}

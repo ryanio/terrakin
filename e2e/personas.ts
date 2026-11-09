@@ -133,15 +133,19 @@ export async function actOver(http: Http, token: string, action: unknown) {
   } & Record<string, unknown>;
 }
 
-/** How far `smoke.spec.ts` walks west and north from spawn before it claims where it stands. */
-export const SMOKE_STEPS = 5;
+/**
+ * How far `smoke.spec.ts` walks west and north from spawn before it claims where it stands: out of
+ * the Commons onto the plot beyond its corner, 5 tiles on 8-tile plots and 10 once slots are 16
+ * (RFC 0052), where it lands in that plot's yard.
+ */
+export const smokeSteps = (plotSize: number) => (5 * plotSize) / 8;
 
 /**
- * The plot `smoke.spec.ts` claims by walking onto it: `SMOKE_STEPS` west and north of spawn, the
+ * The plot `smoke.spec.ts` claims by walking onto it: `smokeSteps` west and north of spawn, the
  * middle of the world (the sim's `spawnTile`). It can't pick another, so no free list offers it.
  */
 export function walkedOnto(config: { width: number; height: number; plotSize: number }) {
-  const at = (side: number) => Math.floor(side / 2) - SMOKE_STEPS;
+  const at = (side: number) => Math.floor(side / 2) - smokeSteps(config.plotSize);
   return [
     Math.floor(at(config.width) / config.plotSize),
     Math.floor(at(config.height) / config.plotSize),

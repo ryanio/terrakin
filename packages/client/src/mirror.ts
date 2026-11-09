@@ -28,9 +28,13 @@ import {
   groundOf,
   hallTiles,
   holdsRoof,
+  inLot,
+  insetOf,
   LOOK_KEYS,
   landSquare,
   lookOf,
+  lotBounds,
+  lotSide,
   MINUTE_MS,
   mayGatherOn,
   onSpring,
@@ -63,6 +67,7 @@ import type { EventMark } from "./event-format";
 import type { FloorLayers } from "./floors";
 import { bridgeOf, type LandsView, seaOf } from "./lands";
 import { type Dozer, dozers } from "./scene3d/layout";
+import { onRoad, type Wild } from "./wild-yard";
 
 type EventMessage = { seq: number; event: WorldEvent };
 
@@ -252,6 +257,13 @@ export class Mirror {
   plotReach = false;
   /** Whether walls go only on the lines between tiles (`walls_on_lines_set`). */
   wallsOnLines = false;
+  /** Whether the world's plot slots doubled (RFC 0052), so each has a lot and a wild yard. */
+  regridded = false;
+  /**
+   * Each slot's lot past the first size (RFC 0052), by plotKey: the side of the square in its
+   * middle its owners build on, as the sim keeps it, so the sim's `lotBounds` reads this copy.
+   */
+  lots: Record<string, number> = {};
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -321,6 +333,8 @@ export class Mirror {
   #sea: ((x: number, y: number) => boolean) | undefined;
   /** The bridge tiles of every open land, by tileKey, so the map draws planks over the water. */
   #bridge = new Set<string>();
+  /** Every land's streets, by plotKey (RFC 0046). */
+  #streets = new Set<string>();
   /** Downtown's public ways (RFC 0046), by tileKey. */
   ways = new Set<string>();
   /**
@@ -392,6 +406,8 @@ export class Mirror {
     this.starterEdges = snapshot.starterEdges === true;
     this.plotReach = snapshot.plotReach === true;
     this.wallsOnLines = snapshot.wallsOnLines === true;
+    this.regridded = snapshot.regridded === true;
+    for (const l of snapshot.lots ?? []) this.lots[plotKey(l.px, l.py)] = l.lot;
     for (const g of snapshot.ground ?? []) {
       this.pavingAt(g.floor).set(tileKey(g.x, g.y), g.ground);
     }
@@ -664,7 +680,26 @@ export class Mirror {
       }
     };
     pave(this.squares(), "plaza");
-    pave(streets, "cobble");
+    if (insetOf(this.config) === 0) pave(streets, "cobble");
+    else {
+      // A street slot after the regrid (RFC 0052) is a road down its middle toward the streets and
+      // squares beside it, with wild verge either side (`onRoad`).
+      const joins = (px: number, py: number) =>
+        this.#streets.has(plotKey(px, py)) || this.isSquare(px, py);
+      for (const { px, py } of streets) {
+        const arms = {
+          n: joins(px, py - 1),
+          e: joins(px + 1, py),
+          s: joins(px, py + 1),
+          w: joins(px - 1, py),
+        };
+        for (let ly = 0; ly < S; ly++) {
+          for (let lx = 0; lx < S; lx++) {
+            if (onRoad(lx, ly, S, arms)) drawn.set(tileKey(px * S + lx, py * S + ly), "cobble");
+          }
+        }
+      }
+    }
     for (const key of this.ways) drawn.set(key, "way");
     for (const [key, laid] of this.paving) drawn.set(key, laid);
     this.#drawn = drawn;
@@ -680,6 +715,43 @@ export class Mirror {
     this.#drawn = undefined;
     this.#bridge = bridgeOf(lands);
     this.#sea = seaOf(this.config, lands);
+    this.#streets = new Set(
+      (lands?.list ?? []).flatMap((l) => (l.streets ?? []).map((p) => plotKey(p.px, p.py))),
+    );
+  }
+
+  /** The lot on slot (px, py) (RFC 0052): its corner tile and side, by the sim's `lotBounds`. */
+  lotOf(px: number, py: number): { x0: number; y0: number; side: number } {
+    return lotBounds(this, px, py);
+  }
+
+  /** The side of slot (px, py)'s lot, by the sim's `lotSide`. */
+  lotSide(px: number, py: number): number {
+    return lotSide(this, px, py);
+  }
+
+  /** Whether (x, y) is in its slot's lot, where its owners build, by the sim's `inLot`. */
+  inLot(x: number, y: number): boolean {
+    return inLot(this, x, y);
+  }
+
+  /**
+   * Whether a tile draws as wild ground (RFC 0052): a plot slot's yard past its lot, claimed or not,
+   * or a street's verge beside its road. Never a town square, the sea, a bridge, or anything laid or
+   * paved, and nothing in a world before its regrid. Drawing only: everyone walks it.
+   */
+  wildAt(x: number, y: number): Wild | null {
+    const { config } = this;
+    if (insetOf(config) === 0) return null;
+    if (x < 0 || y < 0 || x >= config.width || y >= config.height) return null;
+    if (this.drawnPaving.has(tileKey(x, y))) return null;
+    if (this.#sea?.(x, y) || this.onBridge(x, y)) return null;
+    const S = config.plotSize;
+    const px = Math.floor(x / S);
+    const py = Math.floor(y / S);
+    if (this.#streets.has(plotKey(px, py))) return "verge";
+    if (this.isSquare(px, py)) return null;
+    return inLot(this, x, y) ? null : "yard";
   }
 
   /** Whether a tile is open water between lands (RFC 0038): nobody walks on it. */
@@ -799,6 +871,12 @@ export class Mirror {
       case "floor_added":
         this.floors.set(plotKey(event.px, event.py), event.floor);
         break;
+      case "lot_grown":
+        this.lots = { ...this.lots, [plotKey(event.px, event.py)]: event.lot };
+        break;
+      // Every coordinate this copy holds moved (RFC 0052): load the world again, as after a gap.
+      case "world_regridded":
+        return "gap";
       case "roof_top_set": {
         // Only the ridge changed: the roof itself is the one the mirror already holds.
         const was = this.roofs.get(plotKey(event.px, event.py));

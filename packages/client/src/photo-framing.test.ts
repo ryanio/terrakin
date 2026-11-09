@@ -8,7 +8,7 @@ import {
   PORTRAIT_FILL,
   photoView,
   sightline,
-  WIDE_PLOTS,
+  WIDE_RING,
   widthAt,
 } from "./photo-framing";
 
@@ -55,11 +55,16 @@ describe("scene photo framings", () => {
     expect(widthAt(dist(v), LENS.fovDeg, LENS.aspect)).toBeCloseTo(NEAR_ACROSS, 5);
   });
 
-  it("shows the whole plot and its neighbors, wide", () => {
-    const v = photoView("wide", at);
-    const across = widthAt(dist(v), LENS.fovDeg, LENS.aspect);
-    expect(across).toBeCloseTo(at.plotSize * WIDE_PLOTS, 5);
-    expect(across).toBeGreaterThan(at.plotSize * 2);
+  it("shows the whole plot and a ring of its neighbors, wide, at either size of slot", () => {
+    for (const plotSize of [8, 16]) {
+      const v = photoView("wide", { ...at, plotSize });
+      const across = widthAt(dist(v), LENS.fovDeg, LENS.aspect);
+      expect(across).toBeCloseTo(plotSize + 2 * WIDE_RING, 5);
+      // The ring is most of an 8-tile plot each side whatever the slot's size, so a 16-tile slot
+      // never doubles the shot and shrinks the home to a speck.
+      expect(across - plotSize).toBeGreaterThan(8);
+      expect(across - plotSize).toBeLessThan(16);
+    }
   });
 
   it("takes a portrait from the first side with no wall in the way, else opens the wall in front", () => {

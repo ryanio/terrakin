@@ -13,6 +13,7 @@ import {
   WorldSnapshot,
 } from "@terrakin/protocol";
 import {
+  BASE_PLOT,
   type BlockKind,
   blocksWalkers,
   type Climb,
@@ -21,6 +22,7 @@ import {
   claimLimit,
   climbsAt,
   type Direction,
+  edgeTiles,
   FIREWORK_COLORS,
   FLOORS,
   FLOWER_KINDS,
@@ -42,7 +44,10 @@ import {
   isSurface,
   isTurn,
   isTurnable,
+  moveCoord,
+  nextLotStep,
   onGreen,
+  outsideLotProblem,
   type PastPlain,
   pageKnown,
   parseKey,
@@ -127,7 +132,7 @@ import {
   lineFrom,
   tileActedOn,
 } from "./build-taps";
-import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
+import { type Camera, fitScale, screenToTile, tileToScreen, usualTiles } from "./camera";
 import { claimOnJoin } from "./claim-on-join";
 import type { EventMark } from "./event-format";
 import { Feelings, gestureReaction, levelReaction } from "./feelings";
@@ -735,8 +740,14 @@ async function resync() {
     // A welcome that landed meanwhile brought its own world, and its events build on that one.
     if (!wasIn && me) return;
     if (parsed.success) {
+      const sizeWas = mirror?.config.plotSize;
       mirror = new Mirror(parsed.data);
       jobs.entered(mirror.jobsOpen);
+      // The world regridded under a guest (RFC 0052): their figure moves as everyone's did.
+      if (guest && sizeWas === BASE_PLOT && mirror.config.plotSize !== BASE_PLOT) {
+        guest.x = moveCoord(guest.x, mirror.config.plotSize);
+        guest.y = moveCoord(guest.y, mirror.config.plotSize);
+      }
       if (guest) {
         mirror.residents.set(GUEST_ID, guest);
         if (guestFacing) mirror.facing.set(GUEST_ID, guestFacing);
@@ -881,7 +892,7 @@ function onMessage(msg: ServerMessage) {
         const m = mirror;
         if (m)
           openHomeSheet({
-            plot: { px, py },
+            plot: { px, py, lot: m.lotOf(px, py) },
             say: showToast,
             buildMyself: buildFromHearth,
             where: {
@@ -1530,7 +1541,7 @@ function zoomTo(scale: number, sx: number, sy: number) {
 
 /** How far the map zooms on this screen, for this world. */
 function zoomLimits(): ZoomBounds {
-  const base = fitScale(cam.width, cam.height);
+  const base = fitScale(cam.width, cam.height, usualTiles(mirror?.config.plotSize ?? BASE_PLOT));
   return mirror ? zoomBounds(cam, mirror.config, base) : { min: base, base, max: base };
 }
 
@@ -1832,6 +1843,8 @@ function placeShort(): string | null {
 function buildAction(tap: BuildTap, at: Tile): Action | string | undefined {
   // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
   const floor = floorField(buildFloor);
+  const yard = yardLine(tap);
+  if (yard) return yard;
   switch (tap.do) {
     case "taken":
       return builtHereLine({ block: tap.block, ground: tap.ground, line: tap.line });
@@ -1881,6 +1894,26 @@ function buildAction(tap: BuildTap, at: Tile): Action | string | undefined {
       };
     }
   }
+}
+
+/**
+ * Why a tap that adds lands in the wild yard past your lot (RFC 0052), in the words of the sim's
+ * `outsideLotProblem`, or null. A line is in the lot when either of its tiles is, as the world
+ * counts it, and taking away is never held back.
+ */
+function yardLine(tap: BuildTap): string | null {
+  const m = mirror;
+  if (!m) return null;
+  const adds = ["place_line", "place", "set_hearth", "lay", "put_on"].includes(tap.do);
+  if (!adds) return null;
+  const tiles =
+    tap.do === "place_line" ? edgeTiles(tap.line.x, tap.line.y, tap.line.side) : [tap.spot];
+  if (tiles.some((t) => m.inLot(t.x, t.y))) return null;
+  const [t] = tiles;
+  // On a plot that isn't yours the world says whose it is, which matters more.
+  if (!t || !buildableHere(m, t.x, t.y)) return null;
+  const why = outsideLotProblem(m, t.x, t.y);
+  return why ? worldProblem(why.code, why.message, { hasPlot: true }) : null;
 }
 
 /**
@@ -2652,8 +2685,9 @@ function paintFloors() {
   // Never a floor the plot lacks: walking onto one with no upstairs builds on its ground floor.
   buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
   const roofNow = plot ? mirror?.roofs.get(plotKey(plot.px, plot.py)) : undefined;
+  const lot = plot ? mirror?.lotOf(plot.px, plot.py).side : undefined;
   const drawn = plot
-    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""}`
+    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""},${lot},${lotWhy}`
     : "";
   if (drawn === floorsDrawn) return;
   floorsDrawn = drawn;
@@ -2667,6 +2701,8 @@ function paintFloors() {
   roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
   roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
   floorRow.append(roofToggle);
+  const grow = growLotChip(plot);
+  if (grow) floorRow.append(grow);
   if (notesToggle.textContent) floorRow.append(notesToggle);
   // An upstairs comes last: it's the one chip here that spends coins, and a lot of them.
   if (plot.floors < FLOORS.max) {
@@ -2682,6 +2718,60 @@ function paintFloors() {
   }
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
+}
+
+/**
+ * What a dry `grow_lot` said of the lot `lotChecked` names (RFC 0052): null when it would grow,
+ * the world's reason in HUD words when not yet, and undefined until it answers.
+ */
+let lotWhy: string | null | undefined;
+/** The plot and lot side `lotWhy` was asked about. */
+let lotChecked = "";
+
+/** Ask the world with a dry `grow_lot` whether the lot on (px, py) grows now, and repaint. */
+async function checkLot(px: number, py: number): Promise<string | null | undefined> {
+  const asked = `${px},${py},${mirror?.lotOf(px, py).side}`;
+  lotChecked = asked;
+  const r = await worldApi.act({ type: "grow_lot", px, py, dry: true });
+  if (lotChecked !== asked) return undefined;
+  lotWhy = actProblem(r, (code, message) => worldProblem(code, message, { hasPlot: true }));
+  paintFloors();
+  return lotWhy;
+}
+
+/**
+ * The Grow lot chip (RFC 0052), on a plot whose lot is smaller than its slot: the next size and
+ * its price from the sim's `nextLotStep`. Dimmed with the world's reason while a dry `grow_lot`
+ * says not yet, which a tap shows (asking again, since the home or the purse may have changed);
+ * otherwise it spends coins, so it asks a second tap first.
+ */
+function growLotChip(plot: { px: number; py: number }): HTMLButtonElement | undefined {
+  const m = mirror;
+  if (!m?.regridded) return undefined;
+  const { px, py } = plot;
+  const side = m.lotOf(px, py).side;
+  const step = nextLotStep(side, m.config.plotSize);
+  if (!step) return undefined;
+  if (lotChecked !== `${px},${py},${side}`) {
+    lotWhy = undefined;
+    void checkLot(px, py);
+  }
+  const chip = h("button", {
+    attrs: { type: "button", id: "grow-lot" },
+    text: `Grow lot to ${step.side} by ${step.side}, ${coins(step.coins)}`,
+  });
+  if (lotWhy) chip.classList.add("dim");
+  confirmTwice(
+    chip,
+    `Tap again to spend ${coins(step.coins)}`,
+    async () => {
+      if (lotWhy === null) return tryAct({ type: "grow_lot", px, py });
+      const why = await checkLot(px, py);
+      if (why) showToast(why);
+    },
+    () => lotWhy === null,
+  );
+  return chip;
 }
 
 /** Open the roof picker for the plot you're building on, loading it on its own. */
@@ -2984,18 +3074,19 @@ function resize() {
 }
 
 /**
- * In the world, or looking at a link's place, we show ~13 tiles across; behind the curtain we pull
- * back to show more of it, far enough that the town square fits in the space above the door card.
+ * In the world, or looking at a link's place, we show the usual view (`usualTiles` across); behind
+ * the curtain we pull back to show more of it, far enough that the town square and a ring round it
+ * fit in the space above the door card.
  */
 function targetScale() {
   const framed = buildFrame();
   if (framed) return framed.scale;
-  if (me || lookingAt || guest)
-    return clampScale(zoom ?? fitScale(cam.width, cam.height), zoomLimits());
-  const wide = fitScale(cam.width, cam.height, 17);
+  if (me || lookingAt || guest) return clampScale(zoom ?? zoomLimits().base, zoomLimits());
+  const S = mirror?.config.plotSize ?? BASE_PLOT;
+  const wide = fitScale(cam.width, cam.height, usualTiles(S) + 4);
   if (!landing.isUp()) return wide;
   const above = cam.height - TOP_BAR_PX - landing.cardHeight();
-  return Math.min(wide, Math.max(16, Math.floor(above / 12)));
+  return Math.min(wide, Math.max(16, Math.floor(above / (S + 4))));
 }
 
 function snapCamera() {
@@ -3044,16 +3135,28 @@ function clearLift(): number {
   return (top + bottom) / 2 - cam.height / 2;
 }
 
-/** The tiles of the plot you build on, while the build bar can build there. */
+/**
+ * The tiles of the lot you build on (RFC 0052), while the build bar can build there: the middle of
+ * its slot past a regrid, the whole slot before one (the sim's `lotBounds`).
+ */
 function buildBox(): { x0: number; y0: number; x1: number; y1: number } | undefined {
   const plot = buildMode && mirror ? buildablePlot() : undefined;
   if (!plot || !mirror) return undefined;
+  const { x0, y0, side } = mirror.lotOf(plot.px, plot.py);
+  return { x0, y0, x1: x0 + side - 1, y1: y0 + side - 1 };
+}
+
+/** The whole slot round the lot you build on, while the lot is smaller: its wild yard's edge. */
+function slotBox(): { x0: number; y0: number; x1: number; y1: number } | undefined {
+  const plot = buildMode && mirror ? buildablePlot() : undefined;
+  if (!plot || !mirror) return undefined;
   const S = mirror.config.plotSize;
+  if (mirror.lotOf(plot.px, plot.py).side >= S) return undefined;
   return { x0: plot.px * S, y0: plot.py * S, x1: plot.px * S + S - 1, y1: plot.py * S + S - 1 };
 }
 
 /**
- * Where the map's camera goes while you build on a plot: the whole plot in the clear band under
+ * Where the map's camera goes while you build on a plot: its whole lot in the clear band under
  * the build bar, its tiles as big as fit (`frameTiles`), so a phone's taps land where they're
  * meant. Only until a pinch, a drag, or + and - take the camera, and only on the map.
  */
@@ -3065,8 +3168,8 @@ function buildFrame(): { cx: number; cy: number; scale: number } | undefined {
 }
 
 /**
- * What the build-mode outline rings: once the world has plot reach, the plot you build on, which
- * you reach all of from anywhere on it; else the tiles within reach of where you stand.
+ * What the build-mode outline rings: once the world has plot reach, the lot you build on, which
+ * you reach all of from anywhere on its plot; else the tiles within reach of where you stand.
  */
 function reachBox(): { x0: number; y0: number; x1: number; y1: number } | undefined {
   const m = mirror;
@@ -3250,7 +3353,9 @@ function frame() {
       notes: jobs.givers(),
       // While building, the map is cut away at the floor the picker shows (RFC 0028), the outline
       // rings what you reach, and the tap's spot is marked.
-      ...(buildMode ? { cutFloor: buildFloor, reach: reachBox(), mark: buildMark(now) } : {}),
+      ...(buildMode
+        ? { cutFloor: buildFloor, reach: reachBox(), slot: slotBox(), mark: buildMark(now) }
+        : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   }

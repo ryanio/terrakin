@@ -1,6 +1,6 @@
 import { join as joinPath } from "node:path";
 import { expect, type Page, test } from "@playwright/test";
-import { act, freePlots, join, read, signIn, tapTile, watchErrors } from "./support";
+import { act, freePlots, inLotOf, join, read, signIn, tapTile, watchErrors } from "./support";
 
 /**
  * Fishing (RFC 0023) on a phone: Wren settles a plot where branches lie today and picks up three,
@@ -30,8 +30,9 @@ test("dig a pond, make a rod, fish, and find the catch in your collection book",
   const errors = watchErrors(page);
   const world = await (await page.request.get("/v1/world")).json();
   const { reach, plotSize: S } = world.config;
+  // On the plot's lot (RFC 0052), where she builds: the yard round it takes nothing.
   const inPlot = (t: Tile, px: number, py: number) =>
-    Math.floor(t.x / S) === px && Math.floor(t.y / S) === py;
+    Math.floor(t.x / S) === px && Math.floor(t.y / S) === py && inLotOf(world, t);
   const lying = (kind: string, px: number, py: number) =>
     (world.pickups as Pickup[]).filter((p) => p.kind === kind && inPlot(p, px, py));
   const free = await freePlots(page.request, 80, "top-right");

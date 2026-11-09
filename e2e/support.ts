@@ -1,6 +1,14 @@
 import { crc32, deflateSync } from "node:zlib";
 import { type APIRequestContext, expect, type Page } from "@playwright/test";
-import { blocksWalkers, edgeBlocks, edgeKey, groundOf, route } from "../packages/sim/src/index.ts";
+import {
+  blocksWalkers,
+  edgeBlocks,
+  edgeKey,
+  groundOf,
+  lotBounds,
+  route,
+  type WorldConfig,
+} from "../packages/sim/src/index.ts";
 import {
   freePlotsOver,
   type Http,
@@ -15,7 +23,30 @@ import {
   stage,
 } from "./personas";
 
-export { SMOKE_STEPS, walkedOnto } from "./personas";
+export { smokeSteps, walkedOnto } from "./personas";
+
+/** What `lotIn` and `inLotOf` read of `GET /v1/world`. */
+export interface LotWorld {
+  config: WorldConfig;
+  lots?: { px: number; py: number; lot: number }[];
+}
+
+/**
+ * The lot of plot slot (px, py) in a world snapshot (RFC 0052): its corner tile and side, by the
+ * sim's own `lotBounds`. Past the regrid every e2e world has, it's the middle of the slot, so a
+ * spec that builds near where someone stands picks tiles inside it.
+ */
+export function lotIn(world: LotWorld, px: number, py: number) {
+  const lots = Object.fromEntries((world.lots ?? []).map((l) => [`${l.px},${l.py}`, l.lot]));
+  return lotBounds({ config: world.config, lots }, px, py);
+}
+
+/** Whether a tile is inside its slot's lot, where its owners build (the sim's `inLot`). */
+export function inLotOf(world: LotWorld, t: { x: number; y: number }): boolean {
+  const S = world.config.plotSize;
+  const { x0, y0, side } = lotIn(world, Math.floor(t.x / S), Math.floor(t.y / S));
+  return t.x >= x0 && t.x < x0 + side && t.y >= y0 && t.y < y0 + side;
+}
 
 /**
  * Helpers specs share: joining and acting over the REST API, signing a page in, finding free

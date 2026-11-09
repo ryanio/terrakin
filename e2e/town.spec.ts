@@ -1,4 +1,5 @@
 import { type APIRequestContext, expect, test } from "@playwright/test";
+import { moveCoord, REGRID } from "../packages/sim/src/index.ts";
 import {
   act,
   advanceDay,
@@ -38,20 +39,17 @@ async function settleAt(request: APIRequestContext, name: string, plot: [number,
   return { ...who, act: actAs };
 }
 
-// Tiles of the default Commons (32..39), clear of the hall (35..37, 32..33), the shop (35..37,
-// 38..39), and spawn (36, 36).
-const FOUNTAIN = [
-  [33, 38],
-  [34, 38],
-  [33, 39],
-  [34, 39],
-] as const;
+/**
+ * A tile of the default Commons as it was drawn on 8-tile plots, where the regrid every e2e world
+ * logs on its first ticks moved it (RFC 0052): the middle of the Commons' 16-tile slot.
+ */
+const moved = (x: number, y: number) => [moveCoord(x, REGRID.to), moveCoord(y, REGRID.to)] as const;
+// Tiles of the default Commons' middle (32..39 on the old grid), clear of the hall (35..37,
+// 32..33), the shop (35..37, 38..39), and spawn (36, 36).
+const FOUNTAIN = [moved(33, 38), moved(34, 38), moved(33, 39), moved(34, 39)];
 // A cobble path south from the hall's door, and a bench beside it.
-const PATH = [
-  [36, 34],
-  [36, 35],
-] as const;
-const BENCH = [34, 35] as const;
+const PATH = [moved(36, 34), moved(36, 35)];
+const BENCH = moved(34, 35);
 
 test.describe("the Town Hall", () => {
   test.describe.configure({ mode: "serial" });
@@ -173,7 +171,7 @@ test.describe("the Town Hall", () => {
       "data-block",
       "bench",
     );
-    await expect(passed.locator(`[data-tile="${PATH[0].join(",")}"]`)).toHaveAttribute(
+    await expect(passed.locator(`[data-tile="${PATH[0]?.join(",")}"]`)).toHaveAttribute(
       "data-ground",
       "cobble",
     );
@@ -191,7 +189,8 @@ test.describe("the Town Hall", () => {
     await expect(page.locator("#hud")).toBeVisible();
     await expect(page.locator("#world-loader")).toBeHidden();
     await page.screenshot({ path: "test-results/town-world.png" });
-    const hallDoor = world.townHall.find((t) => t.y === 33 && t.x === 36);
+    const [doorX, doorY] = moved(36, 33);
+    const hallDoor = world.townHall.find((t) => t.y === doorY && t.x === doorX);
     const me = world.residents.find((r) => r.id === fern.id);
     if (!hallDoor || !me) throw new Error("no hall door, or Fern isn't in the world");
     await tapTile(page, hallDoor.x - me.x, hallDoor.y - me.y);
@@ -290,7 +289,8 @@ test.describe("the Town Hall", () => {
       guests.push(guest);
     }
     const edge = guests[0] as Resident;
-    await walkTo(page.request, edge, { x: center.x + 8.5, y: center.y + 2 }, 1);
+    // Out in the yards (RFC 0052), near the east edge of a wide shot's frame.
+    await walkTo(page.request, edge, { x: center.x + 11, y: center.y + 2 }, 1);
 
     await test.step("Fern takes the event's photo with names, kept as her upload", async () => {
       const res = await page.request.post("/v1/photos", {

@@ -17,8 +17,8 @@ import { doneAlready, homeSteps } from "./home-steps";
 import { worldProblem } from "./things";
 
 export interface HomeSheetOptions {
-  /** The plot you just claimed. */
-  plot: { px: number; py: number };
+  /** The plot you just claimed, and its lot (RFC 0052), which the designs are drawn on. */
+  plot: { px: number; py: number; lot: { x0: number; y0: number; side: number } };
   /** Open the build bar with the hearth picked. */
   buildMyself: () => void;
   /** Say something in the world's own notice line. */
@@ -79,7 +79,7 @@ export function openHomeSheet(o: HomeSheetOptions) {
   );
   void import("./design-picks")
     .then(({ designPicker }) => {
-      const made = designPicker(o.where, o.plot);
+      const made = designPicker(o.where, o.plot.lot);
       picker = made;
       picks.replaceChildren(made.element);
       starter.disabled = false;

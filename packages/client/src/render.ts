@@ -107,12 +107,14 @@ import {
   sprite,
 } from "./render/sprites";
 import { type CastMark, paintBridge, paintCast, paintPond, paintSea } from "./render/water";
+import { YardPainter } from "./render/yard";
 import { postureAt, restingDraw } from "./resting";
 import { roofCover, roofsShown } from "./roofs";
 import { teaSpots } from "./tea-spots";
 import { nightAmount } from "./time";
 import { plotLabelFade } from "./visits";
 import { drawWeather, type SkyAmounts, UMBRELLA_RAIN } from "./weather";
+import { yardGrowth } from "./wild-yard";
 
 export { BURST_MS, BURSTS_MAX, type BurstMark } from "./render/fireworks";
 export { blockColor } from "./render/palette";
@@ -154,8 +156,13 @@ export interface RenderState {
   bursts?: readonly BurstMark[];
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
-  /** While building, the tiles you reach, outlined (`reachBox` in world.ts). */
+  /** While building, the tiles you reach, outlined (`reachBox` in world.ts): the lot, past a regrid. */
   reach?: { x0: number; y0: number; x1: number; y1: number } | undefined;
+  /**
+   * While building on a lot smaller than its slot (RFC 0052), the whole slot, outlined faintly
+   * round the wild yard nobody builds on.
+   */
+  slot?: { x0: number; y0: number; x1: number; y1: number } | undefined;
   /** While building, the line or tile a tap acts on (or just did, fading), marked. */
   mark?: { spot: BuildSpot; fade: number } | undefined;
   /** The townsfolk who ask for a job today (RFC 0030): a note over each, awake or asleep. */
@@ -202,6 +209,7 @@ export function render(
     bursts,
     hover,
     reach,
+    slot,
     mark,
     notes,
     cutFloor,
@@ -238,6 +246,9 @@ export function render(
   // pick up (someone else's plot) is drawn faded, by the sim's own rule (`mayGatherAt`).
   const yours = pickupPaths();
   const notYours = pickupPaths();
+  // The wild yard past each lot (RFC 0052): its growth and each slot's feature, painted after the
+  // ground's own tufts. Zoomed out it stays away, as the ground's small things do.
+  let yard: YardPainter | undefined;
   if (simple) {
     // Zoomed out, the whole ground and every ground-floor block is one picture, stretched.
     const corner = tileToScreen(cam, 0, 0);
@@ -269,6 +280,16 @@ export function render(
       const corner = tileToScreen(cam, x0, y0);
       wash.paint(ctx, corner.sx - half, corner.sy - half, scale);
     }
+    if (mirror.regridded) {
+      yard = new YardPainter(tufts, flowers);
+      const slots = {
+        px0: Math.floor(x0 / S),
+        py0: Math.floor(y0 / S),
+        px1: Math.floor(x1 / S),
+        py1: Math.floor(y1 / S),
+      };
+      yard.features(mirror, cam, slots, season);
+    }
     for (let y = y0; y <= y1; y++) {
       for (let x = x0; x <= x1; x++) {
         const { sx, sy } = tileToScreen(cam, x, y);
@@ -298,7 +319,13 @@ export function render(
         // A path or flooring (RFC 0016) covers the tile's own grass: drawn once per size, then stamped.
         const laid = paved ? drawnPaving.get(tileKey(x, y)) : undefined;
         if (laid) ctx.drawImage(groundSprite(laid, w, h, dpr), left, top, w, h);
-        const deco = laid ? null : ground.scenery;
+        const wild = laid || !yard ? null : mirror.wildAt(x, y);
+        if (wild && yard && !yard.featureTiles.has(tileKey(x, y))) {
+          const grown = yardGrowth(x, y, ground.biome, season, wild);
+          if (grown) yard.grow(grown, { left, top, w, h }, scale);
+        }
+        // On wild ground the yard's own growth takes the place of the palette's, all but leaves.
+        const deco = laid || (wild && ground.scenery?.kind !== "leaf") ? null : ground.scenery;
         if (deco?.kind === "tuft") {
           // A little tuft of grass.
           const bx = left + w * deco.fx;
@@ -377,6 +404,7 @@ export function render(
     ctx.fillStyle = LEAF_TONES[i] as string;
     ctx.fill(path);
   }
+  yard?.paint(ctx, scale, season);
   paintPickups(ctx, yours, scale, 1);
   paintPickups(ctx, notYours, scale, NOT_YOURS_ALPHA);
 
@@ -942,6 +970,19 @@ export function render(
     ctx.drawImage(art, sx - w / 2, bottom - h, w, h);
   }
 
+  if (buildMode && slot) {
+    const { sx, sy } = tileToScreen(cam, slot.x0, slot.y0);
+    ctx.setLineDash([scale * 0.12, scale * 0.18]);
+    ctx.strokeStyle = "rgba(255, 250, 240, 0.4)";
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(
+      sx - half + 1,
+      sy - half + 1,
+      scale * (slot.x1 - slot.x0 + 1) - 2,
+      scale * (slot.y1 - slot.y0 + 1) - 2,
+    );
+    ctx.setLineDash([]);
+  }
   if (buildMode && reach) {
     const { sx, sy } = tileToScreen(cam, reach.x0, reach.y0);
     ctx.setLineDash([scale * 0.22, scale * 0.16]);

@@ -131,7 +131,7 @@ import { flooringSlabs, groundAtlas, groundTiles } from "./paths";
 import { petGeometries, petMaterial } from "./pets";
 import { presentBoxes } from "./presents";
 import { roofMesh } from "./roofs";
-import { pickups, scenery } from "./scenery";
+import { pickups, scenery, yardScenery } from "./scenery";
 import { type SeaLook, type SeaTile, seaLook, seaMeshes } from "./sea";
 import { createWeather } from "./weather";
 import {
@@ -546,6 +546,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
     if (data.owner) group.add(border(data.bounds, origin, grain));
     group.add(scenery(scope, origin, data.tufts, data.flowers, data.leaves, season));
+    // The wild yard past the lot (RFC 0052): its bushes, trees, and the slot's feature.
+    if (data.yard.bushes.length || data.yard.trees.length || data.yard.stones.length) {
+      group.add(yardScenery(scope, origin, data.yard, season));
+    }
     // Branches and stones are shapes; finds (RFC 0021) stand as their pictures. What lies where
     // you may not pick it up (someone else's plot) stands faded.
     for (const notYours of [false, true]) {
@@ -1630,11 +1634,13 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         const out: PhotoHead[] = [];
         const sight = new Raycaster();
         sight.camera = camera;
-        // What can stand in the way: solid things, never a sprite, a spark, or the haze.
+        // What can stand in the way: solid things, never a sprite, a spark, the haze, or the wild
+        // yard's trees (`yardScenery`).
         const solids = (o: Object3D) =>
           o.visible &&
           (o as Mesh).isMesh === true &&
-          !(o as Mesh & { isSprite?: boolean }).isSprite;
+          !(o as Mesh & { isSprite?: boolean }).isSprite &&
+          o.userData.seeThrough !== true;
         // Each head's middle and its distance, so a figure only hides one further back.
         const middles = new Map<Group, number>();
         for (const f of figures.values()) {

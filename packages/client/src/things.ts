@@ -979,6 +979,11 @@ export function worldProblem(
       return you.hasPlot === false ? NO_PLOT_LINE : firstSentence(message);
     case "out_of_reach":
       return "That's too far away. Walk closer first.";
+    case "outside_lot":
+      // RFC 0052: the world's words go on to name the grow_lot call, which the build bar's chip is.
+      return message.includes("grow_lot")
+        ? `${firstSentence(message)} Tap Grow lot on the build bar to build farther out.`
+        : message;
     case "nothing_to_gather":
       // The map offers only what it draws lying there, so the world moved on first.
       return "Nothing left to pick up there: someone got there first.";

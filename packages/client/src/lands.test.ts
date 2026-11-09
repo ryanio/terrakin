@@ -199,6 +199,61 @@ describe("the town's own ground, drawn (RFC 0046)", () => {
   });
 });
 
+describe("plots that grow (RFC 0052)", () => {
+  /** The same world after its regrid: slots of 16, a street east of the island's square. */
+  const regridded: WorldSnapshot = {
+    ...base,
+    regridded: true,
+    config: { ...base.config, width: 96, height: 48, plotSize: 16 },
+    lands: {
+      home: { width: 48, height: 48 },
+      list: [{ ...ISLAND, bridge: [], streets: [{ px: 5, py: 2 }] }],
+    },
+  };
+
+  it("draws a lot's yard, a street's verge beside its road, and no wild ground on a square", () => {
+    const mirror = new Mirror(regridded);
+    // Plot (0, 0): its first lot is the middle 8 by 8, from (4, 4); the ring round it is yard.
+    expect(mirror.wildAt(1, 1)).toBe("yard");
+    expect(mirror.wildAt(15, 8)).toBe("yard");
+    expect(mirror.wildAt(4, 4)).toBeNull();
+    expect(mirror.wildAt(11, 11)).toBeNull();
+    // The Commons is its plaza, edge to edge.
+    expect(mirror.wildAt(17, 17)).toBeNull();
+    expect(mirror.drawnPaving.get("17,17")).toBe("plaza");
+    // The street at (5, 2) runs its road west to the island's square, verge either side.
+    expect(mirror.drawnPaving.get("80,38")).toBe("cobble");
+    expect(mirror.drawnPaving.get("89,41")).toBe("cobble");
+    expect(mirror.drawnPaving.has("95,38")).toBe(false);
+    expect(mirror.wildAt(95, 38)).toBe("verge");
+    expect(mirror.wildAt(86, 33)).toBe("verge");
+    expect(mirror.wildAt(80, 38)).toBeNull();
+  });
+
+  it("follows a lot as it grows, and reloads the world when it regrids", () => {
+    const mirror = new Mirror(regridded);
+    expect(mirror.lotOf(0, 0)).toEqual({ x0: 4, y0: 4, side: 8 });
+    expect(
+      mirror.apply({ seq: 4, event: { type: "lot_grown", px: 0, py: 0, lot: 12, by: "r_a" } }),
+    ).toBe("applied");
+    expect(mirror.lotOf(0, 0)).toEqual({ x0: 2, y0: 2, side: 12 });
+    expect(mirror.wildAt(2, 2)).toBeNull();
+    expect(mirror.wildAt(1, 1)).toBe("yard");
+    // A snapshot that lists a grown lot reads the same.
+    const again = new Mirror({ ...regridded, lots: [{ px: 0, py: 0, lot: 12 }] });
+    expect(again.lotOf(0, 0).side).toBe(12);
+    // Every coordinate moved, so the copy is no good: load it again, as after a gap.
+    const old = new Mirror(base);
+    expect(old.apply({ seq: 4, event: { type: "world_regridded", plotSize: 16 } })).toBe("gap");
+  });
+
+  it("draws no wild ground in a world before its regrid, where the lot is the whole plot", () => {
+    const mirror = new Mirror(base);
+    expect(mirror.wildAt(0, 0)).toBeNull();
+    expect(mirror.lotOf(0, 0)).toEqual({ x0: 0, y0: 0, side: 8 });
+  });
+});
+
 describe("a land's name", () => {
   it("is found from its square too, for the sign in front of its hall", () => {
     const { lands } = new Mirror(opened);

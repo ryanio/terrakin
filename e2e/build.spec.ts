@@ -1,5 +1,17 @@
 import { expect, type Page, test } from "@playwright/test";
-import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } from "./support";
+import { nextLotStep } from "../packages/sim/src/index.ts";
+import {
+  act,
+  freePlots,
+  inLotOf,
+  join,
+  lotIn,
+  persona,
+  read,
+  signIn,
+  tapTile,
+  watchErrors,
+} from "./support";
 
 /**
  * Building with what you gather (RFC 0016) on a phone: a resident settles a plot where branches lie
@@ -35,10 +47,9 @@ function doorRed(page: Page, dy: number): Promise<number> {
     const ctx = canvas.getContext("2d");
     if (!ctx) return 0;
     const dpr = canvas.width / window.innerWidth;
-    const scale = Math.max(16, Math.floor(Math.min(window.innerWidth, window.innerHeight) / 13));
-    const cx = window.innerWidth / 2;
-    // Where she stands: the clear map's middle, `data-lift` below the screen's.
-    const cy = window.innerHeight / 2 + Number(canvas.dataset.lift ?? 0) + dy * scale + scale * 0.1;
+    // Where she stands on screen and a tile's size, as the map says it (`data-view`).
+    const [cx = 0, sy = 0, scale = 0] = (canvas.dataset.view ?? "").split(",").map(Number);
+    const cy = sy + dy * scale + scale * 0.1;
     const w = Math.round(scale * 0.2 * dpr);
     const h = Math.round(scale * 0.3 * dpr);
     const { data } = ctx.getImageData(
@@ -56,12 +67,46 @@ function doorRed(page: Page, dy: number): Promise<number> {
   }, dy);
 }
 
+/** Where your tile falls on the map and a tile's size, from the canvas's `data-view`. */
+async function viewOf(page: Page): Promise<{ sx: number; sy: number; scale: number }> {
+  const view = (await page.locator("#world").getAttribute("data-view")) ?? "";
+  const [sx = 0, sy = 0, scale = 0] = view.split(",").map(Number);
+  return { sx, sy, scale };
+}
+
+/**
+ * How much of a thin column of the map `dx` tiles east of you, three tiles up and down from you,
+ * is near white, from 0 to 1: where the build bar's dashed outline runs along a lot's edge.
+ */
+async function lightDown(page: Page, dx: number): Promise<number> {
+  const { sx, sy, scale } = await viewOf(page);
+  return page.evaluate(
+    ({ x, top, height }) => {
+      const canvas = document.getElementById("world") as HTMLCanvasElement;
+      const ctx = canvas.getContext("2d");
+      if (!ctx) return 0;
+      const dpr = canvas.width / window.innerWidth;
+      const w = Math.max(2, Math.round(3 * dpr));
+      const h = Math.round(height * dpr);
+      const { data } = ctx.getImageData(Math.round(x * dpr - w / 2), Math.round(top * dpr), w, h);
+      let light = 0;
+      for (let i = 0; i < data.length; i += 4) {
+        const [r, g, b] = [data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0];
+        if (r > 235 && g > 230 && b > 215) light++;
+      }
+      return light / (w * h);
+    },
+    { x: sx + dx * scale, top: sy - 3 * scale, height: 6 * scale },
+  );
+}
+
 test("lay a path and place a table you made, from the build bar's tabs", async ({ page }) => {
   const errors = watchErrors(page);
   const world = await (await page.request.get("/v1/world")).json();
   const { reach, plotSize: S } = world.config;
+  // On the plot's lot (RFC 0052), where she builds: the yard round it takes nothing.
   const inPlot = (t: Tile, px: number, py: number) =>
-    Math.floor(t.x / S) === px && Math.floor(t.y / S) === py;
+    Math.floor(t.x / S) === px && Math.floor(t.y / S) === py && inLotOf(world, t);
   const branches = (px: number, py: number) =>
     (world.pickups as Pickup[]).filter((p) => p.kind === "wood" && inPlot(p, px, py));
 
@@ -241,6 +286,46 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await tapTile(page, 0, 2.35);
     await expect(page.locator("#toast")).toContainText("There's a door on that line.");
     expect(await edges()).toContainEqual(door);
+    await page.click("#build");
+  });
+
+  await test.step("build on her lot, outlined in the meadow, with a path in the yard held back and Grow lot saying what it waits for (RFC 0052)", async () => {
+    const start = await where();
+    if (!start) throw new Error("Bramble isn't in the world");
+    const world = await (await page.request.get("/v1/world")).json();
+    const S = world.config.plotSize;
+    const px = Math.floor(start.x / S);
+    const py = Math.floor(start.y / S);
+    const lot = lotIn(world, px, py);
+    expect(lot.side).toBeLessThan(S);
+    await page.click("#build");
+    // The map frames her lot, not the whole slot, so its tiles come out bigger than the usual view.
+    const usual = Math.floor(390 / S);
+    await expect.poll(async () => (await viewOf(page)).scale).toBeGreaterThan(usual * 1.25);
+    // Its west edge is outlined: far more light there than half a tile out in the yard.
+    const edge = lot.x0 - 0.5 - start.x;
+    await expect
+      .poll(async () => (await lightDown(page, edge)) - (await lightDown(page, edge - 0.5)))
+      .toBeGreaterThan(0.25);
+    // A dirt path tapped on the first tile of the yard, west of the lot, is held back in words.
+    await page.getByRole("tab", { name: "Paths" }).click();
+    await page.click('[data-ground="dirt"]');
+    const yard = { x: lot.x0 - 1, y: start.y };
+    await tapTile(page, yard.x - start.x, 0);
+    await expect(page.locator("#toast")).toContainText("wild yard");
+    const ground = (await (await page.request.get("/v1/world")).json()).ground ?? [];
+    expect(ground).not.toContainEqual(expect.objectContaining(yard));
+    // Grow lot names the next size and its price, and a tap says what it waits for while a dry
+    // run says not yet, spending nothing.
+    const step = nextLotStep(lot.side, S);
+    if (!step) throw new Error("Her lot is already the whole plot");
+    const grow = page.locator("#grow-lot");
+    await expect(grow).toHaveText(`Grow lot to ${step.side} by ${step.side}, ${step.coins} coins`);
+    await grow.click();
+    await expect(page.locator("#toast")).toContainText(`${step.side} by ${step.side}`);
+    const after = await (await page.request.get("/v1/world")).json();
+    expect(lotIn(after, px, py).side).toBe(lot.side);
+    await page.getByRole("tab", { name: "Blocks" }).click();
     await page.click("#build");
   });
 

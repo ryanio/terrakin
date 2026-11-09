@@ -1,5 +1,6 @@
 import type { BlockKind, GroundKind, ResourceKind, Season, WorldConfig } from "@terrakin/sim";
 import { describe, expect, it } from "vitest";
+import { Mirror } from "./mirror";
 import {
   approach,
   type ChunkSource,
@@ -86,6 +87,44 @@ describe("who the 3D world draws", () => {
     expect(dozersAround(asleep, focus, 5).map((d) => d.r.id)).toEqual(["near", "mid"]);
     expect(dozersAround(asleep, focus, 1).map((d) => d.r.id)).toEqual(["near"]);
     expect(dozersAround(asleep, focus, 0)).toEqual([]);
+  });
+});
+
+describe("a slot's wild yard in 3D (RFC 0052)", () => {
+  const regridded = new Mirror({
+    v: 1,
+    seq: 3,
+    hash: "x",
+    time: { nowMs: 0, dayLengthMs: 600_000 },
+    season: "summer",
+    weather: "clear",
+    timeOfDay: "day",
+    townHall: [],
+    regridded: true,
+    config: { width: 64, height: 64, plotSize: 16, maxPlotsPerResident: 1, reach: 3 },
+    commons: { px: 3, py: 3 },
+    residents: [],
+    plots: [],
+    blocks: [],
+  });
+  const inLot = (t: { x: number; y: number }) => t.x >= 4 && t.x < 12 && t.y >= 4 && t.y < 12;
+
+  it("grows trees and bushes only past the lot, read from the mirror itself", () => {
+    const none = new Set<string>();
+    const chunk = readChunk(regridded, 0, 0, none, "summer");
+    const standing = [...chunk.yard.trees, ...chunk.yard.bushes];
+    expect(standing.length).toBeGreaterThan(3);
+    // This slot's feature is a boulder, drawn as a stone in its ring.
+    expect(chunk.yard.stones.length).toBeGreaterThan(0);
+    // Rounded to their tiles: a tree stands within half a tile of its tile's middle.
+    for (const t of standing) expect(inLot({ x: Math.round(t.x), y: Math.round(t.y) })).toBe(false);
+  });
+
+  it("is built again when the lot grows over some of it", () => {
+    const none = new Set<string>();
+    const before = chunkSignature(regridded, 0, 0, none);
+    regridded.apply({ seq: 4, event: { type: "lot_grown", px: 0, py: 0, lot: 10, by: "r_a" } });
+    expect(chunkSignature(regridded, 0, 0, none)).not.toBe(before);
   });
 });
 
@@ -366,6 +405,8 @@ describe("one plot of the world, read from the mirror", () => {
         gradeAt: () => "plain",
         turnAt: () => 0,
         mayGatherAt: () => true,
+        wildAt: () => null,
+        lotSide: () => 8,
       },
       hearths: new Set(["9,9"]),
       season: "summer",
@@ -428,14 +469,18 @@ describe("one plot of the world, read from the mirror", () => {
       // A turned piece of furniture faces its way.
       turnAt: source({ turnAt: (key) => (key === "11,13" ? 90 : 0) }),
       isSea: source({ isSea: (x, y) => x === grass.x && y === grass.y }),
+      // A lot that grew (RFC 0052) leaves less of the slot wild, and the yard redraws.
+      lotSide: source({ lotSide: () => 10, wildAt: () => "yard" }),
+      wildAt: source({ wildAt: () => "yard" }),
       hearths: { ...base, hearths: new Set(["9,9", "15,15"]) },
       season: { ...base, season: "autumn" },
       lit: { ...base, lit: true },
       cut: { ...base, cut: 0 },
     };
     // The Commons and the sea are drawn but not signed: neither ever changes under a plot already
-    // drawn, since a land's sea and its plots arrive together in one `land_opened`.
-    const fixed = new Set(["commons", "isSea"]);
+    // drawn, since a land's sea and its plots arrive together in one `land_opened`. Nor is wild
+    // ground (RFC 0052), which moves only with the lot (`lotSide`) and what's laid, both signed.
+    const fixed = new Set(["commons", "isSea", "wildAt"]);
     for (const [part, r] of Object.entries(rows)) {
       const chunk = read(r);
       expect(sign(r), part).toBe(chunk.signature);

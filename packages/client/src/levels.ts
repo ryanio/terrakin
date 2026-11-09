@@ -16,6 +16,7 @@ import {
   isEarnedWear,
   isJobWear,
   pointsFor,
+  type ShownTitle,
   type Skill,
   skillName,
   skillUnlocks,
@@ -106,8 +107,11 @@ interface Bar {
   label: string;
 }
 
-/** One unlock in a few words: "the sun hat", "the title Gardener". */
-const unlockWords = (u: UnlockView): string =>
+/** One unlock in a few words: "the sun hat", "the title Gardener", "the town satchel". */
+export const unlockWords = (u: {
+  title?: ShownTitle | undefined;
+  wear?: WearItem | undefined;
+}): string =>
   listed([
     ...(u.wear ? [`the ${WEAR_INFO[u.wear].label.toLowerCase()}`] : []),
     ...(u.title ? [`the title ${titleLabel(u.title)}`] : []),

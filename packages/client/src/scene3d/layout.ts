@@ -15,6 +15,7 @@ import {
   type GroundKind,
   type Holiday,
   holdsRoof,
+  inBounds as inWorldBounds,
   isSurface,
   lotBounds,
   type MadeKind,
@@ -37,6 +38,7 @@ import {
   type ThemePalette,
   type Tile,
   type TrinketKind,
+  tileHash,
   tileKey,
   topKey,
   type WallDecorKind,
@@ -629,7 +631,7 @@ export function plotLayout(
   const owner = everyone.find((r) => r.id === residentId);
   const plot = homePlot(snapshot, residentId);
   if (!owner || !plot) return undefined;
-  const { plotSize, width, height } = snapshot.config;
+  const { plotSize } = snapshot.config;
   const bounds = plotBounds(plotSize, plot.px, plot.py);
   const outer: Bounds = {
     x0: bounds.x0 - margin,
@@ -735,10 +737,7 @@ export function plotLayout(
     dozers(
       homeHere,
       (x, y) =>
-        x >= 0 &&
-        y >= 0 &&
-        x < width &&
-        y < height &&
+        inWorldBounds(snapshot.config, x, y) &&
         !solid.has(`${x},${y}`) &&
         !hearths.has(tileKey(x, y)),
     ).map((d) => [d.r.id, d]),
@@ -873,7 +872,7 @@ export function plotLayout(
         }
       : {}),
     time: snapshot.time,
-    inWorld: (x, y) => x >= 0 && y >= 0 && x < width && y < height,
+    inWorld: (x, y) => inWorldBounds(snapshot.config, x, y),
   };
 }
 
@@ -1095,13 +1094,6 @@ export function cornerLight(solid: ReadonlySet<string>, cx: number, cy: number):
     if (solid.has(`${x},${y}`)) n++;
   }
   return 1 - n * 0.1;
-}
-
-/** Cheap integer hash for visual variety only (the same one render.ts uses). */
-export function tileHash(x: number, y: number): number {
-  let h = Math.imul(x, 374761393) + Math.imul(y, 668265263);
-  h = Math.imul(h ^ (h >>> 13), 1274126177);
-  return (h ^ (h >>> 16)) >>> 0;
 }
 
 /** A fallen leaf on the ground: where, its turn, and which of the palette's `LEAF_TONES`. */

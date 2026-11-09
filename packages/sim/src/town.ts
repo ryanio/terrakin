@@ -85,6 +85,18 @@ export function tally(proposal: Proposal): Tally {
   return t;
 }
 
+/**
+ * How a tally closes against the yes plus no votes it needs: short of them is no quorum, and
+ * otherwise more yes than no passes.
+ */
+export function tallyOutcome(
+  t: Pick<Tally, "yes" | "no">,
+  needed: number,
+): "no_quorum" | "passed" | "failed" {
+  if (t.yes + t.no < needed) return "no_quorum";
+  return t.yes > t.no ? "passed" : "failed";
+}
+
 /** Why someone can't take part. Stable strings: the API passes them on. */
 export const INELIGIBLE_REASONS = [
   "no_days_yet",
@@ -433,10 +445,8 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
       if (p.closesDay === undefined || day < p.closesDay) {
         return refuse("not_due", "That proposal isn't due to close yet.");
       }
-      const t = tally(p);
       const voters = p.electorate?.length ?? 0;
-      const status: ProposalStatus =
-        t.yes + t.no < quorum(voters) ? "no_quorum" : t.yes > t.no ? "passed" : "failed";
+      const status: ProposalStatus = tallyOutcome(tally(p), quorum(voters));
       const build =
         status === "passed" && p.kind === "commons_build" ? closeBuild(state, planOf(p)) : null;
       const money = status === "passed" ? townMoneyOnPass(state, p, day) : null;

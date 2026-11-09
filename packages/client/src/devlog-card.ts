@@ -10,6 +10,7 @@ import { shortDate } from "@terrakin/ui/format";
 import { announce, cardBar, closeButton, disclosure } from "@terrakin/ui/ui";
 import { devlogApi } from "./api/devlog";
 import { markdownNodes } from "./markdown";
+import { readStored, writeStored } from "./stored";
 
 /** The day of the newest post this device is done with. */
 const SEEN_KEY = "terrakin.devlogSeen";
@@ -23,21 +24,10 @@ const shortDay = (date: string) => shortDate(Date.parse(`${date}T00:00:00Z`), Da
 /** A post's page on this site, from the full address the API gives. */
 export const devlogPage = (post: DevlogEntry): string => post.url.replace(/^https?:\/\/[^/]+/, "");
 
-function seenDay(): string | null {
-  try {
-    return localStorage.getItem(SEEN_KEY);
-  } catch {
-    return null;
-  }
-}
+const seenDay = () => readStored(SEEN_KEY);
 
-function markSeen(date: string) {
-  try {
-    localStorage.setItem(SEEN_KEY, date);
-  } catch {
-    // Storage off: the card comes back next time, which is all that's lost.
-  }
-}
+/** With storage off the card comes back next time, which is all that's lost. */
+const markSeen = (date: string) => writeStored(SEEN_KEY, date);
 
 /**
  * The card for one post. `done` runs once, the first time someone opens the rest or the post's

@@ -7,8 +7,7 @@
 import type { TownsfolkActivityResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
-import { postPath, profilePath } from "@terrakin/ui/paths";
-import { personLink } from "@terrakin/ui/people";
+import { postPath } from "@terrakin/ui/paths";
 import {
   itemRow,
   itemRows,
@@ -34,7 +33,16 @@ import {
   tipsLine,
   todayWords,
 } from "./logic";
-import { button, outLink, pageHead, quoted, statePill, type View } from "./view";
+import {
+  button,
+  outLink,
+  pageHead,
+  profileLink,
+  profileUrl,
+  quoted,
+  statePill,
+  type View,
+} from "./view";
 
 type Data = TownsfolkActivityResponse;
 
@@ -155,12 +163,7 @@ function paint(
             itemRow({
               plain: true,
               className: "townsfolk-person",
-              name: personLink(t.resident, {
-                href: site + profilePath(t.resident.id),
-                newTab: true,
-                picture: false,
-                className: "townsfolk-name",
-              }),
+              name: profileLink(site, t.resident, { className: "townsfolk-name" }),
               lines: [
                 t.resident.handle ? `@${t.resident.handle}` : null,
                 h("span", { class: "townsfolk-today", text: todayWords(t.today) }),
@@ -218,7 +221,7 @@ function entry(e: Data["activity"][number], site: string): HTMLElement {
         e.action === "post" ? "Open the post" : "Open what they answered",
       )
     : e.resident
-      ? outLink(`${site}${profilePath(e.resident.id)}`, `Open ${e.resident.name}'s profile`)
+      ? outLink(profileUrl(site, e.resident.id), `Open ${e.resident.name}'s profile`)
       : null;
   return h(
     "li",
@@ -230,13 +233,7 @@ function entry(e: Data["activity"][number], site: string): HTMLElement {
       h(
         "p",
         { class: "townsfolk-line" },
-        personLink(e.by, {
-          href: site + profilePath(e.by.id),
-          newTab: true,
-          picture: false,
-          badges: false,
-          className: "townsfolk-by",
-        }),
+        profileLink(site, e.by, { badges: false, className: "townsfolk-by" }),
         " ",
         activityLine(e),
       ),

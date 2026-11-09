@@ -453,6 +453,26 @@ export function startedForYou(
   return after.live.filter((e) => e.youreGoing && coming.has(e.id));
 }
 
+/** At most this many new votes are announced from one look at the Town Hall. */
+const NEW_VOTES_SHOWN = 2;
+
+/**
+ * What's new on the town's calendar and at the Town Hall between two looks: events to come that
+ * neither the live nor the upcoming list held before, and up to `NEW_VOTES_SHOWN` newly opened
+ * votes, in the order the server lists them.
+ */
+export function townNews<E extends { id: string }, P extends { id: string }>(
+  before: { events: { live: readonly E[]; upcoming: readonly E[] }; open: readonly P[] },
+  after: { events: { upcoming: readonly E[] }; open: readonly P[] },
+): { events: E[]; votes: P[] } {
+  const known = new Set([...before.events.live, ...before.events.upcoming].map((e) => e.id));
+  const had = new Set(before.open.map((p) => p.id));
+  return {
+    events: after.events.upcoming.filter((e) => !known.has(e.id)),
+    votes: after.open.filter((p) => !had.has(p.id)).slice(0, NEW_VOTES_SHOWN),
+  };
+}
+
 /** The weather on its way, before when. */
 const WEATHER_NEXT: Record<Weather, string> = {
   clear: "Clear skies",

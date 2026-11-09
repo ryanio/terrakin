@@ -66,6 +66,7 @@ import { jobsSection } from "./jobs-section";
 import { savedResidentId, savedToken } from "./net";
 import { coins } from "./purse";
 import { walkInWorld } from "./things";
+import { type ClockAnchor, serverTime } from "./time";
 import {
   boardWords,
   type CommonsPick,
@@ -133,8 +134,8 @@ export function townView(ctx: ViewContext): View {
   let sheetOpen = false;
   let busy = false;
   /** The server's clock from the last world snapshot, and when it came, to read it forward. */
-  let clock: { ms: number; at: number } | undefined;
-  const serverNow = () => (clock ? clock.ms + (Date.now() - clock.at) : Date.now());
+  let clock: ClockAnchor | undefined;
+  const serverNow = () => (clock ? serverTime(clock, Date.now()) : Date.now());
 
   const hero = h("section", {
     class: "stack start paper card town-hero",
@@ -168,7 +169,7 @@ export function townView(ctx: ViewContext): View {
   /** Keep what the world said, and say whether jobs are open in it. */
   function readWorld(w: WorldSnapshot): boolean {
     commons = commonsOf(w);
-    clock = { ms: w.time.nowMs, at: Date.now() };
+    clock = { nowMs: w.time.nowMs, at: Date.now() };
     circlesOpen = w.circlesOpen === true;
     return w.jobsOpen === true;
   }

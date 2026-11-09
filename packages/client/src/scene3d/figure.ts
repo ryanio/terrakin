@@ -1,3 +1,4 @@
+import { tileHash } from "@terrakin/sim";
 import type { Feeling } from "@terrakin/ui/feelings";
 import {
   drawFeelingIcon,
@@ -31,7 +32,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
 import { bakeShade, blobShadow, canvasTexture, lin, nameTag, type Stage } from "./art";
 import { hairMesh } from "./hair";
-import { FIGURE_SCALE, type LayoutFigure, SIGN_SIZE, tagHeight, tileHash } from "./layout";
+import { FIGURE_SCALE, type LayoutFigure, SIGN_SIZE, tagHeight } from "./layout";
 import { BRAND, residentHex, SKY } from "./palette";
 import { wearGroup } from "./wear";
 

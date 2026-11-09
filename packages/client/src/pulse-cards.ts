@@ -24,7 +24,7 @@ import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
 import { lazyPlotThumb } from "./plot-thumb-slot";
 import { type PulseStats, phaseName, statTiles, type WallItem, weatherReport } from "./pulse";
-import { dayPhase, nightAmount } from "./time";
+import { type ClockAnchor, dayPhase, nightAmount, serverTime } from "./time";
 import { closesIn, tallyBar } from "./town-format";
 import { visitTap } from "./visit-plot";
 import { plotTitles, stripPlots } from "./visits";
@@ -269,11 +269,11 @@ export function skyCard() {
       h("span", { text: "Step outside" }),
     ),
   );
-  let anchor: { serverMs: number; at: number; dayMs: number; day: number | undefined } | undefined;
+  let anchor: (ClockAnchor & { dayMs: number; day: number | undefined }) | undefined;
   let online = 0;
   const paint = () => {
     if (!anchor) return;
-    const now = anchor.serverMs + (performance.now() - anchor.at);
+    const now = serverTime(anchor, performance.now());
     const phase = dayPhase(now, anchor.dayMs);
     const night = nightAmount(phase);
     const edge = Math.min(Math.abs(phase), Math.abs(1 - phase), Math.abs(phase - 0.5));
@@ -304,7 +304,7 @@ export function skyCard() {
     el,
     update(snapshot: WorldSnapshot, onlineNow: number) {
       anchor = {
-        serverMs: snapshot.time.nowMs,
+        nowMs: snapshot.time.nowMs,
         at: performance.now(),
         dayMs: snapshot.time.dayLengthMs,
         day: snapshot.day,

@@ -5,8 +5,9 @@
  */
 
 import type { ProfileDesign } from "@terrakin/protocol";
-import type { ResidentColor } from "@terrakin/sim";
+import { fnv1a, type ResidentColor } from "@terrakin/sim";
 import { SVG_NS } from "@terrakin/ui/dom";
+import { seeded } from "./names";
 
 export const BANNER_W = 600;
 export const BANNER_H = 200;
@@ -33,27 +34,6 @@ export interface BannerShape {
   stroke?: number;
 }
 
-/** FNV-1a: the same string always gives the same 32-bit number. */
-function hashSeed(text: string): number {
-  let h = 0x811c9dc5;
-  for (let i = 0; i < text.length; i++) {
-    h ^= text.charCodeAt(i);
-    h = Math.imul(h, 0x01000193);
-  }
-  return h >>> 0;
-}
-
-/** mulberry32: a small seeded generator, so a banner never depends on Math.random. */
-function seeded(seed: number): () => number {
-  let a = seed;
-  return () => {
-    a = (a + 0x6d2b79f5) | 0;
-    let t = Math.imul(a ^ (a >>> 15), 1 | a);
-    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
 const round = (n: number) => Math.round(n * 10) / 10;
 
 /** The motif and shapes for this resident's banner. Same id and color, same banner. */
@@ -61,7 +41,8 @@ export function bannerShapes(
   id: string,
   color: ResidentColor,
 ): { motif: BannerMotif; shapes: BannerShape[] } {
-  const rand = seeded(hashSeed(id));
+  // Seeded from the id's FNV-1a hash, so a banner never depends on Math.random.
+  const rand = seeded(Number.parseInt(fnv1a(id), 16));
   const between = (lo: number, hi: number) => lo + rand() * (hi - lo);
   const pick = <T>(list: readonly T[]): T => list[Math.floor(rand() * list.length)] as T;
 

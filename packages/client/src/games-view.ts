@@ -51,6 +51,7 @@ import {
   winnerWords,
 } from "./game-format";
 import { pageData } from "./page-data";
+import { type ClockAnchor, serverTime } from "./time";
 import { failInto, notFoundCard, type View, type ViewContext } from "./view";
 import "./games-view.css";
 
@@ -370,8 +371,8 @@ export function tableView(id: string, ctx: ViewContext): View {
   const { el, head, main, side } = pageLayout("game-page", "Seats", { sideLast: true });
   let table: TableView | undefined;
   let busy = false;
-  /** How far the server's clock is ahead of this device's, from the last answer. */
-  let skew = 0;
+  /** The server's clock from the last answer, and when it came, to read it forward. */
+  let serverClock: ClockAnchor | undefined;
   const clock = h("span", { class: "game-clock", attrs: { "aria-live": "off" } });
   let decideSheet: HTMLDialogElement | undefined;
 
@@ -578,7 +579,9 @@ export function tableView(id: string, ctx: ViewContext): View {
   function tickClock() {
     const t = table;
     if (!t?.closesAt) return;
-    clock.textContent = timeLeftWords(Date.parse(t.closesAt) - (Date.now() + skew));
+    clock.textContent = timeLeftWords(
+      Date.parse(t.closesAt) - (serverClock ? serverTime(serverClock, Date.now()) : Date.now()),
+    );
   }
 
   function paint(t: TableView) {
@@ -629,7 +632,7 @@ export function tableView(id: string, ctx: ViewContext): View {
   function show(data: GameResponse) {
     const was = table;
     table = data.table;
-    skew = Date.parse(data.now) - Date.now();
+    serverClock = { nowMs: Date.parse(data.now), at: Date.now() };
     // A new round closes the sheet for the old one.
     if (decideSheet && was && was.round !== table.round) closeOverlay(decideSheet);
     if (!decideSheet) paint(table);

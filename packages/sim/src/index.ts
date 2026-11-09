@@ -748,6 +748,7 @@ export {
   type Tally,
   TOWN_LIMITS,
   tally,
+  tallyOutcome,
   townEligibility,
   votesCast,
 } from "./town";

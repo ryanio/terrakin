@@ -33,6 +33,7 @@ import {
   type Grade,
   type GroundKind,
   ITEM_INFO,
+  inBounds,
   inEventArea,
   isEdgeKind,
   isFurnitureKind,
@@ -193,7 +194,7 @@ import {
   toastMs,
   worldProblem,
 } from "./things";
-import { dayPhase } from "./time";
+import { type ClockAnchor, dayPhase, serverTime } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { visitCard } from "./visit-card";
 import { padThumb, Walker, walkKey } from "./walk";
@@ -522,7 +523,7 @@ let resyncing = false;
 /** True between pressing Move in and the server's welcome, so we count a join once. */
 let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
-let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
+let dayAnchor: (ClockAnchor & { dayLengthMs: number }) | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
 /**
  * The map's zoom (`map-zoom.ts`): the scale a pinch, a wheel, or + and - asked for, kept inside
@@ -727,7 +728,7 @@ function stopWalking() {
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
 function anchor(time: WorldSnapshot["time"]) {
-  return { ...time, receivedAt: performance.now() };
+  return { ...time, at: performance.now() };
 }
 
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
@@ -1293,7 +1294,7 @@ function walkFar(tile: Tile, near: number, legs = 8, last = Number.POSITIVE_INFI
   walkToward(tile, near, () => {
     const at = self();
     if (!at) return;
-    const left = Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y));
+    const left = chebyshev(tile, at);
     if (left <= near || legs <= 1 || left >= last) return;
     walkFar(tile, near, legs - 1, left);
   });
@@ -1312,7 +1313,7 @@ const STATIONS: readonly BlockKind[] = [
 /** Whether a tile is within the world's reach of where you stand. Only a hint: the server checks. */
 function inReach(r: { x: number; y: number }, tile: { x: number; y: number }): boolean {
   const reach = mirror?.config.reach ?? 0;
-  return Math.max(Math.abs(tile.x - r.x), Math.abs(tile.y - r.y)) <= reach;
+  return chebyshev(tile, r) <= reach;
 }
 
 /**
@@ -1361,11 +1362,7 @@ function openStation(x: number, y: number) {
     m.recipesOpen && at && (kind === "kitchen" || kind === "workbench")
       ? [...m.residents.values()]
           .filter((r) => r.online && r.id !== me && !m.townsfolk.has(r.id) && inReach(at, r))
-          .sort(
-            (a, b) =>
-              Math.max(Math.abs(a.x - at.x), Math.abs(a.y - at.y)) -
-              Math.max(Math.abs(b.x - at.x), Math.abs(b.y - at.y)),
-          )
+          .sort((a, b) => chebyshev(a, at) - chebyshev(b, at))
           .map((r) => ({ id: r.id, name: r.name, kind: r.kind, note: r.note }))
       : [];
   void import("./garden-sheet").then((g) =>
@@ -1605,7 +1602,7 @@ function goToPlace(place: MapPlace) {
   if (me && at) {
     stopLooking();
     stopRoaming();
-    if (Math.max(Math.abs(place.x - at.x), Math.abs(place.y - at.y)) <= place.near) {
+    if (chebyshev(place, at) <= place.near) {
       showToast(place.kind === "home" ? "You're home." : "You're there already.");
       return;
     }
@@ -1651,9 +1648,8 @@ function thingAt(tile: Tile): string | null {
   const floor = myFloor();
   const block = m.blocksOn(floor).get(tileKey(tile.x, tile.y));
   if (!block) return null;
+  if (me && m.canBuildAt(tile.x, tile.y, me)) return null;
   const ownerId = m.ownerAt(tile.x, tile.y);
-  if (ownerId && me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(tile.x, tile.y)] }, me))
-    return null;
   const pot = block === "pot" ? m.pots.get(potKey(tile.x, tile.y, floor))?.good : undefined;
   return thingHereLine({
     block,
@@ -1700,8 +1696,7 @@ function tapTarget(tile: Tile): TapTarget | undefined {
 
 /** Whether a tile is on a plot you can build on, by the sim's rule. */
 function buildableHere(m: Mirror, x: number, y: number): boolean {
-  const ownerId = m.ownerAt(x, y);
-  return !!ownerId && !!me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, me);
+  return !!me && m.canBuildAt(x, y, me);
 }
 
 /**
@@ -1721,7 +1716,7 @@ function roomTarget(tile: Tile, at: Tile): TapTarget | undefined {
   }
   if (!isHangingWall(block) || !buildableHere(m, tile.x, tile.y)) return undefined;
   const face = wallFace(tile, at, (x, y) => {
-    if (x < 0 || y < 0 || x >= m.config.width || y >= m.config.height) return false;
+    if (!inBounds(m.config, x, y)) return false;
     return !blocksWalkers(here.get(tileKey(x, y))) && buildableHere(m, x, y);
   });
   return face ? { kind: "wall", face } : undefined;
@@ -1986,7 +1981,7 @@ function tapTile(tile: { x: number; y: number }) {
   };
   // Water (RFC 0023): cast a line into it from beside it, walking there first when it's farther.
   if (target?.kind === "pond") {
-    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) <= 1) castLine();
+    if (chebyshev(tile, at) <= 1) castLine();
     else walkToward(tile, 1, castLine);
     return;
   }
@@ -1994,7 +1989,7 @@ function tapTile(tile: { x: number; y: number }) {
   // has the last word, and its refusal (someone's on it, a corner in the way) says why.
   if (target?.kind === "seat") {
     const rest = () => tryAct({ type: "rest", ...tile, ...floorField(myFloor()) });
-    if (Math.max(Math.abs(tile.x - at.x), Math.abs(tile.y - at.y)) === 1) rest();
+    if (chebyshev(tile, at) === 1) rest();
     else walkToward(tile, 1, rest);
     return;
   }
@@ -3292,9 +3287,7 @@ function frame() {
   }
   // Advance the server's time anchor with our own clock, so every client renders the same night,
   // and the same weather, at the same time without asking the server again.
-  const serverMs = dayAnchor
-    ? dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt)
-    : undefined;
+  const serverMs = dayAnchor ? serverTime(dayAnchor, performance.now()) : undefined;
   const phase =
     dayAnchor && serverMs !== undefined ? dayPhase(serverMs, dayAnchor.dayLengthMs) : undefined;
   const { season, weather } = skyNow(serverMs, mirror?.day);
@@ -3536,9 +3529,8 @@ function nearestPickup(kinds: readonly string[]): string | undefined {
   const at = here();
   const id = me;
   if (!m || !at || !id) return undefined;
-  const { width, height } = m.config;
   const spot = nearestTile(at, (x, y) => {
-    if (x < 0 || y < 0 || x >= width || y >= height) return false;
+    if (!inBounds(m.config, x, y)) return false;
     const kind = m.pickupAt(x, y);
     return kind !== null && kinds.includes(kind) && m.mayGatherAt(x, y, id);
   });
@@ -3553,8 +3545,7 @@ function hasWorkbench(): boolean {
   for (const [key, kind] of m.blocks) {
     if (kind !== "workbench") continue;
     const [x = 0, y = 0] = key.split(",").map(Number);
-    const ownerId = m.ownerAt(x, y);
-    if (ownerId && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, id)) return true;
+    if (m.canBuildAt(x, y, id)) return true;
   }
   return false;
 }

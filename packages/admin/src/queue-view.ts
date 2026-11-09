@@ -13,8 +13,7 @@ import type {
 import { h, icon } from "@terrakin/ui/dom";
 import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
-import { postPath, profilePath } from "@terrakin/ui/paths";
-import { personLink } from "@terrakin/ui/people";
+import { postPath } from "@terrakin/ui/paths";
 import { reasonLabel } from "@terrakin/ui/safety";
 import {
   confirmTwice,
@@ -48,7 +47,16 @@ import {
   triageSummary,
 } from "./logic";
 import { shutHomesCard } from "./shut-homes-view";
-import { button, outLink, pageHead, quoted, statePill, type View } from "./view";
+import {
+  button,
+  outLink,
+  pageHead,
+  profileLink,
+  profileUrl,
+  quoted,
+  statePill,
+  type View,
+} from "./view";
 
 export function queueView(overview: AdminOverviewResponse): View {
   const { me } = overview;
@@ -306,11 +314,7 @@ export function queueView(overview: AdminOverviewResponse): View {
                   "p",
                   { class: "item-author" },
                   item.kind === "resident" ? "Resident: " : "By ",
-                  personLink(target.author, {
-                    href: site + profilePath(target.author.id),
-                    newTab: true,
-                    picture: false,
-                  }),
+                  profileLink(site, target.author),
                 )
               : null,
             record ? h("p", { class: "item-record", text: record }) : null,
@@ -330,7 +334,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         ? h(
             "p",
             { class: "item-link" },
-            outLink(site + profilePath(target.author.id), "Open their stall"),
+            outLink(profileUrl(site, target.author.id), "Open their stall"),
           )
         : null,
       (item.kind === "display" || item.kind === "piece") && target.exists && target.author
@@ -338,7 +342,7 @@ export function queueView(overview: AdminOverviewResponse): View {
             "p",
             { class: "item-link" },
             outLink(
-              site + profilePath(target.author.id),
+              profileUrl(site, target.author.id),
               item.kind === "display" ? "Open who put it up" : "Open its maker",
             ),
           )

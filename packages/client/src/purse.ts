@@ -13,6 +13,7 @@ import { visiblePoll } from "@terrakin/ui/poll";
 import { purseApi } from "./api/purse";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
+import { readStoredJson, writeStored } from "./stored";
 
 const COUNT_MS = 700;
 const GLOW_MS = 1_600;
@@ -130,24 +131,12 @@ let lastSeq: number | undefined;
 const SEEN_KEY = "terrakin.purse.seen";
 
 function readSeen(who: string): number | undefined {
-  try {
-    const saved = JSON.parse(localStorage.getItem(SEEN_KEY) ?? "null") as {
-      who?: string;
-      seq?: number;
-    } | null;
-    return saved?.who === who && typeof saved.seq === "number" ? saved.seq : undefined;
-  } catch {
-    return undefined;
-  }
+  const saved = readStoredJson(SEEN_KEY) as { who?: string; seq?: number } | null | undefined;
+  return saved?.who === who && typeof saved.seq === "number" ? saved.seq : undefined;
 }
 
-function writeSeen(who: string, seq: number) {
-  try {
-    localStorage.setItem(SEEN_KEY, JSON.stringify({ who, seq }));
-  } catch {
-    // Private windows and blocked storage: notices just start from now next time.
-  }
-}
+/** With storage off, notices just start from now next time. */
+const writeSeen = (who: string, seq: number) => writeStored(SEEN_KEY, JSON.stringify({ who, seq }));
 
 function glow() {
   if (!pill || reducedMotion()) return;

@@ -13,8 +13,10 @@
 
 import {
   bySquare,
+  chebyshev,
   groundTile,
   holidaysOf,
+  inBounds,
   isFindKind,
   isReady,
   isResourceKind,
@@ -136,8 +138,8 @@ import { type SeaLook, type SeaTile, seaLook, seaMeshes } from "./sea";
 import { createWeather } from "./weather";
 import {
   approach,
-  BUILDS_PER_FRAME,
   cameraQuarter,
+  chunkPlan,
   chunkSignature,
   dozersAround,
   faceAngle,
@@ -146,7 +148,6 @@ import {
   groundAnchor,
   groundPoint,
   hearthKeys,
-  KEEP_SLACK,
   MAX_FIGURES,
   nearbyLabel,
   plotsAround,
@@ -155,7 +156,6 @@ import {
   spotOfHit,
   type Tile,
   tileAtPoint,
-  tileDistance,
   turnBetween,
   VIEW_RADIUS,
 } from "./world-layout";
@@ -590,36 +590,33 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const { config } = mirror;
     const cutAt = (px: number, py: number) =>
       cut && cut.px === px && cut.py === py ? cut.floor : undefined;
-    const keep = new Set(
-      plotsAround(tile, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
-    );
-    for (const key of [...chunks.keys()]) if (!keep.has(key)) dropChunk(key);
-    const S = config.plotSize;
-    const wanted = plotsAround(tile, VIEW_RADIUS, config).sort(
-      (a, b) =>
-        tileDistance(tile, { x: a.x * S + S / 2, y: a.y * S + S / 2 }) -
-        tileDistance(tile, { x: b.x * S + S / 2, y: b.y * S + S / 2 }),
-    );
-    let built = 0;
-    pending = false;
-    for (const p of wanted) {
+    const plan = chunkPlan({
+      focus: tile,
+      config,
+      built: (key) => chunks.has(key),
+      changed,
+      current: (p) => {
+        const key = plotKey(p.x, p.y);
+        const lit = homes.has(key);
+        const signature = chunkSignature(
+          mirror,
+          p.x,
+          p.y,
+          hearths,
+          season,
+          lit,
+          cutAt(p.x, p.y),
+          viewer,
+        );
+        return chunks.get(key)?.signature === signature;
+      },
+    });
+    for (const key of [...chunks.keys()]) if (!plan.keep.has(key)) dropChunk(key);
+    pending = plan.pending;
+    for (const p of plan.build) {
       const key = plotKey(p.x, p.y);
-      const have = chunks.get(key);
-      if (have && !changed) continue;
-      const lit = homes.has(key);
-      const at = cutAt(p.x, p.y);
-      if (
-        have &&
-        have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit, at, viewer)
-      )
-        continue;
-      if (built >= BUILDS_PER_FRAME) {
-        pending = true;
-        break;
-      }
       dropChunk(key);
-      chunks.set(key, buildChunk(mirror, p.x, p.y, at));
-      built++;
+      chunks.set(key, buildChunk(mirror, p.x, p.y, cutAt(p.x, p.y)));
     }
   }
 
@@ -661,8 +658,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const fadeStart = VIEW_RADIUS;
     const fadeEnd = GROUND_RING;
     const n = GROUND_RING * 2 + 1;
-    const inWorld = (x: number, y: number) =>
-      x >= 0 && y >= 0 && x < config.width && y < config.height;
+    const inWorld = (x: number, y: number) => inBounds(config, x, y);
     // A tile's ground, as the 2D map paints it: its biome or the Commons, tinted on a plot.
     const tiles = new Map<string, Color>();
     const tileColor = (tx: number, ty: number): Color => {
@@ -1104,7 +1100,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // Out on a routine, they're awake.
       f.doze = f.out ? undefined : m.doze;
       let look = 0;
-      if (speaker && speaker.id !== id && tileDistance(r, speaker) <= LISTEN_RADIUS) {
+      if (speaker && speaker.id !== id && chebyshev(r, speaker) <= LISTEN_RADIUS) {
         const toward = turnBetween(turn, Math.atan2(speaker.x - m.x, speaker.y - m.y));
         if (Math.abs(toward) <= BEHIND) look = Math.max(-NECK, Math.min(NECK, toward));
       }
@@ -1147,12 +1143,12 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       .filter((r) => {
         if (!r.pet) return false;
         const anchor = r.online ? r : r.hearth;
-        return anchor !== null && tileDistance(tile, anchor) <= VIEW_RADIUS + 2;
+        return anchor !== null && chebyshev(tile, anchor) <= VIEW_RADIUS + 2;
       })
       .sort(
         (a, b) =>
-          tileDistance(tile, a.online ? a : (a.hearth ?? a)) -
-          tileDistance(tile, b.online ? b : (b.hearth ?? b)),
+          chebyshev(tile, a.online ? a : (a.hearth ?? a)) -
+          chebyshev(tile, b.online ? b : (b.hearth ?? b)),
       )
       .slice(0, MAX_PETS);
     const scenePets: PetScene = {
@@ -1241,7 +1237,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
 
   /** Where someone on each hearth's tile stands, clear of the stonework. */
   function hearthStands(mirror: Mirror): Map<number, { x: number; y: number }> {
-    const { width, height } = mirror.config;
+    const { width } = mirror.config;
     const out = new Map<number, { x: number; y: number }>();
     for (const r of mirror.residents.values()) {
       const h = r.hearth;
@@ -1250,14 +1246,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         const x = h.x + dx;
         const y = h.y + dy;
         const key = tileKey(x, y);
-        return (
-          x >= 0 &&
-          y >= 0 &&
-          x < width &&
-          y < height &&
-          !mirror.blocks.has(key) &&
-          !hearths.has(key)
-        );
+        return inBounds(mirror.config, x, y) && !mirror.blocks.has(key) && !hearths.has(key);
       });
       out.set(h.y * width + h.x, stand);
     }
@@ -1549,7 +1538,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       // evenings tinted (RFC 0022).
       if (sparks.set(frame.bursts ?? [], now, still)) moved = true;
       // Only marks within sight, so a ready kiln across town doesn't keep every frame drawing.
-      const inSight = (at: { x: number; y: number }) => tileDistance(tile, at) <= VIEW_RADIUS;
+      const inSight = (at: { x: number; y: number }) => chebyshev(tile, at) <= VIEW_RADIUS;
       const teas = teaSpots({
         config: mirror.config,
         events: mirror.events.values(),

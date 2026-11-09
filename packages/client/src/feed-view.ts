@@ -65,6 +65,7 @@ import {
   pulseStats,
   startedForYou,
   type TownsfolkMode,
+  townNews,
   townsfolkIds,
   townsfolkMode,
   type WallItem,
@@ -83,7 +84,9 @@ import {
 } from "./pulse-cards";
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
+import { readStored, writeStored } from "./stored";
 import { track } from "./telemetry";
+import { serverTime } from "./time";
 import { errorCard, type View, type ViewContext } from "./view";
 
 const TABS = ["everyone", "following"] as const;
@@ -128,7 +131,7 @@ const pulse: {
 function serverNow(): number {
   const time = pulse.world?.time;
   return time && pulse.worldAt !== undefined
-    ? time.nowMs + (Date.now() - pulse.worldAt)
+    ? serverTime({ nowMs: time.nowMs, at: pulse.worldAt }, Date.now())
     : Date.now();
 }
 
@@ -141,23 +144,6 @@ export function syncPost(post: PostView) {
     for (const p of state.posts) if (p.id === post.id && p !== post) copyPostState(post, p);
   }
 }
-
-const storage = {
-  get(key: string) {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set(key: string, value: string) {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Storage disabled: we just forget the choice.
-    }
-  },
-};
 
 /**
  * The top of `/` for every visitor: the headline, then two cards side by side (stacked on a phone,
@@ -509,7 +495,7 @@ export function feedView(ctx: ViewContext): View {
   // The same title index.html ships with, so it doesn't change once the script runs.
   ctx.setTitle(PAGES.find((p) => p.path === "/")?.title ?? "Terrakin");
   const hasToken = savedToken() !== null;
-  const saved = storage.get(TAB_KEY);
+  const saved = readStored(TAB_KEY);
   const restored = ctx.restoring ? cache.get(ctx.key) : undefined;
   const state: FeedState = restored ?? {
     tab: hasToken && saved === "following" ? "following" : "everyone",
@@ -1059,11 +1045,9 @@ export function feedView(ctx: ViewContext): View {
           }),
         true,
       );
+      const news = townNews(townBefore, pulse.town);
       // Someone put an event on the calendar: who's hosting, what, and when, as text.
-      const known = new Set(
-        [...townBefore.events.live, ...townBefore.events.upcoming].map((e) => e.id),
-      );
-      const fresh = pulse.town.events.upcoming.filter((e) => !known.has(e.id));
+      const fresh = news.events;
       if (fresh.length > 0) {
         activity.add(
           fresh.map(
@@ -1091,8 +1075,7 @@ export function feedView(ctx: ViewContext): View {
           action: { label: "Go", run: () => void goToEvent(e.id, (path) => ctx.navigate(path)) },
         });
       }
-      const had = new Set(townBefore.open.map((p) => p.id));
-      for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
+      for (const p of news.votes) {
         activity.add(
           [
             {
@@ -1243,7 +1226,7 @@ export function feedView(ctx: ViewContext): View {
   function switchTab(tab: Tab) {
     if (tab === state.tab) return;
     state.tab = tab;
-    storage.set(TAB_KEY, tab);
+    writeStored(TAB_KEY, tab);
     live.follow(tab === "following");
     hidePill();
     paintTabs();

@@ -13,6 +13,7 @@ import {
   bySquare,
   type ClayRule,
   type Crop,
+  canBuildOn,
   circleName,
   counterTiles,
   type Direction,
@@ -28,6 +29,7 @@ import {
   groundOf,
   hallTiles,
   holdsRoof,
+  inBounds,
   inLot,
   insetOf,
   LOOK_KEYS,
@@ -743,7 +745,7 @@ export class Mirror {
   wildAt(x: number, y: number): Wild | null {
     const { config } = this;
     if (insetOf(config) === 0) return null;
-    if (x < 0 || y < 0 || x >= config.width || y >= config.height) return null;
+    if (!inBounds(config, x, y)) return null;
     if (this.drawnPaving.has(tileKey(x, y))) return null;
     if (this.#sea?.(x, y) || this.onBridge(x, y)) return null;
     const S = config.plotSize;
@@ -1394,6 +1396,12 @@ export class Mirror {
     const plot = ownerId ? { ownerId, coOwners: [...this.coOwnersAt(x, y)] } : undefined;
     const onOpenWay = this.wayPickupsOpen && this.ways.has(tileKey(x, y));
     return mayGatherOn(plot, residentId, this.plotPickupsOwned, onOpenWay);
+  }
+
+  /** Whether a resident may build on the plot under a tile: the sim's own rule, asked of this copy. */
+  canBuildAt(x: number, y: number, residentId: string): boolean {
+    const ownerId = this.ownerAt(x, y);
+    return !!ownerId && canBuildOn({ ownerId, coOwners: [...this.coOwnersAt(x, y)] }, residentId);
   }
 
   /** Whether someone's hearth is on this tile. */

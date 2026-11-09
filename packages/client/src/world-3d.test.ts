@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { Mirror } from "./mirror";
 import {
   approach,
+  BUILDS_PER_FRAME,
   type ChunkSource,
   cameraQuarter,
+  chunkPlan,
   chunkSignature,
   dozersAround,
   faceAngle,
@@ -51,6 +53,31 @@ describe("which plots the 3D world loads", () => {
       { x: 1, y: 1 },
     ]);
     expect(plotsAround({ x: 71, y: 71 }, 3, config)).toEqual([{ x: 8, y: 8 }]);
+  });
+
+  it("builds the nearest plots first, a frame's worth at a time, and leaves a match alone", () => {
+    const focus = { x: 36, y: 36 };
+    const fresh = chunkPlan({
+      focus,
+      config,
+      built: () => false,
+      changed: false,
+      current: () => true,
+    });
+    // Tile 36 is plot 4's middle, and the plots beside it come next: their middles are 8 away.
+    expect(fresh.build).toHaveLength(BUILDS_PER_FRAME);
+    expect(fresh.build[0]).toEqual({ x: 4, y: 4 });
+    for (const p of fresh.build.slice(1)) {
+      expect(Math.max(Math.abs(p.x - 4), Math.abs(p.y - 4))).toBe(1);
+    }
+    expect(fresh.pending).toBe(true);
+    expect(fresh.keep.has("4,4")).toBe(true);
+    expect(fresh.keep.has("0,0")).toBe(false);
+    // Everything built: nothing to do until something changes, and then only what no longer matches.
+    const all = { focus, config, built: () => true };
+    expect(chunkPlan({ ...all, changed: false, current: () => false }).build).toEqual([]);
+    const stale = chunkPlan({ ...all, changed: true, current: (p) => p.x !== 6 || p.y !== 6 });
+    expect(stale).toMatchObject({ build: [{ x: 6, y: 6 }], pending: false });
   });
 });
 

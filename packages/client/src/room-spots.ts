@@ -1,4 +1,4 @@
-import { SIDE_STEP, SIDES, type Side } from "@terrakin/sim";
+import { chebyshev, SIDE_STEP, SIDES, type Side } from "@terrakin/sim";
 
 /**
  * Which face of a wall a tap means (RFC 0050): the side seen from the open tile beside the wall
@@ -16,7 +16,7 @@ export function wallFace(
     const x = wall.x - dx;
     const y = wall.y - dy;
     if (!open(x, y)) continue;
-    const steps = Math.max(Math.abs(x - from.x), Math.abs(y - from.y));
+    const steps = chebyshev({ x, y }, from);
     const far = Math.abs(x - from.x) + Math.abs(y - from.y);
     if (!best || steps < best.steps || (steps === best.steps && far < best.far)) {
       best = { x, y, side, steps, far };

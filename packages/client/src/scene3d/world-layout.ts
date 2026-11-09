@@ -6,6 +6,7 @@
 import {
   type BlockKind,
   type Crop,
+  chebyshev,
   type Direction,
   type DrawnGround,
   edgeKey,
@@ -17,6 +18,7 @@ import {
   insetOf,
   type PickupKind,
   parseEdgeKey,
+  plotKey,
   type Resident,
   type RoofShape,
   type Scenery,
@@ -49,7 +51,7 @@ import {
 /** How far around you the world is drawn, in tiles (Chebyshev, like reach). Fog hides the edge. */
 export const VIEW_RADIUS = 12;
 /** A loaded plot stays until you're this many tiles past the view radius, so edges don't flicker. */
-export const KEEP_SLACK = 4;
+const KEEP_SLACK = 4;
 /**
  * At most this many residents are drawn, nearest first. You're always one of them, then everyone
  * online, then anyone away asleep at home fills what's left.
@@ -80,9 +82,45 @@ export function plotsAround(focus: Tile, radius: number, config: WorldConfig): T
   return out;
 }
 
-/** Chebyshev distance between two tiles, the way reach and the view radius count. */
-export function tileDistance(a: Tile, b: Tile): number {
-  return Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
+/** What one frame does to the plots drawn around you. */
+export interface ChunkPlan {
+  /** The plots (by `plotKey`) that stay loaded; the rest are dropped. */
+  keep: ReadonlySet<string>;
+  /** The plots to build, or build again, this frame, nearest first. */
+  build: Tile[];
+  /** Whether more plots wait for a later frame. */
+  pending: boolean;
+}
+
+/**
+ * Which plots to keep and which to build around `focus`, nearest first by their middles and at
+ * most `BUILDS_PER_FRAME`. A plot already built is built again only when something `changed` and
+ * `current(p)`, its drawing's signature check, says it no longer matches.
+ */
+export function chunkPlan(o: {
+  focus: Tile;
+  config: WorldConfig;
+  built: (key: string) => boolean;
+  changed: boolean;
+  current: (p: Tile) => boolean;
+}): ChunkPlan {
+  const { focus, config } = o;
+  const keep = new Set(
+    plotsAround(focus, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
+  );
+  const S = config.plotSize;
+  const middle = (p: Tile) => ({ x: p.x * S + S / 2, y: p.y * S + S / 2 });
+  const wanted = plotsAround(focus, VIEW_RADIUS, config).sort(
+    (a, b) => chebyshev(focus, middle(a)) - chebyshev(focus, middle(b)),
+  );
+  const build: Tile[] = [];
+  for (const p of wanted) {
+    const have = o.built(plotKey(p.x, p.y));
+    if (have && (!o.changed || o.current(p))) continue;
+    if (build.length >= BUILDS_PER_FRAME) return { keep, build, pending: true };
+    build.push(p);
+  }
+  return { keep, build, pending: false };
 }
 
 /**
@@ -104,7 +142,7 @@ export function figuresAround<R extends Pick<Resident, "id" | "x" | "y" | "onlin
       mine = r;
       continue;
     }
-    const d = tileDistance(r, focus);
+    const d = chebyshev(r, focus);
     if (d <= radius) near.push({ r, d });
   }
   near.sort((a, b) => a.d - b.d || (a.r.id < b.r.id ? -1 : 1));
@@ -125,7 +163,7 @@ export function dozersAround<R extends { id: string }>(
 ): Dozer<R>[] {
   if (room <= 0) return [];
   return asleep
-    .map((d) => ({ d, far: tileDistance(d, focus) }))
+    .map((d) => ({ d, far: chebyshev(d, focus) }))
     .filter((n) => n.far <= radius)
     .sort((a, b) => a.far - b.far || (a.d.r.id < b.d.r.id ? -1 : 1))
     .slice(0, room)

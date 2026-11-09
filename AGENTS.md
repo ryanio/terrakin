@@ -57,6 +57,7 @@ pnpm dev:live     # the client on :5193 drawing terrakin.org's own world, reads 
 pnpm persona settled   # a resident at a stage on the test world (visitor, settled, stocked, pet, staff, owner), with a line to sign a tab in
 pnpm verify       # vendored secrets check, lint, knip (unused files, exports, deps), typecheck, test, kb:check, gen:check, build. Same as CI.
 pnpm vitest run --project sim   # one package's tests
+pnpm fuzz         # the sim's seeded fuzz, long: 300 seeds of 600 random inputs each
 pnpm e2e          # Playwright on a phone viewport against the real build
 pnpm format       # Biome: fix formatting and safe lint issues
 pnpm gen          # regenerate everything derived from the route table and site config

@@ -19,6 +19,7 @@
     "build": "pnpm --filter @terrakin/client build && pnpm --filter @terrakin/admin build",
     "test": "vitest run",
     "test:watch": "vitest",
+    "fuzz": "FUZZ_SEEDS=300 FUZZ_FIRST=1000 FUZZ_STEPS=600 vitest run --project sim fuzz",
     "typecheck": "pnpm -r typecheck && tsc -p tsconfig.json",
     "lint": "biome check .",
     "knip": "knip --no-progress",

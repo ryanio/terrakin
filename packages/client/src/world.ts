@@ -194,7 +194,7 @@ import {
   toastMs,
   worldProblem,
 } from "./things";
-import { dayPhase } from "./time";
+import { type ClockAnchor, dayPhase, serverTime } from "./time";
 import { ARRIVAL_KEY, type FoldedWaves, foldWaves, gestureLine, wavesLine } from "./together";
 import { visitCard } from "./visit-card";
 import { padThumb, Walker, walkKey } from "./walk";
@@ -523,7 +523,7 @@ let resyncing = false;
 /** True between pressing Move in and the server's welcome, so we count a join once. */
 let joiningFresh = false;
 /** Server time anchor from the latest snapshot, plus when we received it locally. */
-let dayAnchor: { nowMs: number; dayLengthMs: number; receivedAt: number } | undefined;
+let dayAnchor: (ClockAnchor & { dayLengthMs: number }) | undefined;
 const cam: Camera = { cx: 0, cy: 0, scale: 32, width: 0, height: 0 };
 /**
  * The map's zoom (`map-zoom.ts`): the scale a pinch, a wheel, or + and - asked for, kept inside
@@ -728,7 +728,7 @@ function stopWalking() {
 
 /** Remember the server's day/night anchor and when it arrived. No anchor means no night. */
 function anchor(time: WorldSnapshot["time"]) {
-  return { ...time, receivedAt: performance.now() };
+  return { ...time, at: performance.now() };
 }
 
 /** Reload the world from the server. One at a time; events are ignored until it lands. */
@@ -3289,9 +3289,7 @@ function frame() {
   }
   // Advance the server's time anchor with our own clock, so every client renders the same night,
   // and the same weather, at the same time without asking the server again.
-  const serverMs = dayAnchor
-    ? dayAnchor.nowMs + (performance.now() - dayAnchor.receivedAt)
-    : undefined;
+  const serverMs = dayAnchor ? serverTime(dayAnchor, performance.now()) : undefined;
   const phase =
     dayAnchor && serverMs !== undefined ? dayPhase(serverMs, dayAnchor.dayLengthMs) : undefined;
   const { season, weather } = skyNow(serverMs, mirror?.day);

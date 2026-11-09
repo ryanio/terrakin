@@ -84,6 +84,7 @@ import {
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
 import { track } from "./telemetry";
+import { serverTime } from "./time";
 import { errorCard, type View, type ViewContext } from "./view";
 
 const TABS = ["everyone", "following"] as const;
@@ -128,7 +129,7 @@ const pulse: {
 function serverNow(): number {
   const time = pulse.world?.time;
   return time && pulse.worldAt !== undefined
-    ? time.nowMs + (Date.now() - pulse.worldAt)
+    ? serverTime({ nowMs: time.nowMs, at: pulse.worldAt }, Date.now())
     : Date.now();
 }
 

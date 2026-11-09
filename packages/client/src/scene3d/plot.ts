@@ -9,7 +9,7 @@
 
 import { postureOn, tileHash } from "@terrakin/sim";
 import { Group, Mesh, type Texture, Vector3 } from "three";
-import { dayPhase } from "../time";
+import { dayPhase, serverTime } from "../time";
 import { UMBRELLA_RAIN, WEATHER_LOOK } from "../weather";
 import {
   addAll,
@@ -239,7 +239,7 @@ export function buildPlot(
   stage.holiday(layout.holiday);
   const tick = () => {
     stage.timeOfDay(
-      clock ? dayPhase(clock.nowMs + performance.now() - clock.at, clock.dayLengthMs) : undefined,
+      clock ? dayPhase(serverTime(clock, performance.now()), clock.dayLengthMs) : undefined,
     );
     weather.set(sky);
   };

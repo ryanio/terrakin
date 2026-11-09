@@ -3,6 +3,11 @@ import { apply } from "./apply";
 import { eventHeld, findEvent, joinTile, notAtThePlace } from "./events";
 import { ATTENDANCE_CONFIG, ATTENDANCE_HASH, ATTENDANCE_LOG } from "./fixtures/attendance-log";
 import { EVENTS_CONFIG, EVENTS_HASH, EVENTS_LOG } from "./fixtures/events-log";
+import {
+  SCHEDULE_IN_PERSON_CONFIG,
+  SCHEDULE_IN_PERSON_HASH,
+  SCHEDULE_IN_PERSON_LOG,
+} from "./fixtures/schedule-in-person-log";
 import { hashWorld } from "./hash";
 import { tileKey } from "./keys";
 import { replay } from "./replay";
@@ -777,6 +782,13 @@ describe("booking in person (RFC 0042)", () => {
 });
 
 describe("the events fixture", () => {
+  it("replays the booking fixture on both sides of schedule_in_person", () => {
+    const state = replay(SCHEDULE_IN_PERSON_CONFIG, SCHEDULE_IN_PERSON_LOG);
+    expect(hashWorld(state)).toBe(SCHEDULE_IN_PERSON_HASH);
+    expect(state.scheduleInPerson).toBe(true);
+    expectSupplyHolds(state);
+  });
+
   it("replays the attendance fixture on both sides of attend_at_ten", () => {
     const state = replay(ATTENDANCE_CONFIG, ATTENDANCE_LOG);
     expect(hashWorld(state)).toBe(ATTENDANCE_HASH);

@@ -3,6 +3,11 @@ import { apply, prepare } from "./apply";
 import { COMMONS_CONFIG, COMMONS_HASH, COMMONS_LOG } from "./fixtures/commons-log";
 import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { PRE_TOWN_CONFIG, PRE_TOWN_HASH, PRE_TOWN_LOG } from "./fixtures/pre-town-log";
+import {
+  PROPOSE_IN_PERSON_CONFIG,
+  PROPOSE_IN_PERSON_HASH,
+  PROPOSE_IN_PERSON_LOG,
+} from "./fixtures/propose-in-person-log";
 import { TABLE_SPOTS_CONFIG, TABLE_SPOTS_HASH, TABLE_SPOTS_LOG } from "./fixtures/table-spots-log";
 import { hashWorld } from "./hash";
 import { replay } from "./replay";
@@ -1072,6 +1077,12 @@ describe("the town's centre (RFC 0038)", () => {
 });
 
 describe("replay", () => {
+  it("replays a log of filings on both sides of propose_in_person to its pinned hash", () => {
+    const state = replay(PROPOSE_IN_PERSON_CONFIG, PROPOSE_IN_PERSON_LOG);
+    expect(hashWorld(state)).toBe(PROPOSE_IN_PERSON_HASH);
+    expect(state.proposeInPerson).toBe(true);
+  });
+
   it("replays the Commons log, with its path, bench, lamp post, and well, to its pinned hash", () => {
     const state = replay(COMMONS_CONFIG, COMMONS_LOG);
     expect(hashWorld(state)).toBe(COMMONS_HASH);

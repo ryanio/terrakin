@@ -2,6 +2,11 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import type { RecipeName } from "./catalog";
 import { nearestCounter } from "./doors";
+import {
+  HOLIDAY_PRICES_CONFIG,
+  HOLIDAY_PRICES_HASH,
+  HOLIDAY_PRICES_LOG,
+} from "./fixtures/holiday-prices-log";
 import { ITEMS_CONFIG, ITEMS_LOG } from "./fixtures/items-log";
 import { LANDS_ISLAND as ISLAND } from "./fixtures/lands-log";
 import { NAMED_SALES_CONFIG, NAMED_SALES_HASH, NAMED_SALES_LOG } from "./fixtures/named-sales-log";
@@ -11,6 +16,7 @@ import {
   SHOP_COUNTER_LOG,
 } from "./fixtures/shop-counter-log";
 import { SHOP_CONFIG, SHOP_HASH, SHOP_LOG } from "./fixtures/shop-log";
+import { SHOP_SHARE_CONFIG, SHOP_SHARE_HASH, SHOP_SHARE_LOG } from "./fixtures/shop-share-log";
 import { hashWorld } from "./hash";
 import {
   CROPS,
@@ -145,6 +151,19 @@ describe("old logs", () => {
   it("replay a log from both sides of shop_in_person to its pinned hash", () => {
     const state = replay(SHOP_COUNTER_CONFIG, SHOP_COUNTER_LOG);
     expect(hashWorld(state)).toBe(SHOP_COUNTER_HASH);
+    expectSupplyHolds(state);
+  });
+
+  it("replay a log from both sides of set_shop_share to its pinned hash", () => {
+    const state = replay(SHOP_SHARE_CONFIG, SHOP_SHARE_LOG);
+    expect(hashWorld(state)).toBe(SHOP_SHARE_HASH);
+    expect(state.shop?.treasuryShare).toBe(5);
+    expectSupplyHolds(state);
+  });
+
+  it("replay a log from both sides of lower_holiday_prices to its pinned hash", () => {
+    const state = replay(HOLIDAY_PRICES_CONFIG, HOLIDAY_PRICES_LOG);
+    expect(hashWorld(state)).toBe(HOLIDAY_PRICES_HASH);
     expectSupplyHolds(state);
   });
 

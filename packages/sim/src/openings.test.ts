@@ -260,7 +260,12 @@ describe("with one plot a resident, a household only ever clears a plot (decisio
     expect(files.length).toBeGreaterThan(40);
     expect(added).toEqual([]);
     // Dee's plot (1, 0) reaches the town only across (0, 0), which Cy, Dee's owner pair, shares.
-    expect(cleared).toEqual(["autumn-log.ts 1,0", "halloween-log.ts 1,0", "winter-log.ts 1,0"]);
+    expect(cleared).toEqual([
+      "autumn-log.ts 1,0",
+      "halloween-log.ts 1,0",
+      "holiday-prices-log.ts 1,0",
+      "winter-log.ts 1,0",
+    ]);
   });
 });
 

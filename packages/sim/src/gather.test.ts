@@ -4,6 +4,7 @@ import { biomeAt } from "./biome";
 import { CATALOG, FIND_KINDS } from "./catalog";
 import { FINDS_CONFIG, FINDS_HASH, FINDS_LOG } from "./fixtures/finds-log";
 import { GATHER_ALL_CONFIG, GATHER_ALL_HASH, GATHER_ALL_LOG } from "./fixtures/gather-all-log";
+import { WAY_PICKUPS_CONFIG, WAY_PICKUPS_HASH, WAY_PICKUPS_LOG } from "./fixtures/way-pickups-log";
 import {
   FIND_SPAWNS,
   type FindSpawn,
@@ -542,6 +543,12 @@ describe("gathering everything within reach (decision 0125)", () => {
     expect(hashWorld(state)).toBe(GATHER_ALL_HASH);
     // The chestnut Bob found on the open land after the switch, beside everything from before it.
     expect(state.items?.inventories.bob?.stacks).toMatchObject({ wood: 2, stone: 4, chestnut: 1 });
+  });
+
+  it("replays a log that gathers by a way on both sides of open_way_pickups to its pinned hash", () => {
+    const state = replay(WAY_PICKUPS_CONFIG, WAY_PICKUPS_LOG);
+    expect(hashWorld(state)).toBe(WAY_PICKUPS_HASH);
+    expect(state.items?.wayPickups).toBe(true);
   });
 });
 

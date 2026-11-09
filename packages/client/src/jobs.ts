@@ -29,10 +29,9 @@ import {
   STARTER_SEEDS,
   skillName,
   type TimeOfDay,
-  titleLabel,
-  WEAR_INFO,
 } from "@terrakin/sim";
 import { plural } from "@terrakin/ui/format";
+import { unlockWords } from "./levels";
 import { aThing, needsLine, thingCount } from "./things";
 
 /** Where you stand, as `GET /v1/jobs` answers with a token. */
@@ -365,12 +364,6 @@ export function doneLine(
 /** A job that lapsed after its seven days, or one you let go. */
 export const droppedLine = (lapsed: boolean): string =>
   lapsed ? "Your job lapsed. Nothing is lost, and you can take another." : "You let the job go.";
-
-/** One thing the count unlocks, in a few words: "the town satchel", "the title Helping hand". */
-const unlockWords = (u: { title?: ShownTitle | undefined; wear?: JobWear | undefined }): string =>
-  u.wear
-    ? `the ${WEAR_INFO[u.wear].label.toLowerCase()}`
-    : `the title ${titleLabel(u.title as ShownTitle)}`;
 
 /**
  * The skills sheet's row for jobs: "Jobs: 12 finished", a bar from the last thing the count

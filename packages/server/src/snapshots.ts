@@ -22,8 +22,11 @@ import { report } from "./telemetry";
  * replay only the inputs after it. A snapshot is used only once a replay has reproduced it.
  */
 
-/** The snapshot body's layout. A boot skips snapshots in any other format. */
-const SNAPSHOT_FORMAT = 1;
+/**
+ * The snapshot body's layout. A boot skips snapshots in any other format. Format 2 added the body's
+ * `origin`; a format 1 snapshot is never opened, so the boot falls back to an older one or the log.
+ */
+const SNAPSHOT_FORMAT = 2;
 /** The most UTF-8 bytes in one `world_snapshot_part` row. Durable Object rows cap at 2 MB. */
 const PART_BYTES = 1_000_000;
 /** Take a snapshot once this many inputs have been logged since the newest one. */
@@ -161,6 +164,11 @@ export interface SnapshotStore {
 
 interface SnapshotBody {
   format: number;
+  /**
+   * The config the world was created from, which the server starts with. `world.config` can differ
+   * from it, since `open_land`, `regrid`, and the plot market change the config as the world goes.
+   */
+  origin: WorldConfig;
   world: WorldState;
   server: ServerSection;
 }
@@ -169,8 +177,13 @@ interface SnapshotBody {
 type Unusable = "sha256" | "parse" | "seq" | "hash" | "supply" | "stale";
 
 class SnapshotError extends Error {
-  constructor(readonly code: Unusable) {
-    super(`Snapshot unusable: ${code}`);
+  constructor(
+    readonly code: Unusable,
+    seq?: number,
+  ) {
+    super(
+      seq === undefined ? `Snapshot unusable: ${code}` : `Snapshot at seq ${seq} unusable: ${code}`,
+    );
   }
 }
 
@@ -230,17 +243,23 @@ export function supplyHolds(state: WorldState): boolean {
 }
 
 /**
- * A snapshot of `world` (whose `hashWorld` is `hash`) and the server's facts, ready to save. The
- * body is plain `JSON.stringify`, not `canonicalJson`: parsing it back rebuilds every record in
- * the order the replay made it, so the inputs after it emit events byte for byte as a straight
- * replay would.
+ * A snapshot of `world` (whose `hashWorld` is `hash`, created from `origin`) and the server's
+ * facts, ready to save. The body is plain `JSON.stringify`, not `canonicalJson`: parsing it back
+ * rebuilds every record in the order the replay made it, so the inputs after it emit events byte
+ * for byte as a straight replay would.
  */
 export function encodeSnapshot(
   world: WorldState,
   hash: string,
   server: ServerSection,
+  origin: WorldConfig,
 ): { header: SnapshotHeader; parts: string[] } {
-  const body = JSON.stringify({ format: SNAPSHOT_FORMAT, world, server } satisfies SnapshotBody);
+  const body = JSON.stringify({
+    format: SNAPSHOT_FORMAT,
+    origin,
+    world,
+    server,
+  } satisfies SnapshotBody);
   const { parts, bytes } = splitUtf8(body, PART_BYTES);
   return {
     header: {
@@ -260,9 +279,9 @@ export function encodeSnapshot(
 /**
  * Load a snapshot and check everything a boot relies on: the body's SHA-256, that it parses, its
  * `seq`, its world hash, and the coin supply. Throws a `SnapshotError` when one fails, or `stale`
- * when it was made for another world config.
+ * when its world was created from another config than `origin`.
  */
-function openSnapshot(store: SnapshotStore, header: SnapshotHeader, config: WorldConfig) {
+function openSnapshot(store: SnapshotStore, header: SnapshotHeader, origin: WorldConfig) {
   const body = store.body(header.seq);
   if (sha256HexSync(body) !== header.sha256) throw new SnapshotError("sha256");
   let parsed: SnapshotBody;
@@ -271,13 +290,13 @@ function openSnapshot(store: SnapshotStore, header: SnapshotHeader, config: Worl
   } catch {
     throw new SnapshotError("parse");
   }
-  if (parsed.format !== header.format || !parsed.world || !parsed.server) {
+  if (parsed.format !== header.format || !parsed.origin || !parsed.world || !parsed.server) {
     throw new SnapshotError("parse");
   }
   if (parsed.world.seq !== header.seq) throw new SnapshotError("seq");
   if (hashWorld(parsed.world) !== header.hash) throw new SnapshotError("hash");
   if (!supplyHolds(parsed.world)) throw new SnapshotError("supply");
-  if (canonicalJson(parsed.world.config) !== canonicalJson(config)) {
+  if (canonicalJson(parsed.origin) !== canonicalJson(origin)) {
     throw new SnapshotError("stale");
   }
   return parsed;
@@ -389,20 +408,27 @@ export interface Booted {
 }
 
 /**
- * Rebuild the world on `today`: from the newest verified snapshot and the inputs after it, else
- * the next older one, else from the first input, one input at a time. A snapshot that fails a
- * check is reported, marked, and skipped, so a bad one can make a boot slower but never wrong.
+ * Rebuild the world created from `config` on `today`: from the newest verified snapshot and the
+ * inputs after it, else the next older one, else from the first input, one input at a time. A
+ * snapshot that fails a check is reported, marked, and skipped, so a bad one can make a boot
+ * slower but never wrong. One made from another config is skipped and kept, and the first such is
+ * reported by its `seq`.
  */
 export function boot(store: Store, config: WorldConfig, today: number): Booted {
   const creditsFrom = today - KARMA.windowDays;
   const snapshots = store.snapshots;
+  let staleSeen = false;
   for (const header of snapshots?.list() ?? []) {
     if (!snapshots || header.verified !== 1 || !readable(header)) continue;
     let opened: SnapshotBody;
     try {
       opened = openSnapshot(snapshots, header, config);
     } catch (err) {
-      if (err instanceof SnapshotError && err.code === "stale") continue;
+      if (err instanceof SnapshotError && err.code === "stale") {
+        if (!staleSeen) report(new SnapshotError("stale", header.seq), "world.snapshot_boot");
+        staleSeen = true;
+        continue;
+      }
       fail(snapshots, header.seq, err, "world.snapshot_boot");
       continue;
     }
@@ -479,6 +505,7 @@ export class SnapshotVerifier {
   constructor(
     private readonly store: Store,
     private readonly snapshots: SnapshotStore,
+    /** The config the world was created from: the boot's, and every snapshot's `origin`. */
     private readonly config: WorldConfig,
     private readonly slice = VERIFY_SLICE,
   ) {}
@@ -573,7 +600,7 @@ export class SnapshotVerifier {
       if (base.server.creditsFrom > expect.creditsFrom) return undefined;
       return { world: base.world, facts: LogFacts.from(base.server, -1, expect.creditsFrom) };
     } catch (err) {
-      // One made for another world config is fine, only not a base here.
+      // One made from another starting config is fine, only not a base here.
       if (!(err instanceof SnapshotError && err.code === "stale")) {
         fail(this.snapshots, header.seq, err, "world.snapshot_verify");
       }

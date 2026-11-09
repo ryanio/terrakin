@@ -1062,6 +1062,8 @@ export class WorldService {
   /** The newest verified snapshot, for `GET /v1/health`. */
   private verified: { seq: number; hash: string } | undefined;
   private readonly verifier: SnapshotVerifier | undefined;
+  /** The config the world was created from, saved in each snapshot as its `origin`. */
+  private readonly origin: WorldConfig;
 
   constructor(options: WorldServiceOptions) {
     this.store = options.store;
@@ -1075,6 +1077,7 @@ export class WorldService {
     // One input at a time, from the newest verified snapshot when there is one (RFC 0014), so the
     // boot holds the world and never the whole log.
     const config = options.config ?? DEFAULT_CONFIG;
+    this.origin = { ...config };
     const booted = span("world.boot", "world.boot", () =>
       boot(this.store, config, utcDay(this.now())),
     );
@@ -3166,7 +3169,7 @@ export class WorldService {
         () => {
           const today = utcDay(this.now());
           const server = this.facts.section(today, today - KARMA.windowDays);
-          const { header, parts } = encodeSnapshot(this.state, this.hash(), server);
+          const { header, parts } = encodeSnapshot(this.state, this.hash(), server, this.origin);
           snapshots.save(header, parts, prunable([header, ...snapshots.list()]));
           this.snapshotAt = header.seq;
           gauge("world.snapshot_bytes", header.bytes);

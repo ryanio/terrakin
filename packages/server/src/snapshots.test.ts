@@ -13,6 +13,7 @@ import {
 } from "@terrakin/sim";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { replayCheck } from "../../../scripts/replay-check";
+import { LANDS_ISLAND } from "../../sim/src/fixtures/lands-log";
 import { Api } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -148,6 +149,10 @@ function grown() {
   return { h, first, ada, bob, newest, older };
 }
 
+/** `WorldService.run`, which is private: the one door every input goes through. */
+const runOn = (service: WorldService, input: Input) =>
+  (service as unknown as { run(input: Input): { ok: boolean } }).run.call(service, input);
+
 const camel = (column: string) => column.replace(/_(\w)/g, (_, c: string) => c.toUpperCase());
 
 /** What a boot must rebuild, besides the world. */
@@ -246,7 +251,7 @@ describe("Store.eachInput", () => {
     const snapshots = new SqlStore(sql).snapshots;
     const header: SnapshotHeader = {
       seq: 9,
-      format: 1,
+      format: 2,
       replayVersion: 1,
       hash: "h",
       sha256: "s",
@@ -270,7 +275,7 @@ describe("snapshots", () => {
     const [first] = h.headers();
     expect(first).toMatchObject({
       seq: 1,
-      format: 1,
+      format: 2,
       replayVersion: REPLAY_VERSION,
       verified: 0,
       parts: 1,
@@ -396,20 +401,95 @@ describe("snapshots", () => {
     });
   }
 
-  it("made for another world config are left alone, and the boot replays the log", () => {
-    const { h, ada } = grown();
+  it("made for another starting config are left alone, said once, and the boot replays the log", () => {
+    const { h, ada, newest } = grown();
     const config = { ...CONFIG, maxPlotsPerResident: 2 };
     gauges.length = 0;
     const reborn = h.boot(config);
     expect(reborn.state.config).toEqual(config);
     expect(reborn.residentAgeDays(ada)).toBe(1);
-    expect(reports).toEqual([]);
+    expect(reports).toEqual([`Snapshot at seq ${newest.seq} unusable: stale`]);
     expect(h.headers().map((x) => x.verified)).toEqual([1, 1]);
     expect(gauges).toContainEqual({
       name: "world.boot_inputs",
       value: reborn.state.seq,
       from: "log",
     });
+  });
+
+  /** Plots of 8 tiles, so the regrid applies, and room for the lands fixture's island. */
+  const EIGHTS: WorldConfig = {
+    width: 24,
+    height: 24,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  };
+  const grows: [string, Input["command"]][] = [
+    ["regrid", { type: "regrid" }],
+    ["open_land", LANDS_ISLAND],
+  ];
+  for (const [kind, command] of grows) {
+    it(`taken after ${kind} grows the world's config are verified and booted from`, () => {
+      const h = harness();
+      const first = h.boot(EIGHTS);
+      const { ada, bob } = people(first);
+      expect(runOn(first, { actor: TOWN_ACTOR, command }).ok).toBe(true);
+      const changed = first.state.seq;
+      expect(first.state.config).not.toEqual(EIGHTS);
+      h.verifyAll(first);
+      h.toDay(first, DAY + 1);
+      busy(first, ada, bob);
+      h.verifyAll(first);
+      expect(reports).toEqual([]);
+      const [newest] = h.headers();
+      expect(newest?.verified).toBe(1);
+      expect(newest?.seq).toBeGreaterThan(changed);
+      h.later(3_600_000);
+      first.sweepIdle();
+      const want = facts(first, ada);
+      gauges.length = 0;
+      const reborn = h.boot(EIGHTS);
+      expect(facts(reborn, ada)).toEqual(want);
+      expect(reborn.state.config).toEqual(first.state.config);
+      expect(gauges).toContainEqual({
+        name: "world.boot_inputs",
+        value: want.seq - (newest?.seq ?? 0),
+        from: "snapshot",
+      });
+      expect(reports).toEqual([]);
+    });
+  }
+
+  it("in format 1, with no origin, are never opened, and the next day's snapshot is booted from", () => {
+    const { h, first, ada } = grown();
+    for (const { seq } of h.headers()) {
+      rewrite(h.sql, seq, (body) => {
+        const old = body as unknown as Record<string, unknown>;
+        old.format = 1;
+        delete old.origin;
+      });
+      h.sql.exec("UPDATE world_snapshot SET format = 1 WHERE seq = ?", seq);
+    }
+    const want = facts(first, ada);
+    gauges.length = 0;
+    const reborn = h.boot();
+    expect(facts(reborn, ada)).toEqual(want);
+    expect(gauges).toContainEqual({ name: "world.boot_inputs", value: want.seq, from: "log" });
+    // Nothing by hand: the next day's snapshot is in format 2, verified from the first input.
+    h.toDay(reborn, DAY + 2);
+    h.verifyAll(reborn);
+    const [newest] = h.headers();
+    expect(newest).toMatchObject({ format: 2, verified: 1 });
+    const later = facts(reborn, ada);
+    gauges.length = 0;
+    expect(facts(h.boot(), ada)).toEqual(later);
+    expect(gauges).toContainEqual({
+      name: "world.boot_inputs",
+      value: later.seq - (newest?.seq ?? 0),
+      from: "snapshot",
+    });
+    expect(reports).toEqual([]);
   });
 
   it("are skipped when the log after them has a gap, and none are taken after", () => {

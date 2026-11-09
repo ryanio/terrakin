@@ -23,7 +23,15 @@ import {
   type WorldState,
 } from "./types";
 import { type Ground, walkOrWhy, walkWords, withEdges, worldGround } from "./walk";
-import { blocksWalkers, canBuildOn, chebyshev, inBounds, plotAtTile, plotOf } from "./world";
+import {
+  blocksWalkers,
+  canBuildOn,
+  chebyshev,
+  inBounds,
+  onSlot,
+  plotAtTile,
+  plotOf,
+} from "./world";
 
 /**
  * Homes with an upstairs (RFC 0028). The ground floor is floor 0 and stays where it always was, in
@@ -657,7 +665,7 @@ export function plotHasAnything(state: WorldState, px: number, py: number): bool
     for (const key of Object.keys(edgesOn(state, floor))) {
       const { x, y, side } = parseEdgeKey(key);
       for (const t of edgeTiles(x, y, side)) {
-        if (Math.floor(t.x / plotSize) === px && Math.floor(t.y / plotSize) === py) return true;
+        if (onSlot(state.config, t.x, t.y, px, py)) return true;
       }
     }
   }

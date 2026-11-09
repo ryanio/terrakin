@@ -22,6 +22,7 @@ import {
   canBuildOn,
   isCommons,
   islandClaimIsFree,
+  onSlot,
   plotInBounds,
   plotOf,
   plotsOwnedBy,
@@ -284,12 +285,7 @@ export function checkListPlot(
     );
   }
   // A pot set down (RFC 0047) is someone's thing too.
-  const { plotSize } = state.config;
-  if (
-    potsOf(state).some(
-      (p) => Math.floor(p.x / plotSize) === px && Math.floor(p.y / plotSize) === py,
-    )
-  ) {
+  if (potsOf(state).some((p) => onSlot(state.config, p.x, p.y, px, py))) {
     return refuse(
       "not_eligible",
       "A pot is set down on that plot, and it stays whoever set it down. Take it up first with remove.",
@@ -299,7 +295,7 @@ export function checkListPlot(
   // after a sale its loader could never take it out.
   const firing = Object.keys(state.items?.firings ?? {}).find((key) => {
     const [x, y] = parseKey(key);
-    return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+    return onSlot(state.config, x, y, px, py);
   });
   if (firing) {
     const [x, y] = parseKey(firing);
@@ -410,15 +406,13 @@ export function plotSale(
  * tile; the tile alone says the plot.
  */
 function displayOnPlot(state: WorldState, px: number, py: number): boolean {
-  const { plotSize } = state.config;
   const items = state.items;
   const keys = [
     ...Object.keys(items?.displays ?? {}),
     ...Object.keys(items?.tops ?? {}),
     ...Object.keys(items?.hung ?? {}),
   ];
-  const on = (x: number, y: number) =>
-    Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  const on = (x: number, y: number) => onSlot(state.config, x, y, px, py);
   // A wall face is seen from one tile and hangs on the next, so either one on the plot counts.
   return keys.some((key) => {
     const tile = key.includes(":") ? (key.split(":")[1] as string) : key;

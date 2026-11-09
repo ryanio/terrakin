@@ -3,6 +3,7 @@ import { isFurnitureKind, isSeatKind } from "./furniture";
 import { parseKey, plotKey, tileKey } from "./keys";
 import { parseFaceKey, parseTopKey } from "./surfaces";
 import type { BlockKind, Shown, WorldState } from "./types";
+import { onSlot } from "./world";
 
 /**
  * How furnished a home is (RFC 0050, open question 5): what a plot holds on every floor, counted.
@@ -113,9 +114,7 @@ export function furnishing(state: WorldState, px: number, py: number): Furnishin
       }
     }
   }
-  addShown(state, (x, y) =>
-    Math.floor(x / size) === px && Math.floor(y / size) === py ? t : undefined,
-  );
+  addShown(state, (x, y) => (onSlot(state.config, x, y, px, py) ? t : undefined));
   return done(t);
 }
 

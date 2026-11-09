@@ -96,6 +96,11 @@ export function plotOf(config: WorldConfig, x: number, y: number): { px: number;
   return { px: Math.floor(x / config.plotSize), py: Math.floor(y / config.plotSize) };
 }
 
+/** Whether tile (x, y) is on plot slot (px, py): `plotOf` as a yes or no, with nothing made. */
+export function onSlot(config: WorldConfig, x: number, y: number, px: number, py: number) {
+  return Math.floor(x / config.plotSize) === px && Math.floor(y / config.plotSize) === py;
+}
+
 /**
  * Downtown's own rectangle: the world as it was before any land opened ([RFC 0038](../../../docs/rfcs/0038-new-lands.md),
  * [decision 0326](../../../docs/knowledge/decisions/0326-an-island-is-a-region-of-the-same-plane-and-water-is-what-is.md)).

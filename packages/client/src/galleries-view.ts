@@ -21,6 +21,7 @@ import { admiredLine } from "./things";
 import { failInto, type View, type ViewContext } from "./view";
 import { placeTabs, visitButton } from "./visit-view";
 import { isMine } from "./visits";
+import "./galleries-view.css";
 
 /** Who may admire a piece: someone signed in who neither made it nor put it up. */
 export function canAdmire(piece: GalleryPieceView, me: string | null): boolean {

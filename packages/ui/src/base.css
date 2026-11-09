@@ -1719,3 +1719,481 @@ a.menu-item {
   background: color-mix(in srgb, var(--paper-edge) 55%, transparent);
   color: var(--ink-soft);
 }
+
+/* An open overlay (openOverlay in ui.ts) holds the page under it still. */
+html.overlay-open,
+html.overlay-open body {
+  overflow: hidden;
+}
+
+/* moreButton (ui.ts). */
+.load-more {
+  min-width: 200px;
+}
+
+/* ---------- who wrote a post and when (who in people.ts) ---------- */
+
+.post-who {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0 var(--space-sm);
+}
+
+.post-name-line {
+  display: flex;
+  align-items: center;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* The tags sit on the name line when they fit and wrap under it when they don't. */
+.post-tags {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-xs) var(--space-sm);
+  min-width: 0;
+}
+
+/* Block (not flex) so a long name ends in an ellipsis. 44px line height is the tap target. */
+.post-author {
+  display: block;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-lg);
+  font-weight: var(--weight-bold);
+  line-height: 44px;
+  color: var(--ink);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  text-decoration: none;
+}
+
+.post-author:hover {
+  text-decoration: underline;
+}
+
+.post-time {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 44px;
+  padding: 0 2px 0 var(--space-xs);
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+  font-variant-numeric: tabular-nums;
+  text-decoration: none;
+}
+
+.post-time:hover {
+  text-decoration: underline;
+}
+
+/* ---------- media ---------- */
+
+.media-grid {
+  display: grid;
+  gap: 3px;
+  overflow: hidden;
+  border-radius: var(--r-note);
+  border: 1px solid rgba(220, 200, 165, 0.7);
+  background: var(--paper-2);
+  isolation: isolate;
+}
+
+.media-grid.single {
+  grid-template: 1fr / 1fr;
+  max-height: 560px;
+}
+
+.media-grid.pair {
+  grid-template: 1fr / 1fr 1fr;
+  aspect-ratio: 16 / 10;
+}
+
+.media-grid.trio {
+  grid-template: 1fr 1fr / 1.35fr 1fr;
+  aspect-ratio: 16 / 10;
+}
+
+.media-grid.trio > :first-child {
+  grid-row: span 2;
+}
+
+.media-grid.quad {
+  grid-template: 1fr 1fr / 1fr 1fr;
+  aspect-ratio: 4 / 3;
+}
+
+.media-cell {
+  position: relative;
+  min-width: 0;
+  min-height: 0;
+  background: linear-gradient(135deg, #f6ead4, #efdfc3);
+}
+
+.media-open {
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: none;
+  cursor: zoom-in;
+}
+
+.media-img,
+.media-video {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: var(--ink);
+}
+
+.media-img {
+  opacity: 0;
+  transition: opacity 0.35s ease;
+}
+
+.media-img.loaded {
+  opacity: 1;
+}
+
+.media-open:focus-visible {
+  outline-offset: -4px;
+}
+
+.single .media-video {
+  object-fit: contain;
+}
+
+.model-tile {
+  display: grid;
+  place-content: center;
+  justify-items: center;
+  gap: var(--space-2xs);
+  width: 100%;
+  height: 100%;
+  padding: var(--space-md);
+  border: 0;
+  background:
+    radial-gradient(70% 60% at 50% 35%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%),
+    var(--paper-fill);
+  color: var(--ink);
+  transition: background 0.2s ease;
+}
+
+.model-cube {
+  display: grid;
+  place-items: center;
+  width: 60px;
+  height: 60px;
+  margin-bottom: var(--space-xs);
+  border-radius: var(--r-card);
+  background: radial-gradient(circle at 35% 30%, #fff6dc, #f8dfa6 70%);
+  box-shadow:
+    0 0 0 5px rgba(242, 184, 75, 0.16),
+    0 8px 18px -8px rgba(143, 61, 32, 0.45);
+  color: var(--clay);
+  transition: transform 0.25s ease;
+}
+
+.model-cube .icon {
+  width: 30px;
+  height: 30px;
+  stroke-width: 1.6;
+}
+
+.model-tile:hover .model-cube {
+  transform: rotate(-6deg) scale(1.05);
+}
+
+.model-label {
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--weight-semibold);
+}
+
+.model-hint {
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+}
+
+.media-grid:not(.single) .model-cube {
+  width: 44px;
+  height: 44px;
+  border-radius: var(--r-note);
+}
+
+.media-grid:not(.single) .model-hint {
+  display: none;
+}
+
+/* ---------- viewers ---------- */
+
+dialog.viewer {
+  background: #1d1813;
+  color: var(--paper);
+}
+
+dialog.viewer::backdrop {
+  background: rgba(29, 24, 19, 0.6);
+}
+
+.viewer :focus-visible {
+  outline-color: var(--sun);
+}
+
+.viewer-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: calc(64px + env(safe-area-inset-top)) 12px calc(56px + env(safe-area-inset-bottom));
+  touch-action: pan-y pinch-zoom;
+}
+
+.viewer-img {
+  max-width: 100%;
+  max-height: 100%;
+  border-radius: var(--r-sm);
+  object-fit: contain;
+  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
+  animation: zoom-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+
+@keyframes zoom-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+}
+
+.viewer-close,
+.viewer-nav {
+  position: absolute;
+  display: grid;
+  place-items: center;
+  width: 48px;
+  height: 48px;
+  padding: 0;
+  border: 1px solid rgba(255, 250, 240, 0.22);
+  border-radius: 50%;
+  background: rgba(255, 250, 240, 0.12);
+  color: var(--paper);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  transition: background 0.15s ease;
+  top: 50%;
+  margin-top: calc(var(--space-2xl) * -1);
+}
+
+.viewer-close:hover,
+.viewer-nav:hover {
+  background: rgba(255, 250, 240, 0.24);
+}
+
+.viewer-close {
+  top: calc(12px + env(safe-area-inset-top));
+  right: calc(12px + env(safe-area-inset-right));
+}
+
+.viewer-nav.prev {
+  left: calc(10px + env(safe-area-inset-left));
+}
+
+.viewer-nav.next {
+  right: calc(10px + env(safe-area-inset-right));
+}
+
+.viewer-count {
+  position: absolute;
+  left: 50%;
+  bottom: calc(16px + env(safe-area-inset-bottom));
+  margin: 0;
+  transform: translateX(-50%);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: rgba(255, 250, 240, 0.8);
+  font-variant-numeric: tabular-nums;
+}
+
+dialog.model-viewer {
+  background:
+    var(--grain), radial-gradient(90% 70% at 50% 42%, var(--paper) 0%, #f6ead2 55%, #e9d6b2 100%);
+  color: var(--ink);
+}
+
+.model-viewer :focus-visible {
+  outline-color: var(--clay);
+}
+
+.model-viewer .viewer-close {
+  border-color: var(--paper-edge);
+  background: var(--paper-fill);
+  color: var(--ink);
+  box-shadow: var(--shadow-pill);
+}
+
+.model-stage {
+  position: absolute;
+  inset: 0;
+}
+
+.model-stage canvas {
+  display: block;
+  touch-action: none;
+}
+
+.model-status {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  margin: 0;
+  transform: translate(-50%, -50%);
+  font-size: var(--text-base);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+  text-align: center;
+  pointer-events: none;
+}
+
+.model-status:empty {
+  display: none;
+}
+
+.model-help {
+  position: absolute;
+  left: 50%;
+  bottom: calc(18px + env(safe-area-inset-bottom));
+  margin: 0;
+  padding: var(--space-sm) var(--space-lg);
+  transform: translateX(-50%);
+  border-radius: var(--r-pill);
+  background: rgba(255, 250, 240, 0.85);
+  border: 1px solid var(--paper-edge);
+  font-size: var(--text-md);
+  font-weight: var(--weight-semibold);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* ---------- handles and mentions (people.ts, mentions.ts) ---------- */
+
+.post-handle {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  color: var(--ink-soft);
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.post-name-line .post-author {
+  flex: 0 1 auto;
+}
+
+.mention {
+  font-weight: var(--weight-bold);
+  color: var(--clay-deep);
+  text-decoration: none;
+  overflow-wrap: anywhere;
+}
+
+.mention:hover {
+  text-decoration: underline;
+}
+
+/* A web address in a post, shown short (links.ts); the whole address is its title. */
+.post-link {
+  color: var(--clay-deep);
+  text-decoration: underline;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 2px;
+  overflow-wrap: anywhere;
+}
+
+/* ---------- quoted post ---------- */
+
+.quote-card {
+  display: grid;
+  gap: var(--space-xs);
+  min-width: 0;
+  padding: var(--space-2xs) var(--space-md) var(--space-md);
+  border: 1px solid var(--paper-edge);
+  border-radius: var(--r-note);
+  background: rgba(255, 253, 247, 0.7);
+  cursor: pointer;
+}
+
+.quote-card:hover {
+  border-color: #dcc6a0;
+}
+
+.quote-card.gone {
+  padding: var(--space-md);
+  cursor: default;
+}
+
+.quote-gone {
+  margin: 0;
+  font-size: var(--text-base);
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.quote-head {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-sm);
+  min-width: 0;
+}
+
+/* Centers the 28px avatar on the 44px name line, as on a post. */
+.quote-head > .avatar {
+  margin-top: var(--space-sm);
+}
+
+.quote-head .post-author {
+  font-size: var(--text-base);
+}
+
+.quote-text {
+  margin: 0;
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 5;
+  line-clamp: 5;
+  overflow: hidden;
+}
+
+.quote-card .media-grid.single {
+  max-height: 240px;
+}
+
+/* The post a reply answers, above the reply on a resident's page: quieter than a quote. */
+.parent-card {
+  background: rgba(244, 236, 220, 0.45);
+}
+
+.parent-card .quote-text {
+  font-size: var(--text-base);
+  color: var(--ink-soft);
+  -webkit-line-clamp: 6;
+  line-clamp: 6;
+}
+
+.parent-card .media-grid.single {
+  max-height: 160px;
+}

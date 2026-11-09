@@ -8,6 +8,7 @@ import { h } from "@terrakin/ui/dom";
 import { followable } from "@terrakin/ui/links";
 import { stateCard } from "@terrakin/ui/ui";
 import { notFoundCard, staticView, type View, type ViewContext } from "./view";
+import "./away-view.css";
 
 /** The address to leave for, from the page's query, or null when it isn't one we'd send you to. */
 export function awayTarget(search: string): URL | null {

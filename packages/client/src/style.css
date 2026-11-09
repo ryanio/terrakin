@@ -23,11 +23,6 @@ html.mode-site body {
   background: var(--grain), linear-gradient(180deg, #fbf4e6 0, #f4e8d2 900px, #f1e4cc 100%);
 }
 
-html.overlay-open,
-html.overlay-open body {
-  overflow: hidden;
-}
-
 #world {
   position: fixed;
   inset: 0;
@@ -762,7 +757,7 @@ body.in-world .veil {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
-  min-height: 40px;
+  min-height: 44px;
   font-weight: var(--weight-semibold);
   white-space: nowrap;
   text-decoration: none;
@@ -1187,10 +1182,6 @@ body.in-world .veil {
   display: none;
 }
 
-.load-more {
-  min-width: 200px;
-}
-
 .feed-end {
   margin: 0;
   font-size: var(--text-md);
@@ -1226,65 +1217,6 @@ body.in-world .veil {
   margin-top: 2px;
   border-radius: 50%;
   text-decoration: none;
-}
-
-.post-who {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 var(--space-sm);
-}
-
-.post-name-line {
-  display: flex;
-  align-items: center;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-/* The tags sit on the name line when they fit and wrap under it when they don't. */
-.post-tags {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-xs) var(--space-sm);
-  min-width: 0;
-}
-
-/* Block (not flex) so a long name ends in an ellipsis. 44px line height is the tap target. */
-.post-author {
-  display: block;
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--text-lg);
-  font-weight: var(--weight-bold);
-  line-height: 44px;
-  color: var(--ink);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-  text-decoration: none;
-}
-
-.post-author:hover {
-  text-decoration: underline;
-}
-
-.post-time {
-  flex: none;
-  display: inline-flex;
-  align-items: center;
-  min-height: 44px;
-  padding: 0 2px 0 var(--space-xs);
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-  text-decoration: none;
-}
-
-.post-time:hover {
-  text-decoration: underline;
 }
 
 .post-context {
@@ -1418,49 +1350,6 @@ body.in-world .veil {
   margin-left: auto;
 }
 
-/* ---------- media ---------- */
-
-.media-grid {
-  display: grid;
-  gap: 3px;
-  overflow: hidden;
-  border-radius: var(--r-note);
-  border: 1px solid rgba(220, 200, 165, 0.7);
-  background: var(--paper-2);
-  isolation: isolate;
-}
-
-.media-grid.single {
-  grid-template: 1fr / 1fr;
-  max-height: 560px;
-}
-
-.media-grid.pair {
-  grid-template: 1fr / 1fr 1fr;
-  aspect-ratio: 16 / 10;
-}
-
-.media-grid.trio {
-  grid-template: 1fr 1fr / 1.35fr 1fr;
-  aspect-ratio: 16 / 10;
-}
-
-.media-grid.trio > :first-child {
-  grid-row: span 2;
-}
-
-.media-grid.quad {
-  grid-template: 1fr 1fr / 1fr 1fr;
-  aspect-ratio: 4 / 3;
-}
-
-.media-cell {
-  position: relative;
-  min-width: 0;
-  min-height: 0;
-  background: linear-gradient(135deg, #f6ead4, #efdfc3);
-}
-
 /* "Jump there" on a picture taken in the world (visit-plot.ts), clear of a plot photo's caption. */
 .media-place {
   position: absolute;
@@ -1496,105 +1385,6 @@ body.in-world .veil {
   .media-place-text {
     display: none;
   }
-}
-
-.media-open {
-  display: block;
-  width: 100%;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: none;
-  cursor: zoom-in;
-}
-
-.media-img,
-.media-video {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  background: var(--ink);
-}
-
-.media-img {
-  opacity: 0;
-  transition: opacity 0.35s ease;
-}
-
-.media-img.loaded {
-  opacity: 1;
-}
-
-.media-open:focus-visible {
-  outline-offset: -4px;
-}
-
-.single .media-video {
-  object-fit: contain;
-}
-
-.model-tile {
-  display: grid;
-  place-content: center;
-  justify-items: center;
-  gap: var(--space-2xs);
-  width: 100%;
-  height: 100%;
-  padding: var(--space-md);
-  border: 0;
-  background:
-    radial-gradient(70% 60% at 50% 35%, rgba(255, 255, 255, 0.8), rgba(255, 255, 255, 0) 70%),
-    var(--paper-fill);
-  color: var(--ink);
-  transition: background 0.2s ease;
-}
-
-.model-cube {
-  display: grid;
-  place-items: center;
-  width: 60px;
-  height: 60px;
-  margin-bottom: var(--space-xs);
-  border-radius: var(--r-card);
-  background: radial-gradient(circle at 35% 30%, #fff6dc, #f8dfa6 70%);
-  box-shadow:
-    0 0 0 5px rgba(242, 184, 75, 0.16),
-    0 8px 18px -8px rgba(143, 61, 32, 0.45);
-  color: var(--clay);
-  transition: transform 0.25s ease;
-}
-
-.model-cube .icon {
-  width: 30px;
-  height: 30px;
-  stroke-width: 1.6;
-}
-
-.model-tile:hover .model-cube {
-  transform: rotate(-6deg) scale(1.05);
-}
-
-.model-label {
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-}
-
-.model-hint {
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-}
-
-.media-grid:not(.single) .model-cube {
-  width: 44px;
-  height: 44px;
-  border-radius: var(--r-note);
-}
-
-.media-grid:not(.single) .model-hint {
-  display: none;
 }
 
 /* The composer's placeholder (skeleton.ts in packages/ui), as tall as the resting box. */
@@ -1963,183 +1753,7 @@ body.in-world .veil {
   color: var(--ink-soft);
 }
 
-/* Beside a post: who wrote it, and a few more of their posts, each cut to three lines. */
-.post-about-bio {
-  margin: 0;
-  overflow-wrap: anywhere;
-  color: var(--ink-soft);
-}
-
-.post-others-text {
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
-  overflow: hidden;
-  overflow-wrap: anywhere;
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.post-others-text:hover {
-  text-decoration: underline;
-}
-
-.post-page .composer {
-  margin-top: var(--space-2xs);
-}
-
-/* ---------- viewers ---------- */
-
-dialog.viewer {
-  background: #1d1813;
-  color: var(--paper);
-}
-
-dialog.viewer::backdrop {
-  background: rgba(29, 24, 19, 0.6);
-}
-
-.viewer :focus-visible {
-  outline-color: var(--sun);
-}
-
-.viewer-stage {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  padding: calc(64px + env(safe-area-inset-top)) 12px calc(56px + env(safe-area-inset-bottom));
-  touch-action: pan-y pinch-zoom;
-}
-
-.viewer-img {
-  max-width: 100%;
-  max-height: 100%;
-  border-radius: var(--r-sm);
-  object-fit: contain;
-  box-shadow: 0 20px 60px -20px rgba(0, 0, 0, 0.6);
-  animation: zoom-in 0.25s cubic-bezier(0.2, 0.7, 0.2, 1);
-}
-
-@keyframes zoom-in {
-  from {
-    opacity: 0;
-    transform: scale(0.96);
-  }
-}
-
-.viewer-close,
-.viewer-nav {
-  position: absolute;
-  display: grid;
-  place-items: center;
-  width: 48px;
-  height: 48px;
-  padding: 0;
-  border: 1px solid rgba(255, 250, 240, 0.22);
-  border-radius: 50%;
-  background: rgba(255, 250, 240, 0.12);
-  color: var(--paper);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
-  transition: background 0.15s ease;
-  top: 50%;
-  margin-top: calc(var(--space-2xl) * -1);
-}
-
-.viewer-close:hover,
-.viewer-nav:hover {
-  background: rgba(255, 250, 240, 0.24);
-}
-
-.viewer-close {
-  top: calc(12px + env(safe-area-inset-top));
-  right: calc(12px + env(safe-area-inset-right));
-}
-
-.viewer-nav.prev {
-  left: calc(10px + env(safe-area-inset-left));
-}
-
-.viewer-nav.next {
-  right: calc(10px + env(safe-area-inset-right));
-}
-
-.viewer-count {
-  position: absolute;
-  left: 50%;
-  bottom: calc(16px + env(safe-area-inset-bottom));
-  margin: 0;
-  transform: translateX(-50%);
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  color: rgba(255, 250, 240, 0.8);
-  font-variant-numeric: tabular-nums;
-}
-
-dialog.model-viewer {
-  background:
-    var(--grain), radial-gradient(90% 70% at 50% 42%, var(--paper) 0%, #f6ead2 55%, #e9d6b2 100%);
-  color: var(--ink);
-}
-
-.model-viewer :focus-visible {
-  outline-color: var(--clay);
-}
-
-.model-viewer .viewer-close {
-  border-color: var(--paper-edge);
-  background: var(--paper-fill);
-  color: var(--ink);
-  box-shadow: var(--shadow-pill);
-}
-
-.model-stage {
-  position: absolute;
-  inset: 0;
-}
-
-.model-stage canvas {
-  display: block;
-  touch-action: none;
-}
-
-.model-status {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  margin: 0;
-  transform: translate(-50%, -50%);
-  font-size: var(--text-base);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-  text-align: center;
-  pointer-events: none;
-}
-
-.model-status:empty {
-  display: none;
-}
-
-.model-help {
-  position: absolute;
-  left: 50%;
-  bottom: calc(18px + env(safe-area-inset-bottom));
-  margin: 0;
-  padding: var(--space-sm) var(--space-lg);
-  transform: translateX(-50%);
-  border-radius: var(--r-pill);
-  background: rgba(255, 250, 240, 0.85);
-  border: 1px solid var(--paper-edge);
-  font-size: var(--text-md);
-  font-weight: var(--weight-semibold);
-  color: var(--ink-soft);
-  white-space: nowrap;
-  pointer-events: none;
-}
-
-/* ---------- reposts, handles, mentions ---------- */
+/* ---------- reposts ---------- */
 
 .post-reposted {
   justify-self: start;
@@ -2162,141 +1776,6 @@ dialog.model-viewer {
 
 .post-reposted:hover {
   color: var(--clay-deep);
-}
-
-.post-handle {
-  flex: 0 1 auto;
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-  white-space: nowrap;
-  text-overflow: ellipsis;
-}
-
-.post-name-line .post-author {
-  flex: 0 1 auto;
-}
-
-.mention {
-  font-weight: var(--weight-bold);
-  color: var(--clay-deep);
-  text-decoration: none;
-  overflow-wrap: anywhere;
-}
-
-.mention:hover {
-  text-decoration: underline;
-}
-
-/* A web address in a post, shown short (links.ts); the whole address is its title. */
-.post-link {
-  color: var(--clay-deep);
-  text-decoration: underline;
-  text-decoration-thickness: 1px;
-  text-underline-offset: 2px;
-  overflow-wrap: anywhere;
-}
-
-/* ---------- /away: the stop before a link out of Terrakin ---------- */
-
-.away-url {
-  width: 100%;
-  margin: 0;
-  padding: var(--space-md) var(--space-lg);
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-md);
-  background: var(--paper-2);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  text-align: start;
-  overflow-wrap: anywhere;
-}
-
-.away-warning {
-  max-width: 40ch;
-  margin: 0;
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-}
-
-/* ---------- quoted post ---------- */
-
-.quote-card {
-  display: grid;
-  gap: var(--space-xs);
-  min-width: 0;
-  padding: var(--space-2xs) var(--space-md) var(--space-md);
-  border: 1px solid var(--paper-edge);
-  border-radius: var(--r-note);
-  background: rgba(255, 253, 247, 0.7);
-  cursor: pointer;
-}
-
-.quote-card:hover {
-  border-color: #dcc6a0;
-}
-
-.quote-card.gone {
-  padding: var(--space-md);
-  cursor: default;
-}
-
-.quote-gone {
-  margin: 0;
-  font-size: var(--text-base);
-  font-style: italic;
-  color: var(--ink-soft);
-}
-
-.quote-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-sm);
-  min-width: 0;
-}
-
-/* Centers the 28px avatar on the 44px name line, as on a post. */
-.quote-head > .avatar {
-  margin-top: var(--space-sm);
-}
-
-.quote-head .post-author {
-  font-size: var(--text-base);
-}
-
-.quote-text {
-  margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 5;
-  line-clamp: 5;
-  overflow: hidden;
-}
-
-.quote-card .media-grid.single {
-  max-height: 240px;
-}
-
-/* The post a reply answers, above the reply on a resident's page: quieter than a quote. */
-.parent-card {
-  background: rgba(244, 236, 220, 0.45);
-}
-
-.parent-card .quote-text {
-  font-size: var(--text-base);
-  color: var(--ink-soft);
-  -webkit-line-clamp: 6;
-  line-clamp: 6;
-}
-
-.parent-card .media-grid.single {
-  max-height: 160px;
 }
 
 /* ---------- reactions ---------- */
@@ -2526,105 +2005,6 @@ dialog.model-viewer {
   box-shadow: none;
 }
 
-/* ---------- notifications ---------- */
-
-.notif {
-  display: flex;
-  gap: var(--space-md);
-  min-height: 44px;
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--r-card);
-  color: var(--ink);
-  text-decoration: none;
-}
-
-.notif.unread {
-  border-color: rgba(180, 83, 47, 0.4);
-  background:
-    linear-gradient(90deg, rgba(242, 184, 75, 0.16), rgba(242, 184, 75, 0) 70%), var(--paper-fill);
-}
-
-.notif-icon {
-  flex: none;
-  display: grid;
-  place-items: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  background: rgba(143, 179, 106, 0.2);
-  color: var(--moss);
-}
-
-.notif-icon.reaction {
-  background: rgba(194, 65, 45, 0.12);
-  color: #c2412d;
-}
-
-.notif-icon.mention,
-.notif-icon.reply {
-  background: rgba(124, 185, 221, 0.22);
-  color: #2f6f95;
-}
-
-.notif-icon .icon {
-  width: 18px;
-  height: 18px;
-}
-
-/* A notice from Terrakin itself: a neutral mark instead of a resident's color. */
-.notif-icon.system {
-  border: 1px solid var(--paper-edge);
-  background: var(--paper-2);
-  color: var(--ink-soft);
-}
-
-.notif-next {
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-}
-
-.notif-links {
-  column-gap: var(--space-lg);
-}
-
-.notif-body {
-  flex: 1;
-  min-width: 0;
-  display: grid;
-  gap: var(--space-2xs);
-}
-
-.notif-top {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-
-.notif-time {
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-  font-variant-numeric: tabular-nums;
-}
-
-.notif-line {
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  overflow-wrap: anywhere;
-}
-
-.notif-excerpt {
-  font-size: var(--text-base);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  overflow: hidden;
-}
-
 /* ---------- bell ---------- */
 
 /* ---------- purse (RFC 0008) ---------- */
@@ -2741,22 +2121,6 @@ dialog.model-viewer {
   font-weight: var(--weight-bold);
 }
 
-.purse-streak {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.purse-how-list {
-  margin: 0;
-  padding-left: 1.2em;
-  display: grid;
-  gap: var(--space-xs);
-}
-
-.purse-line-who {
-  display: flex;
-}
-
 .purse-line-mark {
   display: grid;
   place-items: center;
@@ -2765,44 +2129,6 @@ dialog.model-viewer {
   border-radius: 50%;
   background: var(--coin-light);
   color: var(--coin);
-}
-
-.purse-line-amount {
-  font-weight: var(--weight-heavy);
-  font-variant-numeric: tabular-nums;
-}
-
-.purse-line.in .purse-line-amount {
-  color: var(--coin-deep);
-}
-
-.purse-line.out .purse-line-amount {
-  color: var(--ink-soft);
-}
-
-/* The /inventory page (RFC 0005): your garden, made things, and stacks. */
-
-.things-crop {
-  display: grid;
-  grid-template-columns: auto 1fr auto;
-  align-items: center;
-  gap: var(--space-md);
-  min-height: 44px;
-  color: var(--ink-soft);
-}
-
-.things-crop .icon {
-  color: var(--moss);
-}
-
-.things-crop-name {
-  color: var(--ink);
-  font-weight: var(--weight-bold);
-}
-
-.things-crop.ready .things-crop-when {
-  color: var(--moss-deep);
-  font-weight: var(--weight-bold);
 }
 
 /* The sheet a planter, kitchen, or workbench opens in the world. */
@@ -3092,34 +2418,6 @@ dialog.model-viewer {
   font-size: var(--text-md);
 }
 
-/* A gallery (RFC 0005 step 3): who it belongs to, and each piece large enough to see. */
-.gallery-piece .thing-picture,
-.gallery-piece .item-art {
-  border-radius: var(--r-sm);
-}
-
-.profile-galleries .galleries-all {
-  justify-self: start;
-  text-decoration: none;
-}
-
-/* A gallery's Visit button (RFC 0020) ends the row of whose gallery it is. */
-.gallery-visit {
-  margin-left: auto;
-}
-
-/* ---------- plots to visit (RFC 0020) ---------- */
-
-/* Which order the plots come in: a switch the width of its words, under the page's tabs. */
-.visit-sorts {
-  justify-self: start;
-  grid-auto-columns: auto;
-}
-
-.visit-sorts .link-tab {
-  font-size: var(--text-md);
-}
-
 /* A plot drawn from above (plot-thumb.ts), sized by its card. */
 .plot-thumb {
   display: block;
@@ -3129,108 +2427,6 @@ dialog.model-viewer {
   border: 2px solid var(--paper-edge);
   background: var(--field);
   box-shadow: var(--shadow-pill);
-}
-
-/*
- * The plots in a row are as tall as the tallest, since one with a name of its own or a busy week
- * carries a line the others don't. Each card's buttons then sit at its foot, so a row's Visit
- * buttons land on one line instead of wherever that card's words happened to end.
- */
-.visit-body {
-  align-items: stretch;
-}
-
-/*
- * One plot to visit: its drawing down the whole left side, with whose it is, how lately it
- * changed, and Visit beside it. The drawing is what the page is for, so it takes the card's
- * height rather than sitting in a 96px corner with the foot's left half left empty.
- */
-.plot-card {
-  display: flex;
-  gap: var(--space-lg);
-  align-items: stretch;
-}
-
-/*
- * The drawing takes a share of the card, never its canvas's own pixels, so a wide card gives it
- * more and a phone keeps the words readable beside it. Square, and parked at the top, since a card
- * stretched to match a taller one in its row would otherwise stretch the plot with it.
- */
-.plot-card .plot-thumb {
-  flex: 0 0 auto;
-  align-self: flex-start;
-  width: clamp(112px, 34%, 156px);
-  height: auto;
-  aspect-ratio: 1;
-}
-
-.plot-card-side {
-  flex: 1 1 auto;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  gap: var(--space-md);
-}
-
-.plot-card-body {
-  min-width: 0;
-  justify-items: start;
-}
-
-/* A plot's own name (decision 0121), over whose it is. */
-.plot-card-name {
-  margin: 0;
-  max-width: 100%;
-  font-family: var(--font-display);
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
-  line-height: var(--leading-tight);
-  overflow-wrap: anywhere;
-}
-
-.plot-card-changed,
-.plot-card-furnished,
-.plot-card-week {
-  font-size: var(--text-md);
-  line-height: var(--leading-snug);
-  color: var(--ink-soft);
-}
-
-/* Under the words, beside the drawing rather than below it. */
-.plot-card-foot {
-  justify-content: flex-end;
-}
-
-/*
- * On a phone the column beside the drawing is too narrow for Copy link and Visit side by side, so
- * the card goes back to words beside the drawing and the buttons on a line of their own under
- * both, which is the widest the two can be.
- */
-@media (max-width: 480px) {
-  .plot-card {
-    display: grid;
-    grid-template-columns: clamp(112px, 34%, 156px) minmax(0, 1fr);
-    gap: var(--space-md) var(--space-lg);
-    align-content: start;
-  }
-
-  /* The column holds the share now, so the drawing just fills it. */
-  .plot-card .plot-thumb {
-    width: 100%;
-  }
-
-  .plot-card-side {
-    display: contents;
-  }
-
-  .plot-card-foot {
-    grid-column: 1 / -1;
-  }
-}
-
-.visit-button .icon {
-  color: var(--moss);
 }
 
 /* The home wall's few plots to visit, as many a row as fit (two on a phone and in the sidebar),
@@ -3314,11 +2510,6 @@ dialog.model-viewer {
   line-height: var(--leading-snug);
   color: var(--clay-deep);
   overflow-wrap: anywhere;
-}
-
-/* Make a piece of art on your things page: the picture you chose, before it has a title. */
-.piece-preview .thing-picture {
-  border-width: 3px;
 }
 
 /* Sits in the top bar next to letters, and looks like it. */
@@ -3413,10 +2604,6 @@ dialog.model-viewer {
 
   .composer-skeleton {
     min-height: 123px;
-  }
-
-  .invite-hero .avatar.xl {
-    --size: 104px;
   }
 
   .new-pill-wrap {
@@ -3842,15 +3029,6 @@ a.btn-primary {
   text-align: center;
 }
 
-/* `/i/:code` */
-.invite-hero {
-  display: grid;
-  justify-items: center;
-  gap: var(--space-sm);
-  padding: var(--space-2xl) var(--space-xl) var(--space-2xl);
-  text-align: center;
-}
-
 .invite-title {
   margin: 0;
   font-family: var(--font-display);
@@ -3863,19 +3041,6 @@ a.btn-primary {
   line-height: var(--leading-tight);
   text-wrap: balance;
   overflow-wrap: anywhere;
-}
-
-.invite-name {
-  color: var(--clay-deep);
-}
-
-.invite-lede {
-  max-width: 34em;
-  margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  color: var(--ink-soft);
-  text-wrap: pretty;
 }
 
 .gift-row {
@@ -4093,7 +3258,7 @@ a.btn-primary {
 .prose :where(.link-list, .link-cell) a {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   margin-left: calc(-1 * var(--space-sm));
   border-radius: var(--r-sm);
@@ -4234,7 +3399,7 @@ a.btn-primary {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 32px;
+  min-height: 44px;
   color: var(--ink);
   font-weight: var(--weight-semibold);
   text-decoration: none;
@@ -4413,7 +3578,7 @@ a.btn-primary {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 40px;
+  min-height: 44px;
   padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--r-sm);
   color: var(--ink);
@@ -4724,7 +3889,7 @@ a.btn-primary {
 }
 
 .guide-nav .guide-links a {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   margin-inline: calc(-1 * var(--space-sm));
   font-size: var(--text-base);
@@ -5075,11 +4240,6 @@ a.btn-primary {
 
 /* ---------- town hall (/town) ---------- */
 
-.town-title {
-  font-size: var(--text-4xl);
-  line-height: var(--leading-tight);
-}
-
 .town-lede,
 .town-you,
 .town-next {
@@ -5087,11 +4247,6 @@ a.btn-primary {
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--ink-soft);
-}
-
-.town-you {
-  color: var(--ink);
-  font-weight: var(--weight-semibold);
 }
 
 .proposal-head {
@@ -5144,18 +4299,6 @@ a.btn-primary {
   font-weight: var(--weight-semibold);
 }
 
-.notice-when {
-  margin-left: auto;
-  min-height: 44px;
-  padding: 0 var(--space-2xs);
-  border: 0;
-  background: none;
-  font: inherit;
-  font-weight: var(--weight-medium);
-  color: var(--ink-soft);
-  cursor: help;
-}
-
 .proposal.compact .proposal-title {
   font-size: var(--text-xl);
 }
@@ -5193,37 +4336,6 @@ a.btn-primary {
 .tally-abstain,
 .dot.abstain::before {
   background: #cbbfa8;
-}
-
-.tally-counts {
-  display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2xs) var(--space-md);
-  margin: 0;
-  font-size: var(--text-md);
-  color: var(--ink-soft);
-}
-
-.dot {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-xs);
-}
-
-.dot::before {
-  content: "";
-  width: 9px;
-  height: 9px;
-  border-radius: 50%;
-}
-
-.tally-quorum {
-  margin-left: auto;
-  font-weight: var(--weight-semibold);
-}
-
-.tally-quorum.met {
-  color: var(--moss-deep);
 }
 
 .proposal-why,
@@ -5345,10 +4457,6 @@ a.btn-primary {
   color: var(--moss-deep);
 }
 
-.events-board > .pill-button {
-  justify-self: start;
-}
-
 .pulse-events.is-live {
   background: linear-gradient(180deg, rgba(242, 184, 75, 0.2), var(--paper) 70%);
 }
@@ -5382,33 +4490,6 @@ a.btn-primary {
 
 .sheet-body .btn-primary {
   justify-self: stretch;
-}
-
-/* The notice board: notes pinned slightly askew. */
-
-.notice {
-  display: grid;
-  gap: var(--space-xs);
-  padding: var(--space-md) var(--space-lg);
-  border-radius: var(--r-note);
-  background: #fffdf3;
-  border: 1px solid var(--paper-edge);
-  box-shadow: 0 6px 14px -10px rgba(92, 60, 30, 0.5);
-}
-
-.notice:nth-child(odd) {
-  transform: rotate(-0.4deg);
-}
-
-.notice:nth-child(even) {
-  transform: rotate(0.4deg);
-}
-
-.notice-text {
-  margin: 0;
-  font-size: var(--text-lg);
-  line-height: var(--leading-normal);
-  overflow-wrap: anywhere;
 }
 
 /* ---------- the home wall: a main column of posts and a sidebar of the town's pulse ----------
@@ -6681,34 +5762,6 @@ a.btn-primary {
   margin: 0;
 }
 
-/* Your things: the count beside the heading, and each family a card, what it's for in smaller words. */
-.things-hold-head {
-  justify-content: space-between;
-  align-items: baseline;
-}
-
-.things-family-hint {
-  font-size: var(--text-md);
-}
-
-/* Shop art */
-.things-stack.has-art {
-  gap: var(--space-xs);
-  padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-xs);
-}
-
-/* The town shop page (/shop) */
-
-.shop-keeper {
-  margin: 0;
-  color: var(--ink-soft);
-}
-
-.shop-keeper .person-link {
-  color: var(--ink);
-  font-weight: var(--weight-bold);
-}
-
 /* Why filing or trading is held back: a soft fill, no accent stroke, with the way to the world. */
 .town-away,
 .shop-away {
@@ -6721,75 +5774,6 @@ a.btn-primary {
   border-radius: var(--r-xs);
   background: color-mix(in oklab, var(--sun) 12%, var(--field));
   color: var(--ink);
-}
-
-.shop-section .hint {
-  margin: 0;
-}
-
-.shop-item-meta {
-  color: var(--ink-soft);
-  font-size: var(--text-md);
-  font-variant-numeric: tabular-nums;
-}
-
-/* Two to a row on a phone, more as the screen allows. */
-.shop-shelf {
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-}
-
-.shop-item {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-2xs);
-  padding: var(--space-lg) var(--space-md) var(--space-md);
-  border-radius: var(--r-card);
-  text-align: center;
-}
-
-/*
- * A card in a row is as tall as the tallest, so the slack goes above the button rather than
- * under it: the buttons across a row sit on one line however long the words above them run.
- */
-.shop-item > :has(+ .shop-buy) {
-  margin-bottom: auto;
-}
-
-.shop-item-name {
-  font-weight: var(--weight-bold);
-  line-height: var(--leading-snug);
-}
-
-/* A recipe's name keeps two lines, so the cards in a row start what it uses together. */
-.shop-card-recipe .shop-item-name {
-  min-height: calc(2em * var(--leading-snug));
-}
-
-/*
- * Only some stock carries a season or holiday tag. On a shelf that has any, the cards without one
- * keep its line free (the pill's own height and the gap above it), so a row's names start together
- * whether or not the thing beside them is seasonal.
- */
-.shop-shelf:has(.kind-pill) .shop-item:not(:has(.kind-pill)) .shop-item-name {
-  margin-top: calc(var(--text-sm) * var(--leading-snug) + 3 * var(--space-2xs));
-}
-
-.shop-item-3d {
-  /* A link on its own line, so it gets a target of its own, not an inline link's. */
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  min-height: 32px;
-  font-size: var(--text-md);
-  color: var(--clay-deep);
-}
-
-/* Drawn 32px tall, it taps as 44, reaching past it above and below. */
-.shop-item-3d::after {
-  content: "";
-  position: absolute;
-  inset: calc((32px - 44px) / 2) 0;
 }
 
 .shop-buy {

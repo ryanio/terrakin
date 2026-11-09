@@ -1,0 +1,33 @@
+/*
+ * The /purse page (purse-view.ts). Loaded with the page, and with the shop, the market, and your
+ * things, which borrow its links. The balance line and the top bar's purse are in style.css.
+ */
+
+.purse-streak {
+  margin: 0;
+  color: var(--ink-soft);
+}
+
+.purse-how-list {
+  margin: 0;
+  padding-left: 1.2em;
+  display: grid;
+  gap: var(--space-xs);
+}
+
+.purse-line-who {
+  display: flex;
+}
+
+.purse-line-amount {
+  font-weight: var(--weight-heavy);
+  font-variant-numeric: tabular-nums;
+}
+
+.purse-line.in .purse-line-amount {
+  color: var(--coin-deep);
+}
+
+.purse-line.out .purse-line-amount {
+  color: var(--ink-soft);
+}

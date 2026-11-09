@@ -23,6 +23,7 @@ import { failInto, type View, type ViewContext } from "./view";
 import { visitPlot } from "./visit-plot";
 import { isMine, plotTitles, quietWeek, weekLine } from "./visits";
 import { worldLinkPath } from "./world-link";
+import "./visit-view.css";
 
 const SORT_WORDS: Record<PlotSort, string> = {
   recent: "Recently changed",

@@ -30,6 +30,7 @@ import {
   thingName,
 } from "./things";
 import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
+import "./inventory-view.css";
 
 function goodItem(g: GoodView): HTMLLIElement {
   return itemRow({

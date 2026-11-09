@@ -17,6 +17,7 @@ import { savedToken, saveToken } from "./net";
 import { pageData } from "./page-data";
 import { ARRIVAL_KEY, arrivalLine } from "./together";
 import { failInto, type View, type ViewContext } from "./view";
+import "./invite-view.css";
 
 export function inviteView(code: string, ctx: ViewContext): View {
   ctx.setTitle("You're invited · Terrakin");

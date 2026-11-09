@@ -1,0 +1,45 @@
+/* The /inventory page (RFC 0005, inventory-view.ts): your garden, made things, and stacks. */
+
+.things-crop {
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: var(--space-md);
+  min-height: 44px;
+  color: var(--ink-soft);
+}
+
+.things-crop .icon {
+  color: var(--moss);
+}
+
+.things-crop-name {
+  color: var(--ink);
+  font-weight: var(--weight-bold);
+}
+
+.things-crop.ready .things-crop-when {
+  color: var(--moss-deep);
+  font-weight: var(--weight-bold);
+}
+
+/* Make a piece of art on your things page: the picture you chose, before it has a title. */
+.piece-preview .thing-picture {
+  border-width: 3px;
+}
+
+/* Your things: the count beside the heading, and each family a card, what it's for in smaller words. */
+.things-hold-head {
+  justify-content: space-between;
+  align-items: baseline;
+}
+
+.things-family-hint {
+  font-size: var(--text-md);
+}
+
+/* Shop art */
+.things-stack.has-art {
+  gap: var(--space-xs);
+  padding: var(--space-2xs) var(--space-md) var(--space-2xs) var(--space-xs);
+}

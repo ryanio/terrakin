@@ -15,6 +15,7 @@ import { pageData } from "./page-data";
 import { balanceLine, coins } from "./purse";
 import { soldWords } from "./things";
 import { failInto, joinCard, notOpenCard, staticView, type View, type ViewContext } from "./view";
+import "./purse-view.css";
 
 /** What a purse line was, in plain words. Pure, so tests pin it. */
 export function lineLabel(

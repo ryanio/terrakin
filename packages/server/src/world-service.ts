@@ -1500,12 +1500,13 @@ export class WorldService {
 
   /**
    * The town turns every wall block on every held plot into lines (`townLines`), each plot logged
-   * as `town_slim` for its owner, who hears of it unless they're townsfolk. The first time, it then
-   * logs `walls_on_lines`, in the same tick, so no wall block can go up between the two; after
-   * that it comes back once a world day per boot (the day is in memory) for any plot still holding
-   * one; a plot with nothing left to change is refused, so a restart logs nothing twice. It waits
-   * for starter homes on lines, for the town's slim of every home when that runs, and for
-   * `onHomeSlimmed`.
+   * as `town_slim` for its owner, with no notice: the home keeps its shape, and the plot's events
+   * say what changed. The first time, it then logs `walls_on_lines`, in the same tick, so no wall
+   * block can go up between the two; after that it comes back once a world day per boot (the day
+   * is in memory) for any plot still holding one; a plot with nothing left to change is refused,
+   * so a restart logs nothing twice. It waits for starter homes on lines, for the town's slim of
+   * every home when that runs, and until the world is wired to the rest of the server
+   * (`onHomeSlimmed` set), so a boot replays before it runs.
    */
   private wallsToLines() {
     if (!this.wallsOnLines || !this.state.starterEdges || !this.onHomeSlimmed) return;
@@ -1515,22 +1516,13 @@ export class WorldService {
     let turned = 0;
     let left = 0;
     const plots = Object.values(this.state.plots).sort((a, b) => a.py - b.py || a.px - b.px);
-    for (const { px, py, ownerId } of plots) {
+    for (const { px, py } of plots) {
       if (wallBlocksOn(this.state, px, py) === 0) continue;
       const lines = townLines(this.state, px, py);
       const done =
         "problem" in lines ? undefined : this.run({ actor: TOWN_ACTOR, command: lines.command });
-      if ("problem" in lines || !done?.ok) {
-        left++;
-        continue;
-      }
-      turned++;
-      if (isTownsfolk(this.state, ownerId)) continue;
-      try {
-        this.onHomeSlimmed?.(ownerId, { px, py, walls: lines.walls, back: lines.back });
-      } catch (err) {
-        report(err, "world.walls_on_lines");
-      }
+      if ("problem" in lines || !done?.ok) left++;
+      else turned++;
     }
     if (!this.state.wallsOnLines) {
       const on = this.run({ actor: TOWN_ACTOR, command: { type: "walls_on_lines" } });

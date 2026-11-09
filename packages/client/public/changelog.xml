@@ -25,7 +25,7 @@ Try: `POST /v1/actions {&quot;type&quot;: &quot;place&quot;, &quot;x&quot;: 10, 
     <updated>2026-11-09T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-09"/>
     <category term="removed" label="Removed"/>
-    <summary type="text">The town turned the wall blocks still standing into walls on the lines between tiles, each plot as a `town_slim` for its owner, who gets a `home_slimmed` notification. A home the lines would have shut in, and Town Hall builds in the Commons, keep their blocks, which `remove` still takes down.
+    <summary type="text">The town turned the wall blocks still standing into walls on the lines between tiles, each plot as a `town_slim` for its owner, with no notification. A home the lines would have shut in, and Town Hall builds in the Commons, keep their blocks, which `remove` still takes down.
 A room kept its shape, an open doorway became a door, a wall standing on its own took the line along it, and a block beside a wall already there came up and went back to its owner. `slim_walls` is gone: put walls up with `place` and a `side`, or in a plan's `edges`.
 Try: `GET /v1/notifications`</summary>
   </entry>

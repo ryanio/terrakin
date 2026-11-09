@@ -370,8 +370,8 @@ describe("build", () => {
       run({ actor: id, command: { type: "settle", px, py: 0 } });
     }
     run({ actor: TOWN_ACTOR, command: { type: "set_townsfolk", ids: ["cal"] } });
-    // Nothing runs before the notices are wired, so the town hasn't swept yet: Ada walls a row of
-    // stone, Cal (townsfolk) a hedge, and Bob sets one brickwork block down against a wall on a
+    // Nothing has ticked, so the town hasn't swept yet: Ada walls a row of stone, Cal (townsfolk) a
+    // hedge, and Bob sets one brickwork block down against a wall on a
     // line, so it comes up for no line of its own, with his things too full to take it back.
     const row = (y: number, block: string) =>
       [2, 3, 4].map((x) => ({ x, y, block })) as { x: number; y: number; block: "stone" }[];
@@ -404,8 +404,8 @@ describe("build", () => {
     expect(service.state.wallsOnLines).toBe(true);
     expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
     expect(Object.keys(service.state.edges ?? {})).toHaveLength(7);
-    // Only Ada hears: townsfolk get no notice, and Bob's plot wasn't turned.
-    expect(told).toEqual([{ owner: "ada", px: 0 }]);
+    // Nobody is sent a notice: the home keeps its shape.
+    expect(told).toEqual([]);
     // A wall on a tile is refused now, and the rest of the day the town tries nothing more.
     expect(
       runOn(service, { actor: "ada", command: { type: "place", x: 6, y: 6, block: "wood" } }),
@@ -418,7 +418,7 @@ describe("build", () => {
     now += DAY_MS;
     service.tick();
     expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
-    // With room, the day after, Bob's block comes back to him and he hears.
+    // With room, the day after, Bob's block comes back to him.
     items.inventories.bob = { stacks: {}, goods: [] };
     service.tick();
     expect(Object.values(service.state.blocks)).toEqual(["brickwork"]);
@@ -426,10 +426,7 @@ describe("build", () => {
     service.tick();
     expect(service.state.blocks).toEqual({});
     expect(items.inventories.bob?.stacks).toEqual({ brickwork: 1 });
-    expect(told).toEqual([
-      { owner: "ada", px: 0 },
-      { owner: "bob", px: 1 },
-    ]);
+    expect(told).toEqual([]);
   });
 
   it("says when a design's or the starter hut's door doesn't reach an open edge, and the turn that would (decision 0351)", async () => {

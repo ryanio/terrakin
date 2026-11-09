@@ -648,8 +648,16 @@ export function liftProblem(
   return null;
 }
 
-/** Whether anything stands or lies on any floor of a plot. `release` and `merge` read it. */
-export function plotHasAnything(state: WorldState, px: number, py: number): boolean {
+/**
+ * The first thing found standing or lying on a plot, and on which floor, or null when it's empty.
+ * Floors go from the ground up; on each, tiles go north to south and west to east, a block before
+ * flooring on the same tile, then the walls between tiles. `release` names what it found.
+ */
+export function firstOnPlot(
+  state: WorldState,
+  px: number,
+  py: number,
+): { floor: number; what: "block" | "ground" | "edge" } | null {
   const { plotSize } = state.config;
   const floors = [0, ...Object.keys(state.floors ?? {}).map(Number)];
   for (const floor of floors) {
@@ -658,18 +666,24 @@ export function plotHasAnything(state: WorldState, px: number, py: number): bool
     for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
       for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
         const key = tileKey(x, y);
-        if (blocks[key] !== undefined || ground[key] !== undefined) return true;
+        if (blocks[key] !== undefined) return { floor, what: "block" };
+        if (ground[key] !== undefined) return { floor, what: "ground" };
       }
     }
     // A wall between tiles (RFC 0050) counts for the plot of either tile it runs between.
     for (const key of Object.keys(edgesOn(state, floor))) {
       const { x, y, side } = parseEdgeKey(key);
       for (const t of edgeTiles(x, y, side)) {
-        if (onSlot(state.config, t.x, t.y, px, py)) return true;
+        if (onSlot(state.config, t.x, t.y, px, py)) return { floor, what: "edge" };
       }
     }
   }
-  return false;
+  return null;
+}
+
+/** Whether anything stands or lies on any floor of a plot. `merge` reads it. */
+export function plotHasAnything(state: WorldState, px: number, py: number): boolean {
+  return firstOnPlot(state, px, py) !== null;
 }
 
 type Mutation = () => WorldEvent[];

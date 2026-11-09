@@ -81,13 +81,13 @@ import {
   blockProblem,
   checkAddFloor,
   checkClimb,
+  firstOnPlot,
   floorField,
   floorGround,
   floorOf,
   layerFor,
   noFlooringHint,
   outOfReachHere,
-  plotHasAnything,
   removeProblem,
   setFloor,
   stairwellProblem,
@@ -1230,22 +1230,19 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // Releasing never demolishes: clear the blocks first. That keeps release a single,
       // honest change instead of a silent teardown (see decision 0018). Paths and flooring too
       // (RFC 0016), so nobody inherits a stranger's.
-      const { plotSize } = config;
-      for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
-        for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
-          if (state.blocks[tileKey(x, y)] !== undefined) {
-            return reject("plot_has_blocks", "Remove every block on the plot first.");
-          }
-          if (state.ground?.[tileKey(x, y)] !== undefined) {
-            return reject(
-              "plot_has_blocks",
-              "Lift all the paths and flooring on the plot first. One build with a lift list clears them all.",
-            );
-          }
-        }
+      const found = firstOnPlot(state, px, py);
+      if (found?.floor === 0 && found.what === "block") {
+        return reject("plot_has_blocks", "Remove every block on the plot first.");
       }
-      // Upstairs too (RFC 0028). The floors themselves go with the plot's record.
-      if (plotHasAnything(state, px, py)) {
+      if (found?.floor === 0 && found.what === "ground") {
+        return reject(
+          "plot_has_blocks",
+          "Lift all the paths and flooring on the plot first. One build with a lift list clears them all.",
+        );
+      }
+      // Upstairs too (RFC 0028), and a wall between tiles on any floor. The floors themselves go
+      // with the plot's record.
+      if (found) {
         return reject(
           "plot_has_blocks",
           "Remove every block and lift all the flooring upstairs on the plot first.",

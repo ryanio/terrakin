@@ -8,7 +8,7 @@ import { landlocked, plotOpenings } from "./openings";
 import { replay } from "./replay";
 import type { Command, WorldState } from "./types";
 import { TOWN_ACTOR } from "./types";
-import { isWay } from "./ways";
+import { isWay, WAYS } from "./ways";
 import { createWorld } from "./world";
 
 /**
@@ -73,6 +73,25 @@ describe("open_way", () => {
     ["no tiles", { type: "open_way", tiles: [] }, "server_only"],
   ])("refuses %s", (_, command, refused) => {
     expect(code(cleared(), TOWN_ACTOR, command)).toBe(refused);
+  });
+
+  // One past the limit, as distinct pairs sorted north to south, so only the limit refuses them.
+  const past = Array.from({ length: WAYS.tilesMax + 1 }, (_, i): [number, number] => [
+    i % 40,
+    Math.floor(i / 40),
+  ]);
+  it.each<[string, Command]>([
+    ["open_way", { type: "open_way", tiles: past }],
+    ["close_way", { type: "close_way", tiles: past }],
+  ])("refuses %s with more tiles than tilesMax, changing nothing", (_, command) => {
+    const state = cleared();
+    const before = hashWorld(state);
+    const result = apply(state, { actor: TOWN_ACTOR, command });
+    expect(result.ok ? null : result.rejection).toEqual({
+      code: "server_only",
+      message: `A way's tiles are 1 to ${WAYS.tilesMax} whole [x, y] pairs, north to south, then west to east.`,
+    });
+    expect(hashWorld(state)).toBe(before);
   });
 
   it("comes only from the town, and a way already open is already set", () => {

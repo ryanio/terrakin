@@ -1,10 +1,10 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceTip, shopPayment } from "./economy";
 import { edgeKey, edgesOn, edgeTiles, hasEdges, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
-import { plotKey, tileKey } from "./keys";
+import { tileKey } from "./keys";
 import { own } from "./own";
-import { plotListedProblem } from "./plot-market";
+import { plotToChange } from "./plot-market";
 import {
   type BlockKind,
   type Climb,
@@ -28,9 +28,8 @@ import {
   canBuildOn,
   chebyshev,
   inBounds,
-  isCommons,
+  onSlot,
   plotAtTile,
-  plotInBounds,
   plotOf,
 } from "./world";
 
@@ -649,8 +648,16 @@ export function liftProblem(
   return null;
 }
 
-/** Whether anything stands or lies on any floor of a plot. `release` and `merge` read it. */
-export function plotHasAnything(state: WorldState, px: number, py: number): boolean {
+/**
+ * The first thing found standing or lying on a plot, and on which floor, or null when it's empty.
+ * Floors go from the ground up; on each, tiles go north to south and west to east, a block before
+ * flooring on the same tile, then the walls between tiles. `release` names what it found.
+ */
+export function firstOnPlot(
+  state: WorldState,
+  px: number,
+  py: number,
+): { floor: number; what: "block" | "ground" | "edge" } | null {
   const { plotSize } = state.config;
   const floors = [0, ...Object.keys(state.floors ?? {}).map(Number)];
   for (const floor of floors) {
@@ -659,18 +666,24 @@ export function plotHasAnything(state: WorldState, px: number, py: number): bool
     for (let y = py * plotSize; y < (py + 1) * plotSize; y++) {
       for (let x = px * plotSize; x < (px + 1) * plotSize; x++) {
         const key = tileKey(x, y);
-        if (blocks[key] !== undefined || ground[key] !== undefined) return true;
+        if (blocks[key] !== undefined) return { floor, what: "block" };
+        if (ground[key] !== undefined) return { floor, what: "ground" };
       }
     }
     // A wall between tiles (RFC 0050) counts for the plot of either tile it runs between.
     for (const key of Object.keys(edgesOn(state, floor))) {
       const { x, y, side } = parseEdgeKey(key);
       for (const t of edgeTiles(x, y, side)) {
-        if (Math.floor(t.x / plotSize) === px && Math.floor(t.y / plotSize) === py) return true;
+        if (onSlot(state.config, t.x, t.y, px, py)) return { floor, what: "edge" };
       }
     }
   }
-  return false;
+  return null;
+}
+
+/** Whether anything stands or lies on any floor of a plot. `merge` reads it. */
+export function plotHasAnything(state: WorldState, px: number, py: number): boolean {
+  return firstOnPlot(state, px, py) !== null;
 }
 
 type Mutation = () => WorldEvent[];
@@ -732,22 +745,12 @@ export function checkAddFloor(
   actor: ResidentId,
   command: Extract<Command, { type: "add_floor" }>,
 ): Mutation | Rejection {
-  const { config } = state;
   const { px, py } = command;
-  if (!plotInBounds(config, px, py))
-    return refuse("out_of_bounds", "That plot is outside the world.");
-  if (isCommons(state, px, py)) {
-    return refuse(
-      "plot_is_commons",
-      "The Commons stays on the ground. Add an upstairs to your own plot.",
-    );
-  }
-  const plot = state.plots[plotKey(px, py)];
-  if (!plot || !canBuildOn(plot, actor)) {
-    return refuse("not_your_plot", "You can add an upstairs only to a plot you own or share.");
-  }
-  const listed = plotListedProblem(state, plot.px, plot.py);
-  if (listed) return listed;
+  const plot = plotToChange(state, actor, px, py, {
+    commons: "The Commons stays on the ground. Add an upstairs to your own plot.",
+    notYours: "You can add an upstairs only to a plot you own or share.",
+  });
+  if ("code" in plot) return plot;
   const econ = state.economy;
   const day = state.day;
   if (!econ || day === undefined) {
@@ -758,28 +761,18 @@ export function checkAddFloor(
   const price = FLOORS.price;
   const purse = econ.coins[actor] ?? 0;
   if (purse < price) {
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `An upstairs is ${coinCount(price)}, and you have ${coinCount(purse)}. ${tip}`,
+      `An upstairs is ${coinCount(price)}, and you have ${coinCount(purse)}. ${allowanceTip(state, actor)}`,
     );
   }
   const floor = has + 1;
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((price * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, price, "floor", at);
   return () => {
     plot.floors = floor;
     state.floors ??= {};
     state.floors[String(floor)] ??= { blocks: {}, ground: {} };
-    const events: WorldEvent[] = [
-      { type: "floor_added", px, py, floor, by: actor },
-      movePurse(econ, actor, -price, "floor", at),
-    ];
-    // The treasury's history is public, so its share is a line that doesn't say who paid.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "floor", at));
-    econ.burned += price - toTreasury;
-    return events;
+    return [{ type: "floor_added", px, py, floor, by: actor }, ...pay()];
   };
 }

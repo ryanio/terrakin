@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { GIFTS_CONFIG, GIFTS_HASH, GIFTS_LOG } from "./fixtures/gifts-log";
 import { ITEMS_CONFIG, ITEMS_HASH, ITEMS_LOG } from "./fixtures/items-log";
 import {
   RAISED_INVENTORY_CONFIG,
@@ -712,6 +713,12 @@ describe("raising the cap", () => {
 });
 
 describe("sending a gift back", () => {
+  it("replays a log on both sides of open_gifts to its pinned hash", () => {
+    const state = replay(GIFTS_CONFIG, GIFTS_LOG);
+    expect(hashWorld(state)).toBe(GIFTS_HASH);
+    expect(state.items?.gifts).toEqual({});
+  });
+
   /** Ada and Bob settled, Ada with a jam (`i_1`), and gifts kept so they can be sent back. */
   function kept() {
     const w = garden();

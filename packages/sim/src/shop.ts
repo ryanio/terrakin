@@ -23,7 +23,7 @@ import {
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { nearestCounter, notAtDoor } from "./doors";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceTip, isTownsfolk, movePurse, shopPayment, treasuryShareOf } from "./economy";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -637,13 +637,9 @@ export function checkShopBuy(
   const total = priceOf(state, sku) * count;
   const have = econ.coins[actor] ?? 0;
   if (have < total) {
-    // The allowance pays after a command commits, so a purchase can't count on it: say so.
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `That's ${coins(total)}, and you have ${coins(have)}. ${tip}`,
+      `That's ${coins(total)}, and you have ${coins(have)}. ${allowanceTip(state, actor)}`,
     );
   }
   if (!wear && inventorySize(items.inventories[actor]) + count > inventoryMaxOf(state)) {
@@ -653,12 +649,9 @@ export function checkShopBuy(
     );
   }
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((total * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, total, "shop", at);
   return () => {
-    const events: WorldEvent[] = [movePurse(econ, actor, -total, "shop", at)];
-    // The treasury's history is public, so its share is a line that doesn't say who bought.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "shop", at));
-    econ.burned += total - toTreasury;
+    const events: WorldEvent[] = pay();
     if (wear) {
       shop.wardrobe[actor] = [...(shop.wardrobe[actor] ?? []), wear].sort();
       events.push({ type: "wear_bought", residentId: actor, wear });

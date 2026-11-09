@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import { apply, prepare } from "./apply";
+import { edgeKey } from "./edges";
 import { hashWorld } from "./hash";
+import { tileKey } from "./keys";
 import { replay } from "./replay";
 import { type Command, type Input, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
 import {
@@ -199,6 +201,44 @@ describe("release", () => {
     expect(hashWorld(state)).toBe(before);
     run(state, "ada", { type: "remove", x: 0, y: 0 });
     expect(apply(state, { actor: "ada", command: { type: "release" } }).ok).toBe(true);
+  });
+
+  it.each<[string, (s: WorldState) => void, string]>([
+    [
+      "a block",
+      (s) => (s.blocks[tileKey(2, 2)] = "stone"),
+      "Remove every block on the plot first.",
+    ],
+    [
+      "a path",
+      (s) => (s.ground = { [tileKey(2, 2)]: "dirt" }),
+      "Lift all the paths and flooring on the plot first. One build with a lift list clears them all.",
+    ],
+    [
+      "a path north of a block, which it meets first",
+      (s) => {
+        s.blocks[tileKey(1, 2)] = "stone";
+        s.ground = { [tileKey(3, 1)]: "dirt" };
+      },
+      "Lift all the paths and flooring on the plot first. One build with a lift list clears them all.",
+    ],
+    [
+      "a wall between tiles",
+      (s) => (s.edges = { [edgeKey(2, 2, "n")]: "wood" }),
+      "Remove every block and lift all the flooring upstairs on the plot first.",
+    ],
+    [
+      "flooring upstairs",
+      (s) => (s.floors = { "1": { blocks: {}, ground: { [tileKey(2, 2)]: "planks" } } }),
+      "Remove every block and lift all the flooring upstairs on the plot first.",
+    ],
+  ])("refuses with %s on the plot, in words that say what to clear", (_, put, message) => {
+    const state = claimedPlot();
+    put(state);
+    const before = hashWorld(state);
+    const result = apply(state, { actor: "ada", command: { type: "release" } });
+    expect(result.ok ? null : result.rejection).toEqual({ code: "plot_has_blocks", message });
+    expect(hashWorld(state)).toBe(before);
   });
 
   it("replays release-then-claim exactly, like a server restart would", () => {

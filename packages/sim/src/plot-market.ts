@@ -18,7 +18,15 @@ import type {
   WorldEvent,
   WorldState,
 } from "./types";
-import { islandClaimIsFree, plotOf, plotsOwnedBy } from "./world";
+import {
+  canBuildOn,
+  isCommons,
+  islandClaimIsFree,
+  onSlot,
+  plotInBounds,
+  plotOf,
+  plotsOwnedBy,
+} from "./world";
 
 /**
  * The plot market ([RFC 0039](../../../docs/rfcs/0039-plot-market.md), decision 0344): a plot's
@@ -76,6 +84,28 @@ export function plotListedProblem(state: WorldState, px: number, py: number): Re
     "plot_listed",
     `That plot is for sale, so nothing on it changes until it sells. Its owner can take it back with {"type": "unlist_plot", "px": ${px}, "py": ${py}}.`,
   );
+}
+
+/**
+ * The plot (px, py) for a paid change by `actor`, its upstairs or its lot, checked in this order:
+ * in the world (`out_of_bounds`), not the Commons (`plot_is_commons`), owned or shared by them
+ * (`not_your_plot`), and not for sale (`plot_listed`). The Commons and ownership refusals use the
+ * caller's own words.
+ */
+export function plotToChange(
+  state: WorldState,
+  actor: ResidentId,
+  px: number,
+  py: number,
+  words: { commons: string; notYours: string },
+): Plot | Rejection {
+  if (!plotInBounds(state.config, px, py)) {
+    return refuse("out_of_bounds", "That plot is outside the world.");
+  }
+  if (isCommons(state, px, py)) return refuse("plot_is_commons", words.commons);
+  const plot = state.plots[plotKey(px, py)];
+  if (!plot || !canBuildOn(plot, actor)) return refuse("not_your_plot", words.notYours);
+  return plotListedProblem(state, px, py) ?? plot;
 }
 
 /** `plotListedProblem` for the plot a tile is on. */
@@ -255,12 +285,7 @@ export function checkListPlot(
     );
   }
   // A pot set down (RFC 0047) is someone's thing too.
-  const { plotSize } = state.config;
-  if (
-    potsOf(state).some(
-      (p) => Math.floor(p.x / plotSize) === px && Math.floor(p.y / plotSize) === py,
-    )
-  ) {
+  if (potsOf(state).some((p) => onSlot(state.config, p.x, p.y, px, py))) {
     return refuse(
       "not_eligible",
       "A pot is set down on that plot, and it stays whoever set it down. Take it up first with remove.",
@@ -270,7 +295,7 @@ export function checkListPlot(
   // after a sale its loader could never take it out.
   const firing = Object.keys(state.items?.firings ?? {}).find((key) => {
     const [x, y] = parseKey(key);
-    return Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+    return onSlot(state.config, x, y, px, py);
   });
   if (firing) {
     const [x, y] = parseKey(firing);
@@ -381,15 +406,13 @@ export function plotSale(
  * tile; the tile alone says the plot.
  */
 function displayOnPlot(state: WorldState, px: number, py: number): boolean {
-  const { plotSize } = state.config;
   const items = state.items;
   const keys = [
     ...Object.keys(items?.displays ?? {}),
     ...Object.keys(items?.tops ?? {}),
     ...Object.keys(items?.hung ?? {}),
   ];
-  const on = (x: number, y: number) =>
-    Math.floor(x / plotSize) === px && Math.floor(y / plotSize) === py;
+  const on = (x: number, y: number) => onSlot(state.config, x, y, px, py);
   // A wall face is seen from one tile and hangs on the next, so either one on the plot counts.
   return keys.some((key) => {
     const tile = key.includes(":") ? (key.split(":")[1] as string) : key;

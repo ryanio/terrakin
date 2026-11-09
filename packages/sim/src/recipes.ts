@@ -9,7 +9,7 @@ import {
   recipeOf,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
-import { allowanceDue, isTownsfolk, movePurse, moveTreasury, treasuryShareOf } from "./economy";
+import { allowanceTip, isTownsfolk, shopPayment } from "./economy";
 import { dayName } from "./holiday";
 import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
@@ -697,22 +697,15 @@ export function checkBuyCard(
   const price = recipeCardPrice(recipe);
   const have = econ.coins[actor] ?? 0;
   if (have < price) {
-    // The allowance pays after a command commits, so a purchase can't count on it: say so.
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `That card is ${coins(price)}, and you have ${coins(have)}. ${tip}`,
+      `That card is ${coins(price)}, and you have ${coins(have)}. ${allowanceTip(state, actor)}`,
     );
   }
   const at = { seq: state.seq + 1, day };
-  const toTreasury = Math.floor((price * treasuryShareOf(state)) / 100);
+  const pay = shopPayment(state, econ, actor, price, "shop", at);
   return () => {
-    const events: WorldEvent[] = [movePurse(econ, actor, -price, "shop", at)];
-    // The treasury's history is public, so its share is a line that doesn't say who bought.
-    if (toTreasury > 0) events.push(moveTreasury(econ, toTreasury, "shop", at));
-    econ.burned += price - toTreasury;
+    const events: WorldEvent[] = pay();
     learn(recipes, actor, recipe);
     events.push({ type: "recipe_learned", residentId: actor, recipe, how: "bought", price });
     return events;

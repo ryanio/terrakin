@@ -123,7 +123,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 
 ## Building (RFC 0016)
 
-- Ground (`state.ground`) never blocks: `isSolid` reads blocks only. `release` refuses while a plot has ground, blocks, a roof, or anything on any floor (`plotHasAnything`).
+- Ground (`state.ground`) never blocks: `isSolid` reads blocks only. `release` refuses while a plot has ground, blocks, a roof, or anything on any floor (`firstOnPlot`, which names what it found).
 - What any block costs is `blockNeeds` in `items.ts`, which `place`, `remove`, `build`, `build_starter_home`, and `set_roof` all read; it's given back to whoever takes it up. Free blocks touch nobody's things and work before items open. A starter home is never built from decor, ponds, or doors.
 - A new furniture piece is a catalog entry with the role `furniture` and its name on the end of `BLOCK_KINDS`, never in `FREE_BLOCKS` or `BUILDING_BLOCKS`. `BUILDING_BLOCKS` stays the four free walls, since it's what a Town Hall build places from nobody's things and what a theme dresses.
 - Every piece of furniture blocks walking but `WALKED_ONTO_SEATS`, and only stairs, a door, and those seats are let through by `blocksWalkers`. The chair and the bench stay solid, since making them walkable would change logged walks, and the rocking chair stays solid like them.

@@ -18,25 +18,15 @@ import {
 } from "@terrakin/ui/ui";
 import { firstVisitApi } from "./api/first-visit";
 import { nextStep, type StepRow, stepHref, stepRound, stepRows } from "./first-steps";
+import { readStored, writeStored } from "./stored";
 
 /** The resident this device hid the card for. */
 const HIDDEN_KEY = "terrakin.firstStepsHidden";
 
-function hiddenFor(me: string): boolean {
-  try {
-    return localStorage.getItem(HIDDEN_KEY) === me;
-  } catch {
-    return false;
-  }
-}
+const hiddenFor = (me: string) => readStored(HIDDEN_KEY) === me;
 
-function hide(me: string) {
-  try {
-    localStorage.setItem(HIDDEN_KEY, me);
-  } catch {
-    // Storage off: the card comes back next time, which is all that's lost.
-  }
-}
+/** With storage off the card comes back next time, which is all that's lost. */
+const hide = (me: string) => writeStored(HIDDEN_KEY, me);
 
 /** A done step: a tick and its name, one short line. */
 function doneRow(row: StepRow): HTMLLIElement {

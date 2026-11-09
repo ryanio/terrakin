@@ -17,6 +17,7 @@ import { plotsApi } from "./api/plots";
 import type { Mirror } from "./mirror";
 import { openPlotNameSheet } from "./plot-name-sheet";
 import { coins } from "./purse";
+import { readStored, writeStored } from "./stored";
 import { nextPlot, plotName, quietWeek, weekLine } from "./visits";
 
 /** How long the tour's list of plots is good for before Next plot asks again. */
@@ -28,13 +29,7 @@ const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as 
 const OPEN_KEY = "terrakin.visitCardOpen";
 
 /** Whether the card was left open on this device: folded until someone opens it. */
-function savedOpen(): boolean {
-  try {
-    return localStorage.getItem(OPEN_KEY) === "1";
-  } catch {
-    return false;
-  }
-}
+const savedOpen = () => readStored(OPEN_KEY) === "1";
 
 export interface VisitCardOptions {
   /**
@@ -99,11 +94,8 @@ export function visitCard(o: VisitCardOptions): VisitCard {
   }
   function setOpen(to: boolean) {
     open = to;
-    try {
-      localStorage.setItem(OPEN_KEY, to ? "1" : "0");
-    } catch {
-      // No storage: it opens and folds for this visit only.
-    }
+    // With no storage it opens and folds for this visit only.
+    writeStored(OPEN_KEY, to ? "1" : "0");
     paintFold();
   }
   paintFold();

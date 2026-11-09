@@ -6,35 +6,19 @@ import {
   ServerMessage,
 } from "@terrakin/protocol";
 import { reloadForNewerServer } from "./stale-bundle";
+import { readStored, removeStored, writeStored } from "./stored";
 import { appCrumb } from "./telemetry";
 
 const TOKEN_KEY = "terrakin.token";
 /** Our own resident id, saved next to the token so the feed knows which profile is yours. */
 const RESIDENT_KEY = "terrakin.resident";
 
-export function savedToken(): string | null {
-  try {
-    return localStorage.getItem(TOKEN_KEY);
-  } catch {
-    return null;
-  }
-}
+export const savedToken = () => readStored(TOKEN_KEY);
 
-export function savedResidentId(): string | null {
-  try {
-    return localStorage.getItem(RESIDENT_KEY);
-  } catch {
-    return null;
-  }
-}
+export const savedResidentId = () => readStored(RESIDENT_KEY);
 
-export function saveResidentId(id: string) {
-  try {
-    localStorage.setItem(RESIDENT_KEY, id);
-  } catch {
-    // Storage disabled: we just ask the server again next time.
-  }
-}
+/** With storage off we just ask the server again next time. */
+export const saveResidentId = (id: string) => writeStored(RESIDENT_KEY, id);
 
 /** Fired on window when the saved token changes, so the top bar can repaint. */
 export const SESSION_EVENT = "terrakin:session";
@@ -50,16 +34,13 @@ export function rawWelcome(raw: unknown): { token: string; residentId: string } 
 }
 
 export function saveToken(token: string | null, residentId?: string) {
-  try {
-    if (token) {
-      localStorage.setItem(TOKEN_KEY, token);
-      if (residentId) localStorage.setItem(RESIDENT_KEY, residentId);
-    } else {
-      localStorage.removeItem(TOKEN_KEY);
-      localStorage.removeItem(RESIDENT_KEY);
-    }
-  } catch {
-    // Private mode or storage disabled: the session just won't survive a reload.
+  // With storage off the session just won't survive a reload.
+  if (token) {
+    writeStored(TOKEN_KEY, token);
+    if (residentId) writeStored(RESIDENT_KEY, residentId);
+  } else {
+    removeStored(TOKEN_KEY);
+    removeStored(RESIDENT_KEY);
   }
   if (typeof window !== "undefined") window.dispatchEvent(new Event(SESSION_EVENT));
 }

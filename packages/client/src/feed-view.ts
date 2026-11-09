@@ -83,6 +83,7 @@ import {
 } from "./pulse-cards";
 import { coins } from "./purse";
 import { copyPostState } from "./reactions";
+import { readStored, writeStored } from "./stored";
 import { track } from "./telemetry";
 import { serverTime } from "./time";
 import { errorCard, type View, type ViewContext } from "./view";
@@ -142,23 +143,6 @@ export function syncPost(post: PostView) {
     for (const p of state.posts) if (p.id === post.id && p !== post) copyPostState(post, p);
   }
 }
-
-const storage = {
-  get(key: string) {
-    try {
-      return localStorage.getItem(key);
-    } catch {
-      return null;
-    }
-  },
-  set(key: string, value: string) {
-    try {
-      localStorage.setItem(key, value);
-    } catch {
-      // Storage disabled: we just forget the choice.
-    }
-  },
-};
 
 /**
  * The top of `/` for every visitor: the headline, then two cards side by side (stacked on a phone,
@@ -510,7 +494,7 @@ export function feedView(ctx: ViewContext): View {
   // The same title index.html ships with, so it doesn't change once the script runs.
   ctx.setTitle(PAGES.find((p) => p.path === "/")?.title ?? "Terrakin");
   const hasToken = savedToken() !== null;
-  const saved = storage.get(TAB_KEY);
+  const saved = readStored(TAB_KEY);
   const restored = ctx.restoring ? cache.get(ctx.key) : undefined;
   const state: FeedState = restored ?? {
     tab: hasToken && saved === "following" ? "following" : "everyone",
@@ -1244,7 +1228,7 @@ export function feedView(ctx: ViewContext): View {
   function switchTab(tab: Tab) {
     if (tab === state.tab) return;
     state.tab = tab;
-    storage.set(TAB_KEY, tab);
+    writeStored(TAB_KEY, tab);
     live.follow(tab === "following");
     hidePill();
     paintTabs();

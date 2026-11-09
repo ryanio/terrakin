@@ -22,6 +22,7 @@ import {
   type PasskeyMoment,
   passkeyAskLine,
 } from "./passkey-words";
+import { readStored, writeStored } from "./stored";
 
 /** The resident this device last asked, and when: `r_… 1729…`. */
 const ASKED_KEY = "terrakin.passkeyAsked";
@@ -31,23 +32,16 @@ const ASKED_KEY = "terrakin.passkeyAsked";
  * answer put the offer away for good: that reads as long ago, so it comes back.
  */
 export function askedAt(me: string): number | undefined {
-  try {
-    const [id, at] = (localStorage.getItem(ASKED_KEY) ?? "").split(" ");
-    if (id !== me) return undefined;
-    const ms = Number(at);
-    return Number.isFinite(ms) && at !== undefined ? ms : 0;
-  } catch {
-    return undefined;
-  }
+  const [id, at] = (readStored(ASKED_KEY) ?? "").split(" ");
+  if (id !== me) return undefined;
+  const ms = Number(at);
+  return Number.isFinite(ms) && at !== undefined ? ms : 0;
 }
 
 /** This device asked `me` now. */
 export function markAsked(me: string) {
-  try {
-    localStorage.setItem(ASKED_KEY, `${me} ${Date.now()}`);
-  } catch {
-    // Storage off: the offer may come back sooner, which is all that's lost.
-  }
+  // With storage off the offer may come back sooner, which is all that's lost.
+  writeStored(ASKED_KEY, `${me} ${Date.now()}`);
 }
 
 /** The sheet on screen, or one waiting for the page to clear, so two moments never open two. */

@@ -5,6 +5,8 @@
  * the storage helpers, so the rules are tested without a browser.
  */
 
+import { readStored, writeStored } from "./stored";
+
 /** What the browser tells us about the device. Fields a browser doesn't report are left out. */
 export interface DeviceSignals {
   webgl2: boolean;
@@ -50,18 +52,6 @@ export function readSignals(): DeviceSignals {
   return out;
 }
 
-export function savedMode(): string | null {
-  try {
-    return localStorage.getItem(WORLD_MODE_KEY);
-  } catch {
-    return null;
-  }
-}
+export const savedMode = () => readStored(WORLD_MODE_KEY);
 
-export function saveMode(mode: WorldMode) {
-  try {
-    localStorage.setItem(WORLD_MODE_KEY, mode);
-  } catch {
-    // No storage: the choice lasts until the page closes.
-  }
-}
+export const saveMode = (mode: WorldMode) => writeStored(WORLD_MODE_KEY, mode);

@@ -7,6 +7,7 @@ import { h, icon } from "@terrakin/ui/dom";
 import { checkRow, copyButton, openOverlay, sheet } from "@terrakin/ui/ui";
 import { invitesApi } from "./api/invites";
 import { savedResidentId } from "./net";
+import { readStored, readStoredJson, writeStored } from "./stored";
 import { inviteLink, reusableInvite } from "./together";
 
 const savedKey = (share: boolean) => `terrakin.invite.${savedResidentId() ?? "me"}.${share}`;
@@ -14,33 +15,16 @@ const savedKey = (share: boolean) => `terrakin.invite.${savedResidentId() ?? "me
 const handedOutKey = (share: boolean) => `${savedKey(share)}.out`;
 
 function loadSaved(share: boolean): { invite?: InviteView; handedOut: boolean } {
-  try {
-    const parsed = InviteView.safeParse(
-      JSON.parse(localStorage.getItem(savedKey(share)) ?? "null"),
-    );
-    if (!parsed.success) return { handedOut: false };
-    const handedOut = localStorage.getItem(handedOutKey(share)) === parsed.data.code;
-    return { invite: parsed.data, handedOut };
-  } catch {
-    return { handedOut: false };
-  }
+  const parsed = InviteView.safeParse(readStoredJson(savedKey(share)));
+  if (!parsed.success) return { handedOut: false };
+  const handedOut = readStored(handedOutKey(share)) === parsed.data.code;
+  return { invite: parsed.data, handedOut };
 }
 
-function save(invite: InviteView) {
-  try {
-    localStorage.setItem(savedKey(invite.share), JSON.stringify(invite));
-  } catch {
-    // Storage disabled: we make a fresh link next time.
-  }
-}
+/** With storage off we make a fresh link next time. */
+const save = (invite: InviteView) => writeStored(savedKey(invite.share), JSON.stringify(invite));
 
-function markHandedOut(invite: InviteView) {
-  try {
-    localStorage.setItem(handedOutKey(invite.share), invite.code);
-  } catch {
-    // Storage disabled: nothing is saved to reuse either.
-  }
-}
+const markHandedOut = (invite: InviteView) => writeStored(handedOutKey(invite.share), invite.code);
 
 /**
  * An invite to hand out: the saved one while it still works and nobody was sent it yet, else a

@@ -15,6 +15,7 @@ import {
   REAL_ENOUGH,
   startedForYou,
   statTiles,
+  townNews,
   townsfolkIds,
   townsfolkMode,
   type WallItem,
@@ -383,6 +384,26 @@ describe("events you're going to", () => {
     const after = { live: [ev("e_1", true), ev("e_2", false), ev("e_3", true)] };
     // e_2 isn't yours, e_3 was on before the wall looked, and e_4 hasn't started.
     expect(startedForYou(before, after).map((e) => e.id)).toEqual(["e_1"]);
+  });
+});
+
+describe("the town's news", () => {
+  const ids = (list: readonly { id: string }[]) => list.map((x) => x.id);
+  const look = (live: string[], upcoming: string[], open: string[]) => ({
+    events: { live: live.map((id) => ({ id })), upcoming: upcoming.map((id) => ({ id })) },
+    open: open.map((id) => ({ id })),
+  });
+
+  it("announces an event only the first time it's on the calendar, live or to come", () => {
+    const before = look(["e_1"], ["e_2"], []);
+    const after = look([], ["e_1", "e_2", "e_3"], []);
+    expect(ids(townNews(before, after).events)).toEqual(["e_3"]);
+    expect(townNews(after, after).events).toEqual([]);
+  });
+
+  it("announces at most two new votes", () => {
+    const news = townNews(look([], [], ["p_1"]), look([], [], ["p_1", "p_2", "p_3", "p_4"]));
+    expect(ids(news.votes)).toEqual(["p_2", "p_3"]);
   });
 });
 

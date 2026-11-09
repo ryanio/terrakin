@@ -65,6 +65,7 @@ import {
   pulseStats,
   startedForYou,
   type TownsfolkMode,
+  townNews,
   townsfolkIds,
   townsfolkMode,
   type WallItem,
@@ -1044,11 +1045,9 @@ export function feedView(ctx: ViewContext): View {
           }),
         true,
       );
+      const news = townNews(townBefore, pulse.town);
       // Someone put an event on the calendar: who's hosting, what, and when, as text.
-      const known = new Set(
-        [...townBefore.events.live, ...townBefore.events.upcoming].map((e) => e.id),
-      );
-      const fresh = pulse.town.events.upcoming.filter((e) => !known.has(e.id));
+      const fresh = news.events;
       if (fresh.length > 0) {
         activity.add(
           fresh.map(
@@ -1076,8 +1075,7 @@ export function feedView(ctx: ViewContext): View {
           action: { label: "Go", run: () => void goToEvent(e.id, (path) => ctx.navigate(path)) },
         });
       }
-      const had = new Set(townBefore.open.map((p) => p.id));
-      for (const p of pulse.town.open.filter((p) => !had.has(p.id)).slice(0, 2)) {
+      for (const p of news.votes) {
         activity.add(
           [
             {

@@ -296,6 +296,12 @@ export interface WorldServiceOptions {
    */
   starterEdges?: boolean;
   /**
+   * Building reaches a whole plot from on or near it: once the world counts days, append
+   * `plot_reach` if it never has, so refusals logged before it replay as they were. Both adapters
+   * turn this on. Off by default, like `items`.
+   */
+  plotReach?: boolean;
+  /**
    * The town slims every home it can (RFC 0050, decision 0404): once starter homes are built from
    * walls between tiles, plan each held plot's slim, log it as `town_slim` where a dry run skips
    * nothing and adds no note, tell the owner, then log `slim_homes` so it never runs again. It
@@ -661,6 +667,7 @@ interface TownSwitch {
     | "tableSpots"
     | "starterDoors"
     | "starterEdges"
+    | "plotReach"
     | "market"
     | "bounties"
     | "recipes"
@@ -784,6 +791,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.starterEdges,
     command: { type: "starter_edges" },
     label: "build starter homes from walls between tiles",
+  },
+  {
+    option: "plotReach",
+    due: (s) => !s.plotReach,
+    command: { type: "plot_reach" },
+    label: "let building reach the whole plot",
   },
   {
     option: "market",
@@ -958,6 +971,7 @@ export class WorldService {
   private readonly tableSpots: boolean;
   private readonly starterDoors: boolean;
   private readonly starterEdges: boolean;
+  private readonly plotReach: boolean;
   private readonly slimHomes: boolean;
   private readonly shop: boolean;
   private readonly market: boolean;
@@ -1071,6 +1085,7 @@ export class WorldService {
     this.tableSpots = options.tableSpots ?? false;
     this.starterDoors = options.starterDoors ?? false;
     this.starterEdges = options.starterEdges ?? false;
+    this.plotReach = options.plotReach ?? false;
     this.slimHomes = options.slimHomes ?? false;
     this.shop = options.shop ?? false;
     this.market = options.market ?? false;

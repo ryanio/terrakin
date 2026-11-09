@@ -59,6 +59,7 @@ import {
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
+import { wallOnTileProblem } from "./plot-building";
 import { plotListedProblem } from "./plot-market";
 import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
 import { hungFrom, isSide, releaseHungOn, releaseHungOnEdge, topAt } from "./surfaces";
@@ -269,6 +270,10 @@ function shortHint(kinds: readonly StackKind[], graded: boolean): string {
 }
 
 /** Check a `build` against the world as it is, and work out everything it does. Reads only. */
+/** How a plan says where a wall goes once `walls_on_lines` is logged. */
+const WALL_IN_EDGES =
+  "Walls, windows, hedges and doors go on the lines between tiles: put them in edges, each with a side.";
+
 export function planBuild(
   state: WorldState,
   actor: ResidentId,
@@ -369,6 +374,13 @@ export function planBuild(
       return refuse(
         "unknown_item",
         `${String(block)} isn't a block. Blocks: ${BLOCK_KINDS.join(", ")}.`,
+      );
+    }
+    // Once `walls_on_lines` is logged, a wall goes in `edges` with a side, never in `blocks`.
+    if (wallOnTileProblem(state, block)) {
+      return refuse(
+        "needs_side",
+        `${spotWords(tiles.blocks[i] as PlanSpot)}: ${String(block)} is a wall. ${WALL_IN_EDGES}`,
       );
     }
     const grade = gradeFor(state, block, (entry as { grade?: unknown }).grade);

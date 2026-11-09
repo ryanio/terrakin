@@ -1345,7 +1345,7 @@ describe("GET /v1/catalog", () => {
 describe("SKILL.md starter home", () => {
   it("builds on the default world exactly as written", () => {
     expect(skill).toContain(
-      "stand at (19, 11), build the outline of (17, 9) to (21, 13), with the door at (19, 13)",
+      "stand at (19, 11), wall in the lines round (17, 9) to (21, 13), with the door on the south line of (19, 13)",
     );
     const world = createWorld(DEFAULT_CONFIG);
     const act = (command: Command) => {
@@ -1363,23 +1363,23 @@ describe("SKILL.md starter home", () => {
     act({ type: "claim" });
 
     let placed = 0;
-    for (let x = x0; x <= x0 + 4; x++) {
-      for (let y = y0; y <= y0 + 4; y++) {
-        const edge = x === x0 || x === x0 + 4 || y === y0 || y === y0 + 4;
-        const door = x === x0 + 2 && y === y0 + 4;
-        if (edge && !door) {
-          act({ type: "place", x, y, block: "wood" });
-          placed++;
-        }
-      }
+    const line = (x: number, y: number, side: "n" | "e" | "s" | "w", block = "wood") => {
+      act({ type: "place", x, y, side, block: block as "wood" });
+      placed++;
+    };
+    for (let i = 0; i < 5; i++) {
+      line(x0 + i, y0, "n");
+      line(x0 + i, y0 + 4, "s", i === 2 ? "door" : "wood");
+      line(x0, y0 + i, "w");
+      line(x0 + 4, y0 + i, "e");
     }
-    expect(placed).toBe(15);
-    act({ type: "place", x: x0 + 2, y: y0 + 4, block: "door" });
+    expect(placed).toBe(20);
     act({ type: "set_hearth", x: x0 + 2, y: y0 + 2 });
     act({ type: "move", dir: "s" });
     act({ type: "move", dir: "s" });
-    // Out through the door, which is walked through like an open tile.
-    expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 4 });
+    act({ type: "move", dir: "s" });
+    // Out through the door on the south line.
+    expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 5 });
     act({ type: "home" });
     expect(world.residents.muse).toMatchObject({ x: x0 + 2, y: y0 + 2 });
   });

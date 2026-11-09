@@ -584,6 +584,18 @@ export interface WorldState {
    */
   starterEdges?: true;
   /**
+   * From the server's `plot_reach` on, a building action on a plot reaches every tile of it from
+   * anywhere on the plot or within `config.reach` tiles of it (`plotReachOk` in
+   * `plot-building.ts`). Absent until then, so refusals logged before it replay as they were.
+   */
+  plotReach?: true;
+  /**
+   * From the server's `walls_on_lines` on, every wall, window, hedge and door goes on a line between
+   * tiles: `place` without a side, a plan's `blocks`, and a Town Hall build refuse one on a tile.
+   * Absent until then, so wall blocks placed before it replay as they were.
+   */
+  wallsOnLines?: true;
+  /**
    * Plots whose walls the town has helped slim (RFC 0050), by plot key: the first `slim_walls` on a
    * plot tops up the made material its lines need, once for good, whoever holds the plot later.
    * Kept on the world, not the plot, so releasing and settling again never earns it twice.
@@ -2318,6 +2330,10 @@ export type Command =
   | { type: "starter_doors" }
   /** From now on a starter home is built from walls between tiles (RFC 0050). TOWN_ACTOR only. */
   | { type: "starter_edges" }
+  /** From now on a building action reaches every tile of a plot from on or near it. TOWN_ACTOR only. */
+  | { type: "plot_reach" }
+  /** From now on walls go only on the lines between tiles, never on a tile. TOWN_ACTOR only. */
+  | { type: "walls_on_lines" }
   | { type: "slim_homes" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
@@ -2564,6 +2580,8 @@ export const SERVER_COMMANDS = [
   "keep_table_spots",
   "starter_doors",
   "starter_edges",
+  "plot_reach",
+  "walls_on_lines",
   "town_slim",
   "slim_homes",
   "test_grant",
@@ -2815,6 +2833,10 @@ export type WorldEvent =
   | { type: "starter_doors_set" }
   /** From now on starter homes are built from walls between tiles (RFC 0050). Public. */
   | { type: "starter_edges_set" }
+  /** From now on building reaches a whole plot from on or near it. Public. */
+  | { type: "plot_reach_set" }
+  /** From now on walls go only on the lines between tiles. Public. */
+  | { type: "walls_on_lines_set" }
   | { type: "homes_slimmed_set" }
   /** A home's wall blocks became walls between tiles (RFC 0050), the first time on its plot. */
   | { type: "home_slimmed"; px: number; py: number; by: ResidentId }
@@ -3600,6 +3622,11 @@ export const REJECTION_CODES = [
   "listing_changed",
   /** Only furniture turns, by 0, 90, 180 or 270 degrees, and not a low stone wall. */
   "not_turnable",
+  /**
+   * A wall, window, hedge or door goes on a line between tiles, never on a tile: send a `side` (n,
+   * e, s or w), or put it in a plan's `edges`.
+   */
+  "needs_side",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

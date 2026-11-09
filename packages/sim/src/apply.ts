@@ -188,6 +188,7 @@ import {
   type PetsChecked,
   petView,
 } from "./pets";
+import { checkPlotReach, checkWallsOnLines, plotReachOk, wallOnTileProblem } from "./plot-building";
 import {
   anotherPlotWords,
   checkBuyPlot,
@@ -335,15 +336,22 @@ const reject = (code: RejectionCode, message: string): Prepared => ({
   rejection: { code, message },
 });
 
-/** `out_of_reach` for building at `at`, worded for building, or null when it's within reach. */
+/**
+ * `out_of_reach` for building at `at`, worded for building, or null when it's within reach: within
+ * `reach` tiles of it, or, once `plot_reach` is logged, on or near the plot it's on.
+ */
 const outOfBuildReach = (state: WorldState, me: Resident, at: Tile) =>
-  outOfReachHere(
-    state,
-    me,
-    at,
-    state.config.reach,
-    `You can only build within ${state.config.reach} tiles.`,
-  );
+  plotReachOk(state, me, at)
+    ? null
+    : outOfReachHere(
+        state,
+        me,
+        at,
+        state.config.reach,
+        state.plotReach
+          ? `You can build anywhere on a plot from on it or within ${state.config.reach} tiles of it.`
+          : `You can only build within ${state.config.reach} tiles.`,
+      );
 
 /**
  * `out_of_reach` for building on `floor` from the floor `me` stands on, or null: a floor counts
@@ -878,6 +886,10 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkStarterDoors(state));
       case "starter_edges":
         return town(checkStarterEdges(state));
+      case "plot_reach":
+        return town(checkPlotReach(state));
+      case "walls_on_lines":
+        return town(checkWallsOnLines(state));
       case "slim_homes":
         return town(checkSlimHomes(state));
       case "town_slim": {
@@ -1468,6 +1480,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       // A kiln (RFC 0047) waits for `open_clay`.
       const kilnShut = block === KILN ? potteryClosed(state) : null;
       if (kilnShut) return { ok: false, rejection: kilnShut };
+      // Once `walls_on_lines` is logged, a wall goes on a line between tiles, never a tile.
+      const onTile = wallOnTileProblem(state, block);
+      if (onTile) return { ok: false, rejection: onTile };
       // A public way holds no block on the ground floor (RFC 0046).
       const onWay = wayProblem(state, x, y, floor);
       if (onWay) return { ok: false, rejection: onWay };

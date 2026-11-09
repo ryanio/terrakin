@@ -5,6 +5,7 @@ import { notAtDoor } from "./doors";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
 import { own, residentById } from "./own";
+import { wallOnTileProblem } from "./plot-building";
 import { setTurn } from "./turns";
 import type {
   BlockKind,
@@ -312,6 +313,10 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
     if (shop) return shop;
     if (spots.has(tileKey(b.x, b.y))) {
       return `(${b.x}, ${b.y}) is one of the four spots where game tables stand. Keep it clear for them: a path can go there, a block can't.`;
+    }
+    // Once `walls_on_lines` is logged, a wall goes on a line, and a Town Hall build lays none.
+    if (wallOnTileProblem(state, b.block)) {
+      return `(${b.x}, ${b.y}): walls go on the lines between tiles now, and a Town Hall build doesn't put up walls. Build with decor, furniture, paths, or a pond.`;
     }
     if (!(COMMONS_BLOCKS as readonly unknown[]).includes(b.block)) {
       return `(${b.x}, ${b.y}) needs a block the town builds with: wood, stone, glass, or leaf, or decor or furniture like a bench, a lamp post, or a well. Stations and planters go on residents' own plots.`;

@@ -32908,6 +32908,7 @@
           "price_changed",
           "listing_changed",
           "not_turnable",
+          "needs_side",
           "bad_request",
           "unauthorized",
           "forbidden",
@@ -42047,6 +42048,34 @@
               "type": {
                 "type": "string",
                 "enum": [
+                  "plot_reach_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
+                  "walls_on_lines_set"
+                ]
+              }
+            },
+            "required": [
+              "type"
+            ]
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": {
+                "type": "string",
+                "enum": [
                   "homes_slimmed_set"
                 ]
               }
@@ -46435,6 +46464,18 @@
             ]
           },
           "homesSlimmed": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "plotReach": {
+            "type": "boolean",
+            "enum": [
+              true
+            ]
+          },
+          "wallsOnLines": {
             "type": "boolean",
             "enum": [
               true

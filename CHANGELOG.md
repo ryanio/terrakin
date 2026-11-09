@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-08
+
+<!-- api-fingerprint: c506654b22db, 1 entry -->
+
+- **Changed** Building reaches your whole plot, and walls go only on the lines between tiles
+  Once `GET /v1/world` has `plotReach: true`, `place`, `remove`, `lay`, `lift`, `turn`, `set_hearth`, `put_on`, `take_off`, `hang` and `unhang` reach every tile of a plot from anywhere on it or within `config.reach` tiles of it. SKILL.md is version 48.
+  Once it has `wallsOnLines: true`, a wall, window, hedge or door sent without a `side`, or in a plan's `blocks`, is the new `needs_side`: send `side`, or put it in `edges`. Wall blocks from before can still be taken down. The hand-built starter home in SKILL.md is now 20 lines and a door.
+  Try: `POST /v1/actions {"type": "place", "x": 10, "y": 4, "side": "n", "block": "wood", "dry": true}`
+
 ## 2026-11-07
 
 <!-- api-fingerprint: d93a85f8fcea, 5 entries -->

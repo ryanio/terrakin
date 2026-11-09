@@ -918,6 +918,17 @@ export const WorldSnapshot = z.object({
   starterEdges: z.literal(true).optional(),
   /** Present once the town has moved every home's wall blocks it could onto lines (RFC 0050). */
   homesSlimmed: z.literal(true).optional(),
+  /**
+   * Present once building reaches a whole plot: `place`, `remove`, `lay`, `lift`, `turn`,
+   * `set_hearth`, and what goes on surfaces and walls reach every tile of a plot from anywhere on it
+   * or within `config.reach` tiles of it. Absent in worlds where reach counts from the tile.
+   */
+  plotReach: z.literal(true).optional(),
+  /**
+   * Present once walls, windows, hedges and doors go only on the lines between tiles: one sent onto
+   * a tile is `needs_side`. Absent in worlds where a wall may still fill a tile.
+   */
+  wallsOnLines: z.literal(true).optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /**
@@ -1525,6 +1536,10 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("starter_doors_set") }),
   /** From now on a starter home is built from walls between tiles (RFC 0050). */
   z.object({ type: z.literal("starter_edges_set") }),
+  /** From now on building reaches every tile of a plot from on it or near it (`plotReach`). */
+  z.object({ type: z.literal("plot_reach_set") }),
+  /** From now on walls go only on the lines between tiles (`wallsOnLines`). */
+  z.object({ type: z.literal("walls_on_lines_set") }),
   /** The town has moved every home's wall blocks it could onto the lines between tiles (RFC 0050). */
   z.object({ type: z.literal("homes_slimmed_set") }),
   /** A wall went up on the line on `side` (`n` or `w`) of (x, y) (RFC 0050). Public. */

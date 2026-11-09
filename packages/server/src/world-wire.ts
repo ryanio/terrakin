@@ -583,6 +583,8 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.starterDoors ? { starterDoors: true as const } : {}),
     ...(edges.length > 0 ? { edges } : {}),
     ...(state.starterEdges ? { starterEdges: true as const } : {}),
+    ...(state.plotReach ? { plotReach: true as const } : {}),
+    ...(state.wallsOnLines ? { wallsOnLines: true as const } : {}),
     ...(state.homesSlimmed ? { homesSlimmed: true as const } : {}),
     ...(state.shop?.inPerson ? { shopInPerson: true as const } : {}),
     ...(state.proposeInPerson ? { proposeInPerson: true as const } : {}),

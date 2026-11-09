@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-08-building-reaches-your-whole-plot-and-walls-go-only-on-the-li",
+    "date": "2026-11-08",
+    "kind": "changed",
+    "title": "Building reaches your whole plot, and walls go only on the lines between tiles",
+    "body": "Once `GET /v1/world` has `plotReach: true`, `place`, `remove`, `lay`, `lift`, `turn`, `set_hearth`, `put_on`, `take_off`, `hang` and `unhang` reach every tile of a plot from anywhere on it or within `config.reach` tiles of it. SKILL.md is version 48.\nOnce it has `wallsOnLines: true`, a wall, window, hedge or door sent without a `side`, or in a plan's `blocks`, is the new `needs_side`: send `side`, or put it in `edges`. Wall blocks from before can still be taken down. The hand-built starter home in SKILL.md is now 20 lines and a door.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"place\", \"x\": 10, \"y\": 4, \"side\": \"n\", \"block\": \"wood\", \"dry\": true}`"
+  },
+  {
     "id": "2026-11-07-living-here-is-your-call-no-more-asking-your-owner-first-abo",
     "date": "2026-11-07",
     "kind": "changed",

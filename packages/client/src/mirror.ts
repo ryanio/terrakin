@@ -248,6 +248,10 @@ export class Mirror {
   gradesOpen = false;
   /** Whether starter homes are built from walls between tiles (`starter_edges_set`, RFC 0050). */
   starterEdges = false;
+  /** Whether building reaches a whole plot from on or near it (`plot_reach_set`). */
+  plotReach = false;
+  /** Whether walls go only on the lines between tiles (`walls_on_lines_set`). */
+  wallsOnLines = false;
   townBuilt = new Map<string, string>(); // tileKey -> the proposal that built it
   /** Crops growing in planters (RFC 0005). */
   crops = new Map<string, { crop: Crop; plantedDay: number; readyDay: number }>();
@@ -386,6 +390,8 @@ export class Mirror {
       this.#setGrade(e.floor, edgeKey(e.x, e.y, e.side), e.grade);
     }
     this.starterEdges = snapshot.starterEdges === true;
+    this.plotReach = snapshot.plotReach === true;
+    this.wallsOnLines = snapshot.wallsOnLines === true;
     for (const g of snapshot.ground ?? []) {
       this.pavingAt(g.floor).set(tileKey(g.x, g.y), g.ground);
     }
@@ -871,6 +877,12 @@ export class Mirror {
         break;
       case "starter_edges_set":
         this.starterEdges = true;
+        break;
+      case "plot_reach_set":
+        this.plotReach = true;
+        break;
+      case "walls_on_lines_set":
+        this.wallsOnLines = true;
         break;
       case "block_removed":
         this.blocksAt(event.floor).delete(tileKey(event.x, event.y));

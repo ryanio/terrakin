@@ -555,6 +555,7 @@ export {
   treatedToday,
   walkedToday,
 } from "./pets";
+export { plotReachOk, WALL_ON_TILE_WORDS, wallOnTileProblem } from "./plot-building";
 export {
   buyPlotProblem,
   listPlotProblem,

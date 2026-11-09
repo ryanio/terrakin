@@ -51,7 +51,7 @@ import {
 /** How far around you the world is drawn, in tiles (Chebyshev, like reach). Fog hides the edge. */
 export const VIEW_RADIUS = 12;
 /** A loaded plot stays until you're this many tiles past the view radius, so edges don't flicker. */
-export const KEEP_SLACK = 4;
+const KEEP_SLACK = 4;
 /**
  * At most this many residents are drawn, nearest first. You're always one of them, then everyone
  * online, then anyone away asleep at home fills what's left.

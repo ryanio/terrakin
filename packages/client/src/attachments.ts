@@ -17,7 +17,7 @@ export function largestOf(types: readonly string[]): number {
 }
 
 /** `bytes` as whole megabytes, the way the size refusal says it ("25 MB"). */
-export const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
+const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 
 export interface PickPlan<F> {
   /** The picked files that go on the list, in the order they were picked. */
@@ -53,7 +53,7 @@ export function sizeProblem(size: number, largest: number): string | undefined {
     : undefined;
 }
 
-export interface Attachment {
+interface Attachment {
   file: File;
   el: HTMLElement;
   preview: string | undefined;

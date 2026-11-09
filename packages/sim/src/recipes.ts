@@ -9,7 +9,7 @@ import {
   recipeOf,
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
-import { allowanceDue, isTownsfolk, shopPayment } from "./economy";
+import { allowanceTip, isTownsfolk, shopPayment } from "./economy";
 import { dayName } from "./holiday";
 import { lessonJob } from "./jobs";
 import { earned, lessonEarns } from "./levels";
@@ -697,13 +697,9 @@ export function checkBuyCard(
   const price = recipeCardPrice(recipe);
   const have = econ.coins[actor] ?? 0;
   if (have < price) {
-    // The allowance pays after a command commits, so a purchase can't count on it: say so.
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `That card is ${coins(price)}, and you have ${coins(have)}. ${tip}`,
+      `That card is ${coins(price)}, and you have ${coins(have)}. ${allowanceTip(state, actor)}`,
     );
   }
   const at = { seq: state.seq + 1, day };

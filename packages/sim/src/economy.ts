@@ -723,6 +723,16 @@ export function allowanceDue(state: WorldState, id: ResidentId): boolean {
 }
 
 /**
+ * The last words of a `not_enough_coins` refusal for a purchase: the allowance pays after a
+ * command commits, so a purchase can't count on it, and this says how to get it.
+ */
+export function allowanceTip(state: WorldState, id: ResidentId): string {
+  return allowanceDue(state, id)
+    ? "Today's allowance is waiting: send home first."
+    : "Come home each day for your allowance.";
+}
+
+/**
  * After a resident's accepted input: if it leaves them standing on their own hearth and today's
  * allowance is due, mint it, plus the streak bonus from the `streakDays`th day in a row.
  */

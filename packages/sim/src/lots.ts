@@ -1,10 +1,10 @@
-import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, shopPayment } from "./economy";
+import { coinCount, refuse } from "./check";
+import { allowanceTip, shopPayment } from "./economy";
 import { furnishing } from "./furnished";
 import { plotKey } from "./keys";
-import { plotListedProblem } from "./plot-market";
+import { plotToChange } from "./plot-market";
 import type { Command, Rejection, ResidentId, WorldEvent, WorldState } from "./types";
-import { canBuildOn, isCommons, plotInBounds, plotOf } from "./world";
+import { plotOf } from "./world";
 
 /**
  * Lots (RFC 0052): the square in the middle of a plot slot its owners can build on. A lot starts
@@ -84,18 +84,11 @@ export function checkGrowLot(
   command: Extract<Command, { type: "grow_lot" }>,
 ): (() => WorldEvent[]) | Rejection {
   const { px, py } = command;
-  if (!isWhole(px) || !isWhole(py) || !plotInBounds(state.config, px, py)) {
-    return refuse("out_of_bounds", "That plot is outside the world.");
-  }
-  if (isCommons(state, px, py)) {
-    return refuse("plot_is_commons", "The Commons is everyone's. Grow your own plot's lot.");
-  }
-  const plot = state.plots[plotKey(px, py)];
-  if (!plot || !canBuildOn(plot, actor)) {
-    return refuse("not_your_plot", "You can grow the lot only of a plot you own or share.");
-  }
-  const listed = plotListedProblem(state, px, py);
-  if (listed) return listed;
+  const plot = plotToChange(state, actor, px, py, {
+    commons: "The Commons is everyone's. Grow your own plot's lot.",
+    notYours: "You can grow the lot only of a plot you own or share.",
+  });
+  if ("code" in plot) return plot;
   const side = lotSide(state, px, py);
   const step = nextLotStep(side, state.config.plotSize);
   if (!step) {
@@ -125,12 +118,9 @@ export function checkGrowLot(
   }
   const purse = econ.coins[actor] ?? 0;
   if (purse < step.coins) {
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `Growing the lot to ${step.side} by ${step.side} is ${coinCount(step.coins)}, and you have ${coinCount(purse)}. ${tip}`,
+      `Growing the lot to ${step.side} by ${step.side} is ${coinCount(step.coins)}, and you have ${coinCount(purse)}. ${allowanceTip(state, actor)}`,
     );
   }
   const at = { seq: state.seq + 1, day };

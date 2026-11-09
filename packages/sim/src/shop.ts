@@ -23,7 +23,7 @@ import {
 } from "./catalog";
 import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
 import { nearestCounter, notAtDoor } from "./doors";
-import { allowanceDue, isTownsfolk, movePurse, shopPayment, treasuryShareOf } from "./economy";
+import { allowanceTip, isTownsfolk, movePurse, shopPayment, treasuryShareOf } from "./economy";
 import {
   dayName,
   HOLIDAY_INFO,
@@ -637,13 +637,9 @@ export function checkShopBuy(
   const total = priceOf(state, sku) * count;
   const have = econ.coins[actor] ?? 0;
   if (have < total) {
-    // The allowance pays after a command commits, so a purchase can't count on it: say so.
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `That's ${coins(total)}, and you have ${coins(have)}. ${tip}`,
+      `That's ${coins(total)}, and you have ${coins(have)}. ${allowanceTip(state, actor)}`,
     );
   }
   if (!wear && inventorySize(items.inventories[actor]) + count > inventoryMaxOf(state)) {

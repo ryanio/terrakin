@@ -1,10 +1,10 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceDue, shopPayment } from "./economy";
+import { allowanceTip, shopPayment } from "./economy";
 import { edgeKey, edgesOn, edgeTiles, hasEdges, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
-import { plotKey, tileKey } from "./keys";
+import { tileKey } from "./keys";
 import { own } from "./own";
-import { plotListedProblem } from "./plot-market";
+import { plotToChange } from "./plot-market";
 import {
   type BlockKind,
   type Climb,
@@ -23,16 +23,7 @@ import {
   type WorldState,
 } from "./types";
 import { type Ground, walkOrWhy, walkWords, withEdges, worldGround } from "./walk";
-import {
-  blocksWalkers,
-  canBuildOn,
-  chebyshev,
-  inBounds,
-  isCommons,
-  plotAtTile,
-  plotInBounds,
-  plotOf,
-} from "./world";
+import { blocksWalkers, canBuildOn, chebyshev, inBounds, plotAtTile, plotOf } from "./world";
 
 /**
  * Homes with an upstairs (RFC 0028). The ground floor is floor 0 and stays where it always was, in
@@ -732,22 +723,12 @@ export function checkAddFloor(
   actor: ResidentId,
   command: Extract<Command, { type: "add_floor" }>,
 ): Mutation | Rejection {
-  const { config } = state;
   const { px, py } = command;
-  if (!plotInBounds(config, px, py))
-    return refuse("out_of_bounds", "That plot is outside the world.");
-  if (isCommons(state, px, py)) {
-    return refuse(
-      "plot_is_commons",
-      "The Commons stays on the ground. Add an upstairs to your own plot.",
-    );
-  }
-  const plot = state.plots[plotKey(px, py)];
-  if (!plot || !canBuildOn(plot, actor)) {
-    return refuse("not_your_plot", "You can add an upstairs only to a plot you own or share.");
-  }
-  const listed = plotListedProblem(state, plot.px, plot.py);
-  if (listed) return listed;
+  const plot = plotToChange(state, actor, px, py, {
+    commons: "The Commons stays on the ground. Add an upstairs to your own plot.",
+    notYours: "You can add an upstairs only to a plot you own or share.",
+  });
+  if ("code" in plot) return plot;
   const econ = state.economy;
   const day = state.day;
   if (!econ || day === undefined) {
@@ -758,12 +739,9 @@ export function checkAddFloor(
   const price = FLOORS.price;
   const purse = econ.coins[actor] ?? 0;
   if (purse < price) {
-    const tip = allowanceDue(state, actor)
-      ? "Today's allowance is waiting: send home first."
-      : "Come home each day for your allowance.";
     return refuse(
       "not_enough_coins",
-      `An upstairs is ${coinCount(price)}, and you have ${coinCount(purse)}. ${tip}`,
+      `An upstairs is ${coinCount(price)}, and you have ${coinCount(purse)}. ${allowanceTip(state, actor)}`,
     );
   }
   const floor = has + 1;

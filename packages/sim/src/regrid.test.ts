@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
 import { plotPlan } from "./build";
 import { designNotes } from "./design";
+import { edgeKey } from "./edges";
 import { REGRID_CONFIG, REGRID_HASH, REGRID_LOG } from "./fixtures/regrid-log";
 import { baseTile, moveCoord } from "./grid";
 import { hashWorld } from "./hash";
@@ -11,6 +12,7 @@ import { plotMap } from "./map";
 import { landlocked, openingFacts } from "./openings";
 import { regridWorld } from "./regrid";
 import { replay } from "./replay";
+import { faceKey } from "./surfaces";
 import { expectSupplyHolds } from "./test-support";
 import { type Input, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
 import { DIRECTIONS, stepFrom, worldGround } from "./walk";
@@ -160,7 +162,8 @@ const NO_TILES = [
 
 describe("regrid (RFC 0052)", () => {
   // Every log of 8-tile plots but the one that regrids already.
-  it.each(fixtures.filter((f) => f.config.plotSize === 8 && f.name !== "regrid-log.ts"))(
+  // Every world still on 8-tile plots: a log that regrids already is pinned by its own test.
+  it.each(fixtures.filter((f) => !f.log.some((i) => i.command.type === "regrid")))(
     "moves $name onto 16-tile slots and keeps everything",
     ({ config, log }) => {
       const before = replay(config, log);
@@ -271,6 +274,30 @@ describe("regrid (RFC 0052)", () => {
     for (const plotSize of [4, 8]) {
       expect(baseTile({ plotSize }, 5, 6)).toEqual({ x: 5, y: 6, ring: false });
     }
+  });
+
+  it("keeps a household's border line beside its north or west tile, with what hangs on that face", () => {
+    // Ada holds plots (0, 0) and (1, 0); a wood wall stands on the line between (7, 3) and (8, 3),
+    // with a mirror hung on each face of it.
+    const state = replay(
+      REGRID_CONFIG,
+      REGRID_LOG.slice(
+        0,
+        REGRID_LOG.findIndex((i) => i.command.type === "regrid"),
+      ),
+    );
+    state.plots["1,0"] = { px: 1, py: 0, ownerId: "ada" };
+    state.edges = { ...state.edges, [edgeKey(8, 3, "w")]: "wood" };
+    const mirror = { thing: "mirror", by: "ada", day: state.day ?? 0 } as const;
+    const items = state.items;
+    if (!items) throw new Error("items aren't open");
+    items.hung = { [faceKey(7, 3, "e", 0)]: mirror, [faceKey(8, 3, "w", 0)]: mirror };
+    const given = regridWorld(state);
+    // (7, 3) moves to (11, 7) and the line to its east side; (8, 3) moves to (20, 7), 8 tiles on.
+    expect(state.edges?.[edgeKey(11, 7, "e")]).toBe("wood");
+    expect(Object.keys(state.items?.hung ?? {})).toEqual([faceKey(11, 7, "e", 0)]);
+    expect(given).toHaveLength(1);
+    expectSupplyHolds(state);
   });
 
   it("comes once, from the town, in a world of 8-tile plots", () => {

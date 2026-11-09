@@ -91,6 +91,7 @@ import {
   prepare,
   presentsFor,
   RARE_FINISHES,
+  REGRID,
   REPLAY_VERSION,
   type RecipeName,
   type Resident,
@@ -827,7 +828,7 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
   // and only once a dry run on a copy holds (`regridIfSafe`).
   {
     option: "regrid",
-    due: (s) => !s.regridded && !!s.wallsOnLines,
+    due: (s) => !s.regridded && !!s.wallsOnLines && s.config.plotSize === REGRID.from,
     command: (service) => service.regridIfSafe(),
     label: "double every plot slot",
   },

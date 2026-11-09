@@ -29,3 +29,4 @@ Walls, windows, doors, stations, the display blocks themselves, other decor (fen
 - Counts only: never a label, a title, or who put something there, so it needs no `trust` mark.
 - The list counts every plot in one pass (`furnishings`); a single plot's read looks only at its own tiles.
 - A furniture piece added to the catalog counts at once, since the role decides. A new seat counts once it is in `SEATS`.
+- Since RFC 0052, `grow_lot` reads these counts to decide a lot's step ([decision 0431](0431-the-regrid-moves-every-slot-to-the-middle-of-a-16-tile-slot-.md)), so what counts is now frozen like a rule's table: a change goes behind a logged switch, and `src/fixtures/lots-log.ts` pins it.

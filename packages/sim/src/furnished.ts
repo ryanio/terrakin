@@ -6,7 +6,9 @@ import type { BlockKind, Shown, WorldState } from "./types";
 
 /**
  * How furnished a home is (RFC 0050, open question 5): what a plot holds on every floor, counted.
- * No rule reads it, nothing is logged, and it adds no state: it is a measure for views to show.
+ * Nothing is logged and it adds no state. One rule reads it: `grow_lot` (RFC 0052) asks how many
+ * pieces and things on show a home has, so what counts here is frozen like a rule's table once a
+ * live world grows a lot: a change goes behind a logged switch, and `lots-log.ts` pins it.
  *
  * A piece is a block whose catalog role is furniture, or a seat (`SEATS`, so a garden bench counts
  * too). Walls, stations, decor and the display blocks themselves are not pieces. What is on show is

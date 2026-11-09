@@ -1,10 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { LOTS_CONFIG, LOTS_HASH, LOTS_LOG } from "./fixtures/lots-log";
 import { hashWorld } from "./hash";
 import { inLot, LOTS, lotBounds } from "./lots";
+import { replay } from "./replay";
 import { expectSupplyHolds, fund, stock } from "./test-support";
 import { type Command, type Rejection, TOWN_ACTOR, type WorldEvent } from "./types";
-import { createWorld } from "./world";
+import { commonsPlot, createWorld } from "./world";
 
 /**
  * Ada on plot (0, 0) of a regridded world (RFC 0052): her starter hut in the middle of a 16-tile
@@ -63,6 +65,35 @@ function furnish(w: ReturnType<typeof world>, n: number) {
 const grow = { type: "grow_lot", px: 0, py: 0 } as const;
 
 describe("lots (RFC 0052)", () => {
+  it("replays the lots log to its pinned hash", () => {
+    const state = replay(LOTS_CONFIG, LOTS_LOG);
+    expect(lotBounds(state, 0, 0)).toEqual({ x0: 3, y0: 3, side: 10 });
+    expect(hashWorld(state)).toBe(LOTS_HASH);
+  });
+
+  it("keeps its frozen steps", () => {
+    expect(LOTS).toEqual({
+      first: 8,
+      steps: [
+        { side: 10, coins: 150, pieces: 6, onShow: 0 },
+        { side: 12, coins: 300, pieces: 12, onShow: 4 },
+        { side: 14, coins: 600, pieces: 20, onShow: 10 },
+        { side: 16, coins: 1000, pieces: 30, onShow: 20 },
+      ],
+    });
+  });
+
+  it("is grown by a co-owner, never on the Commons", () => {
+    const w = world();
+    w.ok("bo", { type: "join", name: "bo", kind: "human" });
+    w.ok("ada", { type: "share_plot", with: "bo" });
+    furnish(w, LOTS.steps[0].pieces);
+    fund(w.state, "bo", LOTS.steps[0].coins);
+    w.ok("bo", grow);
+    const c = commonsPlot(w.state);
+    expect(w.refused("bo", { type: "grow_lot", px: c.px, py: c.py }).code).toBe("plot_is_commons");
+  });
+
   it("starts at 8 in the middle of the slot, with the hut inside it", () => {
     const w = world();
     expect(lotBounds(w.state, 0, 0)).toEqual({ x0: 4, y0: 4, side: 8 });

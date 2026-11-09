@@ -166,7 +166,7 @@ import {
   wearProblem,
   wearStyleProblem,
 } from "./looks";
-import { checkGrowLot, inLot, outsideLotProblem } from "./lots";
+import { checkGrowLot, inLot, lotBounds, outsideLotProblem } from "./lots";
 import {
   checkBuyListing,
   checkListItem,
@@ -748,10 +748,9 @@ function stuckHint(state: WorldState, me: Resident): string {
 function buildHint(state: WorldState, me: Resident): string {
   const plot = workingPlot(state, me, true);
   if (!plot) return ` You have no plot yet.${settleHint(state, me)}`;
-  const { plotSize } = state.config;
-  const x = plot.px * plotSize;
-  const y = plot.py * plotSize;
-  return ` You can build on x ${x} to ${x + plotSize - 1}, y ${y} to ${y + plotSize - 1}.`;
+  // The lot (RFC 0052), which is the whole plot before a regrid.
+  const { x0: x, y0: y, side } = lotBounds(state, plot.px, plot.py);
+  return ` You can build on x ${x} to ${x + side - 1}, y ${y} to ${y + side - 1}.`;
 }
 
 /** The resident `join` makes, or why it can't. Reads only; the caller puts them in the world. */

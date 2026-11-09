@@ -125,6 +125,11 @@ export function regridWorld(state: WorldState): WorldEvent[] {
   const scale = REGRID.to / REGRID.from;
   const given: WorldEvent[] = [];
   const oldWays = state.ways ? Object.keys(state.ways).map((k) => parseKey(k)) : [];
+  // The lines as they stood, by floor, so a thing hung on a border line can stay with it.
+  const oldLines = new Map<number, Record<string, unknown>>([[0, state.edges ?? {}]]);
+  for (const [floor, layer] of Object.entries(state.floors ?? {})) {
+    oldLines.set(Number(floor), layer.edges ?? {});
+  }
   const oldBridges = (state.lands?.list ?? []).map((land) =>
     land.bridge.map(([x, y]) => ({ x, y })),
   );
@@ -222,8 +227,15 @@ export function regridWorld(state: WorldState): WorldEvent[] {
         const f = parseFaceKey(key);
         const [dx, dy] = SIDE_STEP[f.side];
         if (crossesSlots(f, { x: f.x + dx, y: f.y + dy })) {
-          away.push(shown);
-          continue;
+          // A border line stays beside its north or west tile (`moveEdgeKey`), so what hangs on
+          // that tile's face of it stays too. The other face, and a wall block, part from it.
+          const withLine =
+            (f.side === "s" || f.side === "e") &&
+            oldLines.get(f.floor)?.[edgeKey(f.x, f.y, f.side)] !== undefined;
+          if (!withLine) {
+            away.push(shown);
+            continue;
+          }
         }
         const floorPart = f.floor === 0 ? "" : `${f.floor}:`;
         hung[`${floorPart}${tileKey(move(f.x), move(f.y))},${f.side}`] = shown;

@@ -244,6 +244,7 @@ describe("a listed plot is frozen", () => {
     ["ada", { type: "build", px: 0, py: 0, remove: [{ x: 1, y: 1 }] }],
     ["ada", { type: "build_starter_home" }],
     ["ada", { type: "add_floor", px: 0, py: 0 }],
+    ["ada", { type: "grow_lot", px: 0, py: 0 }],
     ["ada", { type: "set_roof", px: 0, py: 0, style: "gable", material: "wood" }],
     ["ada", { type: "set_hearth", x: 2, y: 3 }],
     ["ada", { type: "share_plot", with: "bob" }],

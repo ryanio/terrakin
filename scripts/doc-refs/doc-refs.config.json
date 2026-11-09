@@ -1,0 +1,4 @@
+{
+  "exclude": ["docs/knowledge/**", "docs/rfcs/**"],
+  "ignore": ["src/handlers/", "src/route-table/"]
+}

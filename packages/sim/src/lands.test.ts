@@ -165,6 +165,46 @@ describe("the water between lands", () => {
     expect(at).toEqual({ x: 35, y: 12 });
   });
 
+  /** `n` distinct whole pairs under `size`, sorted as a land's lists must be. */
+  const pairs = (n: number, size: number): [number, number][] =>
+    Array.from({ length: n }, (_, i) => [Math.floor(i / size), i % size]);
+  // A world wide enough that one past each limit still fits as sorted, in-bounds pairs, so only
+  // the limit itself refuses.
+  const WIDE = { ...ISLAND, width: 8 * 21, height: 8 * 21 };
+  it.each<[string, Command, string]>([
+    [
+      "an id past nameMax",
+      { ...ISLAND, land: "w".repeat(LANDS.nameMax + 1) },
+      `A land's id is 1 to ${LANDS.nameMax} characters.`,
+    ],
+    [
+      "a name past nameMax",
+      { ...ISLAND, name: "W".repeat(LANDS.nameMax + 1) },
+      `A land's name is 1 to ${LANDS.nameMax} characters.`,
+    ],
+    [
+      "plots past plotsMax",
+      { ...WIDE, plots: pairs(LANDS.plotsMax + 1, 21) },
+      `A land's plots are sorted whole [px, py] pairs, up to ${LANDS.plotsMax}.`,
+    ],
+    [
+      "streets past plotsMax",
+      { ...WIDE, streets: pairs(LANDS.plotsMax + 1, 21) },
+      `A land's streets are sorted whole [px, py] pairs, up to ${LANDS.plotsMax}.`,
+    ],
+    [
+      "a bridge past bridgeMax",
+      { ...WIDE, bridge: pairs(LANDS.bridgeMax + 1, 8 * 21) },
+      `A land's bridge is sorted whole [x, y] pairs, up to ${LANDS.bridgeMax}.`,
+    ],
+  ])("refuses %s, changing nothing", (_, command, message) => {
+    const w = world();
+    const before = hashWorld(w.state);
+    const result = w.send(TOWN_ACTOR, command);
+    expect(result.ok ? null : result.rejection).toEqual({ code: "server_only", message });
+    expect(hashWorld(w.state)).toBe(before);
+  });
+
   it("refuses a square that would bridge the water on its own", () => {
     const w = world();
     // Plot (3, 0) is the water column, side on to downtown's (2, 0) and to the island's (4, 0).

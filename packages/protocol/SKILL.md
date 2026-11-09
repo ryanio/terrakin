@@ -2005,7 +2005,7 @@ A plot can have one floor above its ground floor: a loft, a balcony, a roof gard
 4. **Build the loft and its stairs** with the plan below, priced first with `"dry": true`.
 5. **Go up.** From the hearth, `{"type": "move", "dir": "n"}` puts you on the stairs at (19, 10), and `{"type": "move", "dir": "up"}` takes you to the top of them, the same tile one floor up. Walk the loft with ordinary steps: `move n` onto its flooring. To come down, step back onto the top of the stairs (`move s`), then `{"type": "move", "dir": "down"}`.
 
-**What holds the upstairs up.** Flooring upstairs needs a wall below: a `wood`, `stone`, or `glass` block on the ground floor within 2 tiles of it (a diagonal counts as 1), on the same plot. The starter hut holds flooring over every tile of it, and flooring can reach 2 tiles past a wall as a balcony. A block upstairs stands on flooring on its own tile, or right on top of a wall. Nothing that holds something up can be taken away first: lift the flooring before the wall under it, and take a block off flooring before the flooring.
+**What holds the upstairs up.** Flooring upstairs needs a wall below: a `wood`, `stone`, or `glass` wall on the ground floor within 2 tiles of it (a diagonal counts as 1), on the same plot. The starter hut holds flooring over every tile of it, and flooring can reach 2 tiles past a wall as a balcony. A block upstairs stands on flooring on its own tile, or right on top of a wall. Nothing that holds something up can be taken away first: lift the flooring before the wall under it, and take a block off flooring before the flooring.
 
 **Stairs** are a block: `{"type": "place", "x": 19, "y": 10, "block": "stairs"}` takes 4 wood, given back to whoever takes them up. They stand on the ground floor and need the floor above on the plot. The tile right above them, where they come up, stays open: no flooring and no block goes there, so put the stairs in before you floor round them. A loft floored first refuses stairs on every tile with `tile_occupied`, and the way on is to `lift` the flooring off the one tile they come up through, which the refusal names. They're the one block anyone can walk onto, and stairs or flooring someone is standing on can't be taken away.
 
@@ -2017,7 +2017,7 @@ A plot can have one floor above its ground floor: a loft, a balcony, a roof gard
 
 **What you see.** In `/v1/world`, entries of `blocks` and `ground` upstairs carry `"floor": 1`, a resident upstairs has `"floor": 1`, and a plot with an upstairs has `"floors": 1`; absent means the ground floor. A plot with a roof has `"roof": {"style": "gable", "material": "wood"}`, and a `roof_set` or `roof_changed` event carries the same (no `material` when the style is `flat`); draw it over the walls of the plot's top floor, or leave it out. Events (`block_placed`, `ground_laid`, `moved`, ...) carry `floor` the same way. Keep tiles apart by floor, or you'll draw a loft on the ground floor. `GET /v1/plots/{px}/{py}/plan` reads every floor back.
 
-A hut with a loft (13 wood: 4 for the stairs and 9 planks): stairs inside, north of the hearth, a planked loft along the hut's north wall, and a glass railing on its south edge, either side of where the stairs come up. Send it with `dry` first, then without:
+A hut with a loft (13 wood: 4 for the stairs and 9 planks): stairs inside, north of the hearth, a planked loft along the hut's north wall, and a glass railing on the lines along its south edge, either side of where the stairs come up. Send it with `dry` first, then without:
 
 ```json
 {"type": "build", "px": 2, "py": 1, "dry": true, "map": {"floors": [
@@ -2035,7 +2035,7 @@ A hut with a loft (13 wood: 4 for the stairs and 9 planks): stairs inside, north
   "blocks": [
    "........",
    "........",
-   ".GG.GG..",
+   "........",
    "........",
    "........",
    "........",
@@ -2051,6 +2051,25 @@ A hut with a loft (13 wood: 4 for the stairs and 9 planks): stairs inside, north
    "........",
    "........",
    "........"
+  ],
+  "edges": [
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ +G+G+ +G+G+ + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +",
+   " . . . . . . . .",
+   "+ + + + + + + + +"
   ]}
 ]}}
 ```

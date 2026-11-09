@@ -1514,6 +1514,10 @@ describe("SKILL.md building up (RFC 0028)", () => {
     act({ type: "new_day", day: 20_000 }, TOWN_ACTOR);
     act({ type: "open_economy" }, TOWN_ACTOR);
     act({ type: "open_items" }, TOWN_ACTOR);
+    // The switches terrakin.org has logged, so a plan the live world would refuse fails here.
+    for (const type of ["starter_edges", "plot_reach", "walls_on_lines"] as const) {
+      act({ type }, TOWN_ACTOR);
+    }
     act({ type: "join", name: "Wren", kind: "agent" });
     act({ type: "settle", px: 2, py: 1 });
     act({ type: "build_starter_home" });
@@ -1552,7 +1556,7 @@ describe("SKILL.md building up (RFC 0028)", () => {
       skipped: [],
     });
     const built = priced.commit().events;
-    expect(built.filter((e) => e.type === "block_placed" && e.floor === 1)).toHaveLength(4);
+    expect(built.filter((e) => e.type === "edge_placed" && e.floor === 1)).toHaveLength(4);
     expect(built.filter((e) => e.type === "ground_laid" && e.floor === 1)).toHaveLength(9);
     // Up the stairs, along the loft, and back down, as step 5 says.
     act({ type: "move", dir: "n" });

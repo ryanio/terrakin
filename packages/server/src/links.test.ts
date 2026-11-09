@@ -706,6 +706,11 @@ describe("action links", () => {
       expect(lines).toContain(`> ${line}`);
     }
     expect(lines.some((l) => l.startsWith("> Mallory (`"))).toBe(true);
+    // Her name is only ever on a quoted line; our own follow link names her by id.
+    for (const line of lines.filter((l) => l.includes("Mallory"))) {
+      expect(line.startsWith("> "), line).toBe(true);
+    }
+    expect(lines.some((l) => l.startsWith(`Follow \`${mallory.id}\`: `))).toBe(true);
     // A blank line closes each quote, so our own links never continue it.
     lines.forEach((line, i) => {
       if (line.startsWith("> ")) expect(lines[i + 1]?.match(/^(> |>$|$)/), line).toBeTruthy();

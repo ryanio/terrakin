@@ -3,6 +3,13 @@ import type { Api } from "../api";
 import type { LinkRouteId } from "../links";
 import { fail, fromResult, type Handlers } from "./shared";
 
+/** Why `POST /v1/owner/rekey-codes/{id}` is refused while staff sign in through Access. */
+const REKEY_FROM_STAFF_APP =
+  "Re-key codes come from the staff app on this server: POST /v1/admin/rekey-codes, signed in as staff.";
+
+/** The moderation log's reason for a re-key code a maintainer made with their resident token. */
+const REKEY_BY_TOKEN = "Made with a maintainer's token at POST /v1/owner/rekey-codes/{id}.";
+
 /**
  * The handlers for owners and their AIs (decision 0031). The owner link routes are in
  * `links/keys.ts`. Their routes are in the protocol's `route-table/owners.ts`.
@@ -55,11 +62,21 @@ export function ownerHandlers(
         status: 201 as const,
         body: code,
       })),
-    createRekeyCode: ({ viewer, params }) =>
-      fromResult(owners().maintainerRekey(viewer, params.id), (code) => ({
-        status: 201 as const,
-        body: code,
-      })),
+    // With Access on, a resident token never counts as staff, so the team's re-key comes only
+    // from the staff route, which only a maintainer is told of; anyone else gets the refusal
+    // `maintainerRekey` gives. Either way the moderation log keeps who made it, never the code.
+    createRekeyCode: ({ viewer, params }) => {
+      if (api.staffOptions.access && api.requireSocial().isMaintainer(viewer)) {
+        return fail("forbidden", REKEY_FROM_STAFF_APP);
+      }
+      const made = owners().maintainerRekey(viewer, params.id);
+      if (made.ok) {
+        api
+          .requireSocial()
+          .safety.recordNote(viewer, "rekey_agent", "resident", params.id, REKEY_BY_TOKEN);
+      }
+      return fromResult(made, (code) => ({ status: 201 as const, body: code }));
+    },
     redeemRekey: ({ body }) =>
       fromResult(owners().rekey(body.code), (fresh) => ({ status: 200 as const, body: fresh })),
     startUpgrade: ({ body }) => {

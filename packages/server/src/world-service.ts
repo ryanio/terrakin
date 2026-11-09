@@ -159,6 +159,7 @@ import { WorldCredentials } from "./world-credentials";
 import {
   circleAudience,
   circleRoster,
+  clockFields,
   eventsFor,
   holdBackNames,
   isPrivate,
@@ -661,6 +662,9 @@ const HOLDER_WORDS = {
 
 /** How many residents within earshot a putter tries to wave at before it gives up. */
 const PUTTER_GREET_TRIES = 5;
+
+/** How long `readerSnapshot` keeps a snapshot it built for the same `seq`. */
+const READER_SNAPSHOT_MS = 1_000;
 
 export type { WorldCredit } from "./snapshots";
 
@@ -3304,6 +3308,29 @@ export class WorldService {
       rarePots: this.rarePots.filter((p) => this.now() - p.at < DAY_MS).map(({ at, ...p }) => p),
     });
   }
+
+  /**
+   * The snapshot for `GET /v1/world`, which anyone may ask for as often as they like: one built
+   * at this `seq` less than `READER_SNAPSHOT_MS` ago, with its clock fields read afresh, else a new
+   * one. What changes without a `seq` (facing, routine steps, held notes) is at most that old.
+   */
+  readerSnapshot(): WorldSnapshot {
+    const now = this.now();
+    const kept = this.keptSnapshot;
+    if (
+      kept &&
+      kept.seq === this.state.seq &&
+      now >= kept.at &&
+      now - kept.at < READER_SNAPSHOT_MS
+    ) {
+      return { ...kept.snapshot, ...clockFields(now, this.state.day) };
+    }
+    const snapshot = this.snapshot();
+    this.keptSnapshot = { seq: this.state.seq, at: now, snapshot };
+    return snapshot;
+  }
+
+  private keptSnapshot: { seq: number; at: number; snapshot: WorldSnapshot } | undefined;
 
   /**
    * Crackle and iridescent pots taken out of kilns in the last day (RFC 0047), for the home wall's

@@ -28,7 +28,7 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
         },
       };
     },
-    getWorld: () => ({ status: 200, body: service.snapshot() }),
+    getWorld: () => ({ status: 200, body: service.readerSnapshot() }),
     createSession: ({ body }) => {
       const result = service.createSession(body);
       // `free` goes out on a `name_taken` as the live socket's join already sends it, since SKILL.md

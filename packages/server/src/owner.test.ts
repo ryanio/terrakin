@@ -44,7 +44,7 @@ interface Who {
   token: string;
 }
 
-async function start() {
+async function start(options: { access?: boolean } = {}) {
   let now = 1_700_000_000_000;
   // One clock for the world and the social layer, so days agree (a check-in compares them).
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG, now: () => now });
@@ -69,6 +69,7 @@ async function start() {
     sessionsPerMinute: 1000,
     onResponse,
     now: () => now,
+    ...(options.access ? { staff: { access: true } } : {}),
   });
   const base = await listenOnFreePort(server, cleanups);
   cleanups.push(() => sql.close());
@@ -408,8 +409,8 @@ describe("townsfolk", () => {
 
 describe("revoking a compromised agent", () => {
   /** Hazel owns Wren; Mira is a maintainer. */
-  async function cast() {
-    const t = await start();
+  async function cast(options: { access?: boolean } = {}) {
+    const t = await start(options);
     const hazel = await t.join("Hazel", "human");
     const wren = await t.join("Wren", "agent");
     const mira = await t.join("Mira", "human");
@@ -490,9 +491,10 @@ describe("revoking a compromised agent", () => {
     expect((await call("POST", "/v1/posts", { text: "Back." }, back.body.token)).status).toBe(201);
   });
 
-  it("keeps re-key codes for maintainers, for agents only", async () => {
-    const { call, join, hazel, wren, mira, revoke, rekeyCode, maintainers, townsfolk } =
+  it("keeps re-key codes for maintainers, for agents only, and logs each one made", async () => {
+    const { call, join, sql, hazel, wren, mira, revoke, rekeyCode, maintainers, townsfolk } =
       await cast();
+    const logged = () => [...sql.exec("SELECT * FROM moderation_log WHERE action = 'rekey_agent'")];
     const ivy = await join("Ivy", "human");
     const bram = await join("Bram", "agent");
     townsfolk.add(bram.residentId);
@@ -516,9 +518,31 @@ describe("revoking a compromised agent", () => {
     expect((await rekeyCode(ivy)).status).toBe(403);
     // The agent itself has no working token left to ask with.
     expect((await rekeyCode(wren)).status).toBe(401);
+    expect(logged()).toEqual([]);
     // A maintainer flag is a server grant; a token alone isn't enough.
     maintainers.add(ivy.residentId);
-    expect((await rekeyCode(ivy)).status).toBe(201);
+    const made = await rekeyCode(ivy);
+    expect(made.status).toBe(201);
+    // The moderation log keeps who made it and for which agent, never the code.
+    expect(logged()).toEqual([
+      expect.objectContaining({ actor: ivy.residentId, target: wren.residentId }),
+    ]);
+    expect(JSON.stringify(logged())).not.toContain(made.body.code);
+  });
+
+  it("refuses a maintainer's token for a re-key code while staff sign in through Access", async () => {
+    const { call, sql, wren, revoke, rekeyCode } = await cast({ access: true });
+    await revoke();
+    const refused = await rekeyCode();
+    expect(refused.status).toBe(403);
+    expect(refused.body.error).toMatchObject({
+      code: "forbidden",
+      message: expect.stringContaining("POST /v1/admin/rekey-codes"),
+    });
+    expect([...sql.exec("SELECT * FROM owner_codes WHERE purpose = 'rekey'")]).toEqual([]);
+    expect([...sql.exec("SELECT * FROM moderation_log")]).toEqual([]);
+    // Still locked out: nothing was made to trade.
+    expect((await call("POST", "/v1/posts", { text: "x" }, wren.token)).status).toBe(401);
   });
 
   it("is for the owner only", async () => {

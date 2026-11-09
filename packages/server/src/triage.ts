@@ -44,6 +44,8 @@ export interface TriageConfig {
   filterShare: number;
   /** Consecutive failures that open the breaker, and how long it stays open. */
   breaker: { failures: number; pauseMs: number };
+  /** How long one call may take, answer and all, before it counts as failed. */
+  timeoutMs: number;
 }
 
 export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
@@ -55,6 +57,7 @@ export const DEFAULT_TRIAGE: Omit<TriageConfig, "apiKey"> = {
   perAuthorFilterPerDay: 3,
   filterShare: 0.5,
   breaker: { failures: 3, pauseMs: 15 * MINUTE_MS },
+  timeoutMs: 30_000,
 };
 
 /** Triage settings from the environment (`ANTHROPIC_API_KEY`, `TERRAKIN_TRIAGE_*`). */
@@ -272,34 +275,46 @@ export class TriageClient {
     this.spend(day, 1, estimate);
 
     let body: unknown;
+    // A call that takes longer than `timeoutMs`, answer and all, is a failed one. The race stops
+    // waiting even on a fetcher that never looks at the signal.
+    const signal = AbortSignal.timeout(this.config.timeoutMs);
+    const timedOut = new Promise<never>((_, reject) => {
+      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
+    });
+    timedOut.catch(() => {});
     try {
-      const res = await this.fetcher(API_URL, {
-        method: "POST",
-        headers: {
-          "content-type": "application/json",
-          "x-api-key": apiKey,
-          "anthropic-version": "2023-06-01",
-        },
-        body: JSON.stringify({
-          model,
-          max_tokens: MAX_OUTPUT_TOKENS,
-          system: SYSTEM,
-          // One verdict needs no reasoning, and thinking tokens would count against max_tokens.
-          ...(caps.thinkingOff ? { thinking: caps.thinkingOff } : {}),
-          tools: [TOOL],
-          // A forced tool call is the surest way to get the verdict's shape. A model that refuses
-          // one gets `auto` and the instruction to answer only through the tool.
-          tool_choice: caps.forcedTool ? { type: "tool", name: TOOL.name } : { type: "auto" },
-          messages: [{ role: "user", content: prompt }],
-        }),
-      });
-      if (!res.ok) {
+      const call = async () => {
+        const res = await this.fetcher(API_URL, {
+          method: "POST",
+          signal,
+          headers: {
+            "content-type": "application/json",
+            "x-api-key": apiKey,
+            "anthropic-version": "2023-06-01",
+          },
+          body: JSON.stringify({
+            model,
+            max_tokens: MAX_OUTPUT_TOKENS,
+            system: SYSTEM,
+            // One verdict needs no reasoning, and thinking tokens would count against max_tokens.
+            ...(caps.thinkingOff ? { thinking: caps.thinkingOff } : {}),
+            tools: [TOOL],
+            // A forced tool call is the surest way to get the verdict's shape. A model that refuses
+            // one gets `auto` and the instruction to answer only through the tool.
+            tool_choice: caps.forcedTool ? { type: "tool", name: TOOL.name } : { type: "auto" },
+            messages: [{ role: "user", content: prompt }],
+          }),
+        });
+        return res.ok ? { body: (await res.json()) as unknown } : { status: res.status };
+      };
+      const answer = await Promise.race([call(), timedOut]);
+      if (!("body" in answer)) {
         // Status only: the body can echo the request.
-        console.error(`Triage call failed with HTTP ${res.status}`);
+        console.error(`Triage call failed with HTTP ${answer.status}`);
         this.record(source, model, NO_TOKENS, "error");
         return this.failed("error");
       }
-      body = await res.json();
+      body = answer.body;
     } catch (err) {
       console.error("Triage call failed", err instanceof Error ? err.name : "");
       this.record(source, model, NO_TOKENS, "error");

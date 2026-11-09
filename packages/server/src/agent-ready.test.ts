@@ -250,6 +250,32 @@ describe("Idempotency-Key", () => {
     expect(store.size).toBe(1);
     expect(store.begin("r_a", "c", "f").kind).toBe("new");
   });
+
+  it("lets one resident's fresh keys push out only their own", () => {
+    const store = new IdempotencyStore();
+    const keep = (scope: string, key: string) => {
+      const lookup = store.begin(scope, key, "f");
+      if (lookup.kind === "new") lookup.finish({ status: 201, contentType: undefined, body: "{}" });
+    };
+    keep("r_a", "mine");
+    for (let i = 0; i < 2_000; i++) keep("r_b", `k${i}`);
+    expect(store.begin("r_a", "mine", "f").kind).toBe("replay");
+    // B keeps its newest keys and forgets its oldest.
+    expect(store.begin("r_b", "k1999", "f").kind).toBe("replay");
+    expect(store.begin("r_b", "k0", "f").kind).toBe("new");
+  });
+
+  it("forgets the oldest keys across residents once the whole store is full, keeping the newest", () => {
+    const store = new IdempotencyStore({ maxEntries: 3 });
+    for (const scope of ["r_1", "r_2", "r_3", "r_4", "r_5"]) {
+      const lookup = store.begin(scope, "k", "f");
+      if (lookup.kind === "new") lookup.finish({ status: 201, contentType: undefined, body: "{}" });
+    }
+    expect(store.size).toBe(3);
+    for (const scope of ["r_3", "r_4", "r_5"])
+      expect(store.begin(scope, "k", "f").kind).toBe("replay");
+    for (const scope of ["r_1", "r_2"]) expect(store.begin(scope, "k", "f").kind).toBe("new");
+  });
 });
 
 describe("Markdown twins and content negotiation", () => {

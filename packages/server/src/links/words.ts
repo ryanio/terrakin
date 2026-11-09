@@ -109,7 +109,7 @@ export function postBlock(
     "",
     `Like: ${l.like(post.id)}`,
     `Reply: ${l.reply(post.id)}`,
-    follow?.(post.author.id) && `Follow ${post.author.name}: ${l.follow(post.author.id)}`,
+    follow?.(post.author.id) && `Follow \`${post.author.id}\`: ${l.follow(post.author.id)}`,
   ]);
 }
 

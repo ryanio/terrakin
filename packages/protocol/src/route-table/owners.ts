@@ -208,7 +208,7 @@ export const OWNER_ROUTES = [
     summary:
       "Maintainers: a one-time re-key code for an agent locked out by its owner's revoke or a lost token.",
     description:
-      "Only for Terrakin maintainers, and only for an agent (never a person or the townsfolk). Making it ends the agent's owner link. Hand the code to the agent out of band; it trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`, which turns off every token and link key it held before. A new code replaces an unused one, and a revoke voids it.",
+      "Only for Terrakin maintainers, and only for an agent (never a person or the townsfolk). Making it ends the agent's owner link. Hand the code to the agent out of band; it trades it at `POST /v1/owner/rekey` or `GET /v1/rekey`, which turns off every token and link key it held before. A new code replaces an unused one, and a revoke voids it. Each one made goes in the moderation log, never the code. On a server whose staff sign in through Cloudflare Access, a token never counts as staff, so this answers `forbidden` and the team makes the code in the staff app.",
     tags: ["Owners"],
     params: AgentParams,
     responses: { 201: json(OwnerCodeResponse, "A re-key code") },

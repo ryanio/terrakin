@@ -229,6 +229,30 @@ describe("the triage client's money guard", () => {
     expect((await client.classify(input)).ok).toBe(true);
   });
 
+  it("gives up on a call that never answers and counts it as a failure", async () => {
+    const t = clock();
+    let calls = 0;
+    // Never resolves, and never looks at the signal either.
+    const hangs = (() => {
+      calls++;
+      return new Promise(() => {});
+    }) as unknown as typeof fetch;
+    const client = new TriageClient(config({ timeoutMs: 5 }), nodeSql(), hangs, t.now);
+    const input = { kind: "post", text: "words", notes: [], facts: [] };
+    const original = console.error;
+    console.error = () => {};
+    try {
+      for (let i = 0; i < DEFAULT_TRIAGE.breaker.failures; i++) {
+        expect(await client.classify(input)).toEqual({ ok: false, reason: "error" });
+      }
+    } finally {
+      console.error = original;
+    }
+    expect(client.pausedUntil()).toBe(START + DEFAULT_TRIAGE.breaker.pauseMs);
+    expect(await client.classify(input)).toEqual({ ok: false, reason: "paused" });
+    expect(calls).toBe(DEFAULT_TRIAGE.breaker.failures);
+  });
+
   it("takes a refusal as no verdict, whatever came with it, and never opens the breaker for one", async () => {
     const api = fakeAnthropic(["refusal", "refusal", "refusal", MILD]);
     const client = new TriageClient(config(), nodeSql(), api.fetcher, clock().now);

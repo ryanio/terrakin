@@ -906,6 +906,28 @@ describe("invites", () => {
     expect((await profile(ada.id)).body.resident.sharesPlot).toBeUndefined();
   });
 
+  it("treats a suspended inviter's invite as gone, so it shares nothing and joins nobody", async () => {
+    const t = await start();
+    const ada = await settled(t, "Ada");
+    const code = (await t.call("POST", "/v1/invites", { share: true }, ada.token)).body.invite.code;
+    expect(t.social.safety.suspend("staff", ada.id, 3, "test").ok).toBe(true);
+    const residents = Object.keys(t.service.state.residents).length;
+
+    const unknown = await t.call("GET", "/v1/invites/zzzzzzzz");
+    const details = await t.call("GET", `/v1/invites/${code}`);
+    expect(details.status).toBe(404);
+    expect(details.body).toEqual(unknown.body);
+    const accepted = await t.call("POST", `/v1/invites/${code}/accept`, {
+      name: "Bo",
+      kind: "human",
+    });
+    expect(accepted.status).toBe(404);
+    expect(accepted.body.error.code).toBe("not_found");
+    expect(Object.keys(t.service.state.residents)).toHaveLength(residents);
+    expect(t.service.state.plots["1,1"]?.coOwners ?? []).toEqual([]);
+    expect([...t.sql.exec("SELECT * FROM follows")]).toEqual([]);
+  });
+
   it("settles next door instead when the partner turns sharing down", async () => {
     const t = await start();
     const ada = await settled(t, "Ada");

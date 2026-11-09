@@ -84,6 +84,8 @@ export interface AppOptions {
   maxWatchers?: number;
   /** See `ApiOptions.maxWatchersPerNetwork`. */
   maxWatchersPerNetwork?: number;
+  /** See `ApiOptions.maxHellosPerResident`. */
+  maxHellosPerResident?: number;
   /** See `ApiOptions.onResponse`. Tests use it to check responses against the route table. */
   onResponse?: ApiOptions["onResponse"];
   /** See `ApiOptions.staff`. Node has no Cloudflare Access, so staff sign in with a token. */
@@ -166,6 +168,31 @@ const KEEP_ALIVE_MS = 65_000;
 export const isLoopback = (address: string | undefined) =>
   address === "::1" || /^(::ffff:)?127\./.test(address ?? "");
 
+/** Every test route, each answered only to `fromThisMachine` callers. */
+const TEST_PATHS: ReadonlySet<string> = new Set([
+  TEST_ADVANCE_DAY_PATH,
+  TEST_SWEEP_PATH,
+  TEST_MAINTAINER_PATH,
+  TEST_GRANT_PATH,
+  TEST_OPEN_LAND_PATH,
+  TEST_OPEN_PLOT_MARKET_PATH,
+  TEST_OPEN_CLAY_PATH,
+  TEST_OPEN_GRADES_PATH,
+]);
+
+/**
+ * A caller on this machine with nothing in between: a loopback socket, no trusted proxies
+ * configured, and no X-Forwarded-For header. A test route a self-host left on (no NODE_ENV) can't
+ * be reached from anywhere else.
+ */
+function fromThisMachine(req: IncomingMessage, trustedProxies = 0): boolean {
+  return (
+    isLoopback(req.socket.remoteAddress) &&
+    !(trustedProxies > 0) &&
+    req.headers["x-forwarded-for"] === undefined
+  );
+}
+
 /** The client's IP, honoring X-Forwarded-For only for the configured number of trusted hops. */
 export function clientIp(req: IncomingMessage, trustedProxies = 0): string {
   const direct = req.socket.remoteAddress ?? "unknown";
@@ -224,6 +251,9 @@ export function createApp(options: AppOptions): Server {
     ...(options.maxWatchersPerNetwork === undefined
       ? {}
       : { maxWatchersPerNetwork: options.maxWatchersPerNetwork }),
+    ...(options.maxHellosPerResident === undefined
+      ? {}
+      : { maxHellosPerResident: options.maxHellosPerResident }),
     // Node has one process, so plot photos are drawn here, like the link cards.
     ...(options.photos === false
       ? {}
@@ -310,6 +340,22 @@ export function createApp(options: AppOptions): Server {
 
   async function handle(req: IncomingMessage, res: ServerResponse) {
     const url = new URL(req.url ?? "/", "http://localhost");
+    // Test routes move the clock, run the sweep, grant coins, and open switches, so they answer
+    // only a caller on this machine with nothing in between. Behind a reverse proxy on the same
+    // host every caller's socket is loopback, so a configured proxy or any X-Forwarded-For header
+    // turns them all away.
+    if (
+      options.testClock &&
+      req.method === "POST" &&
+      TEST_PATHS.has(url.pathname) &&
+      !fromThisMachine(req, options.trustedProxies)
+    ) {
+      return send(res, {
+        status: 404,
+        headers: { "content-type": "application/json", "cache-control": "no-store" },
+        body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
+      });
+    }
     if (options.testClock && req.method === "POST" && url.pathname === TEST_ADVANCE_DAY_PATH) {
       const days = Math.min(
         400,
@@ -334,14 +380,6 @@ export function createApp(options: AppOptions): Server {
     }
     if (options.testClock && req.method === "POST" && url.pathname === TEST_GRANT_PATH) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
-      // Coins and things: only from this machine, like the maintainer grant below.
-      if (!isLoopback(req.socket.remoteAddress)) {
-        return send(res, {
-          status: 404,
-          headers: json,
-          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
-        });
-      }
       const body = (await readJson(req)) as
         | { residentId?: unknown; coins?: unknown; stacks?: unknown }
         | undefined;
@@ -378,7 +416,6 @@ export function createApp(options: AppOptions): Server {
     }
     // The switches a test turns on now, which no Node world logs on its own: the next land
     // (RFC 0038), plots for sale (RFC 0039), pottery (RFC 0047), and material grades (RFC 0051).
-    // Only from this machine, like the grant.
     const openNow =
       url.pathname === TEST_OPEN_LAND_PATH
         ? () => options.service.testOpenLand()
@@ -391,13 +428,6 @@ export function createApp(options: AppOptions): Server {
               : undefined;
     if (options.testClock && req.method === "POST" && openNow) {
       const json = { "content-type": "application/json", "cache-control": "no-store" };
-      if (!isLoopback(req.socket.remoteAddress)) {
-        return send(res, {
-          status: 404,
-          headers: json,
-          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
-        });
-      }
       const result = openNow();
       return send(res, {
         status: result.ok ? 200 : 400,
@@ -407,14 +437,6 @@ export function createApp(options: AppOptions): Server {
     }
     const grant = options.testClock?.grantMaintainer;
     if (grant && req.method === "POST" && url.pathname === TEST_MAINTAINER_PATH) {
-      // Only from this machine, so a self-host that forgot NODE_ENV can't be taken over remotely.
-      if (!isLoopback(req.socket.remoteAddress)) {
-        return send(res, {
-          status: 404,
-          headers: { "content-type": "application/json", "cache-control": "no-store" },
-          body: JSON.stringify({ error: { code: "not_found", message: "Not found." } }),
-        });
-      }
       const body = (await readJson(req)) as { residentId?: unknown } | undefined;
       const id = typeof body?.residentId === "string" ? body.residentId : "";
       const known = /^r_[0-9a-f]{16}$/.test(id) && options.service.state.residents[id];

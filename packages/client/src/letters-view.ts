@@ -20,9 +20,10 @@ import { confirmTwice, emptyNote, errorLine, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
 import { lettersApi, UNREAD_EVENT } from "./api/letters";
 import { myProfile } from "./api/me";
-import { letterImage, uploadMedia } from "./api/media";
+import { letterImage } from "./api/media";
 import type { Result } from "./api/request";
 import { residentsApi } from "./api/residents";
+import { attachments } from "./attachments";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 import { savedResidentId, savedToken } from "./net";
 import { both, failed, pageData } from "./page-data";
@@ -38,6 +39,9 @@ import {
 } from "./view";
 import { jumpThere } from "./visit-plot";
 import "./letters-view.css";
+
+/** The pictures a letter may carry. */
+const LETTER_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"];
 
 const unreadChanged = () => window.dispatchEvent(new Event(UNREAD_EVENT));
 
@@ -319,7 +323,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     class: "visually-hidden",
     attrs: {
       type: "file",
-      accept: "image/png,image/jpeg,image/webp,image/gif",
+      accept: LETTER_TYPES.join(","),
       multiple: true,
       tabindex: -1,
       "aria-hidden": "true",
@@ -362,83 +366,35 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     ),
   );
 
-  interface Picked {
-    el: HTMLElement;
-    preview: string;
-    media?: MediaView;
-    failed?: boolean;
-    abort(): void;
-  }
-  let picked: Picked[] = [];
   let sending = false;
+  const picked = attachments({
+    list,
+    error,
+    max: MAX_MEDIA_PER_LETTER,
+    types: LETTER_TYPES,
+    words: { things: "pictures", per: "letter" },
+    changed: () => update(),
+    // A failed picture's reason goes with the last failed picture.
+    removed: (a) => {
+      if (a.error && !picked.failed()) error.textContent = "";
+    },
+  });
 
   const update = () => {
-    const uploading = picked.some((p) => !p.media && !p.failed);
-    send.disabled = sending || uploading || picked.some((p) => p.failed) || !textarea.value.trim();
-    attach.disabled = sending || picked.length >= MAX_MEDIA_PER_LETTER;
-    list.hidden = picked.length === 0;
-  };
-
-  const drop = (p: Picked) => {
-    p.abort();
-    URL.revokeObjectURL(p.preview);
-    p.el.remove();
-    picked = picked.filter((x) => x !== p);
-    if (p.failed && !picked.some((x) => x.failed)) error.textContent = "";
-    update();
+    send.disabled = sending || picked.uploading() || picked.failed() || !textarea.value.trim();
+    attach.disabled = sending || picked.items.length >= MAX_MEDIA_PER_LETTER;
+    list.hidden = picked.items.length === 0;
   };
 
   fileInput.addEventListener("change", () => {
-    const files = Array.from(fileInput.files ?? []).slice(0, MAX_MEDIA_PER_LETTER - picked.length);
+    const files = Array.from(fileInput.files ?? []);
     fileInput.value = "";
-    for (const file of files) {
-      const preview = URL.createObjectURL(file);
-      const removeBtn = h(
-        "button",
-        { class: "attachment-remove", attrs: { type: "button", "aria-label": "Remove picture" } },
-        icon("close"),
-      );
-      const progress = h("span", { class: "attachment-progress" });
-      const state = h("span", { class: "attachment-state", text: "Uploading…" });
-      const el = h(
-        "li",
-        { class: "attachment uploading" },
-        h(
-          "span",
-          { class: "attachment-thumb" },
-          h("img", { class: "thumb-media", attrs: { src: preview, alt: "" } }),
-        ),
-        progress,
-        state,
-        removeBtn,
-      );
-      list.append(el);
-      const p: Picked = { el, preview, abort: () => {} };
-      picked.push(p);
-      removeBtn.addEventListener("click", () => drop(p));
-      const up = uploadMedia(file, (f) => progress.style.setProperty("--progress", String(f)));
-      p.abort = up.abort;
-      void up.promise.then((r) => {
-        if (!picked.includes(p)) return;
-        if (r.ok) {
-          p.media = r.data;
-          el.classList.replace("uploading", "done");
-          state.textContent = "";
-        } else {
-          p.failed = true;
-          el.classList.replace("uploading", "failed");
-          state.textContent = "Failed";
-          error.textContent = r.message;
-        }
-        update();
-      });
-    }
-    update();
+    picked.pick(files);
   });
 
   textarea.addEventListener("input", () => {
     // A failed picture's reason stays until it's removed, since it's what keeps Send off.
-    if (!picked.some((p) => p.failed)) error.textContent = "";
+    if (!picked.failed()) error.textContent = "";
     update();
     saveDraft(draft, textarea.value);
   });
@@ -449,7 +405,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     if (!text || sending) return;
     sending = true;
     update();
-    const media = picked.flatMap((p) => (p.media ? [p.media.id] : []));
+    const media = picked.mediaIds();
     const r = await lettersApi.sendLetter({ to: to.id, text, ...(media.length ? { media } : {}) });
     sending = false;
     if (!r.ok) {
@@ -459,9 +415,7 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
     }
     textarea.value = "";
     clearDraft(draft);
-    for (const p of picked) URL.revokeObjectURL(p.preview);
-    picked = [];
-    list.replaceChildren();
+    picked.clear();
     update();
     toast(`Sent to ${to.name}`);
     onSent(r.data.letter);
@@ -472,12 +426,6 @@ function composer(to: ProfileView, onSent: (letter: LetterView) => void) {
   update();
   return {
     el: form,
-    destroy() {
-      for (const p of picked) {
-        p.abort();
-        URL.revokeObjectURL(p.preview);
-      }
-      picked = [];
-    },
+    destroy: picked.destroy,
   };
 }

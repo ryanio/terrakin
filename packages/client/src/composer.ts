@@ -11,7 +11,6 @@ import {
   type AuthorView,
   MAX_MEDIA_PER_POST,
   MEDIA_TYPES,
-  type MediaView,
   POST_MAX_LENGTH,
   type PostView,
   type ProfileView,
@@ -22,14 +21,13 @@ import { activeMention, insertMention, suggestHandles } from "@terrakin/ui/menti
 import { plot3dPath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed } from "@terrakin/ui/people";
 import { closeOverlay, errorLine, onPressOutside, openOverlay } from "@terrakin/ui/ui";
-import { uploadMedia } from "./api/media";
 import { postsApi } from "./api/posts";
 import { residentsApi } from "./api/residents";
+import { attachments } from "./attachments";
 import { clearDraft, type DraftFor, loadDraft, saveDraft } from "./drafts";
 
 const ACCEPT =
   "image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm,.glb,model/gltf-binary";
-const LARGEST = Math.max(...Object.values(MEDIA_TYPES).map((t) => t.maxBytes));
 /** Show the character counter once this few are left. */
 const COUNTER_AT = 200;
 
@@ -60,15 +58,6 @@ export interface ComposerOptions {
   /** Quote this post: it shows under the box and goes along with the new post. */
   quote?: PostView;
   onPosted(post: PostView): void;
-}
-
-interface Attachment {
-  file: File;
-  el: HTMLElement;
-  preview: string | undefined;
-  media?: MediaView;
-  error?: string;
-  abort(): void;
 }
 
 export interface Composer {
@@ -194,7 +183,14 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     ),
   );
 
-  let attachments: Attachment[] = [];
+  const attached = attachments({
+    list,
+    error,
+    max: MAX_MEDIA_PER_POST,
+    types: Object.keys(MEDIA_TYPES),
+    words: { things: "files", per: "post" },
+    changed: () => update(),
+  });
   let posting = false;
   let destroyed = false;
   /**
@@ -225,14 +221,14 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     const left = POST_MAX_LENGTH - textarea.value.length;
     counter.textContent = left <= COUNTER_AT ? String(left) : "";
     counter.classList.toggle("low", left <= 20);
-    const uploading = attachments.some((a) => !a.media && !a.error);
-    const failed = attachments.some((a) => a.error);
+    const uploading = attached.uploading();
+    const failed = attached.failed();
     // With a picture attached, Post stays on even before any words, so tapping it can say what's
     // missing instead of sitting there disabled.
-    const empty = textarea.value.trim().length === 0 && attachments.length === 0;
+    const empty = textarea.value.trim().length === 0 && attached.items.length === 0;
     submit.disabled = posting || uploading || failed || empty;
-    attach.disabled = posting || attachments.length >= MAX_MEDIA_PER_POST;
-    list.hidden = attachments.length === 0;
+    attach.disabled = posting || attached.items.length >= MAX_MEDIA_PER_POST;
+    list.hidden = attached.items.length === 0;
     const resting = mode === "post" && !open && empty;
     if (resting !== form.classList.contains("at-rest")) {
       form.classList.toggle("at-rest", resting);
@@ -356,86 +352,11 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     }
   });
 
-  const remove = (a: Attachment) => {
-    a.abort();
-    if (a.preview) URL.revokeObjectURL(a.preview);
-    a.el.remove();
-    attachments = attachments.filter((x) => x !== a);
-    update();
-  };
-
   fileInput.addEventListener("change", () => {
-    error.textContent = "";
     const files = Array.from(fileInput.files ?? []);
     fileInput.value = "";
-    const room = MAX_MEDIA_PER_POST - attachments.length;
-    if (files.length > room)
-      error.textContent = `Up to ${MAX_MEDIA_PER_POST} files per post. We added the first ${Math.max(0, room)}.`;
-    for (const file of files.slice(0, Math.max(0, room))) add(file);
-    update();
+    attached.pick(files);
   });
-
-  function add(file: File) {
-    const isModel = file.name.toLowerCase().endsWith(".glb") || file.type === "model/gltf-binary";
-    const isVideo = file.type.startsWith("video/");
-    const preview = isModel ? undefined : URL.createObjectURL(file);
-    const progress = h("span", { class: "attachment-progress" });
-    const state = h("span", { class: "attachment-state", text: "Uploading…" });
-    const thumb = h("span", { class: "attachment-thumb" });
-    if (isModel) thumb.append(icon("cube"));
-    else if (isVideo && preview)
-      thumb.append(
-        h("video", {
-          class: "thumb-media",
-          attrs: { src: preview, muted: true, playsinline: true, preload: "metadata" },
-        }),
-      );
-    else if (preview)
-      thumb.append(h("img", { class: "thumb-media", attrs: { src: preview, alt: "" } }));
-    const removeBtn = h(
-      "button",
-      {
-        class: "attachment-remove",
-        attrs: { type: "button", "aria-label": `Remove ${file.name}` },
-      },
-      icon("close"),
-    );
-    const el = h("li", { class: "attachment uploading" }, thumb, progress, state, removeBtn);
-    list.append(el);
-
-    const a: Attachment = { file, el, preview, abort: () => {} };
-    attachments.push(a);
-    removeBtn.addEventListener("click", () => remove(a));
-
-    if (file.size > LARGEST) {
-      fail(a, "That file is too big. The largest allowed is 25 MB.");
-      return;
-    }
-    const upload = uploadMedia(file, (f) => {
-      progress.style.setProperty("--progress", String(f));
-    });
-    a.abort = upload.abort;
-    void upload.promise.then((r) => {
-      if (destroyed || !attachments.includes(a)) return;
-      if (r.ok) {
-        a.media = r.data;
-        el.classList.remove("uploading");
-        el.classList.add("done");
-        state.textContent = "";
-      } else fail(a, r.message);
-      update();
-    });
-  }
-
-  function fail(a: Attachment, message: string) {
-    a.error = message;
-    a.el.classList.remove("uploading");
-    a.el.classList.add("failed");
-    const state = a.el.querySelector(".attachment-state");
-    if (state) state.textContent = "Failed";
-    error.textContent = `${a.file.name}: ${message}`;
-    update();
-  }
 
   form.addEventListener("submit", async (e) => {
     e.preventDefault();
@@ -451,7 +372,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     error.textContent = "";
     submit.setAttribute("aria-busy", "true");
     update();
-    const media = attachments.flatMap((a) => (a.media ? [a.media.id] : []));
+    const media = attached.mediaIds();
     const r = await postsApi.createPost({
       text,
       ...(media.length ? { media } : {}),
@@ -471,9 +392,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     }
     textarea.value = "";
     clearDraft(draft);
-    for (const a of attachments) if (a.preview) URL.revokeObjectURL(a.preview);
-    attachments = [];
-    list.replaceChildren();
+    attached.clear();
     autosize();
     if (document.activeElement === textarea) update();
     else rest();
@@ -483,7 +402,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
   if (mode === "post" && queued.length > 0) {
     const files = queued;
     queued = [];
-    for (const file of files) add(file);
+    for (const file of files) attached.add(file);
   }
 
   // Words left here earlier in this tab come back. The box is sized once it's on the page.
@@ -505,11 +424,7 @@ export function composer({ me, replyTo, quote, onPosted }: ComposerOptions): Com
     destroy() {
       destroyed = true;
       stopPress?.();
-      for (const a of attachments) {
-        a.abort();
-        if (a.preview) URL.revokeObjectURL(a.preview);
-      }
-      attachments = [];
+      attached.destroy();
     },
   };
 }

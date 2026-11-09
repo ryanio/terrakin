@@ -757,7 +757,7 @@ body.in-world .veil {
   display: inline-flex;
   align-items: center;
   gap: var(--space-2xs);
-  min-height: 40px;
+  min-height: 44px;
   font-weight: var(--weight-semibold);
   white-space: nowrap;
   text-decoration: none;
@@ -3258,7 +3258,7 @@ a.btn-primary {
 .prose :where(.link-list, .link-cell) a {
   display: inline-flex;
   align-items: center;
-  min-height: 32px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   margin-left: calc(-1 * var(--space-sm));
   border-radius: var(--r-sm);
@@ -3399,7 +3399,7 @@ a.btn-primary {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-sm);
-  min-height: 32px;
+  min-height: 44px;
   color: var(--ink);
   font-weight: var(--weight-semibold);
   text-decoration: none;
@@ -3578,7 +3578,7 @@ a.btn-primary {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-xs);
-  min-height: 40px;
+  min-height: 44px;
   padding: var(--space-2xs) var(--space-sm);
   border-radius: var(--r-sm);
   color: var(--ink);
@@ -3889,7 +3889,7 @@ a.btn-primary {
 }
 
 .guide-nav .guide-links a {
-  min-height: 40px;
+  min-height: 44px;
   padding: 0 var(--space-sm);
   margin-inline: calc(-1 * var(--space-sm));
   font-size: var(--text-base);

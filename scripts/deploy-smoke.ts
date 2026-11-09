@@ -179,6 +179,7 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   starterDoors: "starterDoors",
   starterEdges: "starterEdges",
   plotReach: "plotReach",
+  regrid: "regridded",
   slimHomes: "homesSlimmed",
   wallsOnLines: "wallsOnLines",
   shop: "shop",

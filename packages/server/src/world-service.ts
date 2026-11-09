@@ -302,6 +302,12 @@ export interface WorldServiceOptions {
    */
   plotReach?: boolean;
   /**
+   * Plot slots double to 16 tiles (RFC 0052): once walls stand only on lines (`walls_on_lines`),
+   * append `regrid` if it never has, which moves everything built to the middle of its slot. Both
+   * adapters turn this on. Off by default, like `items`.
+   */
+  regrid?: boolean;
+  /**
    * The town slims every home it can (RFC 0050, decision 0404): once starter homes are built from
    * walls between tiles, plan each held plot's slim, log it as `town_slim` where a dry run skips
    * nothing and adds no note, tell the owner, then log `slim_homes` so it never runs again. It
@@ -678,6 +684,7 @@ interface TownSwitch {
     | "starterDoors"
     | "starterEdges"
     | "plotReach"
+    | "regrid"
     | "market"
     | "bounties"
     | "recipes"
@@ -807,6 +814,13 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.plotReach,
     command: { type: "plot_reach" },
     label: "let building reach the whole plot",
+  },
+  // After the town's sweep has put every wall on a line, so no wall block moves with the regrid.
+  {
+    option: "regrid",
+    due: (s) => !s.regridded && !!s.wallsOnLines,
+    command: { type: "regrid" },
+    label: "double every plot slot",
   },
   {
     option: "market",
@@ -982,6 +996,7 @@ export class WorldService {
   private readonly starterDoors: boolean;
   private readonly starterEdges: boolean;
   private readonly plotReach: boolean;
+  private readonly regrid: boolean;
   private readonly slimHomes: boolean;
   private readonly wallsOnLines: boolean;
   /** The world day the town last turned wall blocks into lines, so it tries once a day. */
@@ -1099,6 +1114,7 @@ export class WorldService {
     this.starterDoors = options.starterDoors ?? false;
     this.starterEdges = options.starterEdges ?? false;
     this.plotReach = options.plotReach ?? false;
+    this.regrid = options.regrid ?? false;
     this.slimHomes = options.slimHomes ?? false;
     this.wallsOnLines = options.wallsOnLines ?? false;
     this.shop = options.shop ?? false;

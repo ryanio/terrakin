@@ -86,6 +86,87 @@ export function stackBubbles(bubbles: readonly Box[], avoid: readonly Box[], gap
   });
 }
 
+/** A name tag to place: its foot on screen, and whether it wears a feeling's sign. */
+export interface TagSpot {
+  x: number;
+  y: number;
+  /** A feeling's sign goes with the tag. */
+  icon?: unknown;
+  /** Away, asleep at home or out on a routine: the sign sits beside the tag, not over it. */
+  away?: boolean | undefined;
+  /** The sign is a job's note, which stays over the tag even for someone away. */
+  note?: boolean | undefined;
+}
+
+/** Where `placeTags` put a tag: its top, its box, and its sign's box when it has one. */
+export interface PlacedTag<L> {
+  label: L;
+  width: number;
+  top: number;
+  tag: Box;
+  sign: Box | undefined;
+}
+
+/**
+ * Where each name tag goes, nearest the bottom of the screen first (then west to east). A tag
+ * starts right over its foot and is nudged up, at most four times, while it or its sign would sit
+ * on a tag or sign placed before it, so names next to each other stay legible. Someone asleep at
+ * home wears their sign beside the name, so neighbors asleep at one hearth keep their tags close.
+ * `widthOf` is a tag's width, `tagH` every tag's height, and `sign` a sign's side.
+ */
+export function placeTags<L extends TagSpot>(
+  labels: readonly L[],
+  widthOf: (l: L) => number,
+  { tagH, sign }: { tagH: number; sign: number },
+): PlacedTag<L>[] {
+  const small = Math.round(sign * 0.8);
+  const taken: Box[] = [];
+  const clear = (box: Box) =>
+    !taken.some(
+      (t) =>
+        box.left < t.right + 2 &&
+        box.right > t.left - 2 &&
+        box.top < t.bottom + 2 &&
+        box.bottom > t.top - 2,
+    );
+  const nearestFirst = [...labels].sort((a, b) => b.y - a.y || a.x - b.x);
+  return nearestFirst.map((label) => {
+    const w = widthOf(label);
+    const tagAt = (top: number): Box => ({
+      left: label.x - w / 2,
+      right: label.x + w / 2,
+      top,
+      bottom: top + tagH,
+    });
+    const signAt = (top: number): Box | undefined =>
+      !label.icon
+        ? undefined
+        : label.away && !label.note
+          ? {
+              left: label.x + w / 2 + 2,
+              right: label.x + w / 2 + 2 + small,
+              top: top + (tagH - small) / 2,
+              bottom: top + (tagH + small) / 2,
+            }
+          : {
+              left: label.x - sign / 2,
+              right: label.x + sign / 2,
+              top: top - sign - 1,
+              bottom: top,
+            };
+    let top = label.y - tagH;
+    for (let tries = 0; tries < 4; tries++) {
+      const over = signAt(top);
+      if (clear(tagAt(top)) && (!over || clear(over))) break;
+      top -= tagH + 3;
+    }
+    const tag = tagAt(top);
+    const over = signAt(top);
+    taken.push(tag, ...(over ? [over] : []));
+    return { label, width: w, top, tag, sign: over };
+  });
+}
+
 /** How much of a name tag's paper shows while the tag lies over something standing on the map. */
 export const TAG_OVER_ART = 0.45;
 /** How far into a tile a tag reaches before it counts as over it, in tiles. */

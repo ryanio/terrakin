@@ -58,6 +58,7 @@ import {
   drawBubble,
   drawDust,
   drawPoof,
+  placeTags,
   stackBubbles,
   tagPaper,
 } from "./overhead";
@@ -1428,17 +1429,7 @@ export function render(
   ctx.textBaseline = "middle";
   const padX = fontSize * 0.55;
   const tagH = fontSize + 8;
-  // Nudge a tag up when it, or the sign over it, would sit on a neighbor's tag or sign, so names
-  // next to each other stay legible. Someone asleep at home wears their sign beside the name
-  // (`besideTag`), so neighbors asleep at one hearth keep their tags close.
   const sign = signPx(scale);
-  const small = Math.round(sign * 0.8);
-  const besideTag = (l: (typeof labels)[number], w: number, top: number): Box => ({
-    left: l.x + w / 2 + 2,
-    right: l.x + w / 2 + 2 + small,
-    top: top + (tagH - small) / 2,
-    bottom: top + (tagH + small) / 2,
-  });
   const tileAt = (sx: number, sy: number) => screenToTile(cam, sx, sy);
   // What stands on a tile as the map draws it: a block on the highest floor shown there, with
   // nothing on flooring laid over it. A pond lies flat in the ground.
@@ -1451,43 +1442,9 @@ export function render(
     }
     return false;
   };
-  labels.sort((a, b) => b.y - a.y || a.x - b.x);
-  const placed: Box[] = [];
-  const taken: Box[] = [];
-  const widths: number[] = [];
-  const clear = (box: Box) =>
-    !taken.some(
-      (t) =>
-        box.left < t.right + 2 &&
-        box.right > t.left - 2 &&
-        box.top < t.bottom + 2 &&
-        box.bottom > t.top - 2,
-    );
-  for (const l of labels) {
-    const w = labelWidth(ctx, font, l.text) + padX * 2;
-    const tagAt = (top: number): Box => ({
-      left: l.x - w / 2,
-      right: l.x + w / 2,
-      top,
-      bottom: top + tagH,
-    });
-    const signAt = (top: number): Box | undefined =>
-      !l.icon
-        ? undefined
-        : l.away && !l.note
-          ? besideTag(l, w, top)
-          : { left: l.x - sign / 2, right: l.x + sign / 2, top: top - sign - 1, bottom: top };
-    let top = l.y - tagH;
-    for (let tries = 0; tries < 4; tries++) {
-      const over = signAt(top);
-      if (clear(tagAt(top)) && (!over || clear(over))) break;
-      top -= tagH + 3;
-    }
-    const tag = tagAt(top);
-    const over = signAt(top);
-    placed.push(tag);
-    taken.push(tag, ...(over ? [over] : []));
-    widths.push(w);
+  // Each tag is nudged up clear of its neighbors' tags and signs (`placeTags`).
+  const tags = placeTags(labels, (l) => labelWidth(ctx, font, l.text) + padX * 2, { tagH, sign });
+  for (const { label: l, top, tag } of tags) {
     l.top = top;
     // A resident's tag over decor behind them lets it show through.
     if (l.who) l.paper = tagPaper(tag, scale, tileAt, standsAt);
@@ -1496,12 +1453,12 @@ export function render(
   // ---- what people are saying, as text, in bubbles over their tags and signs ----
   // Bubbles stack clear of every tag and sign and of each other, the nearest speaker lowest. They
   // go down first, so a tag or sign sits on top of a raised bubble's tail.
-  const avoid: Box[] = [...placed];
+  const avoid: Box[] = tags.map((t) => t.tag);
   const bubbles: { x: number; tip: number; lines: string[]; alpha: number; box: Box }[] = [];
-  for (const [i, l] of labels.entries()) {
+  for (const { label: l, sign: at } of tags) {
     if (l.top === undefined) continue;
     const beside = l.away && !l.note;
-    if (l.icon && beside) avoid.push(besideTag(l, widths[i] ?? 0, l.top));
+    if (at && beside) avoid.push(at);
     // A bubble goes over the sign, so both show.
     const over = l.icon && !beside ? sign + 1 + (l.rise ?? 0) * scale : 0;
     if (over)
@@ -1525,9 +1482,8 @@ export function render(
   ctx.font = font;
   ctx.textAlign = "center";
   ctx.textBaseline = "middle";
-  for (const [i, l] of labels.entries()) {
+  for (const { label: l, width: w } of tags) {
     const top = l.top ?? l.y - tagH;
-    const w = widths[i] ?? 0;
     const alpha = l.away ? AWAY_TAG_ALPHA : 1;
     ctx.globalAlpha = alpha * (l.paper ?? 1);
     ctx.fillStyle = "rgba(74, 52, 28, 0.16)";
@@ -1559,11 +1515,11 @@ export function render(
 
   // ---- feelings' signs over the tags ----
   // Drawn after every tag and the night, so a neighbor's tag never covers a sign.
-  for (const [i, l] of labels.entries()) {
-    if (!l.icon || l.top === undefined) continue;
+  for (const { label: l, sign: at } of tags) {
+    if (!l.icon || !at || l.top === undefined) continue;
     if (l.away && !l.note) {
       // Beside the name, drifting a little, faint like the tag.
-      const at = besideTag(l, widths[i] ?? 0, l.top);
+      const small = at.right - at.left;
       ctx.globalAlpha = (l.fade ?? 1) * AWAY_TAG_ALPHA;
       ctx.drawImage(
         iconSprite(l.icon, Math.round(small * dpr)),

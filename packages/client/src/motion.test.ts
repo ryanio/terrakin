@@ -13,7 +13,7 @@ import {
   WALK_SPEED,
   wrapWords,
 } from "./motion";
-import { stackBubbles, TAG_OVER_ART, tagPaper } from "./overhead";
+import { type Box, placeTags, stackBubbles, TAG_OVER_ART, tagPaper } from "./overhead";
 
 const at = (x: number, y: number) => ({ id: "a", x, y });
 
@@ -315,6 +315,37 @@ describe("speech bubbles", () => {
     expect(100 - second + 20).toBeLessThanOrEqual(60 - 3);
     // Bubbles apart don't move.
     expect(stackBubbles([box(0, 100), box(200, 100)], [])).toEqual([0, 0]);
+  });
+
+  it("nudge neighbors' name tags apart, the nearest keeping its spot", () => {
+    // A phone's map at 30 px a tile: two residents a tile apart, their names wider than a tile.
+    const size = { tagH: 19, sign: 22 };
+    const overlap = (a: Box, b: Box) =>
+      a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const ada = { name: "ada", x: 195, y: 400 };
+    const bob = { name: "bob", x: 225, y: 400 };
+    const cy = { name: "cy", x: 210, y: 430 };
+    const placed = placeTags([ada, bob, cy], () => 70, size);
+    // Nearest the bottom first, then west to east; the nearest stays right over its foot.
+    expect(placed.map((p) => p.label.name)).toEqual(["cy", "ada", "bob"]);
+    expect(placed[0]?.top).toBe(430 - 19);
+    for (const [i, a] of placed.entries()) {
+      for (const b of placed.slice(i + 1)) {
+        expect(overlap(a.tag, b.tag), `${a.label.name} and ${b.label.name}`).toBe(false);
+      }
+    }
+    // Asleep, a resident's sign goes beside the name, not over it.
+    const asleep = placeTags(
+      [
+        { ...ada, icon: "z", away: true },
+        { ...bob, x: 300, icon: "z", away: true },
+      ],
+      () => 70,
+      size,
+    );
+    expect(asleep.map((p) => p.top)).toEqual([400 - 19, 400 - 19]);
+    const [first] = asleep;
+    expect(first?.sign?.left).toBeGreaterThan(first?.tag.right ?? 0);
   });
 
   it("lets decor show through a name tag that lies over it, and only then", () => {

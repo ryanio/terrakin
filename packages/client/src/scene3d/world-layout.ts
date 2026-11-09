@@ -18,6 +18,7 @@ import {
   insetOf,
   type PickupKind,
   parseEdgeKey,
+  plotKey,
   type Resident,
   type RoofShape,
   type Scenery,
@@ -79,6 +80,47 @@ export function plotsAround(focus: Tile, radius: number, config: WorldConfig): T
   for (let py = py0; py <= py1; py++)
     for (let px = px0; px <= px1; px++) out.push({ x: px, y: py });
   return out;
+}
+
+/** What one frame does to the plots drawn around you. */
+export interface ChunkPlan {
+  /** The plots (by `plotKey`) that stay loaded; the rest are dropped. */
+  keep: ReadonlySet<string>;
+  /** The plots to build, or build again, this frame, nearest first. */
+  build: Tile[];
+  /** Whether more plots wait for a later frame. */
+  pending: boolean;
+}
+
+/**
+ * Which plots to keep and which to build around `focus`, nearest first by their middles and at
+ * most `BUILDS_PER_FRAME`. A plot already built is built again only when something `changed` and
+ * `current(p)`, its drawing's signature check, says it no longer matches.
+ */
+export function chunkPlan(o: {
+  focus: Tile;
+  config: WorldConfig;
+  built: (key: string) => boolean;
+  changed: boolean;
+  current: (p: Tile) => boolean;
+}): ChunkPlan {
+  const { focus, config } = o;
+  const keep = new Set(
+    plotsAround(focus, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
+  );
+  const S = config.plotSize;
+  const middle = (p: Tile) => ({ x: p.x * S + S / 2, y: p.y * S + S / 2 });
+  const wanted = plotsAround(focus, VIEW_RADIUS, config).sort(
+    (a, b) => chebyshev(focus, middle(a)) - chebyshev(focus, middle(b)),
+  );
+  const build: Tile[] = [];
+  for (const p of wanted) {
+    const have = o.built(plotKey(p.x, p.y));
+    if (have && (!o.changed || o.current(p))) continue;
+    if (build.length >= BUILDS_PER_FRAME) return { keep, build, pending: true };
+    build.push(p);
+  }
+  return { keep, build, pending: false };
 }
 
 /**

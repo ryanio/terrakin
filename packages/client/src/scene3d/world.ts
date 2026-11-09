@@ -138,8 +138,8 @@ import { type SeaLook, type SeaTile, seaLook, seaMeshes } from "./sea";
 import { createWeather } from "./weather";
 import {
   approach,
-  BUILDS_PER_FRAME,
   cameraQuarter,
+  chunkPlan,
   chunkSignature,
   dozersAround,
   faceAngle,
@@ -148,7 +148,6 @@ import {
   groundAnchor,
   groundPoint,
   hearthKeys,
-  KEEP_SLACK,
   MAX_FIGURES,
   nearbyLabel,
   plotsAround,
@@ -591,36 +590,33 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     const { config } = mirror;
     const cutAt = (px: number, py: number) =>
       cut && cut.px === px && cut.py === py ? cut.floor : undefined;
-    const keep = new Set(
-      plotsAround(tile, VIEW_RADIUS + KEEP_SLACK, config).map((p) => plotKey(p.x, p.y)),
-    );
-    for (const key of [...chunks.keys()]) if (!keep.has(key)) dropChunk(key);
-    const S = config.plotSize;
-    const wanted = plotsAround(tile, VIEW_RADIUS, config).sort(
-      (a, b) =>
-        chebyshev(tile, { x: a.x * S + S / 2, y: a.y * S + S / 2 }) -
-        chebyshev(tile, { x: b.x * S + S / 2, y: b.y * S + S / 2 }),
-    );
-    let built = 0;
-    pending = false;
-    for (const p of wanted) {
+    const plan = chunkPlan({
+      focus: tile,
+      config,
+      built: (key) => chunks.has(key),
+      changed,
+      current: (p) => {
+        const key = plotKey(p.x, p.y);
+        const lit = homes.has(key);
+        const signature = chunkSignature(
+          mirror,
+          p.x,
+          p.y,
+          hearths,
+          season,
+          lit,
+          cutAt(p.x, p.y),
+          viewer,
+        );
+        return chunks.get(key)?.signature === signature;
+      },
+    });
+    for (const key of [...chunks.keys()]) if (!plan.keep.has(key)) dropChunk(key);
+    pending = plan.pending;
+    for (const p of plan.build) {
       const key = plotKey(p.x, p.y);
-      const have = chunks.get(key);
-      if (have && !changed) continue;
-      const lit = homes.has(key);
-      const at = cutAt(p.x, p.y);
-      if (
-        have &&
-        have.signature === chunkSignature(mirror, p.x, p.y, hearths, season, lit, at, viewer)
-      )
-        continue;
-      if (built >= BUILDS_PER_FRAME) {
-        pending = true;
-        break;
-      }
       dropChunk(key);
-      chunks.set(key, buildChunk(mirror, p.x, p.y, at));
-      built++;
+      chunks.set(key, buildChunk(mirror, p.x, p.y, cutAt(p.x, p.y)));
     }
   }
 

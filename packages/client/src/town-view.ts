@@ -573,6 +573,10 @@ export function townView(ctx: ViewContext): View {
     if (destroyed) return;
     if (w.ok) commons = commonsOf(w.data);
     const c = commons;
+    // Once walls go only on the lines between tiles, a Town Hall build puts up none (decision
+    // 0428), so the Blocks row offers only the pond.
+    const townBlocks: readonly ((typeof BUILDING_BLOCKS)[number] | "pond")[] =
+      w.ok && w.data.wallsOnLines ? ["pond"] : [...BUILDING_BLOCKS, "pond"];
     const limits = town.limits;
     type Kind = "advisory" | "commons_build" | "grant" | "bounty";
     let kind: Kind = "advisory";
@@ -604,7 +608,7 @@ export function townView(ctx: ViewContext): View {
     };
 
     // The build bar's tabs and rows, with nothing dimmed: the town pays for nothing.
-    let pick: CommonsPick = "wood";
+    let pick: CommonsPick = townBlocks[0] ?? "pond";
     const row = (tab: PaletteTab) =>
       h("div", {
         class: "palette-row",
@@ -623,7 +627,7 @@ export function townView(ctx: ViewContext): View {
     const pickWords = h("p", { class: "palette-line", attrs: { "aria-live": "polite" } });
     const paintPicks = () => {
       // A pond too (RFC 0023), for everyone to fish beside.
-      paintBlockRow(rows.blocks, [...BUILDING_BLOCKS, "pond"], pick);
+      paintBlockRow(rows.blocks, townBlocks, pick);
       paintGroundRow(rows.ground, null, pick);
       paintHeldRow(rows.furniture, null, pick);
       pickWords.textContent = pickLine(pick);
@@ -643,7 +647,11 @@ export function townView(ctx: ViewContext): View {
           for (const [name, el] of Object.entries(rows)) el.hidden = name !== tab;
           if (tabOf(pick) !== tab) {
             pick =
-              tab === "blocks" ? "wood" : tab === "ground" ? "cobble" : (HELD_KINDS[0] ?? "bench");
+              tab === "blocks"
+                ? (townBlocks[0] ?? "pond")
+                : tab === "ground"
+                  ? "cobble"
+                  : (HELD_KINDS[0] ?? "bench");
           }
           paintPicks();
         },

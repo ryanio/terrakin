@@ -160,13 +160,28 @@ import {
   VIEW_RADIUS,
 } from "./world-layout";
 
+/** A line between tiles a tap hit, as the sim keys it: its tile and `n` or `w`. */
+export interface TapLine {
+  x: number;
+  y: number;
+  side: "n" | "w";
+}
+
+/** A box of tiles, corner to corner. */
+interface TileBox {
+  x0: number;
+  y0: number;
+  x1: number;
+  y1: number;
+}
+
 export interface World3dOptions {
   /**
-   * A tap on the world, as the tile it landed on and where in that tile, in tiles from its middle
-   * (what the build bar's walls between tiles read for the nearest side). Walking, building, and
-   * opening things follow.
+   * A tap on the world, as the tile it landed on and where in that tile, in tiles from its middle,
+   * and the line of the wall between tiles it hit, if it hit one (what the build bar reads for the
+   * line a tap means). Walking, building, and opening things follow.
    */
-  onTap(tile: Tile, within: { fx: number; fy: number }): void;
+  onTap(tile: Tile, within: { fx: number; fy: number }, line?: TapLine): void;
   /** Whether a tap on a tile does more than walk there: a mouse over it shows a pointer. */
   tappable?(tile: Tile): boolean;
   /** The 3D view can't go on here: too slow even after stepping down, or the GPU went away. */
@@ -247,6 +262,10 @@ export interface World3dFrame {
   cutFloor?: number;
   /** Fireworks set off lately (RFC 0034), the same the map draws. */
   bursts?: readonly BurstMark[];
+  /** While building, the tiles you reach, outlined as on the map. Absent: none. */
+  reach?: TileBox | undefined;
+  /** While building on a plot, the plot: the camera looks at its middle rather than at you. */
+  frame?: TileBox | undefined;
 }
 
 export interface World3d {
@@ -479,7 +498,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   reach.visible = false;
   reach.renderOrder = 3;
   scene.add(reach);
-  let reachSize = -1;
+  let reachDrawn = "";
 
   // ---------- plots ----------
 
@@ -1276,20 +1295,21 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     }
   }
 
-  function placeReach(mirror: Mirror, self: Resident, on: boolean) {
-    reach.visible = on;
-    if (!on) return;
-    const r = mirror.config.reach;
-    if (reachSize !== r) {
-      reachSize = r;
-      const e = r + 0.5;
+  /** The outline round what you reach while building, on the floor you stand on. */
+  function placeReach(self: Resident, box: TileBox | undefined) {
+    reach.visible = box !== undefined;
+    if (!box) return;
+    const drawn = `${box.x0},${box.y0},${box.x1},${box.y1}`;
+    if (reachDrawn !== drawn) {
+      reachDrawn = drawn;
+      const [x0, z0, x1, z1] = [box.x0 - 0.5, box.y0 - 0.5, box.x1 + 0.5, box.y1 + 0.5];
       reach.geometry.setAttribute(
         "position",
-        new Float32BufferAttribute([-e, 0, -e, e, 0, -e, e, 0, e, -e, 0, e], 3),
+        new Float32BufferAttribute([x0, 0, z0, x1, 0, z0, x1, 0, z1, x0, 0, z1], 3),
       );
       reach.computeLineDistances();
     }
-    reach.position.set(self.x, floorY(self.floor) + 0.04, self.y);
+    reach.position.set(0, floorY(self.floor) + 0.04, 0);
   }
 
   // ---------- taps ----------
@@ -1312,7 +1332,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
     if (!d || d.id !== e.pointerId) return;
     if (Math.hypot(e.clientX - d.x, e.clientY - d.y) > 8 || e.timeStamp - d.t > 500) return;
     const picked = pick(e.clientX, e.clientY);
-    if (picked && lastMirror) opts.onTap(picked.tile, picked.within);
+    if (picked && lastMirror) opts.onTap(picked.tile, picked.within, picked.line);
   };
   const onCancel = () => {
     pointers = Math.max(0, pointers - 1);
@@ -1354,7 +1374,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
   function pick(
     clientX: number,
     clientY: number,
-  ): { tile: Tile; within: { fx: number; fy: number } } | undefined {
+  ): { tile: Tile; within: { fx: number; fy: number }; line?: TapLine } | undefined {
     const middle = { fx: 0, fy: 0 };
     const rect = canvas.getBoundingClientRect();
     ndc.set(
@@ -1390,6 +1410,10 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         ownerOf(hit.object, (o) => o === b.group),
       );
       const spot = spotOfHit([hit.point.x, hit.point.y, hit.point.z], dir);
+      // A wall between tiles (RFC 0050) is its line: the instance the ray hit says which.
+      const edges = hit.object.userData.edges as readonly TapLine[] | undefined;
+      const edge = hit.instanceId === undefined ? undefined : edges?.[hit.instanceId];
+      if (edge) return { ...spot, line: { x: edge.x, y: edge.y, side: edge.side } };
       if (!building) return spot;
       const { tile } = spot;
       // Anything on a building, its label too, is one of its tiles.
@@ -1500,7 +1524,14 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
       }
       const followed = look?.id ?? (look ? undefined : me);
       const fig = followed === undefined ? undefined : figures.get(followed);
-      if (fig) follow(fig.group.position, fig.rise);
+      const framed = frame.frame && !look ? frame.frame : undefined;
+      // Building on a plot, the camera holds on the plot's middle while you move about it.
+      if (framed)
+        follow(
+          lookSpot.set((framed.x0 + framed.x1) / 2, 0, (framed.y0 + framed.y1) / 2),
+          fig?.rise,
+        );
+      else if (fig) follow(fig.group.position, fig.rise);
       else if (look) follow(lookSpot.set(look.x, 0, look.y));
       // Signs keep a readable size as the camera pulls back. Only a zoom changes it.
       const sign = signSize(camera.position.distanceTo(controls.target), camera.fov);
@@ -1509,7 +1540,7 @@ export function createWorld3d(host: HTMLElement, opts: World3dOptions): World3d 
         for (const f of figures.values()) sizeSign(f.group, sign);
         moved = true;
       }
-      if (self) placeReach(mirror, self, buildMode && !look);
+      if (self) placeReach(self, buildMode && !look ? frame.reach : undefined);
       // The map's time of day, then the weather on top of it (decision 0098), with a holiday's
       // evenings tinted (RFC 0022).
       if (sparks.set(frame.bursts ?? [], now, still)) moved = true;

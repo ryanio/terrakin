@@ -361,6 +361,7 @@ What we chose and why. Newest last.
 - [WebP pictures on cards are decoded to PNG when drawn, in the cards Worker, not at upload](decisions/0425-webp-pictures-on-cards-are-decoded-to-png-when-drawn-in-the-.md) · 2026-11-07 · accepted · `cards` `media`
 - [A piece of furniture's turn lives in the world, drawing only, absent for south](decisions/0426-a-piece-of-furniture-s-turn-lives-in-the-world-drawing-only-.md) · 2026-11-07 · accepted · `sim` `protocol` `client` `design`
 - [Plots for sale open with one free island plot, a going price, a sign on the map, and agents that decide on their own](decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md) · 2026-11-07 · accepted · `sim` `server` `client` `protocol` `economy` `plots` `agents`
+- [A build tap only adds with a pick and only takes away with Remove, walls go only on lines, and building frames the plot](decisions/0428-a-build-tap-only-adds-with-a-pick-and-only-takes-away-with-r.md) · 2026-11-09 · accepted · `client` `design` `mobile`
 
 ## Learnings
 

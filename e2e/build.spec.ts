@@ -10,7 +10,8 @@ import { act, freePlots, join, persona, read, signIn, tapTile, watchErrors } fro
  * Upstairs picked, and Go up beside her on the stairs, with the picker following her up, then a
  * gable roof of wood put on from the bar's Roof chip (RFC 0041). Before that, a candle put on the
  * table from the sheet a tap on it opens (RFC 0050), her hut's door
- * (decision 0349): drawn on the map, walked through, and hung again on its line between tiles, and
+ * (decision 0349): drawn on the map, walked through, taken down with Remove and hung again on its
+ * line between tiles (decision 0428), and
  * her hut built from walls between tiles from the start (RFC 0050), so she can stand in its corners.
  */
 
@@ -225,23 +226,25 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
     await expect.poll(where).toMatchObject({ x: start.x, y: start.y + 3 });
     await tapTile(page, 0, -3);
     await expect.poll(where).toMatchObject({ x: start.x, y: start.y });
-    // In the build bar, with Door picked and walls between tiles, a tap by the line takes the door
-    // down and the next hangs it again.
+    // In the build bar (decision 0428), Remove takes the door down with a tap inside the room near
+    // its line, and with Door picked a tap there hangs it again: a pick never takes anything up.
     await page.click("#build");
-    await page.click('[data-block="door"]');
-    await expect(page.locator("#palette-line")).toContainText("Door: free.");
-    const lines = page.locator("#palette-lines");
-    await lines.click();
-    await expect(lines).toHaveAttribute("aria-pressed", "true");
-    await tapTile(page, 0, 2.35);
+    await page.getByRole("button", { name: "Remove: tap something to take it up" }).first().click();
+    await expect(page.locator("#palette-line")).toContainText("Remove: tap a wall");
+    await tapTile(page, 0, 2.2);
     await expect.poll(edges).not.toContainEqual(door);
+    await page.click('[data-block="door"]');
+    await expect(page.locator("#palette-line")).toContainText("Door: tap by a line between tiles");
     await tapTile(page, 0, 2.35);
     await expect.poll(edges).toContainEqual(door);
-    await lines.click();
+    // A second tap with Door still picked leaves the door up and says what's there.
+    await tapTile(page, 0, 2.35);
+    await expect(page.locator("#toast")).toContainText("There's a door on that line.");
+    expect(await edges()).toContainEqual(door);
     await page.click("#build");
   });
 
-  await test.step("find her hut roomy already, with nothing to slim, and stand in its corner (RFC 0050)", async () => {
+  await test.step("find her hut roomy already, and stand in its corner (RFC 0050)", async () => {
     const start = await where();
     if (!start) throw new Error("Bramble isn't in the world");
     const { plotSize: S } = (await (await page.request.get("/v1/world")).json()).config;
@@ -249,13 +252,10 @@ test("lay a path and place a table you made, from the build bar's tabs", async (
       Math.floor(t.x / S) === Math.floor(start.x / S) &&
       Math.floor(t.y / S) === Math.floor(start.y / S);
     const world = await (await page.request.get("/v1/world")).json();
-    // A new hut is 20 walls between tiles round 25 tiles, with no wall blocks to slim.
+    // A new hut is 20 walls between tiles round 25 tiles, with no wall blocks in its ring.
     expect(((world.edges ?? []) as Tile[]).filter(mine)).toHaveLength(20);
     const ring = (t: Tile) => Math.max(Math.abs(t.x - start.x), Math.abs(t.y - start.y)) === 2;
     expect((world.blocks as Tile[]).filter(mine).filter(ring)).toEqual([]);
-    await page.click("#build");
-    await expect(page.locator("#slim-walls")).toHaveCount(0);
-    await page.click("#build");
     // A branch lying on the corner would take the tap (it picks it up), so clear what lies in
     // reach first: the tap is for walking.
     await act(page.request, bramble.token, { type: "gather" });

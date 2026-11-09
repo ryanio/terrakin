@@ -44,7 +44,7 @@ import {
   TURNS,
   type Turn,
 } from "@terrakin/sim";
-import { h } from "@terrakin/ui/dom";
+import { h, icon } from "@terrakin/ui/dom";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import {
@@ -250,7 +250,7 @@ export function canLay(kind: GroundKind, holdings: Holdings): boolean {
 export function groundLine(kind: GroundKind, holdings: Holdings): string {
   const { name } = GROUND_INFO[kind];
   const cost = groundCostWords(kind);
-  if (cost === "free") return `${name}: free. Tap a tile to lay it, tap it again to lift it.`;
+  if (cost === "free") return `${name}: free. Tap a tile to lay it. Remove lifts it again.`;
   const short = groundShort(kind, (k: StackKind) => heldOf(holdings, k));
   if (short.length === 0) return `${name}: ${cost} a tile. You have enough.`;
   const missing = short.map((s) => thingCount(s.kind, s.count)).join(" and ");
@@ -299,25 +299,64 @@ export function blockLine(kind: string): string {
   if (kind === "hearth") {
     return "Hearth: your home. Tap a tile on your plot to set it. Home brings you back here, and your pantry arrives here: seeds the first time, then sugar and jars each day.";
   }
-  if (kind === "door") {
-    return "Door: free. Put it in a gap in your walls: everyone walks through it like an open tile. Ground floor only.";
-  }
+  // A wall says how it goes up first, since a phone shows the line's first row.
+  const wall = WALL_WORDS[kind];
+  if (wall) return `${wall[0]}: ${ON_A_LINE.toLowerCase()} ${wall[1]}`;
   const lead =
     BLOCK_WORDS[kind] ??
     `${kind.charAt(0).toUpperCase() + kind.slice(1).replaceAll("_", " ")}: free.`;
-  return `${lead} Tap a tile to place it, tap a block to remove it.`;
+  return `${lead} Tap an open tile to place it.`;
+}
+
+/** How a wall goes up: on the line between two tiles nearest where you tap. */
+export const ON_A_LINE = "Tap by a line between tiles to put it up.";
+
+/**
+ * The free walls, windows, hedges and doors: a name, and what to know after how one goes up. The
+ * wood and stone walls cost none of the wood and stone you pick up, which a newcomer saving for a
+ * fishing rod needs to hear.
+ */
+const WALL_WORDS: Readonly<Record<string, readonly [string, string]>> = {
+  wood: ["Wood wall", "Free, and it uses none of the wood in your things."],
+  stone: ["Stone wall", "Free, and it uses none of the stone in your things."],
+  glass: ["Glass window", "Free."],
+  leaf: ["Leaf hedge", "Free."],
+  door: [
+    "Door",
+    "Free. Put it in a gap in your walls: everyone walks through it. Ground floor only.",
+  ],
+};
+
+/** The line under the tabs with Remove picked: what a tap takes, in the order it takes it. */
+export function removeLine(tab: PaletteTab): string {
+  return tab === "ground"
+    ? "Remove: tap a path or flooring to lift it. A wall by the tap, or a block on it, comes up first."
+    : "Remove: tap a wall to take it down, or a block to take it up. A tap by a line takes the wall.";
 }
 
 /**
- * What a free block is, and for a station what it's for, since the chip is only a color or an icon.
- * The wood and stone walls cost none of the wood and stone you pick up, which a newcomer saving for
- * a fishing rod needs to hear.
+ * The Remove choice, first in each row and kept in view as the row scrolls: with it picked a tap
+ * only ever takes something up, and with anything else picked a tap only ever adds.
  */
+export function removeChoice(picked: boolean): HTMLButtonElement {
+  return h(
+    "button",
+    {
+      class: "palette-named palette-remove",
+      attrs: {
+        type: "button",
+        "data-remove": "",
+        "aria-label": "Remove: tap something to take it up",
+        "aria-pressed": String(picked),
+      },
+    },
+    h("span", { class: "chip palette-chip" }, icon("remove")),
+    h("span", { class: "palette-name", attrs: { "aria-hidden": "true" }, text: "Remove" }),
+  );
+}
+
+/** What a free block is, and for a station what it's for, since the chip is only a color or an icon. */
 const BLOCK_WORDS: Readonly<Record<string, string>> = {
-  wood: "Wood wall: free, and it uses none of the wood in your things.",
-  stone: "Stone wall: free, and it uses none of the stone in your things.",
-  glass: "Glass window: free.",
-  leaf: "Leaf hedge: free.",
   planter: "Planter: free. Place it, then tap it to plant a seed.",
   kitchen:
     "Kitchen: free. Place it, then tap it to make jam, tea, and dishes from what you grow and your pantry's sugar and jars.",
@@ -464,21 +503,6 @@ export function paintTurnChips(row: HTMLElement, kind: string, picked: Turn): vo
 }
 
 /**
- * What a tap in the build bar does to the piece on a tile: with that same kind picked, facing
- * another way than the picker says, the turn to send. Undefined for every other tap, which takes
- * the piece up as a tap always has.
- */
-export function tapTurn(
-  placed: BlockKind | undefined,
-  placedTurn: Turn,
-  pick: string,
-  pickTurn: Turn,
-): Turn | undefined {
-  if (placed === undefined || placed !== pick || !isTurnable(placed)) return undefined;
-  return placedTurn === pickTurn ? undefined : pickTurn;
-}
-
-/**
  * The line's last sentence for a picked piece that turns, once an arrow other than south is picked:
  * which way it goes down, and that a tap on one of yours turns it. Facing south, nothing to add.
  */
@@ -571,7 +595,7 @@ export function paintPotChips(
 export function potPlaceLine(pot: HeldPot | undefined, flower: string | undefined): string {
   if (!pot) return "Pots: fire one at a kiln, then set it down on your plot from here.";
   const holding = flower
-    ? ` It goes down with a ${thingName(flower as ItemKind).toLowerCase()} in it, which stays with the vase.`
+    ? ` On the floor it goes down with a ${thingName(flower as ItemKind).toLowerCase()} in it, which stays with the vase.`
     : "";
-  return `${madeName(pot)}: tap a tile on your plot to set it down, and tap it again to take it up.${holding}`;
+  return `${madeName(pot)}: tap a table or shelf of yours to stand it there, or an open tile to set it down.${holding}`;
 }

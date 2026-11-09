@@ -44,6 +44,7 @@ import {
 } from "@terrakin/ui/figure";
 import { type ArtKind, growth } from "@terrakin/ui/item-art";
 import { lookImage, lookPalette, withAlpha } from "@terrakin/ui/looks";
+import type { BuildSpot } from "./build-taps";
 import { type Camera, screenToTile, tileToScreen } from "./camera";
 import { eventLanterns } from "./event-format";
 import { type Feelings, idPhase, pose, restingPose } from "./feelings";
@@ -91,7 +92,7 @@ import { mapMirrors, paintFurniture, paintGameTable, paintSeatFront } from "./re
 import { type MapGlow, mapGlow } from "./render/glow";
 import { groundWash } from "./render/ground-blend";
 import { groundPicture } from "./render/ground-picture";
-import { paintHover } from "./render/hover";
+import { paintBuildMark, paintHover } from "./render/hover";
 import { labelWidth, ownerHue, paintPlotLabels, saleSign } from "./render/labels";
 import { paintMapMarks } from "./render/marks";
 import { blockColor, CLAY, CLAY_DEEP, INK, PAPER, PAPER_EDGE } from "./render/palette";
@@ -153,6 +154,10 @@ export interface RenderState {
   bursts?: readonly BurstMark[];
   /** The tiles a click would act on, under a mouse pointer, ringed. Absent: nothing is. */
   hover?: readonly { x: number; y: number }[] | undefined;
+  /** While building, the tiles you reach, outlined (`reachBox` in world.ts). */
+  reach?: { x0: number; y0: number; x1: number; y1: number } | undefined;
+  /** While building, the line or tile a tap acts on (or just did, fading), marked. */
+  mark?: { spot: BuildSpot; fade: number } | undefined;
   /** The townsfolk who ask for a job today (RFC 0030): a note over each, awake or asleep. */
   notes?: ReadonlySet<string> | undefined;
   /**
@@ -196,6 +201,8 @@ export function render(
     casts,
     bursts,
     hover,
+    reach,
+    mark,
     notes,
     cutFloor,
   }: RenderState,
@@ -935,20 +942,25 @@ export function render(
     ctx.drawImage(art, sx - w / 2, bottom - h, w, h);
   }
 
-  const self = me ? mirror.residents.get(me) : undefined;
-  if (buildMode && self) {
-    const r = config.reach;
-    const { sx, sy } = tileToScreen(cam, self.x - r, self.y - r);
+  if (buildMode && reach) {
+    const { sx, sy } = tileToScreen(cam, reach.x0, reach.y0);
     ctx.setLineDash([scale * 0.22, scale * 0.16]);
     ctx.strokeStyle = "rgba(255, 250, 240, 0.95)";
     ctx.lineWidth = 2.5;
     ctx.beginPath();
-    ctx.roundRect(sx - half, sy - half, scale * (2 * r + 1), scale * (2 * r + 1), scale * 0.25);
+    ctx.roundRect(
+      sx - half,
+      sy - half,
+      scale * (reach.x1 - reach.x0 + 1),
+      scale * (reach.y1 - reach.y0 + 1),
+      scale * 0.25,
+    );
     ctx.stroke();
     ctx.setLineDash([]);
   }
 
   if (hover) paintHover(ctx, cam, hover);
+  if (buildMode && mark) paintBuildMark(ctx, cam, mark.spot, mark.fade);
 
   // ---- pets: beside their owners, or at home by the hearth (RFC 0019), under the residents ----
   if (pets && smallThings) {

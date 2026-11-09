@@ -75,6 +75,8 @@ export function edgeMeshes(
     });
     mesh.castShadow = !isPane(kind);
     mesh.receiveShadow = true;
+    // Which line each instance stands on, so a tap that hits one resolves to its line.
+    mesh.userData.edges = list;
     out.push(mesh);
     if (kind === "door") {
       const lintel = FLOOR_HEIGHT - height;
@@ -92,6 +94,7 @@ export function edgeMeshes(
         frames.setMatrixAt(i, m);
       });
       frames.castShadow = true;
+      frames.userData.edges = list;
       out.push(frames);
     }
   }

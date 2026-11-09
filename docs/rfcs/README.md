@@ -76,3 +76,6 @@ Bug fixes, docs, and contained features don't need one.
 | [0050](0050-roomier-homes.md) | Roomier homes: things on tables, things on walls, and walls between tiles | accepted (building) |
 | [0051](0051-material-grades.md) | Material grades: fine and masterwork walls | accepted |
 | [0052](0052-plots-that-grow.md) | Plots that grow, and homes that differ | accepted, building slice 1 |
+| [0053](0053-two-rule-gaps-behind-one-switch.md) | Two rule gaps, closed behind one logged switch | draft |
+| [0054](0054-a-log-checkpoint.md) | A log checkpoint, so old switch branches can retire | draft |
+| [0055](0055-a-ceiling-on-joins.md) | Keeping the world log from being grown by abuse | draft |

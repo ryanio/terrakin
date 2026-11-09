@@ -121,6 +121,7 @@ Each system's module holds its numbers in one exported constant (`ECONOMY`, `ITE
 - Every piece of furniture blocks walking but `WALKED_ONTO_SEATS`, and only stairs, a door, and those seats are let through by `blocksWalkers`. The chair and the bench stay solid, since making them walkable would change logged walks, and the rocking chair stays solid like them.
 - A `build` plan is in plot coordinates. `build` refuses all of a plan it gets wrong, and skips and reports what moved. Its events are the single actions' own plus one `inventory` with the net change. `src/fixtures/build-log.ts` pins it.
 - A Town Hall `commons_build` uses nobody's things and, once `keep_table_spots` is logged, puts no block on a game table's spot ([decision 0126](../../docs/knowledge/decisions/0126-town-hall-builds-keep-the-game-tables-spots-clear-from-a-log.md)). `commons-log.ts` and `table-spots-log.ts` pin it.
+- Once `plot_reach` is logged, building reaches every tile of a plot from on it or within `config.reach` of it (`plotReachOk`); once `walls_on_lines` is logged, a wall, window, hedge or door goes only on a line (`wallOnTileProblem`, `needs_side`) and a wall block from before can only come down ([decision 0428](../../docs/knowledge/decisions/0428-building-reaches-the-whole-plot-and-walls-go-only-on-lines-f.md)). `src/fixtures/plot-building-log.ts` pins both.
 - A door is ground floor only and holds nothing up. A lock, if one comes, never counts against a plot's way out. `src/fixtures/doors-log.ts` pins `starter_doors`.
 
 ## Floors (RFC 0028)

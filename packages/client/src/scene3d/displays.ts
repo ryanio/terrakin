@@ -303,10 +303,9 @@ export function displayedThings(
           shown.position.copy(at(d));
         } else {
           // A jar, a bouquet, a wreath: its drawn picture standing on the pedestal, facing you. A
-          // pot set down (RFC 0047) stands on its own tile and floor, a little bigger.
+          // pot set down (RFC 0047) stands on its own tile and floor, about knee high to a figure.
           const ground = d.on === "ground";
-          // A pot set down (RFC 0047) stands a little taller than a tile, so it reads at home.
-          const size = ground ? 1.05 : 0.62;
+          const size = ground ? POT_ON_FLOOR : 0.62;
           const base = ground ? floorY(d.floor) : pedestalTop;
           shown = new Sprite(new SpriteMaterial({ map, alphaTest: 0.5, color: 0xf4f0ea }));
           shown.scale.set(size, size, 1);
@@ -323,6 +322,12 @@ export function displayedThings(
   }
   return group;
 }
+
+/**
+ * How tall a pot set down on the floor is drawn (RFC 0047), in tiles: a vase stands about half as
+ * tall as a figure, never taller than the tile it's on is wide.
+ */
+const POT_ON_FLOOR = 0.55;
 
 /** How big a thing hung on a wall is (RFC 0050), in tiles. */
 const WALL_THING = 0.42;

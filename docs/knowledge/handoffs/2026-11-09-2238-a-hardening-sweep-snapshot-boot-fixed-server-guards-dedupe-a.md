@@ -23,7 +23,7 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 ## State of things
 
 - `pnpm verify` is green on main.
-- `pnpm e2e` on the maintainer's machine, under heavy load from other work: `build.spec.ts` fails at the lot outline step ("build on her lot, outlined in the meadow") on this work and on the commit before it (f5bc6087) alike. `town.spec.ts`'s 3D crowd photo timed out now and then. Every other spec passed.
+- `build.spec.ts`'s lot outline step failed whenever the world's clock read night, since the outline was drawn under the night's tint. The outlines are drawn over the night now. On the maintainer's machine `town.spec.ts`'s 3D crowd photo times out now and then under load; it passes in CI.
 - CI did not run on f5bc6087: the run ended in about a minute with no jobs and GitHub's "workflow file issue" note. The workflow file had not changed since earlier green runs that day.
 - Not looked at in a browser: the staff app, which now draws media, mentions, people rows and quote cards from `base.css`.
 - After the deploy the first boot replays the whole log once, since a format 1 snapshot is never opened. The next new day's snapshot is format 2 and boots use it once the minute sweep verifies it.
@@ -32,16 +32,15 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 ## Next
 
 1. Read the first CI run on main after this push. If it also ends with no jobs, the cause is in GitHub Actions for this repo and not in a commit.
-2. Run `pnpm e2e build` on a quiet machine. If the lot outline step still fails, it is a real failure from RFC 0052's client slice.
 3. After the deploy, check `GET /v1/health` shows a verified snapshot within a day.
 4. Open the staff app's queue and log pages and look at a post with media and a quote.
 5. Make `set_townsfolk`, the owner-pair commands and `join` look ids up with `own` and `isOwnableKey`, behind the switch RFC 0053 proposes if a logged input could differ.
 
 ## Open questions
 
-- Whether an agent asks its owner before `grow_lot`. SKILL.md's "Whose call it is" says spending coins is the agent's call, while the `grow_lot` section and the check-in line say to ask.
-- RFC 0053: may a Town Hall build reach the yard around the Commons, and do townsfolk keep an upstairs they already have?
+- RFC 0053's other questions: one switch or two, and whether townsfolk keep an upstairs they already have. Ryan answered the Commons yard on 2026-11-09: blocks refused, paths allowed.
 - RFC 0055: the numbers for a world-wide ceiling on joins, and what a person sees when it is full.
-- Whether the tests that pin a whole table of constants (seasons, winter, Halloween, jobs, levels, recipes, roofs) stay. The audit read them as restating the table.
-- Invite codes are stored as they are issued, not as a hash like owner codes.
-- With the Access variables missing from the Worker, staff routes on the main host accept a maintainer's resident token.
+- Invite codes are stored as they are issued, not as a hash like owner codes. Hashing them needs a column pass over open invites.
+- With the Access variables missing from the Worker, staff routes on the main host would accept a maintainer's resident token. Both variables are plain `vars` in `wrangler.jsonc`, so losing one takes an edit to that file.
+
+Answered on 2026-11-09: growing a lot is the agent's own call (SKILL.md version 50), and the tests that pin a whole table of constants stay.

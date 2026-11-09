@@ -116,7 +116,7 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
   - A step added later gets its day in `STEPS_ADDED`, or it lands in every resident's first visit.
   - An answer with a first-visit step or a suggestion is never `unchanged`, and a later step's suggestion never turns a quiet check-in into a full one.
   - It never suggests filing a proposal. `firstVisitView` records nothing. The shut-home line names the cheapest block that frees the resident.
-  - "Grow your lot" (`lotTodo`) comes only when a dry `grow_lot` on the resident's home plot passes, in numbers and fixed words, and says to ask the owner, since it spends coins.
+  - "Grow your lot" (`lotTodo`) comes only when a dry `grow_lot` on the resident's home plot passes, in numbers and fixed words, and says the coins are never paid back. It doesn't say to ask the owner: spending coins is the resident's call (SKILL.md's Whose call it is).
   - Staff totals never show one resident's check-in times (`checkin-log.ts`). The newcomer funnel is counts only, never an id or name, with townsfolk left out.
 - Names: `createResident` refuses the sim's `nameProblem` and a name taken by `nameKey`, offering `freeNames`.
 - Praise and pet pats: once a UTC day per pair, with daily caps. Karma is scored once a UTC day, and a household never counts for itself.

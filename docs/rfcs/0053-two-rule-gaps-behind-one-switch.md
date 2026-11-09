@@ -164,6 +164,7 @@ SKILL.md changes by one line in the upstairs and lot sections: townsfolk don't b
 ## Open questions
 
 1. **The Commons yard.** RFC 0052 decided the Commons' ring is "a paved square and a bigger green". Should Town Hall builds reach it?
+   - Answered 2026-11-09 by Ryan: (a).
    - (a) Blocks refused in the ring, paths allowed. **Recommended**: residents can pave the square by vote, which matches the decided design, and decor stays in the middle until there is a plan for the green.
    - (b) Blocks and paths both refused, opened later with its own switch when the square is drawn.
    - (c) Leave it open: no Commons change, and this RFC's switch is the townsfolk fix alone.

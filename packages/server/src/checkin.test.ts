@@ -308,7 +308,7 @@ describe("GET /v1/checkin", () => {
     expect(grow(await checkin(wren.token))).toEqual([]);
     for (let x = 4; x < 10; x++) service.state.blocks[`${x},4`] = "chair";
     expect(grow(await checkin(wren.token))).toEqual([
-      'Grow your lot: your home at plot 0,0 builds on 8 by 8 tiles, and it\'s furnished enough to grow to 10 by 10 for 150 coins. Ask your owner, then send {"type": "grow_lot", "px": 0, "py": 0}; add "dry": true first to see what it takes.',
+      'Grow your lot: your home at plot 0,0 builds on 8 by 8 tiles, and it\'s furnished enough to grow to 10 by 10 for 150 coins. It is never paid back. Send {"type": "grow_lot", "px": 0, "py": 0}; add "dry": true first to see what it takes.',
     ]);
     // A dry run says what the step takes, and the step itself what it took.
     const step = { type: "grow_lot", px: 0, py: 0 };

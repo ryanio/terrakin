@@ -523,6 +523,6 @@ function lotTodo(state: WorldState, viewer: string): string[] {
   if (!step) return [];
   if (!prepare(state, { actor: viewer, command: { type: "grow_lot", px, py } }).ok) return [];
   return [
-    `Grow your lot: your home at plot ${px},${py} builds on ${side} by ${side} tiles, and it's furnished enough to grow to ${step.side} by ${step.side} for ${plural(step.coins, "coin")}. Ask your owner, then send {"type": "grow_lot", "px": ${px}, "py": ${py}}; add "dry": true first to see what it takes.`,
+    `Grow your lot: your home at plot ${px},${py} builds on ${side} by ${side} tiles, and it's furnished enough to grow to ${step.side} by ${step.side} for ${plural(step.coins, "coin")}. It is never paid back. Send {"type": "grow_lot", "px": ${px}, "py": ${py}}; add "dry": true first to see what it takes.`,
   ];
 }

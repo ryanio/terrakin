@@ -1,12 +1,23 @@
 import { appendFileSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { RATE_LIMITS, type ServerMessage, WALK_TO_MAX_STEPS } from "@terrakin/protocol";
+import {
+  MAX_BODY_BYTES,
+  RATE_LIMITS,
+  type ServerMessage,
+  WALK_TO_MAX_STEPS,
+} from "@terrakin/protocol";
 import { CROPS, familyRecipeMiss, GROUND_KINDS, tileKey, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import WebSocket from "ws";
 import { Api } from "./api";
-import { clientIp, createApp } from "./app";
+import {
+  clientIp,
+  createApp,
+  TEST_ADVANCE_DAY_PATH,
+  TEST_GRANT_PATH,
+  TEST_SWEEP_PATH,
+} from "./app";
 import { nodeSql } from "./node-sql";
 import { RateLimiters } from "./rate-limit";
 import { SqlStore } from "./sql-store";
@@ -864,6 +875,27 @@ describe("hardening", () => {
     expect(statuses.slice(burst)).toEqual([429, 429]);
   });
 
+  it("counts new sessions from IPv6 by /48, so /64s in one network share a bucket", async () => {
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const server = createApp({ service, sessionsPerMinute: 1, trustedProxies: 1, onResponse });
+    const base = await listenOnFreePort(server, cleanups);
+    const burst = RATE_LIMITS.sessions.burst;
+    const join = async (ip: string, name: string) =>
+      (
+        await fetch(`${base}/v1/session`, {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-forwarded-for": ip },
+          body: JSON.stringify({ name, kind: "agent" }),
+        })
+      ).status;
+    const statuses = [];
+    // Each call from a /64 of its own, all in 2001:db8:1::/48.
+    for (let i = 0; i < burst + 1; i++) statuses.push(await join(`2001:db8:1:${i}::1`, `n${i}`));
+    expect(statuses.slice(0, burst)).toEqual(Array(burst).fill(201));
+    expect(statuses[burst]).toBe(429);
+    expect(await join("2001:db8:2::1", "other")).toBe(201);
+  });
+
   it("reads the client IP from X-Forwarded-For only for trusted hops", () => {
     const req = (xff?: string) =>
       ({
@@ -899,6 +931,86 @@ describe("hardening", () => {
     expect(readJsonl(path)).toEqual([{ a: 1 }, { a: 2 }]);
     appendFileSync(path, '\n{"a":3}\n');
     expect(() => readJsonl(path)).toThrow(/Corrupt line 3/);
+  });
+});
+
+describe("GET /v1/world", () => {
+  it("builds the snapshot once a second per seq, however often it's asked, with a fresh clock", async () => {
+    let now = 1_700_000_000_000;
+    const { base, service } = await start(new MemoryStore(), { now: () => now });
+    const { token } = await join_(base, "Wren");
+    const builds = vi.spyOn(service, "snapshot");
+    const world = async () => (await api(base, "GET", "/v1/world")).body;
+
+    const first = await world();
+    for (let i = 0; i < 20; i++) await world();
+    expect(builds).toHaveBeenCalledTimes(1);
+    now += 400;
+    const later = await world();
+    expect(builds).toHaveBeenCalledTimes(1);
+    expect(later.time.nowMs).toBe(now);
+    expect({ ...later, time: first.time }).toEqual(first);
+
+    // A change to the world, or a second gone by, builds it again.
+    await api(base, "POST", "/v1/actions", { type: "move", dir: "n" }, token);
+    expect((await world()).seq).toBe(first.seq + 1);
+    expect(builds).toHaveBeenCalledTimes(2);
+    now += 1_000;
+    await world();
+    expect(builds).toHaveBeenCalledTimes(3);
+    builds.mockRestore();
+  });
+});
+
+describe("test routes", () => {
+  it("answer only a direct caller on this machine, never through a proxy", async () => {
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    let moved = 0;
+    const testClock = {
+      advanceDay: () => {
+        moved++;
+        return 1;
+      },
+    };
+    const direct = await listenOnFreePort(createApp({ service, onResponse, testClock }), cleanups);
+    const proxied = await listenOnFreePort(
+      createApp({ service, onResponse, testClock, trustedProxies: 1 }),
+      cleanups,
+    );
+    const post = (base: string, path: string, headers: Record<string, string> = {}) =>
+      fetch(base + path, {
+        method: "POST",
+        headers: { "content-type": "application/json", ...headers },
+        body: "{}",
+      }).then((r) => r.status);
+    const forwarded = { "x-forwarded-for": "198.51.100.7" };
+    for (const path of [TEST_ADVANCE_DAY_PATH, TEST_SWEEP_PATH, TEST_GRANT_PATH]) {
+      expect(await post(direct, path, forwarded), path).toBe(404);
+      expect(await post(proxied, path), path).toBe(404);
+    }
+    expect(moved).toBe(0);
+    // e2e and `pnpm dev:test` call the server on localhost with no proxy, and still get through.
+    expect(await post(direct, TEST_ADVANCE_DAY_PATH)).toBe(200);
+    expect(await post(direct, TEST_SWEEP_PATH)).toBe(200);
+    expect(moved).toBe(1);
+  });
+});
+
+describe("request bodies", () => {
+  it("refuses a body one byte over MAX_BODY_BYTES before it parses", async () => {
+    const { base } = await start();
+    const join = (bytes: number) => {
+      const body = JSON.stringify({ name: "Ada", kind: "human" });
+      return fetch(`${base}/v1/session`, {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: body + " ".repeat(bytes - body.length),
+      });
+    };
+    const over = await join(MAX_BODY_BYTES + 1);
+    expect(over.status).toBe(400);
+    expect(((await over.json()) as { error: { code: string } }).error.code).toBe("bad_request");
+    expect((await join(MAX_BODY_BYTES)).status).toBe(201);
   });
 });
 
@@ -1074,6 +1186,42 @@ describe("WebSocket", () => {
     expect(await c.next("error")).toEqual({ type: "error", id: "j1", error });
     c.send({ type: "action", id: "j2", action: { ...craft, dry: true } });
     expect(await c.next("error")).toEqual({ type: "error", id: "j2", error, dry: true });
+  });
+
+  it("answers a message that doesn't parse in plain words, never the schema's", async () => {
+    const { base } = await start();
+    const c = connect(base);
+    await c.open;
+    c.send({ type: "hello", v: "one", name: "Ada", kind: "human" });
+    const badField = (await c.next("error")).error;
+    expect(badField).toMatchObject({
+      code: "bad_request",
+      message: expect.stringContaining("`v`"),
+    });
+    c.send({ type: "wave" });
+    expect((await c.next("error")).error).toEqual({
+      code: "bad_request",
+      message: "A message's type is one of `hello`, `watch`, `ping`, `action`.",
+    });
+    expect(badField.message).not.toMatch(/invalid_|"path"|\[/);
+  });
+
+  it("refuses a socket message over MAX_BODY_BYTES", () => {
+    const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
+    const api = new Api({ service, skill: "", openapi: "" });
+    const sent: ServerMessage[] = [];
+    const session = api.live("203.0.113.7", {
+      send: (text) => sent.push(JSON.parse(text)),
+      close: () => {},
+    });
+    cleanups.push(() => session.onClose());
+    const hello = JSON.stringify({ type: "hello", v: 1, name: "Ada", kind: "human" });
+    session.onMessage(hello + " ".repeat(MAX_BODY_BYTES + 1 - hello.length));
+    expect(sent).toEqual([
+      { type: "error", error: { code: "bad_request", message: "Message too large." } },
+    ]);
+    session.onMessage(hello + " ".repeat(MAX_BODY_BYTES - hello.length));
+    expect(sent[1]).toMatchObject({ type: "welcome" });
   });
 });
 

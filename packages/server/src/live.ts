@@ -36,6 +36,14 @@ const HELLO_TIMEOUT_MS = 5_000;
  */
 export const MAX_WATCHERS = 2_000;
 export const MAX_WATCHERS_PER_NETWORK = 50;
+/**
+ * `hello` sockets open at once for one resident, from one network (an IPv4 address or IPv6 /48),
+ * and `hello` sockets that asked for `posts` in all. Each gets a whole snapshot and is held by the
+ * one World object, so past a cap a hello gets `rate_limited` and the socket closes.
+ */
+export const MAX_HELLOS_PER_RESIDENT = 5;
+const MAX_HELLOS_PER_NETWORK = 100;
+const MAX_HELLO_POSTS = 2_000;
 /** A watch socket closes this long after it opened; the page opens another on the next interaction. */
 export const WATCH_MAX_MS = 20 * MINUTE_MS;
 /** A watch socket that hasn't sent anything (a ping) for this long is dropped. Pages ping every 45 s. */
@@ -79,23 +87,35 @@ function frame(message: ServerMessage): string {
 export class PostListeners {
   /** `watch` sockets, capped in all and per network. */
   private readonly watchers = new Set<PostListener>();
-  /** `hello` sockets that asked for `posts`. They're sessions already, so no cap here. */
+  /** `hello` sockets that asked for `posts`, capped in all. */
   private readonly helloPosts = new Set<PostListener>();
   private readonly watchersByNetwork = new Map<string, number>();
+  /** Open `hello` sockets by resident and by network, each capped. */
+  private readonly hellosByResident = new Map<string, number>();
+  private readonly hellosByNetwork = new Map<string, number>();
   private readonly social: SocialService | undefined;
   private readonly maxWatchers: number;
   private readonly maxWatchersPerNetwork: number;
+  private readonly maxHellosPerResident: number;
+  private readonly maxHellosPerNetwork: number;
+  private readonly maxHelloPosts: number;
   private readonly now: () => number;
 
   constructor(options: {
     social: SocialService | undefined;
     maxWatchers: number;
     maxWatchersPerNetwork: number;
+    maxHellosPerResident?: number | undefined;
+    maxHellosPerNetwork?: number | undefined;
+    maxHelloPosts?: number | undefined;
     now: () => number;
   }) {
     this.social = options.social;
     this.maxWatchers = options.maxWatchers;
     this.maxWatchersPerNetwork = options.maxWatchersPerNetwork;
+    this.maxHellosPerResident = options.maxHellosPerResident ?? MAX_HELLOS_PER_RESIDENT;
+    this.maxHellosPerNetwork = options.maxHellosPerNetwork ?? MAX_HELLOS_PER_NETWORK;
+    this.maxHelloPosts = options.maxHelloPosts ?? MAX_HELLO_POSTS;
     this.now = options.now;
   }
 
@@ -149,7 +169,46 @@ export class PostListeners {
     return undefined;
   }
 
-  /** @internal Used by LiveSession: a hello socket that asked for posts. */
+  /**
+   * @internal Used by LiveSession. Why a hello can't open, or undefined. With no resident yet (a
+   * hello that will make one), only the network and the posts caps are checked.
+   */
+  helloRefusal(
+    residentId: string | undefined,
+    network: string,
+    posts: boolean,
+  ): string | undefined {
+    if ((this.hellosByNetwork.get(network) ?? 0) >= this.maxHellosPerNetwork) {
+      return "Too many sockets from your network are open. Close one, then say hello again.";
+    }
+    if (residentId && (this.hellosByResident.get(residentId) ?? 0) >= this.maxHellosPerResident) {
+      return `You have ${this.maxHellosPerResident} sockets open already. Close one, then say hello again.`;
+    }
+    if (posts && this.helloPosts.size >= this.maxHelloPosts) {
+      return "Lots of people are listening for posts right now. Say hello without posts, or poll GET /v1/feed.";
+    }
+    return undefined;
+  }
+
+  /** @internal Used by LiveSession, after `helloRefusal` passed: count an open hello socket. */
+  addHello(residentId: string, network: string) {
+    this.hellosByResident.set(residentId, (this.hellosByResident.get(residentId) ?? 0) + 1);
+    this.hellosByNetwork.set(network, (this.hellosByNetwork.get(network) ?? 0) + 1);
+  }
+
+  /** @internal Used by LiveSession when a hello socket closes. */
+  removeHello(residentId: string, network: string) {
+    for (const [map, key] of [
+      [this.hellosByResident, residentId],
+      [this.hellosByNetwork, network],
+    ] as const) {
+      const left = (map.get(key) ?? 1) - 1;
+      if (left > 0) map.set(key, left);
+      else map.delete(key);
+    }
+  }
+
+  /** @internal Used by LiveSession: a hello socket that asked for posts, after `helloRefusal`. */
   addHelloPosts(listener: PostListener) {
     this.helloPosts.add(listener);
   }
@@ -192,6 +251,8 @@ export class LiveSession {
   private watching = false;
   private unsubscribe: (() => void) | undefined;
   private unwatch: (() => void) | undefined;
+  /** The resident and network this socket's hello is counted under, once it's open. */
+  private hello: { residentId: string; network: string } | undefined;
   private readonly helloTimer: ReturnType<typeof setTimeout>;
 
   constructor(
@@ -274,6 +335,8 @@ export class LiveSession {
     this.unwatch = undefined;
     if (this.posts) this.api.postListeners.removePostListener(this.posts);
     this.posts = undefined;
+    if (this.hello) this.api.postListeners.removeHello(this.hello.residentId, this.hello.network);
+    this.hello = undefined;
     if (this.residentId) this.api.service.socketClosed(this.residentId);
     this.residentId = undefined;
     this.watchingAs = undefined;
@@ -302,7 +365,7 @@ export class LiveSession {
         dry: hint.dry,
       });
     }
-    if (!parsed.success) return this.fail("bad_request", parsed.error.message);
+    if (!parsed.success) return this.fail("bad_request", messageProblem(raw));
     const msg = parsed.data;
     if (this.posts) this.posts.heardAt = this.api.clock();
     // A message on a socket signed in with a token is a call with it, so it cancels an owner's
@@ -364,12 +427,20 @@ export class LiveSession {
         this.fail("version_mismatch", `This server speaks v${PROTOCOL_VERSION}.`);
         return this.socket.close(4001, "version mismatch");
       }
+      const network = this.api.watchNetworkOf(this.ip);
+      const listeners = this.api.postListeners;
+      const tooMany = (refused: string) => {
+        this.fail("rate_limited", refused);
+        this.socket.close(4029, "too many sockets");
+      };
       let id: string;
       let token: string;
       if (msg.token) {
         const sent = bearerToken(msg.token) ?? "";
         const known = service.authenticate(sent);
         if (!known) return this.tokenRefused(msg.token);
+        const refused = listeners.helloRefusal(known, network, msg.posts === true);
+        if (refused) return tooMany(refused);
         const online = service.ensureOnline(known);
         if (!online.ok) return this.fail(online.error.code, online.error.message);
         id = known;
@@ -377,6 +448,8 @@ export class LiveSession {
       } else {
         if (!msg.name || !msg.kind)
           return this.fail("bad_request", "Send a token, or a name and kind.");
+        const refused = listeners.helloRefusal(undefined, network, msg.posts === true);
+        if (refused) return tooMany(refused);
         if (!this.api.takeSession(this.ip)) {
           return this.fail("rate_limited", "Too many new sessions. Try again in a minute.");
         }
@@ -391,13 +464,15 @@ export class LiveSession {
       }
       // Only now is this socket bound to a resident.
       this.residentId = id;
+      this.hello = { residentId: id, network };
+      listeners.addHello(id, network);
       clearTimeout(this.helloTimer);
       service.socketOpened(id);
       this.send({ type: "welcome", residentId: id, token, world: service.snapshot() });
       this.unsubscribe = service.subscribe(id, (m) => this.send(m));
       if (msg.posts) {
         this.posts = this.listener(id, false);
-        this.api.postListeners.addHelloPosts(this.posts);
+        listeners.addHelloPosts(this.posts);
       }
       // A revoke or a re-key turning off this agent's tokens ends every connection one opened.
       this.unwatch = service.watchRevocation(id, sha256HexSync(token), () => {
@@ -487,6 +562,22 @@ function actionHint(
     ...withId,
   };
 }
+
+/**
+ * Why a socket message didn't parse, in plain words: checked against the one kind of message its
+ * `type` names, so the words are about that kind's fields.
+ */
+function messageProblem(raw: unknown): string {
+  const type =
+    typeof raw === "object" && raw !== null ? (raw as { type?: unknown }).type : undefined;
+  const kind = ClientMessage.options.find((o) => o.shape.type.value === type);
+  if (!kind) return `A message's type is one of ${MESSAGE_TYPES}.`;
+  const checked = kind.safeParse(raw);
+  if (checked.success) return "That message didn't parse.";
+  return plainProblem(kind, raw, checked.error.issues).lines.join(" ");
+}
+
+const MESSAGE_TYPES = ClientMessage.options.map((o) => `\`${o.shape.type.value}\``).join(", ");
 
 /**
  * A `craft` of a family recipe's thing for a kind outside its family, like `tomato_jam`. It isn't a

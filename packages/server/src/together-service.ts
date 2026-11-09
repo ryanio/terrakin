@@ -904,14 +904,21 @@ export class TogetherService {
     return ok({ code, path: `/i/${code}`, share, createdAt: iso(now), expiresAt: iso(expires) });
   }
 
-  /** An invite that can still be accepted, or undefined (unknown, used, or expired: all alike). */
+  /**
+   * An invite that can still be accepted, or undefined (unknown, used, expired, or made by someone
+   * suspended now: all alike), so a suspended inviter's invite neither brings anyone in nor shares
+   * their plot.
+   */
   openInvite(
     code: string,
   ): { code: string; inviter: string; share: boolean; expiresAt: string } | undefined {
+    const now = this.o.now();
     const row = this.rows(
-      "SELECT * FROM invites WHERE code = ? AND used_by = '' AND expires_at > ?",
+      `SELECT * FROM invites WHERE code = ? AND used_by = '' AND expires_at > ?
+        AND ${NOT_SUSPENDED("inviter")}`,
       code,
-      this.o.now(),
+      now,
+      now,
     )[0];
     if (!row || !this.o.resident(String(row.inviter))) return undefined;
     return {

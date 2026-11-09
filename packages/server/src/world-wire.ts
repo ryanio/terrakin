@@ -475,6 +475,21 @@ function waysField(state: WorldState) {
   return { ways };
 }
 
+/**
+ * A snapshot's fields that read the clock rather than the world: the time, the season and
+ * weather, and the time of day. A snapshot built a moment ago takes these afresh.
+ */
+export function clockFields(nowMs: number, day: number | undefined) {
+  return {
+    // The sim never sees a clock; this is presentation state, anchored by the server. So are the
+    // weather and the season it reads off the same clock (decision 0073).
+    time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
+    ...skyAt(nowMs, day),
+    // The time of day on the same clock, which a cast logs (RFC 0023).
+    timeOfDay: timeOfDayAt(nowMs, DAY_LENGTH_MS),
+  };
+}
+
 /** The world as `GET /v1/world` and a socket's `welcome` show it. */
 export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldSnapshot {
   const { nowMs, hash, facing, routineSteps, noteHidden, repeatJoins } = extras;
@@ -535,12 +550,7 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     v: PROTOCOL_VERSION,
     seq: state.seq,
     hash,
-    // The sim never sees a clock; this is presentation state, anchored by the server. So are the
-    // weather and the season it reads off the same clock (decision 0073).
-    time: { nowMs, dayLengthMs: DAY_LENGTH_MS },
-    ...skyAt(nowMs, state.day),
-    // The time of day on the same clock, which a cast logs (RFC 0023).
-    timeOfDay: timeOfDayAt(nowMs, DAY_LENGTH_MS),
+    ...clockFields(nowMs, state.day),
     ...holidaysField(state.day),
     config: {
       width: state.config.width,

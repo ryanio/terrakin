@@ -7,6 +7,7 @@ import { createApp } from "./app";
 import { ipKey } from "./handlers/shared";
 import {
   type LiveSocket,
+  MAX_HELLOS_PER_RESIDENT,
   MAX_WATCHERS,
   MAX_WATCHERS_PER_NETWORK,
   WATCH_MAX_MS,
@@ -39,7 +40,13 @@ afterEach(async () => {
 // biome-ignore lint/suspicious/noExplicitAny: the response checker already holds every body to its schema.
 type Json = Record<string, any>;
 
-async function start(caps: { maxWatchers?: number; maxWatchersPerNetwork?: number } = {}) {
+async function start(
+  caps: {
+    maxWatchers?: number;
+    maxWatchersPerNetwork?: number;
+    maxHellosPerResident?: number;
+  } = {},
+) {
   const service = new WorldService({ store: new MemoryStore(), config: CONFIG });
   const sql = nodeSql();
   const media = new MemoryMediaStore();
@@ -288,6 +295,32 @@ describe("post messages on /v1/live", () => {
       error: { code: "rate_limited", message: expect.stringContaining("Lots of people") },
     });
     await expect.poll(() => extra.closed()).toBe(4029);
+  });
+
+  it("caps how many hello sockets one token can hold open", async () => {
+    expect(MAX_HELLOS_PER_RESIDENT).toBeGreaterThanOrEqual(3);
+    const { join, hello } = await start({ maxHellosPerResident: 3 });
+    const ash = join("Ash");
+    const open = Array.from({ length: 3 }, () => hello(ash.token, true));
+    await Promise.all(open.map((s) => s.ready));
+    expect(open.every((s) => s.messages[0]?.type === "welcome")).toBe(true);
+
+    const extra = hello(ash.token, true);
+    await extra.ready;
+    expect(extra.messages[0]).toMatchObject({
+      type: "error",
+      error: { code: "rate_limited", message: expect.stringContaining("sockets open") },
+    });
+    await expect.poll(() => extra.closed()).toBe(4029);
+
+    // Another resident on the same network still gets in, and closing one frees its place.
+    const wren = hello(join("Wren").token);
+    await wren.ready;
+    expect(wren.messages[0]?.type).toBe("welcome");
+    open[0]?.ws.close();
+    await expect.poll(() => open[0]?.closed()).toBeDefined();
+    const again = hello(ash.token);
+    await expect.poll(() => again.messages[0]?.type).toBe("welcome");
   });
 
   it("counts IPv6 watchers by /48", () => {

@@ -1251,7 +1251,7 @@ describe("GET /v1/act/{key}/checkin", () => {
     expect(quiet).toContain("## Still to do from your first visit");
     expect(quiet).not.toContain("## New in the devlog");
     const feed = (await call("GET", `/v1/act/${key}/feed`)).text;
-    expect(feed).toContain(`Follow Ash: http`);
+    expect(feed).toContain(`Follow \`${ash.id}\`: http`);
     expect(feed).toContain(`/v1/act/${key}/follow?resident=${ash.id}`);
     await settleIn(ok, wren.token, ash.id);
     const later = (

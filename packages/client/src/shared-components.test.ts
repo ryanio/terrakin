@@ -536,6 +536,58 @@ describe("one definition per rule", () => {
     expect([...new Set(used)].filter((t) => !defined.has(t))).toEqual([]);
   });
 
+  it("every class a packages/ui module puts on an element is styled in base.css", () => {
+    // A piece built in packages/ui and styled in an app's sheet looks right in one app and bare
+    // in the other. The words are read from the class list as written: a `${...}` and any word
+    // glued to one name a family (`s-${status}`), not a class.
+    const put =
+      /\bclass:|\b(?:className|classes)\s*=(?!=)|classList\.(?:add|toggle)\(|setAttribute\("class",|\bicon\([^,()]+,/g;
+    const classesIn = (text: string) => {
+      const out = new Set<string>();
+      const words = (s: string) => {
+        for (const w of s.split(/\s+/)) if (/^[a-z][a-z0-9-]*$/.test(w)) out.add(w);
+      };
+      for (const line of text.replace(/\/\*[\s\S]*?\*\/|^\s*\/\/.*$/gm, "").split("\n")) {
+        const plain = line.replace(/[\w-]*\$\{[^}]*\}[\w-]*/g, " ");
+        for (const m of plain.matchAll(/\bclass="([^"]*)"/g)) words(m[1] ?? "");
+        for (const m of plain.matchAll(put)) {
+          // The class value runs to the next property, the end of the call, or the statement.
+          const value = plain.slice(m.index + m[0].length).split(/[;})]|,\s*"?[\w-]+"?\s*:/)[0];
+          for (const lit of (value ?? "").matchAll(/(?<![!=]==\s*)(?:"([^"]*)"|`([^`]*)`)/g))
+            words(lit[1] ?? lit[2] ?? "");
+        }
+      }
+      return out;
+    };
+    // Names a script or a test finds the element by, with no look of their own, and one piece
+    // whose rules are still shared with an app's own class.
+    const hooks: Record<string, string> = {
+      page: "every page's root, which e2e finds",
+      "item-rows": "itemRows, drawn by the stack and plain-list beside it",
+      "copy-button": "the top bar's copy popover finds its button by it (chrome.ts)",
+      "tag-card-text": "tagCard's words, in the card's own type",
+      "has-figure": "an avatar drawn from a look, which e2e finds",
+      "has-image": "an avatar with a picture; the profile banner's own has-image is styled there",
+      "pet-art": "petArt's svg, sized where it is used",
+      failed: "a post picture that would not load",
+      "swatch-row":
+        "chips' default row: its rules in style.css are shared with the client's .pick-row",
+    };
+    const css = cssRules(read("packages/ui/src/base.css"));
+    const styled = selectors([...css.top, ...css.nested]).join("\n");
+    const ui = sources(["packages/ui/src"], ["packages/ui/src/ui.ts"]);
+    const found = new Set(ui.flatMap((f) => [...classesIn(f.text)]));
+    expect(found.size).toBeGreaterThan(100);
+    const bare = ui.flatMap((f) =>
+      [...classesIn(f.text)]
+        .filter((c) => !(c in hooks) && !new RegExp(`\\.${c}(?![\\w-])`).test(styled))
+        .map((c) => `${f.path}: .${c}`),
+    );
+    expect(bare).toEqual([]);
+    // A hook nothing puts on an element any more comes off the list.
+    expect(Object.keys(hooks).filter((c) => !found.has(c))).toEqual([]);
+  });
+
   for (const path of APP_SHEETS) {
     it(`${path} leaves the shared components' rules to base.css, at every screen size`, () => {
       const { top, nested } = cssRules(read(path));

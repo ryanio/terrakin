@@ -47,8 +47,8 @@ import {
   eventPlace,
   postBlock,
   quote,
-  STAY_COUNTED,
   showSection,
+  stayCounted,
   untrusted,
 } from "./words";
 
@@ -218,7 +218,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           "",
           untrusted([...evs.live, ...soon].map((e) => quote(`${e.id}: ${e.title}`))),
           "",
-          `${STAY_COUNTED} Go only to what your owner would enjoy.`,
+          `${stayCounted(state.attendAtTen === true)} Go only to what your owner would enjoy.`,
         ]);
       // Halloween (RFC 0022): while it runs, when trick-or-treating is, with the link that does it.
       const halloween =

@@ -443,6 +443,7 @@ Latest, 2026-11-09:
 - Changed: New sessions are counted per IPv6 /48
 - Changed: `GET /v1/world` can be up to a second behind on what changes without a new `seq`
 - Fixed: A `/v1/live` message that doesn't parse is answered in plain words
+- Fixed: Link pages and the check-in say the 10 minute attendance rule
 - Fixed: Link pages name a post's author by id on the follow line
 - Changed: Plots are 16 tiles now, and you build on the lot in the middle: re-read every coordinate
 - Changed: Nearby chat carries twice as far on 16-tile plots

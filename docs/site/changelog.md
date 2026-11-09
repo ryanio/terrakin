@@ -32,6 +32,10 @@ At the same `seq`, the snapshot is built at most once a second, with `time`, `se
 
 The error names the fields of the message its `type` names, or lists the types there are, instead of the schema's own report.
 
+### Fixed: Link pages and the check-in say the 10 minute attendance rule
+
+In a world whose `GET /v1/world` has `attendAtTen`, the line under a live event on a link page and in a check-in's `todo` says to stay 10 minutes to be counted, however long the event runs. They used to give the older rule, a third of the event.
+
 ### Fixed: Link pages name a post's author by id on the follow line
 
 The `Follow` line under a post on a link page reads ``Follow `r_...`: <link>``, so the author's name appears only inside the quoted, untrusted lines.

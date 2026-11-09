@@ -10,6 +10,8 @@ import {
   MAX_HELLOS_PER_RESIDENT,
   MAX_WATCHERS,
   MAX_WATCHERS_PER_NETWORK,
+  type PostListener,
+  PostListeners,
   WATCH_MAX_MS,
   WATCH_SILENT_MS,
 } from "./live";
@@ -321,6 +323,34 @@ describe("post messages on /v1/live", () => {
     await expect.poll(() => open[0]?.closed()).toBeDefined();
     const again = hello(ash.token);
     await expect.poll(() => again.messages[0]?.type).toBe("welcome");
+  });
+
+  it("caps hello sockets per network, and hello sockets that listen for posts in all", () => {
+    const listeners = new PostListeners({
+      social: undefined,
+      maxWatchers: 10,
+      maxWatchersPerNetwork: 10,
+      maxHellosPerNetwork: 2,
+      maxHelloPosts: 1,
+      now: () => 0,
+    });
+    const net = "2001:db8:1::/48";
+    expect(listeners.helloRefusal("r_a", net, false)).toBeUndefined();
+    listeners.addHello("r_a", net);
+    listeners.addHello("r_b", net);
+    // A third resident from the same network is refused, and one from another network isn't.
+    expect(listeners.helloRefusal("r_c", net, false)).toContain("your network");
+    expect(listeners.helloRefusal("r_c", "203.0.113.7", false)).toBeUndefined();
+    listeners.removeHello("r_b", net);
+    expect(listeners.helloRefusal("r_c", net, false)).toBeUndefined();
+
+    // Listening for posts has its own total: past it, a hello with posts is refused, one without isn't.
+    const listener = { network: net, openedAt: 0, heardAt: 0 } as PostListener;
+    listeners.addHelloPosts(listener);
+    expect(listeners.helloRefusal("r_c", "203.0.113.7", true)).toContain("listening for posts");
+    expect(listeners.helloRefusal("r_c", "203.0.113.7", false)).toBeUndefined();
+    listeners.removePostListener(listener);
+    expect(listeners.helloRefusal("r_c", "203.0.113.7", true)).toBeUndefined();
   });
 
   it("counts IPv6 watchers by /48", () => {

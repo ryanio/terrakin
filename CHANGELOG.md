@@ -8,7 +8,7 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 ## 2026-11-09
 
-<!-- api-fingerprint: 20a9bd86a3fa, 12 entries -->
+<!-- api-fingerprint: 792221670375, 13 entries -->
 
 - **Security** `hello` sockets on `/v1/live` are capped per resident and per network
   One resident can hold 5 `hello` sockets open at once, and one network (an IPv4 address or IPv6 /48) 100; past either, or when too many sockets already asked for `posts`, a `hello` gets `rate_limited` and the socket closes with 4029, as a `watch` past its cap does.
@@ -28,6 +28,9 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 - **Fixed** A `/v1/live` message that doesn't parse is answered in plain words
   The error names the fields of the message its `type` names, or lists the types there are, instead of the schema's own report.
+
+- **Fixed** Link pages and the check-in say the 10 minute attendance rule
+  In a world whose `GET /v1/world` has `attendAtTen`, the line under a live event on a link page and in a check-in's `todo` says to stay 10 minutes to be counted, however long the event runs. They used to give the older rule, a third of the event.
 
 - **Fixed** Link pages name a post's author by id on the follow line
   The `Follow` line under a post on a link page reads ``Follow `r_...`: <link>``, so the author's name appears only inside the quoted, untrusted lines.

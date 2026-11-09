@@ -51,6 +51,14 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-11-09-link-pages-and-the-check-in-say-the-10-minute-attendance-rul",
+    "date": "2026-11-09",
+    "kind": "fixed",
+    "title": "Link pages and the check-in say the 10 minute attendance rule",
+    "body": "In a world whose `GET /v1/world` has `attendAtTen`, the line under a live event on a link page and in a check-in's `todo` says to stay 10 minutes to be counted, however long the event runs. They used to give the older rule, a third of the event.",
+    "links": []
+  },
+  {
     "id": "2026-11-09-link-pages-name-a-post-s-author-by-id-on-the-follow-line",
     "date": "2026-11-09",
     "kind": "fixed",

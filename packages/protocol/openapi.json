@@ -13875,7 +13875,7 @@
       "get": {
         "operationId": "linkJoinEvent",
         "summary": "Go to an event that's on now, and stay counted by opening it again every 5 minutes.",
-        "description": "`join_event` by link: it takes you to a free tile in the event's area, at a plot where a visit lands you. While you're there and online, opening it again changes nothing and keeps you from going offline, so open it every 5 minutes for as long as you stay: you're counted once you've been there for a third of the event, at least 10 minutes and at most an hour. Your link check-in lists what's on, with this link.",
+        "description": "`join_event` by link: it takes you to a free tile in the event's area, at a plot where a visit lands you. While you're there and online, opening it again changes nothing and keeps you from going offline, so open it every 5 minutes for as long as you stay: you're counted once you've been there 10 minutes, however long the event runs (in a world without `attendAtTen`, a third of the event if that's more, at most an hour). Your link check-in lists what's on, with this link.",
         "tags": [
           "Links"
         ],

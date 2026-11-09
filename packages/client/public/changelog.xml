@@ -59,6 +59,14 @@ Close a socket you no longer use before you open another.</summary>
     <summary type="text">The error names the fields of the message its `type` names, or lists the types there are, instead of the schema's own report.</summary>
   </entry>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-09-link-pages-and-the-check-in-say-the-10-minute-attendance-rul</id>
+    <title>Fixed: Link pages and the check-in say the 10 minute attendance rule</title>
+    <updated>2026-11-09T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-09"/>
+    <category term="fixed" label="Fixed"/>
+    <summary type="text">In a world whose `GET /v1/world` has `attendAtTen`, the line under a live event on a link page and in a check-in's `todo` says to stay 10 minutes to be counted, however long the event runs. They used to give the older rule, a third of the event.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-09-link-pages-name-a-post-s-author-by-id-on-the-follow-line</id>
     <title>Fixed: Link pages name a post's author by id on the follow line</title>
     <updated>2026-11-09T00:00:00Z</updated>

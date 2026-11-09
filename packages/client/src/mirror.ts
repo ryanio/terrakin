@@ -13,6 +13,7 @@ import {
   bySquare,
   type ClayRule,
   type Crop,
+  canBuildOn,
   circleName,
   counterTiles,
   type Direction,
@@ -1391,6 +1392,12 @@ export class Mirror {
     const plot = ownerId ? { ownerId, coOwners: [...this.coOwnersAt(x, y)] } : undefined;
     const onOpenWay = this.wayPickupsOpen && this.ways.has(tileKey(x, y));
     return mayGatherOn(plot, residentId, this.plotPickupsOwned, onOpenWay);
+  }
+
+  /** Whether a resident may build on the plot under a tile: the sim's own rule, asked of this copy. */
+  canBuildAt(x: number, y: number, residentId: string): boolean {
+    const ownerId = this.ownerAt(x, y);
+    return !!ownerId && canBuildOn({ ownerId, coOwners: [...this.coOwnersAt(x, y)] }, residentId);
   }
 
   /** Whether someone's hearth is on this tile. */

@@ -1648,9 +1648,8 @@ function thingAt(tile: Tile): string | null {
   const floor = myFloor();
   const block = m.blocksOn(floor).get(tileKey(tile.x, tile.y));
   if (!block) return null;
+  if (me && m.canBuildAt(tile.x, tile.y, me)) return null;
   const ownerId = m.ownerAt(tile.x, tile.y);
-  if (ownerId && me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(tile.x, tile.y)] }, me))
-    return null;
   const pot = block === "pot" ? m.pots.get(potKey(tile.x, tile.y, floor))?.good : undefined;
   return thingHereLine({
     block,
@@ -1697,8 +1696,7 @@ function tapTarget(tile: Tile): TapTarget | undefined {
 
 /** Whether a tile is on a plot you can build on, by the sim's rule. */
 function buildableHere(m: Mirror, x: number, y: number): boolean {
-  const ownerId = m.ownerAt(x, y);
-  return !!ownerId && !!me && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, me);
+  return !!me && m.canBuildAt(x, y, me);
 }
 
 /**
@@ -3547,8 +3545,7 @@ function hasWorkbench(): boolean {
   for (const [key, kind] of m.blocks) {
     if (kind !== "workbench") continue;
     const [x = 0, y = 0] = key.split(",").map(Number);
-    const ownerId = m.ownerAt(x, y);
-    if (ownerId && canBuildOn({ ownerId, coOwners: [...m.coOwnersAt(x, y)] }, id)) return true;
+    if (m.canBuildAt(x, y, id)) return true;
   }
   return false;
 }

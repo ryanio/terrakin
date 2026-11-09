@@ -10,7 +10,7 @@
  * does. Names are residents' words: text only.
  */
 import type { PlotView } from "@terrakin/protocol";
-import { canBuildOn, MINUTE_MS, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
+import { MINUTE_MS, plotKey, plotOf, trickOrTreatDay } from "@terrakin/sim";
 import { profilePath } from "@terrakin/ui/paths";
 import { whileBusy } from "@terrakin/ui/ui";
 import { plotsApi } from "./api/plots";
@@ -298,7 +298,7 @@ export function visitCard(o: VisitCardOptions): VisitCard {
         if (key !== null) hide();
         return;
       }
-      const own = canBuildOn({ ownerId, coOwners: [...(mirror.coOwners.get(here) ?? [])] }, who);
+      const own = mirror.canBuildAt(at.x, at.y, who);
       // A share given or taken back changes which card this is; anything else, only its words.
       if (here !== key || own !== yours) show(mirror, px, py, own);
       else paintNames(mirror);

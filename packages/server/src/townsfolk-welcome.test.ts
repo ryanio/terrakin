@@ -161,7 +161,7 @@ describe("a welcome visit", () => {
     // Due a couple of minutes after the claim, and the Worker's alarm is set for it.
     expect(t.api.nextWelcomeAt()).toBe(t.welcome.rowFor(ash)?.dueAt);
     t.advance(WELCOME.afterMs - 1);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0 });
     expect(t.waves(ash)).toEqual([]);
 
     t.advance(1);
@@ -192,7 +192,7 @@ describe("a welcome visit", () => {
     const ash = t.settle("Ash", 2);
     const before = t.coins(ash);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1, tipped: 1 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1, tipped: 1 });
     expect(t.coins(ash) - before).toBe(TIPS.welcome);
     expect(t.fromTownsfolk(ash)).toMatchObject([
       { amount: TIPS.welcome, with: t.clem, note: TIP_NOTES.clem.welcome },
@@ -207,7 +207,7 @@ describe("a welcome visit", () => {
     const t = town();
     const ash = t.settle("Ash", 2);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ tipped: 1 });
+    expect(t.welcome.run()).toMatchObject({ tipped: 1 });
     const after = t.coins(ash);
     // A purse ledger keeps its newest 50 lines; this stands in for 50 newer ones pushing the
     // visit's gift out of Clem's.
@@ -236,7 +236,7 @@ describe("a welcome visit", () => {
     expect(t.tips.run()).toMatchObject({ welcomed: 1 });
     const after = t.coins(ash);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1, tipped: 0 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1, tipped: 0 });
     expect(t.welcome.rowFor(ash)).toMatchObject({ outcome: "waved", tip: "not_due" });
     expect(t.coins(ash)).toBe(after);
     expect(t.fromTownsfolk(ash)).toHaveLength(1);
@@ -249,7 +249,7 @@ describe("a welcome visit", () => {
       const before = t.coins(ash);
       t.advance(WELCOME.afterMs);
       // A tip a dry run only checked never reads as given.
-      expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1, tipped: 0 });
+      expect(t.welcome.run()).toMatchObject({ welcomed: 1, tipped: 0 });
       expect(t.welcome.rowFor(ash)?.tip).toBe(mode === "off" ? "off" : "checked");
       expect(t.coins(ash)).toBe(before);
     }
@@ -286,7 +286,7 @@ describe("a welcome visit", () => {
     t.social.setBlock(t.pip, ash, true);
     const before = t.coins(ash);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["nobody"] });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["nobody"] });
     expect(t.welcome.rowFor(ash)).toMatchObject({ done: true, outcome: "nobody", tip: "" });
     expect(t.coins(ash)).toBe(before);
     expect(t.waves(ash)).toEqual([]);
@@ -307,13 +307,13 @@ describe("a welcome visit", () => {
     const t = town();
     const ash = t.settle("Ash", 2);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1 });
     // Ash lets the plot go and claims another: no second visit.
     t.as(ash, { type: "release" });
     t.as(ash, { type: "settle", px: 3, py: 1 });
     expect(t.welcome.rowFor(ash)).toMatchObject({ done: true, by: t.clem });
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 0 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 0 });
     expect(t.waves(ash)).toHaveLength(1);
   });
 
@@ -326,10 +326,10 @@ describe("a welcome visit", () => {
     together.sendGesture = () => {
       throw new Error("gestures went away");
     };
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["error"] });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["error"] });
     together.sendGesture = send;
     t.advance(60_000);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 0 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 0 });
     expect(t.welcome.rowFor(ash)).toMatchObject({ done: true, outcome: "error" });
   });
 
@@ -337,10 +337,10 @@ describe("a welcome visit", () => {
     const t = town();
     const ids = [2, 3, 4, 6].map((px, i) => t.settle(`New_${i}`, px));
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: WELCOME.perRun });
+    expect(t.welcome.run()).toMatchObject({ welcomed: WELCOME.perRun });
     // The alarm comes back for the one left, no sooner than a minute on.
     expect(t.api.nextWelcomeAt()).toBe(t.world.now() + WELCOME.wakeGapMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1 });
     for (const id of ids) expect(t.waves(id)).toHaveLength(1);
   });
 
@@ -351,7 +351,7 @@ describe("a welcome visit", () => {
     const where = t.plotUnder(t.clem);
     const before = t.coins(ash);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["suspended"] });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["suspended"] });
     expect(t.plotUnder(t.clem)).toEqual(where);
     expect(t.coins(ash)).toBe(before);
     expect(t.waves(ash)).toEqual([]);
@@ -361,7 +361,7 @@ describe("a welcome visit", () => {
     const t = town();
     const ash = t.settle("Ash", 2);
     t.advance(WELCOME.staleMs + 1);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["stale"] });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 0, dropped: 1, codes: ["stale"] });
     expect(t.waves(ash)).toEqual([]);
   });
 
@@ -370,7 +370,7 @@ describe("a welcome visit", () => {
     const ash = t.settle("Ash", 2);
     t.social.setBlock(ash, t.clem, true);
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1 });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1 });
     expect(t.welcome.rowFor(ash)).toMatchObject({ by: t.pip, outcome: "waved" });
     expect(t.plotUnder(t.pip)).toEqual({ px: 2, py: 1 });
   });
@@ -388,7 +388,7 @@ describe("a welcome visit", () => {
     const ash = off.settle("Ash", 2);
     expect(off.welcome.rowFor(ash)).toBeUndefined();
     off.advance(WELCOME.afterMs);
-    expect(off.api.runWelcomes()).toMatchObject({ skipped: "off" });
+    expect(off.welcome.run()).toMatchObject({ skipped: "off" });
     expect(off.api.nextWelcomeAt()).toBeUndefined();
 
     const dry = town("dry");
@@ -396,7 +396,7 @@ describe("a welcome visit", () => {
     const before = dry.coins(bo);
     const seq = dry.world.state.seq;
     dry.advance(WELCOME.afterMs);
-    expect(dry.api.runWelcomes()).toMatchObject({ welcomed: 1, tipped: 0 });
+    expect(dry.welcome.run()).toMatchObject({ welcomed: 1, tipped: 0 });
     expect(dry.welcome.rowFor(bo)).toMatchObject({
       by: dry.clem,
       outcome: "waved",
@@ -426,7 +426,7 @@ describe("a greeting in the town square", () => {
     expect(t.api.nextWelcomeAt()).toBe(t.world.now() + WELCOME.wakeGapMs);
     expect(t.welcome.greetingFor(ash)?.dueAt).toBe(t.world.now() + GREET.afterMs);
     t.advance(GREET.afterMs - 1);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: [] });
 
     t.advance(1);
     const seq = t.world.state.seq;
@@ -460,7 +460,7 @@ describe("a greeting in the town square", () => {
     t.as(ash, { type: "move", dir: "e" });
     t.advance(GREET.afterMs);
     const seq = t.world.state.seq;
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 1 });
     expect(apart(t, t.pip, ash)).toBe(1);
     expect(t.world.state.residents[ash]).toMatchObject({ x: spawn.x + 2, y: spawn.y + 1 });
     const first: string[] = [];
@@ -476,7 +476,7 @@ describe("a greeting in the town square", () => {
     t.as(ash, { type: "settle", px: 2, py: 1 });
     const seq = t.world.state.seq;
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["away"] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["away"] });
     expect(t.world.state.seq).toBe(seq);
     expect(t.waves(ash)).toEqual([]);
   });
@@ -502,7 +502,7 @@ describe("a greeting in the town square", () => {
     const ash = t.newcomer("Ash");
     const seq = t.world.state.seq;
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 1 });
     expect(t.welcome.greetingFor(ash)).toMatchObject({ by: t.clem, outcome: "waved" });
     const fromPip: string[] = [];
     t.store.eachInput(seq, (input) => {
@@ -516,13 +516,13 @@ describe("a greeting in the town square", () => {
     const t = town();
     const ash = t.newcomer("Ash");
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 1 });
     t.world.leave(ash);
     expect(t.world.ensureOnline(ash).ok).toBe(true);
     t.as(ash, { type: "settle", px: 2, py: 1 });
     t.advance(WELCOME.afterMs);
     // The claim brings its visit; the greeting stays done.
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [], welcomed: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: [], welcomed: 1 });
     expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, by: t.pip });
   });
 
@@ -530,11 +530,11 @@ describe("a greeting in the town square", () => {
     const t = town();
     const ash = t.newcomer("Ash");
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 1 });
     // Pip lives next door to this plot, but Pip greeted Ash a minute ago: Clem visits instead.
     t.as(ash, { type: "settle", px: 7, py: 3 });
     t.advance(WELCOME.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ welcomed: 1, codes: [] });
+    expect(t.welcome.run()).toMatchObject({ welcomed: 1, codes: [] });
     expect(t.welcome.rowFor(ash)).toMatchObject({ by: t.clem, outcome: "waved" });
     expect(t.waves(ash)).toHaveLength(2);
   });
@@ -553,7 +553,7 @@ describe("a greeting in the town square", () => {
     expect(t.social.safety.suspend("system", ash, 3, "Testing.").ok).toBe(true);
     const seq = t.world.state.seq;
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["suspended"] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["suspended"] });
     expect(t.world.state.seq).toBe(seq);
     expect(t.waves(ash)).toEqual([]);
   });
@@ -563,7 +563,7 @@ describe("a greeting in the town square", () => {
     const ash = t.newcomer("Ash");
     t.world.leave(ash);
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["gone"] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["gone"] });
     expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, outcome: "gone" });
   });
 
@@ -572,7 +572,7 @@ describe("a greeting in the town square", () => {
     const ash = t.newcomer("Ash");
     const seq = t.world.state.seq;
     t.advance(GREET.staleMs + 1);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["stale"] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["stale"] });
     expect(t.world.state.seq).toBe(seq);
     expect(t.waves(ash)).toEqual([]);
   });
@@ -582,14 +582,14 @@ describe("a greeting in the town square", () => {
     const ash = blocked.newcomer("Ash");
     blocked.social.setBlock(blocked.pip, ash, true);
     blocked.advance(GREET.afterMs);
-    expect(blocked.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(blocked.welcome.run()).toMatchObject({ greeted: 1 });
     expect(blocked.welcome.greetingFor(ash)).toMatchObject({ by: blocked.clem, outcome: "waved" });
 
     const suspended = town();
     const bo = suspended.newcomer("Bo");
     expect(suspended.social.safety.suspend("system", suspended.pip, 3, "Testing.").ok).toBe(true);
     suspended.advance(GREET.afterMs);
-    expect(suspended.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(suspended.welcome.run()).toMatchObject({ greeted: 1 });
     expect(suspended.welcome.greetingFor(bo)).toMatchObject({ by: suspended.clem });
 
     const nobody = town();
@@ -598,7 +598,7 @@ describe("a greeting in the town square", () => {
     nobody.social.setBlock(nobody.clem, cy, true);
     const seq = nobody.world.state.seq;
     nobody.advance(GREET.afterMs);
-    expect(nobody.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["nobody"] });
+    expect(nobody.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["nobody"] });
     expect(nobody.world.state.seq).toBe(seq);
     expect(nobody.waves(cy)).toEqual([]);
   });
@@ -612,10 +612,10 @@ describe("a greeting in the town square", () => {
     together.sendGesture = () => {
       throw new Error("gestures went away");
     };
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: ["error"] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: ["error"] });
     together.sendGesture = send;
     t.advance(60_000);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 0, greetCodes: [] });
+    expect(t.welcome.run()).toMatchObject({ greeted: 0, greetCodes: [] });
     expect(t.welcome.greetingFor(ash)).toMatchObject({ done: true, outcome: "error" });
   });
 
@@ -623,9 +623,9 @@ describe("a greeting in the town square", () => {
     const t = town();
     const ids = ["Ash", "Bo", "Cy", "Dee"].map((name) => t.newcomer(name));
     t.advance(GREET.afterMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: GREET.perRun });
+    expect(t.welcome.run()).toMatchObject({ greeted: GREET.perRun });
     expect(t.api.nextWelcomeAt()).toBe(t.world.now() + WELCOME.wakeGapMs);
-    expect(t.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(t.welcome.run()).toMatchObject({ greeted: 1 });
     for (const id of ids) expect(t.waves(id)).toHaveLength(1);
   });
 
@@ -634,7 +634,7 @@ describe("a greeting in the town square", () => {
     const ash = off.newcomer("Ash");
     expect(off.welcome.greetingFor(ash)).toBeUndefined();
     off.advance(GREET.afterMs);
-    expect(off.api.runWelcomes()).toMatchObject({ skipped: "off" });
+    expect(off.welcome.run()).toMatchObject({ skipped: "off" });
     expect(off.api.nextWelcomeAt()).toBeUndefined();
 
     const dry = town("dry");
@@ -642,7 +642,7 @@ describe("a greeting in the town square", () => {
     const seq = dry.world.state.seq;
     const where = dry.plotUnder(dry.pip);
     dry.advance(GREET.afterMs);
-    expect(dry.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(dry.welcome.run()).toMatchObject({ greeted: 1 });
     expect(dry.welcome.greetingFor(bo)).toMatchObject({ by: dry.pip, outcome: "waved" });
     expect(dry.world.state.seq).toBe(seq);
     expect(dry.plotUnder(dry.pip)).toEqual(where);
@@ -654,7 +654,7 @@ describe("a greeting in the town square", () => {
     const cy = away.newcomer("Cy");
     const at = away.world.state.seq;
     away.advance(GREET.afterMs);
-    expect(away.api.runWelcomes()).toMatchObject({ greeted: 1 });
+    expect(away.welcome.run()).toMatchObject({ greeted: 1 });
     expect(away.welcome.greetingFor(cy)).toMatchObject({ by: away.pip, outcome: "waved" });
     expect(away.world.state.seq).toBe(at);
   });

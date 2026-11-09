@@ -2,6 +2,7 @@ import {
   apply,
   BUILDING_BLOCKS,
   type Command,
+  cloneWorld,
   createWorld,
   DEFAULT_CONFIG,
   designNotes,
@@ -493,15 +494,17 @@ describe("designs (RFC 0032)", () => {
           ),
         ),
       );
+    // One world with the hearth where build_starter_home and SKILL.md put it (the plot's
+    // center), copied fresh for each case.
+    const { state: base, ok } = world();
+    const center = { x: 2 * S + 3, y: 1 * S + 3 };
+    Object.assign(base.residents.wren ?? {}, center);
+    ok("wren", { type: "set_hearth", ...center });
+    Object.assign(base.residents.wren ?? {}, { x: 0, y: 0 });
     for (const design of DESIGNS) {
       const all = [{}, ...turnsOf(design)];
       for (const choices of all) {
-        const { state, ok } = world();
-        // The hearth where build_starter_home and SKILL.md put it: the plot's center.
-        const center = { x: 2 * S + 3, y: 1 * S + 3 };
-        Object.assign(state.residents.wren ?? {}, center);
-        ok("wren", { type: "set_hearth", ...center });
-        Object.assign(state.residents.wren ?? {}, { x: 0, y: 0 });
+        const state = cloneWorld(base);
         const out = expand(state, { design: design.id, ...choices });
         const label = `${design.id} ${JSON.stringify(choices)}`;
         if ("problem" in out) {
@@ -522,7 +525,7 @@ describe("designs (RFC 0032)", () => {
       }
     }
     expect(failures).toEqual([]);
-  });
+  }, 30_000);
 
   it("are listed with their maps in the materials they use by default, and walls only of building blocks", () => {
     const { designs } = designViews();

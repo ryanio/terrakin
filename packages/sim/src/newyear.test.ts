@@ -84,12 +84,9 @@ describe("New Year's", () => {
     expect(fireworkNight(dayOfDate(2027, 1, 2))).toBe(false);
   });
 
-  it("sells fireworks while it runs, and not the day before or after", () => {
+  // Its window is checked with every holiday's stock in shop.test.ts.
+  it("sells fireworks in the pantry for 2 coins", () => {
     expect(SHOP_CATALOG.firework).toEqual({ price: 2, section: "pantry" });
-    ok(town(dayOfDate(2026, 12, 26)), "ada", { type: "shop_buy", sku: "firework", count: 3 });
-    for (const day of [dayOfDate(2026, 12, 25), dayOfDate(2027, 1, 2)]) {
-      refused(town(day), "ada", { type: "shop_buy", sku: "firework" }, "out_of_holiday");
-    }
   });
 });
 

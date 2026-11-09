@@ -4,7 +4,7 @@ import { joinTile } from "./events";
 import { hashWorld } from "./hash";
 import { holidaysOf, inHoliday } from "./holiday";
 import { dayOfDate } from "./season";
-import { expectSupplyHolds, fund, stock } from "./test-support";
+import { expectSupplyHolds, stock } from "./test-support";
 import { feastDay, isDish } from "./thanksgiving";
 import {
   type Command,
@@ -97,16 +97,6 @@ describe("Thanksgiving's days", () => {
     expect(inHoliday("thanksgiving", dayOfDate(2026, 11, 30))).toBe(false);
     expect(feastDay(dayOfDate(2026, 10, 15))).toBe(FEAST);
     expect(feastDay(dayOfDate(2027, 1, 5))).toBe(dayOfDate(2027, 11, 25));
-  });
-
-  it("sell their decor only while they run", () => {
-    const before = town(dayOfDate(2026, 11, 22));
-    fund(before, "ada", 50);
-    refused(before, "ada", { type: "shop_buy", sku: "cornucopia" }, "out_of_holiday");
-    const during = town();
-    fund(during, "ada", 50);
-    ok(during, "ada", { type: "shop_buy", sku: "cornucopia" });
-    expect(during.items?.inventories.ada?.stacks.cornucopia).toBe(1);
   });
 });
 

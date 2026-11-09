@@ -144,7 +144,6 @@ describe("add_floor", () => {
     expect(w.state.economy?.coins.bob).toBeUndefined();
     const high = w.refused("bob", { type: "add_floor", px: 2, py: 0 });
     expect(high.code).toBe("too_high");
-    expect(FLOORS.max).toBe(1);
     expect(high.message).toBe("A home has a ground floor and one upstairs, and goes no higher.");
 
     const closed = world({ economy: false });

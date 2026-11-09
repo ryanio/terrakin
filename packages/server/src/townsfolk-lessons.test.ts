@@ -131,7 +131,7 @@ describe("townsfolk lessons", () => {
   it("teach a resident standing near a townsfolk their first specialty, and tell them", () => {
     const t = town();
     const ada = t.newcomer("Ada");
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(t.learned(ada)).toEqual(["lemonade"]);
     expect(t.world.state.recipes?.townsfolkTaught).toEqual({ [ada]: t.world.state.day });
     expect(t.notices(ada)).toMatchObject([{ actor: { id: t.clem }, recipe: "lemonade" }]);
@@ -140,15 +140,15 @@ describe("townsfolk lessons", () => {
   it("come once a week per resident, whatever else they learn in between", () => {
     const t = town();
     const ada = t.newcomer("Ada");
-    t.api.runLessons();
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    t.lessons.run();
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     t.nextDay(6);
     t.as(ada, { type: "move", dir: "n" });
     t.as(ada, { type: "move", dir: "s" });
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     t.nextDay();
     t.as(ada, { type: "move", dir: "n" });
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(t.learned(ada)).toEqual(["lemonade", "tomato_sauce"]);
   });
 
@@ -156,11 +156,11 @@ describe("townsfolk lessons", () => {
     const t = town();
     const ada = t.newcomer("Ada");
     for (const _ of [1, 2, 3, 4]) t.as(ada, { type: "move", dir: "w" });
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     expect(t.learned(ada)).toEqual([]);
     // Pip stands 5 tiles east of the spawn; one step west of him, Ada is in his reach.
     for (const _ of [1, 2, 3, 4, 5, 6, 7, 8]) t.as(ada, { type: "move", dir: "e" });
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(t.learned(ada)).toEqual(["signpost"]);
   });
 
@@ -176,7 +176,7 @@ describe("townsfolk lessons", () => {
       expect(t.world.testGrant(ada, 500, undefined).ok).toBe(true);
       for (const recipe of bought) t.as(ada, { type: "shop_buy", sku: cardSku(recipe) });
     }
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     for (const recipe of CARD_RECIPES) {
       const mine = (SPECIALTIES.clem as readonly string[]).includes(recipe);
       expect(knows(t.world.state, ada, recipe), recipe).toBe(mine);
@@ -189,10 +189,10 @@ describe("townsfolk lessons", () => {
     const bea = t.newcomer("Bea");
     expect(t.social.safety.suspend("system", ada, 3, "Testing.").ok).toBe(true);
     t.social.setBlock(bea, t.clem, true);
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     t.social.setBlock(bea, t.clem, false);
     t.social.setBlock(t.clem, bea, true);
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     expect(t.learned(ada)).toEqual([]);
     expect(t.learned(bea)).toEqual([]);
   });
@@ -203,7 +203,7 @@ describe("townsfolk lessons", () => {
     const bea = t.newcomer("Bea");
     t.as(bea, { type: "pick_recipe", recipe: "well" });
     t.as(bea, { type: "teach", recipe: "well", to: ada });
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(t.learned(ada)).toEqual(["well"]);
     expect(t.learned(bea)).toEqual(["lemonade", "well"]);
   });
@@ -213,7 +213,7 @@ describe("townsfolk lessons", () => {
     // Clem hasn't acted since the server started, so he's away.
     expect(t.world.state.residents[t.clem]?.online).toBe(false);
     const ada = t.newcomer("Ada");
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(t.world.state.residents[t.clem]?.online).toBe(true);
     expect(t.learned(ada)).toEqual(["lemonade"]);
   });
@@ -225,7 +225,7 @@ describe("townsfolk lessons", () => {
       for (const id of many.slice(2)) t.as(id, { type: "move", dir: "e" });
     }
     // Clem has two learners at the spawn and Pip three beside him: one each a run per townsfolk.
-    expect(t.api.runLessons()).toMatchObject({ taught: 2 });
+    expect(t.lessons.run()).toMatchObject({ taught: 2 });
     expect(LESSONS.perRun).toBeGreaterThanOrEqual(2);
   });
 
@@ -235,15 +235,15 @@ describe("townsfolk lessons", () => {
     expect(lessonsMode({ TERRAKIN_TOWNSFOLK_LESSONS: "loud" })).toBe("off");
     const off = town({ mode: "off" });
     const ada = off.newcomer("Ada");
-    expect(off.api.runLessons()).toEqual({ skipped: "off", taught: 0, codes: [] });
+    expect(off.lessons.run()).toEqual({ skipped: "off", taught: 0, codes: [] });
     expect(off.learned(ada)).toEqual([]);
     const closed = town({ recipes: false });
     closed.newcomer("Ada");
-    expect(closed.api.runLessons()).toEqual({ skipped: "closed", taught: 0, codes: [] });
+    expect(closed.lessons.run()).toEqual({ skipped: "closed", taught: 0, codes: [] });
     const dry = town({ mode: "dry" });
     const bea = dry.newcomer("Bea");
     const seq = dry.world.state.seq;
-    expect(dry.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(dry.lessons.run()).toEqual({ taught: 1, codes: [] });
     expect(dry.world.state.seq).toBe(seq);
     expect(dry.learned(bea)).toEqual([]);
   });
@@ -251,15 +251,15 @@ describe("townsfolk lessons", () => {
   it("check each learner once a day in a dry run, so the townsfolk can go idle", () => {
     const t = town({ mode: "dry" });
     t.newcomer("Bea");
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
     // The next minute's run has nothing new to check, and doesn't act as Clem.
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     // Someone new still gets checked the same day, and Bea again the next day.
     t.newcomer("Cy");
-    expect(t.api.runLessons()).toEqual({ taught: 1, codes: [] });
-    expect(t.api.runLessons()).toEqual({ taught: 0, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 1, codes: [] });
+    expect(t.lessons.run()).toEqual({ taught: 0, codes: [] });
     t.nextDay();
-    expect(t.api.runLessons()).toMatchObject({ taught: 1 });
+    expect(t.lessons.run()).toMatchObject({ taught: 1 });
   });
 
   it("run from the minute sweep", () => {

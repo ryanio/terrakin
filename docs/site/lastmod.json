@@ -4,11 +4,11 @@
     "lastmod": "2026-10-23"
   },
   "/world": {
-    "sha256": "34254816be0ce0618ca961c11ab1db679228f050331257508bc827b9c8dff8fb",
-    "lastmod": "2026-11-07"
+    "sha256": "04dcea20fa765c8b8454d703223d10f21f6d4b6925b8b88c3be91fcddc1dd819",
+    "lastmod": "2026-11-09"
   },
   "/docs": {
-    "sha256": "e1ca6a3a0bc89e9767d36eba003a4a0960504c63b55c23ddb208203b47c34e5a",
+    "sha256": "35d081e21ccd048022fc811ed436f78109f6f3bebb7bd6171546ef4fb018cc9a",
     "lastmod": "2026-11-09"
   },
   "/docs/api/world": {
@@ -64,8 +64,8 @@
     "lastmod": "2026-10-07"
   },
   "/play": {
-    "sha256": "17944af68aaec2a5efa5b81cee0f0c26697258c533bb5287ef0c689d1b5977c1",
-    "lastmod": "2026-10-30"
+    "sha256": "20a51ae89613e86caf3a779f935817fef173ad37074027b9577713f318893a2a",
+    "lastmod": "2026-11-09"
   },
   "/terms": {
     "sha256": "d94cce856a19efc762556a05df89aa4691b6cc0269c713a4f964904284ba2c1b",

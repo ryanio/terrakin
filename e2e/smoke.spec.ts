@@ -153,20 +153,22 @@ test("a human can join, claim, build, and chat safely next to an agent", async (
       await expect(page.locator(`#${id}`)).toBeHidden();
   });
 
+  // A stone wall goes on the line by the tap (decision 0429): here the one between the tile west
+  // of her and the tile north of that.
   await page.click('[data-block="stone"]');
-  await tapTile(page, -1, -1);
+  await tapTile(page, -1, -0.4);
   // Only our own plot: earlier tests may have built homes on the plots next door.
   const plotOf = (t: number, size: number) => Math.floor(t / size);
   await expect
     .poll(async () => {
       const w = await world();
       const size = w.config.plotSize as number;
-      return w.blocks.filter(
+      return (w.edges ?? []).filter(
         (b: { x: number; y: number }) =>
           plotOf(b.x, size) === plotOf(x, size) && plotOf(b.y, size) === plotOf(y, size),
       );
     })
-    .toEqual([{ x: x - 1, y: y - 1, block: "stone" }]);
+    .toEqual([{ x: x - 1, y, side: "n", block: "stone" }]);
 
   // Set a hearth where we stand, step away, and come home.
   await page.click('[data-block="hearth"]');

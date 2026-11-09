@@ -30,7 +30,11 @@ export function checkPlotReach(state: WorldState): (() => WorldEvent[]) | Reject
  * `at` is on, or within `config.reach` tiles of its nearest tile. Distance is counted the way reach
  * always is, the larger of the two steps. False before the switch, so the tile rule decides.
  */
-export function plotReachOk(state: WorldState, me: Tile, at: Tile): boolean {
+export function plotReachOk(
+  state: Pick<WorldState, "plotReach" | "config">,
+  me: Tile,
+  at: Tile,
+): boolean {
   if (!state.plotReach) return false;
   const { plotSize, reach } = state.config;
   const { px, py } = plotOf(state.config, at.x, at.y);

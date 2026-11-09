@@ -30,7 +30,6 @@ import {
   floorField,
   type Grade,
   type GroundKind,
-  holdsRoof,
   ITEM_INFO,
   inEventArea,
   isEdgeKind,
@@ -50,6 +49,7 @@ import {
   pickupsInReach,
   plotKey,
   plotOf,
+  plotReachOk,
   postureOn,
   potKey,
   type Resident,
@@ -96,6 +96,7 @@ import {
   holdingsFromStacks,
   kilnLabel,
   kilnPlaceLine,
+  ON_A_LINE,
   PALETTE_TAB_WORDS,
   PALETTE_TABS,
   type PaletteTab,
@@ -108,13 +109,24 @@ import {
   potPlaceLine,
   potsAfter,
   potsIn,
+  removeChoice,
+  removeLine,
   stairsLine,
   tabOf,
-  tapTurn,
   turnLine,
   withChanges,
   withGradedChanges,
 } from "./build-palette";
+import {
+  type BuildGround,
+  type BuildPick,
+  type BuildSpot,
+  type BuildTap,
+  buildTap,
+  type Line,
+  lineFrom,
+  tileActedOn,
+} from "./build-taps";
 import { type Camera, fitScale, screenToTile, tileToScreen } from "./camera";
 import { claimOnJoin } from "./claim-on-join";
 import type { EventMark } from "./event-format";
@@ -130,6 +142,7 @@ import { lookCard, type Place, placeOf, wayThere } from "./look-card";
 import {
   clampScale,
   drawnScale,
+  frameTiles,
   keepInWorld,
   type ZoomBounds,
   zoomAround,
@@ -165,6 +178,7 @@ import { SoundSwitch } from "./sound/switch";
 import { reloadForNewerServer } from "./stale-bundle";
 import { track } from "./telemetry";
 import {
+  builtHereLine,
   keyNotFoundLine,
   NO_PLOT_LINE,
   newsLine,
@@ -235,23 +249,11 @@ const roofToggle = h("button", {
   on: { click: () => void openRoof() },
 });
 /**
- * Whether a build tap puts a wall on the line by the tap rather than on the tile (RFC 0050), and
- * the chip that turns it on and off.
+ * Where in its tile the last tap landed, -0.5 to 0.5 each way, and in 3D the wall it hit: what a
+ * build tap measures the lines around it from (`build-taps.ts`).
  */
-let betweenTiles = false;
-const linesToggle = h("button", {
-  class: "palette-notes-toggle",
-  attrs: { type: "button", id: "palette-lines", "aria-pressed": "false" },
-  on: {
-    click: () => {
-      betweenTiles = !betweenTiles;
-      floorsDrawn = "";
-      paintFloors();
-    },
-  },
-});
-/** Where in its tile the last tap on the map landed, -0.5 to 0.5 each way, for a wall's side. */
 let tapIn = { fx: 0, fy: 0 };
+let tapLine: Line | undefined;
 /** Which floor taps build on, Add an upstairs, or the roof, on a plot you can build on. */
 const floorRow = $("palette-floors");
 /** Go up or Go down, beside your figure while you stand on stairs or at the top of them. */
@@ -346,7 +348,18 @@ let stoodOn = 0;
  * The build bar's pick (RFC 0016): a block or the hearth marker on the Blocks tab, a path or flooring
  * on the Paths tab, or decor or furniture you hold on the Furniture tab.
  */
-let pick: BlockKind | GroundKind | "hearth" = "wood";
+let pick: BlockKind | GroundKind | "hearth" | "remove" = "wood";
+/** The tab the build bar shows: Remove on the Paths tab lifts paths too. */
+let shownTab: PaletteTab = "blocks";
+/**
+ * Whether the map frames the plot you build on (`buildFrame`): from Build until a pinch, a drag,
+ * or + and - take the camera, or building ends.
+ */
+let framing = false;
+/** What the last build tap acted on, flashed on the map for a moment so a touch shows it too. */
+let flash: { spot: BuildSpot; at: number } | undefined;
+/** How long a build tap's flash shows, in ms. */
+const FLASH_MS = 650;
 /** Your pots (RFC 0047), the one picked to set down by the bar's `pot`, and a flower for a vase. */
 let pots: HeldPot[] = [];
 let potPick: string | undefined;
@@ -1415,7 +1428,10 @@ canvas.addEventListener("pointerdown", (e) => {
   if (!gesture) return;
   gesture.tap = false;
   const p = pinchOf();
-  if (p && zoomable()) gesture.pinch = { ...p, scale: liveScale };
+  if (p && zoomable()) {
+    gesture.pinch = { ...p, scale: liveScale };
+    framing = false;
+  }
 });
 
 /** Where a mouse rests over the map. Each frame rings what a click there would act on. */
@@ -1473,6 +1489,7 @@ function liftPointer(e: PointerEvent, tap: boolean) {
       fx: (g.x - cam.width / 2) / cam.scale + cam.cx - tile.x,
       fy: (g.y - cam.height / 2) / cam.scale + cam.cy - tile.y,
     };
+    tapLine = undefined;
     tapTile(tile);
   }
 }
@@ -1501,6 +1518,7 @@ function zoomTo(scale: number, sx: number, sy: number) {
   const next = clampScale(scale, limits);
   const at = zoomAround(cam, drawnScale(next), sx, sy);
   zoom = next;
+  framing = false;
   setScale(next);
   // Zoomed in, the camera stays on you; out, it stays where it was looking.
   roaming = next < limits.base;
@@ -1535,6 +1553,7 @@ function stepZoom(dir: 1 | -1) {
   if (!zoomable()) return;
   const limits = zoomLimits();
   zoom = zoomStep(zoom ?? liveScale, dir, limits);
+  framing = false;
   // Back at the usual view or closer, the camera comes back to you.
   if (zoom >= limits.base) stopRoaming();
   paintZoom();
@@ -1722,16 +1741,175 @@ function openRoom(spot: { x: number; y: number; side?: Side }) {
   );
 }
 
-/** The tiles a click would act on, ringed under a mouse: in build mode, any tile a block goes on. */
+/** The tiles a click would act on, ringed under a mouse; while building, `buildHover` marks it. */
 function hoverTiles(tile: Tile): readonly Tile[] | undefined {
   if (!mirror || tile.x < 0 || tile.y < 0) return undefined;
   if (tile.x >= mirror.config.width || tile.y >= mirror.config.height) return undefined;
-  if (buildMode) return [tile];
+  if (buildMode) return undefined;
   const target = tapTarget(tile);
   if (!target) return undefined;
   if (target.kind === "page") return target.tiles;
   if (target.kind === "resident") return [{ x: target.other.x, y: target.other.y }];
   return [tile];
+}
+
+// ---------- build taps (decision 0429) ----------
+
+/** The build bar's pick, as a tap sees it (`build-taps.ts`). */
+function buildPick(): BuildPick {
+  if (pick === "remove") return { kind: "remove", paths: shownTab === "ground" };
+  if (pick === "hearth") return { kind: "hearth" };
+  if (pick === "pot") return { kind: "pot" };
+  if (isGroundKind(pick)) return { kind: "ground", ground: pick };
+  if (isEdgeKind(pick)) return { kind: "line", block: pick };
+  return { kind: "block", block: pick, turn: pickTurn };
+}
+
+/** What's built on a floor, as `buildTap` reads it. */
+function builtOn(m: Mirror, floor: number): BuildGround {
+  return {
+    edgeAt: (l) => m.edgeAt(l.x, l.y, l.side, floor),
+    blockAt: (x, y) => m.blocksOn(floor).get(tileKey(x, y)),
+    pavingAt: (x, y) => m.pavingOn(floor).get(tileKey(x, y)),
+    turnAt: (x, y) => m.turnAt(tileKey(x, y), floor),
+  };
+}
+
+/** What a build tap on a tile would do, with `within` where in it the tap landed. */
+function buildPlan(
+  tile: Tile,
+  within: { fx: number; fy: number },
+  line?: Line,
+): BuildTap | undefined {
+  const m = mirror;
+  if (!m) return undefined;
+  return buildTap(
+    buildPick(),
+    { tile, point: { x: tile.x + within.fx, y: tile.y + within.fy }, line },
+    builtOn(m, buildFloor),
+  );
+}
+
+/**
+ * Whether you reach a tile to build on it from `at`: anywhere on a plot from on or near it once
+ * the world has plot reach (the sim's `plotReachOk`), else within reach. Only a hint: the server
+ * checks.
+ */
+function buildReachOk(at: Tile, tile: Tile): boolean {
+  const m = mirror;
+  if (!m) return false;
+  if (m.plotReach && plotReachOk({ plotReach: true, config: m.config }, at, tile)) return true;
+  return inReach(at, tile);
+}
+
+/** Do `then` now if `tile` is in building reach, or walk until it is and do it there. */
+function buildReachThen(tile: Tile, then: () => void) {
+  const at = here();
+  if (!at) return;
+  if (buildReachOk(at, tile)) return then();
+  walkToward(tile, mirror?.plotReach ? 0 : (mirror?.config.reach ?? 0), () => {
+    const there = here();
+    if (there && buildReachOk(there, tile)) then();
+    else showToast("You can't get close enough to build there from here.");
+  });
+}
+
+/** Why the bar holds back placing the pick, from what you hold, or null when it can go. */
+function placeShort(): string | null {
+  if (pick === "remove" || pick === "hearth" || pick === "pot" || isGroundKind(pick)) return null;
+  if (isHeldBlock(pick)) return pickHeld() === 0 ? pickNoneLine(pick) : null;
+  if (blockShort(pick, holdings).length === 0) return null;
+  // A pond's stone, stairs' wood, or a kiln's stone, by the sim's own count.
+  if (pick === "stairs") return stairsLine(holdings);
+  if (pick === "kiln") return kilnPlaceLine(holdings);
+  return pondLine(holdings, mirror?.clayOpen === true);
+}
+
+/**
+ * The action a build tap sends, or the words for why the bar holds it back. Lines are named by
+ * their tile nearer `at`, since the world measures reach to the tile an action names.
+ */
+function buildAction(tap: BuildTap, at: Tile): Action | string | undefined {
+  // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
+  const floor = floorField(buildFloor);
+  switch (tap.do) {
+    case "taken":
+      return builtHereLine({ block: tap.block, ground: tap.ground, line: tap.line });
+    case "nothing":
+      return builtHereLine({ paths: shownTab === "ground" });
+    case "set_hearth":
+      if (buildFloor > 0) return "Your hearth goes on the ground floor. Pick Ground floor first.";
+      return { type: "set_hearth", ...tap.tile };
+    case "lay":
+      if (!isGroundKind(pick)) return undefined;
+      if (!canLay(pick, holdings)) return groundLine(pick, holdings);
+      return { type: "lay", ...tap.tile, ...floor, ground: pick };
+    case "lift":
+      return { type: "lift", ...tap.tile, ...floor };
+    case "remove":
+      return { type: "remove", ...tap.tile, ...floor };
+    case "remove_line":
+      return { type: "remove", ...lineFrom(tap.line, at), ...floor };
+    case "turn":
+      return { type: "turn", ...tap.tile, ...floor, turn: tap.turn };
+    case "place_line": {
+      if (!isEdgeKind(pick)) return undefined;
+      const short = placeShort();
+      if (short) return short;
+      return { type: "place", ...lineFrom(tap.line, at), ...floor, block: pick, ...gradeOfPick() };
+    }
+    case "put_on":
+    case "place": {
+      if (pick === "pot") {
+        // A pot of yours (RFC 0047): on a table or a shelf, or set down with a flower for a vase.
+        const pot = pots.find((p) => p.id === potPick);
+        if (!pot) return potPlaceLine(undefined, undefined);
+        if (tap.do === "put_on") return { type: "put_on", ...tap.tile, ...floor, item: pot.id };
+        const flower = potFlower ? { flower: potFlower as FlowerKind } : {};
+        return { type: "place", ...tap.tile, ...floor, block: "pot", item: pot.id, ...flower };
+      }
+      if (pick === "remove" || pick === "hearth" || isGroundKind(pick)) return undefined;
+      const short = placeShort();
+      if (short) return short;
+      return {
+        type: "place",
+        ...tap.tile,
+        ...floor,
+        block: pick,
+        ...gradeOfPick(),
+        ...turnOfPick(),
+      };
+    }
+  }
+}
+
+/**
+ * A tap in the build bar (decision 0429): a pick only adds and Remove only takes away, worked out
+ * by `buildTap`, and what the tap acted on flashes on the map. Anything the bar already knows the
+ * world would refuse says so and sends nothing; a tap out of reach walks into reach first.
+ */
+function buildTapOn(tile: Tile) {
+  const at = here();
+  const tap = buildPlan(tile, tapIn, tapLine);
+  if (!tap || !at) return;
+  flash = { spot: tap.spot, at: performance.now() };
+  const action = buildAction(tap, at);
+  if (typeof action === "string") showToast(action);
+  else if (action) buildReachThen(tileActedOn(tap, at), () => tryAct(action));
+}
+
+/**
+ * What the next build tap would act on under a mouse, ringed on the map: the line or the tile.
+ * Nothing on a touch screen, where the tap's flash shows it instead.
+ */
+function buildHover(): BuildSpot | undefined {
+  if (!buildMode || !pointer || !mirror) return undefined;
+  const tile = screenToTile(cam, pointer.x, pointer.y);
+  const within = {
+    fx: (pointer.x - cam.width / 2) / cam.scale + cam.cx - tile.x,
+    fy: (pointer.y - cam.height / 2) / cam.scale + cam.cy - tile.y,
+  };
+  return buildPlan(tile, within)?.spot;
 }
 
 /**
@@ -1752,54 +1930,7 @@ function tapTile(tile: { x: number; y: number }) {
     return;
   }
   if (buildMode) {
-    // On the floor the picker shows (RFC 0028): `floor` goes only with one above the ground.
-    const floor = buildFloor;
-    const on = { ...tile, ...floorField(floor) };
-    const key = tileKey(tile.x, tile.y);
-    const hasBlock = mirror.blocksOn(floor).has(key);
-    if (pick === "hearth") {
-      if (floor > 0) showToast("Your hearth goes on the ground floor. Pick Ground floor first.");
-      else tryAct({ type: "set_hearth", ...tile });
-    } else if (isGroundKind(pick)) {
-      // Paths and flooring: a tap lifts what's there, or lays the pick if you can pay for it.
-      if (mirror.pavingOn(floor).has(key)) tryAct({ type: "lift", ...on });
-      else if (canLay(pick, holdings)) tryAct({ type: "lay", ...on, ground: pick });
-      else showToast(groundLine(pick, holdings));
-    } else if (betweenTiles && isEdgeKind(pick)) {
-      // A wall between tiles (RFC 0050): on the line nearest the tap, or off it again.
-      const side = tappedSide();
-      if (mirror.edgeAt(tile.x, tile.y, side, floor)) tryAct({ type: "remove", ...on, side });
-      else if (isHeldBlock(pick) && pickHeld() === 0) showToast(pickNoneLine(pick));
-      else tryAct({ type: "place", ...on, side, block: pick, ...gradeOfPick() });
-    } else if (hasBlock) {
-      // With the same piece picked, a tap turns it to face the way the picker says.
-      const turn = tapTurn(
-        mirror.blocksOn(floor).get(key),
-        mirror.turnAt(key, floor),
-        pick,
-        pickTurn,
-      );
-      if (turn !== undefined) tryAct({ type: "turn", ...on, turn });
-      else tryAct({ type: "remove", ...on });
-    } else if (pick === "pot") {
-      // A pot of yours (RFC 0047), with a flower for a vase when one is picked.
-      const pot = pots.find((p) => p.id === potPick);
-      if (!pot) showToast(potPlaceLine(undefined, undefined));
-      else {
-        const flower = potFlower ? { flower: potFlower as FlowerKind } : {};
-        tryAct({ type: "place", ...on, block: "pot", item: pot.id, ...flower });
-      }
-    } else if (isHeldBlock(pick) && pickHeld() === 0) showToast(pickNoneLine(pick));
-    else if (!isHeldBlock(pick) && blockShort(pick, holdings).length > 0) {
-      // A pond's stone, stairs' wood, or a kiln's stone, by the sim's own count.
-      showToast(
-        pick === "stairs"
-          ? stairsLine(holdings)
-          : pick === "kiln"
-            ? kilnPlaceLine(holdings)
-            : pondLine(holdings, mirror?.clayOpen === true),
-      );
-    } else tryAct({ type: "place", ...on, block: pick, ...gradeOfPick(), ...turnOfPick() });
+    buildTapOn(tile);
     return;
   }
   const target = tapTarget(tile);
@@ -1836,7 +1967,7 @@ function tapTile(tile: { x: number; y: number }) {
   }
   // A surface or a wall face (RFC 0050) opens its sheet once it's in reach, as a station does.
   if (target?.kind === "surface") {
-    reachThen(() => {
+    buildReachThen(tile, () => {
       lookAt(tile);
       openRoom(tile);
     });
@@ -1844,18 +1975,11 @@ function tapTile(tile: { x: number; y: number }) {
   }
   if (target?.kind === "wall") {
     const face = target.face;
-    const reach = mirror.config.reach;
-    const open = () => {
+    // What goes on a surface or a wall reaches as building does.
+    buildReachThen(face, () => {
       lookAt(tile);
       openRoom(face);
-    };
-    if (inReach(at, face)) open();
-    else
-      walkToward(face, reach, () => {
-        const there = here();
-        if (there && inReach(there, face)) open();
-        else showToast("You can't get close enough to reach that from here.");
-      });
+    });
     return;
   }
   // A planter, kitchen, or workbench opens what you can do there (RFC 0005). One farther off is
@@ -2056,11 +2180,12 @@ function open3d() {
       if (mode !== "3d" || !active || !(me || lookingAt)) return liftLoader();
       host3d.hidden = false;
       world3d = m.createWorld3d(host3d, {
-        onTap: (tile, within) => {
+        onTap: (tile, within, line) => {
           tapIn = within;
+          tapLine = line;
           tapTile(tile);
         },
-        tappable: (tile) => !!hoverTiles(tile),
+        tappable: (tile) => buildMode || !!hoverTiles(tile),
         onFail: fallBack,
       });
       canvas.hidden = true;
@@ -2316,6 +2441,11 @@ function setBuildMode(on: boolean) {
   // You build where you stand: the camera comes back to you.
   if (on) stopLooking();
   buildMode = on;
+  // The plot you build on is framed big enough to tap until you take the camera; leaving, the
+  // usual view comes back.
+  framing = on;
+  if (on) stopRoaming();
+  flash = undefined;
   // The picker starts on the floor you stand on.
   buildFloor = myFloor();
   buildButton.setAttribute("aria-pressed", String(on));
@@ -2366,6 +2496,11 @@ palette.addEventListener("click", (e) => {
     paintPalette();
     return;
   }
+  // Remove: from now on a tap only takes things up.
+  if (target.closest("button[data-remove]")) {
+    selectPick("remove");
+    return;
+  }
   const button = target.closest<HTMLButtonElement>("button[data-block], button[data-ground]");
   if (!button) return;
   selectPick((button.dataset.ground ?? button.dataset.block) as BlockKind | GroundKind | "hearth");
@@ -2406,8 +2541,10 @@ window.addEventListener(SET_DOWN_EVENT, setDownPot);
 
 /** Show one tab's row. A pick from another tab gives way to this tab's first choice. */
 function showTab(next: PaletteTab) {
+  shownTab = next;
   for (const [name, row] of Object.entries(paletteRows)) row.hidden = name !== next;
-  if (tabOf(pick) !== next) {
+  // Remove stays picked from tab to tab: it's the same choice in every row.
+  if (pick !== "remove" && tabOf(pick) !== next) {
     pick =
       next === "blocks"
         ? "wood"
@@ -2418,7 +2555,7 @@ function showTab(next: PaletteTab) {
   paintPalette();
 }
 
-function selectPick(next: BlockKind | GroundKind | "hearth") {
+function selectPick(next: BlockKind | GroundKind | "hearth" | "remove") {
   if (next !== pick) pickGrade = "plain";
   pick = next;
   paintPalette();
@@ -2440,26 +2577,34 @@ function paintPalette() {
   paintMaterialRow(paletteRows.materials, holdings, pick);
   paintGradeChips(paletteRows.materials, pick, holdings, graded, pickGrade);
   paintTurnChips(paletteRows.furniture, pick, pickTurn);
-  for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button"))
+  for (const b of paletteRows.blocks.querySelectorAll<HTMLButtonElement>("button[data-block]"))
     b.setAttribute("aria-pressed", String(b.dataset.block === pick));
-  const line = isGroundKind(pick)
-    ? groundLine(pick, holdings)
-    : pick === "pot"
-      ? potPlaceLine(
-          pots.find((p) => p.id === potPick),
-          potFlower,
-        )
-      : isMaterialKind(pick) && pickGrade !== "plain"
-        ? gradedHeldLine(pick, pickGrade, pickHeld())
-        : isHeldBlock(pick)
-          ? `${heldLine(pick, heldOf(holdings, pick))}${isFurnitureKind(pick) && isTurnable(pick) ? turnLine(pick, pickTurn) : ""}`
-          : pick === "pond"
-            ? pondLine(holdings, mirror?.clayOpen === true)
-            : pick === "stairs"
-              ? stairsLine(holdings)
-              : pick === "kiln"
-                ? kilnPlaceLine(holdings)
-                : blockLine(pick);
+  // Remove first in each row, the same choice on every tab.
+  for (const row of [paletteRows.blocks, paletteRows.ground, paletteRows.furniture]) {
+    row.querySelector(":scope > [data-remove]")?.remove();
+    row.prepend(removeChoice(pick === "remove"));
+  }
+  const line =
+    pick === "remove"
+      ? removeLine(shownTab)
+      : isGroundKind(pick)
+        ? groundLine(pick, holdings)
+        : pick === "pot"
+          ? potPlaceLine(
+              pots.find((p) => p.id === potPick),
+              potFlower,
+            )
+          : isMaterialKind(pick)
+            ? `${pickGrade !== "plain" ? gradedHeldLine(pick, pickGrade, pickHeld()) : heldLine(pick, pickHeld())} ${ON_A_LINE}`
+            : isHeldBlock(pick)
+              ? `${heldLine(pick, heldOf(holdings, pick))}${isFurnitureKind(pick) && isTurnable(pick) ? turnLine(pick, pickTurn) : ""}`
+              : pick === "pond"
+                ? pondLine(holdings, mirror?.clayOpen === true)
+                : pick === "stairs"
+                  ? stairsLine(holdings)
+                  : pick === "kiln"
+                    ? kilnPlaceLine(holdings)
+                    : blockLine(pick);
   // A new line starts folded to one row on a phone; a tap on it opens the rest.
   if (paletteLine.textContent !== line) {
     paletteLine.textContent = line;
@@ -2508,7 +2653,7 @@ function paintFloors() {
   buildFloor = pickedFloor(buildFloor, plot?.floors, myFloor());
   const roofNow = plot ? mirror?.roofs.get(plotKey(plot.px, plot.py)) : undefined;
   const drawn = plot
-    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""},${betweenTiles},${hasWallBlocks(plot)}`
+    ? `${plot.px},${plot.py},${plot.floors},${buildFloor},${roofNow?.style ?? ""}`
     : "";
   if (drawn === floorsDrawn) return;
   floorsDrawn = drawn;
@@ -2521,23 +2666,7 @@ function paintFloors() {
   const roof = mirror?.roofs.get(plotKey(plot.px, plot.py));
   roofToggle.textContent = roof ? `Roof: ${ROOF_STYLE_WORDS[roof.style].toLowerCase()}` : "Roof";
   roofToggle.setAttribute("aria-label", roof ? "Change your roof" : "Put a roof on your home");
-  // Walls on tiles, or on the lines between them (RFC 0050), first: it changes what every wall
-  // tap does, so it stays beside the tabs while the rest of the row scrolls.
-  linesToggle.textContent = betweenTiles ? "Walls: between tiles" : "Walls: on tiles";
-  linesToggle.setAttribute("aria-pressed", String(betweenTiles));
-  floorRow.append(linesToggle, roofToggle);
-  // A home of wall blocks can turn its walls into walls between tiles, and gain their floor.
-  if (hasWallBlocks(plot)) {
-    const slim = h("button", {
-      attrs: { type: "button", id: "slim-walls" },
-      text: "Slim the walls",
-    });
-    const { px, py } = plot;
-    confirmTwice(slim, "Tap again: walls move between tiles", () =>
-      tryAct({ type: "slim_walls", px, py }),
-    );
-    floorRow.append(slim);
-  }
+  floorRow.append(roofToggle);
   if (notesToggle.textContent) floorRow.append(notesToggle);
   // An upstairs comes last: it's the one chip here that spends coins, and a lot of them.
   if (plot.floors < FLOORS.max) {
@@ -2554,26 +2683,6 @@ function paintFloors() {
   if (buildMode)
     hud.style.setProperty("--palette-bottom", `${palette.getBoundingClientRect().bottom}px`);
 }
-
-/** Whether any floor of a plot has a wall block a slim could move between tiles (RFC 0050). */
-function hasWallBlocks(plot: { px: number; py: number; floors: number }): boolean {
-  const m = mirror;
-  if (!m) return false;
-  const S = m.config.plotSize;
-  for (let floor = 0; floor <= plot.floors; floor++) {
-    const blocks = m.blocksOn(floor);
-    for (let y = plot.py * S; y < (plot.py + 1) * S; y++) {
-      for (let x = plot.px * S; x < (plot.px + 1) * S; x++) {
-        if (holdsRoof(blocks.get(tileKey(x, y)))) return true;
-      }
-    }
-  }
-  return false;
-}
-
-/** The side of a tile a tap nearest it means: whichever edge the tap landed closest to. */
-const tappedSide = (): Side =>
-  Math.abs(tapIn.fx) > Math.abs(tapIn.fy) ? (tapIn.fx > 0 ? "e" : "w") : tapIn.fy > 0 ? "s" : "n";
 
 /** Open the roof picker for the plot you're building on, loading it on its own. */
 async function openRoof() {
@@ -2879,6 +2988,8 @@ function resize() {
  * back to show more of it, far enough that the town square fits in the space above the door card.
  */
 function targetScale() {
+  const framed = buildFrame();
+  if (framed) return framed.scale;
   if (me || lookingAt || guest)
     return clampScale(zoom ?? fitScale(cam.width, cam.height), zoomLimits());
   const wide = fitScale(cam.width, cam.height, 17);
@@ -2900,12 +3011,10 @@ const TOP_BAR_PX = 60;
 const settingsRow = document.querySelector<HTMLElement>(".hud-settings");
 
 /**
- * Where the clear map's middle is, as pixels below the screen's middle: halfway between the chrome
- * at the top (the pills, the card over a plot, the build bar, chat) and, on a phone, the controls
- * along the foot. The camera keeps your figure there, so what's around you isn't under a card or
- * the build bar. Nothing moves when the band is too thin to matter.
+ * The clear band of the map, in CSS pixels down the screen: under the chrome at the top (the pills,
+ * the card over a plot, the build bar, chat) and, on a phone, over the controls along the foot.
  */
-function clearLift(): number {
+function clearBand(): { top: number; bottom: number } {
   const top = Math.max(
     TOP_BAR_PX,
     visiting.bottom(),
@@ -2921,8 +3030,75 @@ function clearLift(): number {
           pad?.getBoundingClientRect().top ?? cam.height,
         )
       : cam.height;
-  if (foot - top < cam.scale * 5) return 0;
-  return (top + foot) / 2 - cam.height / 2;
+  return { top, bottom: foot };
+}
+
+/**
+ * Where the clear map's middle is, as pixels below the screen's middle (`clearBand`). The camera
+ * keeps your figure there, so what's around you isn't under a card or the build bar. Nothing moves
+ * when the band is too thin to matter.
+ */
+function clearLift(): number {
+  const { top, bottom } = clearBand();
+  if (bottom - top < cam.scale * 5) return 0;
+  return (top + bottom) / 2 - cam.height / 2;
+}
+
+/** The tiles of the plot you build on, while the build bar can build there. */
+function buildBox(): { x0: number; y0: number; x1: number; y1: number } | undefined {
+  const plot = buildMode && mirror ? buildablePlot() : undefined;
+  if (!plot || !mirror) return undefined;
+  const S = mirror.config.plotSize;
+  return { x0: plot.px * S, y0: plot.py * S, x1: plot.px * S + S - 1, y1: plot.py * S + S - 1 };
+}
+
+/**
+ * Where the map's camera goes while you build on a plot: the whole plot in the clear band under
+ * the build bar, its tiles as big as fit (`frameTiles`), so a phone's taps land where they're
+ * meant. Only until a pinch, a drag, or + and - take the camera, and only on the map.
+ */
+function buildFrame(): { cx: number; cy: number; scale: number } | undefined {
+  if (!framing || world3d || roaming) return undefined;
+  const box = buildBox();
+  if (!box) return undefined;
+  return frameTiles(cam, clearBand(), box, zoomLimits());
+}
+
+/**
+ * What the build-mode outline rings: once the world has plot reach, the plot you build on, which
+ * you reach all of from anywhere on it; else the tiles within reach of where you stand.
+ */
+function reachBox(): { x0: number; y0: number; x1: number; y1: number } | undefined {
+  const m = mirror;
+  const r = self();
+  if (!buildMode || !m || !r) return undefined;
+  const plot = m.plotReach ? buildBox() : undefined;
+  if (plot) return plot;
+  const n = m.config.reach;
+  return { x0: r.x - n, y0: r.y - n, x1: r.x + n, y1: r.y + n };
+}
+
+/** What the build bar marks on the map now: the tap's flash while it lasts, else the mouse's aim. */
+function buildMark(now: number): { spot: BuildSpot; fade: number } | undefined {
+  if (!buildMode) return undefined;
+  if (flash && now - flash.at < FLASH_MS)
+    return { spot: flash.spot, fade: 1 - (now - flash.at) / FLASH_MS };
+  const aim = buildHover();
+  return aim && { spot: aim, fade: 1 };
+}
+
+/**
+ * Where the tile the map is about falls on the screen, and how big a tile is, on the canvas as
+ * `data-view`: a link's place (or whoever it follows) while you look at one, else your own tile.
+ * For tests and tools that tap a tile, since the camera frames the plot while you build.
+ */
+function paintView() {
+  const place = lookingAt;
+  const who = place?.follow ? mirror?.residents.get(place.follow) : undefined;
+  const tile = who ?? (place ? { x: Math.round(place.x), y: Math.round(place.y) } : self());
+  const at = tile ? tileToScreen(cam, tile.x, tile.y) : undefined;
+  const view = at ? `${Math.round(at.sx)},${Math.round(at.sy)},${cam.scale}` : "";
+  if (canvas.dataset.view !== view) canvas.dataset.view = view;
 }
 
 /** The card's bottom as `--card-bottom` last said it, so the style is set only when it moves. */
@@ -2990,8 +3166,10 @@ function frame() {
       lift = approach(lift, world3d ? 0 : clearLift(), dt, LIFT_RATE);
       const shown = Math.round(lift);
       if (canvas.dataset.lift !== String(shown)) canvas.dataset.lift = String(shown);
-      cam.cx = approach(cam.cx, p.x, dt, CAMERA_RATE);
-      cam.cy = approach(cam.cy, p.y - lift / cam.scale, dt, CAMERA_RATE);
+      // Building on a plot, the camera holds the plot still under the bar while you move about it.
+      const framed = buildFrame();
+      cam.cx = approach(cam.cx, framed ? framed.cx : p.x, dt, CAMERA_RATE);
+      cam.cy = approach(cam.cy, framed ? framed.cy : p.y - lift / cam.scale, dt, CAMERA_RATE);
     }
     // Zoomed out, the world stays on the screen, in the middle once it all fits.
     if (mirror && !world3d && (roaming || cam.scale < zoomLimits().base))
@@ -3041,14 +3219,15 @@ function frame() {
       clock,
       notes: jobs.givers(),
       bursts,
-      // While building, the plot is cut away at the floor the picker shows, as on the map.
-      ...(buildMode ? { cutFloor: buildFloor } : {}),
+      // While building, the plot is cut away at the floor the picker shows, as on the map, the
+      // outline rings what you reach, and the camera looks at the plot you build on.
+      ...(buildMode ? { cutFloor: buildFloor, reach: reachBox(), frame: buildBox() } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   else if (mirror) {
     // Worked out every frame: people walk under a still pointer, and the map follows you.
     const hover = pointer ? hoverTiles(screenToTile(cam, pointer.x, pointer.y)) : undefined;
-    const cursor = hover ? "pointer" : "";
+    const cursor = hover || (buildMode && pointer) ? "pointer" : "";
     if (canvas.style.cursor !== cursor) canvas.style.cursor = cursor;
     render(ctx, {
       mirror,
@@ -3069,8 +3248,9 @@ function frame() {
       bursts,
       hover,
       notes: jobs.givers(),
-      // While building, the map is cut away at the floor the picker shows (RFC 0028).
-      ...(buildMode ? { cutFloor: buildFloor } : {}),
+      // While building, the map is cut away at the floor the picker shows (RFC 0028), the outline
+      // rings what you reach, and the tap's spot is marked.
+      ...(buildMode ? { cutFloor: buildFloor, reach: reachBox(), mark: buildMark(now) } : {}),
       ...(phase === undefined ? {} : { dayPhase: phase }),
     });
   }
@@ -3103,6 +3283,7 @@ function frame() {
   // tests and tools.
   const at = r ? `${r.x},${r.y}` : "";
   if (canvas.dataset.at !== at) canvas.dataset.at = at;
+  paintView();
   // Your own figure's feeling, a name from a fixed list, once you're in: for tests and tools.
   const mine = me ? feelings.feeling(me, now) : "";
   if (canvas.dataset.feeling !== mine) canvas.dataset.feeling = mine;

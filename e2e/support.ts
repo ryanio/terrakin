@@ -332,13 +332,25 @@ export async function settler(request: APIRequestContext, name: string) {
   return who;
 }
 
-/** The camera eases toward you; wait enough frames for it to land before tapping tiles. */
+/**
+ * The camera eases toward you, or toward the plot you build on: wait until the canvas's
+ * `data-view` (your tile's place on screen and a tile's size) holds still for a run of frames.
+ */
 async function settleCamera(page: Page) {
   await page.evaluate(
     () =>
       new Promise<void>((done) => {
-        let frames = 40;
-        const tick = () => (--frames <= 0 ? done() : requestAnimationFrame(tick));
+        const canvas = document.getElementById("world") as HTMLCanvasElement;
+        let still = 0;
+        let left = 240;
+        let last = "";
+        const tick = () => {
+          const view = canvas.dataset.view ?? "";
+          still = view === last ? still + 1 : 0;
+          last = view;
+          if (still >= 12 || --left <= 0) done();
+          else requestAnimationFrame(tick);
+        };
         requestAnimationFrame(tick);
       }),
   );
@@ -356,8 +368,9 @@ async function worldSettled(page: Page) {
 }
 
 /**
- * On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (the middle of the screen),
- * once the world's buttons are where they will stay.
+ * On the 2D map at /world, tap the tile `dx`, `dy` from where you stand (fractions land off a
+ * tile's middle, toward a line between tiles), once the world's buttons are where they will stay
+ * and the camera has landed.
  */
 export async function tapTile(page: Page, dx: number, dy: number) {
   await worldSettled(page);
@@ -367,16 +380,15 @@ export async function tapTile(page: Page, dx: number, dy: number) {
 }
 
 /**
- * Where the tile `dx`, `dy` from where you stand falls on screen. The map keeps your figure in the
- * middle of the clear map rather than the screen's, and says how far below the middle in the
- * canvas's `data-lift`.
+ * Where the tile `dx`, `dy` from where you stand (or from a link's place you look at) falls on
+ * screen, from the canvas's `data-view`: that tile's middle on screen and a tile's size, which
+ * change when the map frames the plot you build on.
  */
 async function tilePoint(page: Page, dx: number, dy: number) {
-  const vp = page.viewportSize();
-  if (!vp) throw new Error("no viewport");
-  const scale = Math.max(16, Math.floor(Math.min(vp.width, vp.height) / 13));
-  const lift = Number((await page.locator("#world").getAttribute("data-lift")) ?? 0);
-  return { x: vp.width / 2 + dx * scale, y: vp.height / 2 + lift + dy * scale };
+  const view = (await page.locator("#world").getAttribute("data-view")) ?? "";
+  const [sx, sy, scale] = view.split(",").map(Number);
+  if (sx === undefined || sy === undefined || !scale) throw new Error("the map has no view yet");
+  return { x: sx + dx * scale, y: sy + dy * scale };
 }
 
 /**
@@ -398,6 +410,7 @@ export async function openVisitCard(page: Page) {
  */
 export async function tapsTheMap(page: Page, dx: number, dy: number): Promise<boolean> {
   await worldSettled(page);
+  await settleCamera(page);
   const at = await tilePoint(page, dx, dy);
   return page.evaluate(
     ([x, y]) => document.elementFromPoint(x as number, y as number)?.tagName === "CANVAS",

@@ -118,3 +118,29 @@ export function mapDetail(scale: number): MapDetail {
 export function drawnScale(scale: number): number {
   return scale >= SIMPLE_BELOW ? Math.round(scale) : Math.round(scale * 4) / 4;
 }
+
+/**
+ * The camera that frames a box of tiles (a plot, while you build on it) in the clear band of the
+ * screen between `top` and `bottom` (CSS pixels): the box's middle at the band's middle, as big as
+ * fits with `pad` pixels round it, never smaller than the usual view nor closer than `max`. On a
+ * phone the band is under the build bar and over the controls, so every tile of the plot is on
+ * screen and bigger than the usual view draws it.
+ */
+export function frameTiles(
+  view: { width: number; height: number },
+  band: { top: number; bottom: number },
+  box: { x0: number; y0: number; x1: number; y1: number },
+  limits: Pick<ZoomBounds, "base" | "max">,
+  pad = 12,
+): { cx: number; cy: number; scale: number } {
+  const across = box.x1 - box.x0 + 1;
+  const down = box.y1 - box.y0 + 1;
+  const fit = Math.min((view.width - 2 * pad) / across, (band.bottom - band.top - 2 * pad) / down);
+  const scale = Math.min(limits.max, Math.max(limits.base, fit));
+  const middle = (band.top + band.bottom) / 2 - view.height / 2;
+  return {
+    cx: (box.x0 + box.x1) / 2,
+    cy: (box.y0 + box.y1) / 2 - middle / scale,
+    scale,
+  };
+}

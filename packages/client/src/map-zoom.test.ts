@@ -3,6 +3,7 @@ import { type Camera, fitScale, tileToScreen } from "./camera";
 import {
   clampScale,
   drawnScale,
+  frameTiles,
   keepInWorld,
   mapDetail,
   zoomAround,
@@ -131,5 +132,33 @@ describe("drawnScale", () => {
     expect(drawnScale(5.4)).toBe(5.5);
     // The usual view is whole pixels already, so it draws exactly as before.
     expect(drawnScale(base)).toBe(base);
+  });
+});
+
+describe("frameTiles", () => {
+  // A plot (8 tiles) on a phone, between the build bar's foot and the controls' top.
+  const plot = { x0: 16, y0: 24, x1: 23, y1: 31 };
+  const band = { top: 170, bottom: 600 };
+  const limits = zoomBounds(PHONE, DOWNTOWN, base);
+
+  it("fits the whole plot across the phone, bigger than the usual view draws it", () => {
+    const f = frameTiles(PHONE, band, plot, limits);
+    expect(f.scale).toBeGreaterThan(base);
+    const view = cam({ cx: f.cx, cy: f.cy, scale: f.scale });
+    const nw = tileToScreen(view, plot.x0 - 0.5, plot.y0 - 0.5);
+    const se = tileToScreen(view, plot.x1 + 0.5, plot.y1 + 0.5);
+    expect(nw.sx).toBeGreaterThanOrEqual(0);
+    expect(se.sx).toBeLessThanOrEqual(PHONE.width);
+    expect(nw.sy).toBeGreaterThanOrEqual(band.top);
+    expect(se.sy).toBeLessThanOrEqual(band.bottom);
+  });
+
+  it("never draws tiles smaller than the usual view, even in a band too thin for the plot", () => {
+    expect(frameTiles(PHONE, { top: 300, bottom: 420 }, plot, limits).scale).toBe(base);
+  });
+
+  it("goes no closer than the close view, however few tiles it frames", () => {
+    const corner = { x0: 16, y0: 24, x1: 17, y1: 25 };
+    expect(frameTiles(PHONE, band, corner, limits).scale).toBe(limits.max);
   });
 });

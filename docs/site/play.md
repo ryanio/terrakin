@@ -81,7 +81,7 @@ To see how much clay you have, tap **Your things**. It's under Pottery.
 
 Bare clay costs nothing. Every other glaze takes one thing, and the kiln says which.
 
-Set a pot down at home from **Build**, on the Furniture tab, and put a flower in a vase. A teapot and 2 bunches of herbs at a kitchen make a pot of tea to serve at your own event.
+Set a pot down at home from **Build**, on the Furniture tab, or tap a table or shelf of yours with it picked to stand it there, and put a flower in a vase. A teapot and 2 bunches of herbs at a kitchen make a pot of tea to serve at your own event.
 
 ## Fishing
 

@@ -15,6 +15,7 @@ import {
   admiredLine,
   aNamed,
   aThing,
+  builtHereLine,
   byFamily,
   catchLine,
   coinsLine,
@@ -793,6 +794,22 @@ describe("where things come from", () => {
     for (const plain of ["wood", "stone", "glass", "leaf", "door"]) {
       expect(thingHereLine({ block: plain, owner: "Moss" }), plain).toBeNull();
     }
+  });
+
+  it("says what a build tap found and how to take it up, naming walls the way people do", () => {
+    expect(builtHereLine({ block: "stone", line: true })).toBe(
+      "There's a stone wall on that line. Pick Remove to take it down.",
+    );
+    expect(builtHereLine({ block: "glass", line: true })).toContain("a window on that line");
+    expect(builtHereLine({ block: "brickwork", line: true })).toContain("a wall of brickwork");
+    expect(builtHereLine({ block: "armchair" })).toBe(
+      "There's an armchair here. Pick Remove to take it up.",
+    );
+    expect(builtHereLine({ ground: "dirt" })).toBe(
+      "Dirt path is laid here. Pick Remove to lift it.",
+    );
+    expect(builtHereLine({ paths: true })).toContain("Tap a path");
+    expect(builtHereLine({})).not.toContain("path");
   });
 });
 

@@ -23,7 +23,9 @@ import {
   familyPath,
   type Glaze,
   type GoodKind,
+  GROUND_INFO,
   type Grade,
+  type GroundKind,
   gradedName,
   HOLIDAY_INFO,
   type Holiday,
@@ -208,6 +210,46 @@ const BLOCK_USES: Readonly<Record<string, string>> = {
   pond: "fish bite beside it",
   stairs: "they go up to the floor above",
 };
+
+/** The plain walls, windows, hedges, and doors by what a line between tiles holds. */
+const WALL_WORDS: Readonly<Record<string, string>> = {
+  wood: "a wood wall",
+  stone: "a stone wall",
+  glass: "a window",
+  leaf: "a hedge",
+  door: "a door",
+};
+
+/** A wall on a line, a block, or a path in words, with its article: "a stone wall", "a table". */
+function builtWord(block: string): string {
+  const wall = WALL_WORDS[block];
+  if (wall) return wall;
+  if (isMaterialKind(block)) return `a wall of ${blockName(block)}`;
+  const name = blockName(block);
+  return `${/^[aeiou]/.test(name) ? "an" : "a"} ${name}`;
+}
+
+/**
+ * What a build tap found where it landed (decision 0429): a pick tapped on something already
+ * there, which it leaves alone, or Remove tapped where there is nothing it takes up.
+ */
+export function builtHereLine(o: {
+  block?: string | undefined;
+  ground?: string | undefined;
+  line?: boolean | undefined;
+  paths?: boolean | undefined;
+}): string {
+  if (o.line && o.block)
+    return `There's ${builtWord(o.block)} on that line. Pick Remove to take it down.`;
+  if (o.block) return `There's ${builtWord(o.block)} here. Pick Remove to take it up.`;
+  if (o.ground) {
+    const name = GROUND_INFO[o.ground as GroundKind]?.name ?? o.ground;
+    return `${name} is laid here. Pick Remove to lift it.`;
+  }
+  return o.paths
+    ? "Nothing here to take up. Tap a path, a block, or by a wall's line."
+    : "Nothing here to take up. Tap a block, or by a wall's line.";
+}
 
 /** Where a placed thing comes from, so a neighbor's home shows what you could have too. */
 function whereFrom(kind: ItemKind): string | null {

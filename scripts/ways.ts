@@ -27,6 +27,7 @@ import {
   type BlockKind,
   edgeKey,
   edgeOf,
+  lotBounds,
   openingFactsFrom,
   plotKey,
   type Tile,
@@ -44,6 +45,8 @@ export interface WaysRead extends WorldRead {
   displays?: Tile[];
   /** Paths and flooring, the floors above with `floor`. */
   ground?: (Tile & { floor?: number })[];
+  /** Slots whose lot grew past the first (RFC 0052). */
+  lots?: { px: number; py: number; lot: number }[];
   /**
    * Plots for sale. The snapshot doesn't carry listings (the plot market is dark), so the dry run
    * reads none and the staff route, which reads the world, is what routes around them.
@@ -59,6 +62,10 @@ export function wayFactsOf(world: WaysRead): WayFacts {
   const hearths = [...world.residents, ...(world.townsfolkResidents ?? [])].flatMap((r) =>
     r.hearth ? [r.hearth] : [],
   );
+  const lotsOf = {
+    config: world.config,
+    lots: Object.fromEntries((world.lots ?? []).map((l) => [plotKey(l.px, l.py), l.lot])),
+  };
   const lines = new Map<string, BlockKind>();
   for (const e of world.edges ?? []) {
     if ((e.floor ?? 0) === 0) lines.set(edgeKey(e.x, e.y, e.side), e.block);
@@ -84,6 +91,7 @@ export function wayFactsOf(world: WaysRead): WayFacts {
     listed: new Set((world.listed ?? []).map((p) => plotKey(p.px, p.py))),
     ways: new Set((world.ways ?? []).map((t) => tileKey(t.x, t.y))),
     landing: wayLanding(world.config, downtown, world.commons),
+    lotOf: (px, py) => lotBounds(lotsOf, px, py),
   };
 }
 

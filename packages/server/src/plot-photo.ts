@@ -42,6 +42,7 @@ import {
   isDecorKind,
   isFurnitureKind,
   LEAF_TONES,
+  lotBounds,
   nightAmount,
   onBridge,
   onVine,
@@ -199,14 +200,15 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
   const { floor } = o;
   const title = shownPlotName(plot, o.held ?? (() => false));
   const { config } = state;
-  const S = config.plotSize;
-  const x0 = plot.px * S;
-  const y0 = plot.py * S;
+  // The subject is the plot's lot (RFC 0052), what its owners build on: the whole slot before a
+  // regrid, its middle after, with the wild yard round it. `slot` is the plot grid, for tints.
+  const { x0, y0, side: S } = lotBounds(state, plot.px, plot.py);
+  const slot = config.plotSize;
   const owner = state.residents[plot.ownerId];
 
-  // The box drawn: the plot with a sliver of the world on each side, kept inside the world's edges,
+  // The box drawn: the lot with a sliver of the world on each side, kept inside the world's edges,
   // so a home reads as a place in a town (issue #80). A world too small for the slivers gets the
-  // plot alone.
+  // lot alone.
   const cols = Math.min(S + SURROUND * 2, config.width);
   const rows = Math.min(S + SURROUND * 2, config.height);
   const clamp = (v: number, max: number) => Math.max(0, Math.min(max, v));
@@ -246,17 +248,17 @@ export function plotSpecOf(state: WorldState, plot: WorldPlot, o: PhotoOptions):
 
   // Each themed plot's tint over its own part of the box, the plot's own included.
   const tints: NonNullable<PlotArea["tints"]> = [];
-  for (let py = Math.floor(by / S); py * S < by + rows; py++) {
-    for (let px = Math.floor(bx / S); px * S < bx + cols; px++) {
-      const theme = paletteAt(px * S, py * S);
+  for (let py = Math.floor(by / slot); py * slot < by + rows; py++) {
+    for (let px = Math.floor(bx / slot); px * slot < bx + cols; px++) {
+      const theme = paletteAt(px * slot, py * slot);
       if (!theme || !state.plots[plotKey(px, py)]) continue;
-      const left = Math.max(px * S, bx);
-      const top = Math.max(py * S, by);
+      const left = Math.max(px * slot, bx);
+      const top = Math.max(py * slot, by);
       tints.push({
         x: left - bx,
         y: top - by,
-        w: Math.min((px + 1) * S, bx + cols) - left,
-        h: Math.min((py + 1) * S, by + rows) - top,
+        w: Math.min((px + 1) * slot, bx + cols) - left,
+        h: Math.min((py + 1) * slot, by + rows) - top,
         fill: alphaHex(theme.ground, THEME_TINT_ALPHA),
       });
     }

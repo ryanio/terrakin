@@ -41,7 +41,7 @@ import type {
   RoutinesResponse,
   WorldSnapshot,
 } from "../../packages/protocol/src/index";
-import type { Side } from "../../packages/sim/src/index";
+import { BASE_PLOT, insetOf, type Side } from "../../packages/sim/src/index";
 import { ART_VERSION, type Images, renderAll } from "./art.ts";
 import { type Creds, defaultCredsPath, type Stored, writePrivateJson } from "./creds.ts";
 import { describeStep, planHandle } from "./handle-plan.ts";
@@ -507,16 +507,20 @@ const lineKey = (x: number, y: number, side: Side) =>
  */
 function decorPlan(p: Persona, s: Stored, plot: Plot, snap: WorldSnapshot) {
   const { plotSize, reach } = snap.config;
+  // Decor and the starter home are drawn on the slot's middle 8 by 8, the plot's first lot, which
+  // is the whole slot before the regrid (RFC 0052).
+  const x0 = plot.px * plotSize + insetOf(snap.config);
+  const y0 = plot.py * plotSize + insetOf(snap.config);
   const lines = new Set((snap.edges ?? []).map((e) => lineKey(e.x, e.y, e.side)));
   const hearth = everyone(snap).find((r) => r.id === s.residentId)?.hearth ?? {
-    x: plot.px * plotSize + 3,
-    y: plot.py * plotSize + 3,
+    x: x0 + 3,
+    y: y0 + 3,
   };
   const all = p.home.decor
-    .filter((d) => d.dx < plotSize && d.dy < plotSize)
+    .filter((d) => d.dx < BASE_PLOT && d.dy < BASE_PLOT)
     .map((d) => ({
-      x: plot.px * plotSize + d.dx,
-      y: plot.py * plotSize + d.dy,
+      x: x0 + d.dx,
+      y: y0 + d.dy,
       side: d.side,
       block: d.block,
     }))

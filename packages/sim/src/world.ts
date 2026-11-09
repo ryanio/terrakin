@@ -38,9 +38,20 @@ export const DEFAULT_CONFIG: WorldConfig = {
  */
 export const CHAT_EARSHOT = 12;
 
+/**
+ * How far nearby chat travels in this world: `CHAT_EARSHOT` on plots of `BASE_PLOT` tiles, and as
+ * much farther as the plots are bigger (RFC 0052), so someone in their yard still hears the Commons.
+ */
+export const earshotOf = (config: Pick<WorldConfig, "plotSize">): number =>
+  Math.round((CHAT_EARSHOT * Math.max(config.plotSize, BASE_PLOT)) / BASE_PLOT);
+
 /** Whether `listener` hears nearby chat from `speaker`. Everyone hears themselves. */
-export function withinEarshot(speaker: Tile, listener: Tile): boolean {
-  return chebyshev(speaker, listener) <= CHAT_EARSHOT;
+export function withinEarshot(
+  config: Pick<WorldConfig, "plotSize">,
+  speaker: Tile,
+  listener: Tile,
+): boolean {
+  return chebyshev(speaker, listener) <= earshotOf(config);
 }
 
 export function validateConfig(config: WorldConfig): void {

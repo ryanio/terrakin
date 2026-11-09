@@ -1,10 +1,11 @@
-import { oneTimeSwitch, refuse } from "./check";
+import { refuse } from "./check";
 import { edgeKey, edgeTiles, parseEdgeKey } from "./edges";
 import { BASE_PLOT, moveCoord } from "./grid";
 import { parseKey, tileKey } from "./keys";
 import { potKey } from "./pottery";
 import { giveBackShown, parseFaceKey, parseTopKey } from "./surfaces";
 import type { FloorLayer, Rejection, Side, Tile, WorldEvent, WorldState } from "./types";
+import { directionOf, stepFrom, worldGround } from "./walk";
 
 /** The plot size a world grows to (RFC 0052). */
 export const REGRID = { from: BASE_PLOT, to: 16 } as const;
@@ -114,8 +115,9 @@ const crossesSlots = (a: Tile, b: Tile) =>
 
 /**
  * Moves the whole world onto plot slots of `REGRID.to` tiles: the config and downtown double, and
- * every tile, line, face and key moves with `moveCoord`. Public ways and bridges that ran across a
- * slot border are carried across the yards between, so every way still reaches town and every
+ * every tile, line, face and key moves with `moveCoord`. A public way is carried across its yard
+ * wherever a walker could step from it over a slot border, and a bridge across the yards along its
+ * run, so every way still reaches town, every plot whose exit was a way still has it, and every
  * bridge still lands. A thing hung on a wall face across a slot border goes back to whoever hung
  * it, since its wall stays with the other tile; those events are returned.
  */
@@ -126,6 +128,18 @@ export function regridWorld(state: WorldState): WorldEvent[] {
   const oldBridges = (state.lands?.list ?? []).map((land) =>
     land.bridge.map(([x, y]) => ({ x, y })),
   );
+  // Every step from a way tile across its slot's edge that a walker could take before the regrid:
+  // onto another way, a bridge, the Commons, a street, a free slot, or a plot that stepped out onto
+  // it. Read now, on the old ground, since everything moves below.
+  const oldGround = worldGround(state);
+  const crossings: { x: number; y: number; dx: number; dy: number }[] = [];
+  for (const [x, y] of oldWays) {
+    for (const [dx, dy] of STEPS) {
+      const dir = directionOf(dx, dy);
+      if (!dir || !crossesSlots({ x, y }, { x: x + dx, y: y + dy })) continue;
+      if (stepFrom(oldGround, { x, y }, dir).ok) crossings.push({ x, y, dx, dy });
+    }
+  }
 
   state.config = {
     ...state.config,
@@ -156,20 +170,13 @@ export function regridWorld(state: WorldState): WorldEvent[] {
       state.floors[floor] = moveLayer(layer);
   }
 
-  // Public ways, carried across the yards toward any way, bridge, or public slot beside them.
+  // Public ways, each step across a slot's edge carried across the way's own yard to the edge, so
+  // every way still joins what it joined and every plot whose exit was a way still steps onto one.
   if (state.ways) {
-    const ways = new Set(Object.keys(state.ways));
-    const bridges = new Set(oldBridges.flat().map((t) => tileKey(t.x, t.y)));
     const moved: Record<string, true> = {};
-    for (const [x, y] of oldWays) {
-      moved[tileKey(move(x), move(y))] = true;
-      for (const [dx, dy] of STEPS) {
-        const n = { x: x + dx, y: y + dy };
-        if (!crossesSlots({ x, y }, n)) continue;
-        const key = tileKey(n.x, n.y);
-        if (!ways.has(key) && !bridges.has(key)) continue;
-        for (const t of gapToward({ x, y }, dx, dy)) moved[tileKey(t.x, t.y)] = true;
-      }
+    for (const [x, y] of oldWays) moved[tileKey(move(x), move(y))] = true;
+    for (const { x, y, dx, dy } of crossings) {
+      for (const t of gapToward({ x, y }, dx, dy)) moved[tileKey(t.x, t.y)] = true;
     }
     state.ways = moved;
   }

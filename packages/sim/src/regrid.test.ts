@@ -1,15 +1,20 @@
 import { readdirSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { apply } from "./apply";
+import { plotPlan } from "./build";
+import { designNotes } from "./design";
 import { REGRID_CONFIG, REGRID_HASH, REGRID_LOG } from "./fixtures/regrid-log";
+import { baseTile, moveCoord } from "./grid";
 import { hashWorld } from "./hash";
 import { inLot } from "./lots";
+import { plotMap } from "./map";
+import { landlocked, openingFacts } from "./openings";
 import { regridWorld } from "./regrid";
 import { replay } from "./replay";
 import { expectSupplyHolds } from "./test-support";
 import { type Input, TOWN_ACTOR, type WorldConfig, type WorldState } from "./types";
 import { DIRECTIONS, stepFrom, worldGround } from "./walk";
-import { cloneWorld, gameTableTiles, spawnTile } from "./world";
+import { cloneWorld, createWorld, gameTableTiles, spawnTile } from "./world";
 
 type Fixture = { name: string; config: WorldConfig; log: Input[] };
 
@@ -47,6 +52,28 @@ function reachable(state: WorldState): Set<string> {
 }
 
 const count = (rec: object | undefined) => Object.keys(rec ?? {}).length;
+
+/** The way tiles that count as open ground: a walk from the Commons reaches them. */
+const joinedWays = (s: WorldState) => {
+  const facts = openingFacts(s);
+  return Object.keys(s.ways ?? {})
+    .map((k) => k.split(",").map(Number) as [number, number])
+    .filter(([x, y]) => facts.way?.(x, y));
+};
+
+/**
+ * Every way joined to the Commons before the regrid still is, where it moved, and no plot with an
+ * exit before is landlocked after.
+ */
+function expectExitsKept(before: WorldState, after: WorldState) {
+  const joined = new Set(joinedWays(after).map(([x, y]) => `${x},${y}`));
+  const lost = joinedWays(before).filter(
+    ([x, y]) => !joined.has(`${moveCoord(x, 16)},${moveCoord(y, 16)}`),
+  );
+  expect(lost).toEqual([]);
+  const shut = new Set(landlocked(before).map((p) => `${p.px},${p.py}`));
+  expect(landlocked(after).filter((p) => !shut.has(`${p.px},${p.py}`))).toEqual([]);
+}
 
 /** How many of each kind of keyed thing a world holds, which a regrid must never change. */
 const tally = (s: WorldState) => ({
@@ -132,7 +159,8 @@ const NO_TILES = [
 ];
 
 describe("regrid (RFC 0052)", () => {
-  it.each(fixtures.filter((f) => f.config.plotSize === 8))(
+  // Every log of 8-tile plots but the one that regrids already.
+  it.each(fixtures.filter((f) => f.config.plotSize === 8 && f.name !== "regrid-log.ts"))(
     "moves $name onto 16-tile slots and keeps everything",
     ({ config, log }) => {
       const before = replay(config, log);
@@ -169,6 +197,19 @@ describe("regrid (RFC 0052)", () => {
         expect(inLot(after, r.hearth.x, r.hearth.y)).toBe(true);
       }
 
+      expectExitsKept(before, after);
+
+      // Every plot reads the same from its lot's corner as it did from its own: its plan, its
+      // map, and its notes.
+      const differ = Object.values(before.plots).filter(
+        ({ px, py }) =>
+          JSON.stringify([plotPlan(before, px, py), plotMap(before, px, py)]) !==
+            JSON.stringify([plotPlan(after, px, py), plotMap(after, px, py)]) ||
+          JSON.stringify(designNotes(before, px, py)) !==
+            JSON.stringify(designNotes(after, px, py)),
+      );
+      expect(differ.map((p) => `${p.px},${p.py}`)).toEqual([]);
+
       // Open game tables still stand on the Commons' table spots.
       const spots = gameTableTiles(after).map((t) => `${t.x},${t.y}`);
       for (const table of Object.values(after.games?.tables ?? {})) {
@@ -184,6 +225,52 @@ describe("regrid (RFC 0052)", () => {
       for (const key of Object.keys(replay(config, log))) if (!known.has(key)) unknown.add(key);
     }
     expect([...unknown]).toEqual([]);
+  });
+
+  it("carries a way across its yard to whatever it stepped onto: the Commons, and a plot whose exit it was", () => {
+    // Nine 8-tile slots, the Commons in the middle and every other slot claimed. A way runs down
+    // the west column of Bob's plot (1, 0): its south end steps onto the Commons, and it is the only
+    // exit of Ada's plot (0, 0), boxed in by Bob and Cy.
+    const state = createWorld({
+      width: 24,
+      height: 24,
+      plotSize: 8,
+      maxPlotsPerResident: 1,
+      reach: 3,
+    });
+    const slots: [string, number, number][] = [
+      ["ada", 0, 0],
+      ["bob", 1, 0],
+      ["cy", 0, 1],
+      ["dee", 2, 0],
+      ["eve", 2, 1],
+      ["fay", 0, 2],
+      ["gus", 1, 2],
+      ["hal", 2, 2],
+    ];
+    for (const [id, px, py] of slots) {
+      expect(
+        apply(state, { actor: id, command: { type: "join", name: id, kind: "agent" } }).ok,
+      ).toBe(true);
+      expect(apply(state, { actor: id, command: { type: "settle", px, py } }).ok).toBe(true);
+    }
+    const tiles = Array.from({ length: 8 }, (_, y) => [8, y] as [number, number]);
+    expect(apply(state, { actor: TOWN_ACTOR, command: { type: "open_way", tiles } }).ok).toBe(true);
+    expect(joinedWays(state)).toHaveLength(8);
+    expect(landlocked(state)).toEqual([]);
+
+    const after = cloneWorld(state);
+    expect(apply(after, { actor: TOWN_ACTOR, command: { type: "regrid" } }).ok).toBe(true);
+    expectExitsKept(state, after);
+  });
+
+  it("reads a yard tile as the nearest tile of its slot's middle, and every tile of smaller plots as itself", () => {
+    // Slot (1, 0) of 16 is tiles 16 to 31; its middle 8 is 20 to 27, standing for 8 to 15.
+    expect(baseTile({ plotSize: 16 }, 21, 5)).toEqual({ x: 9, y: 1, ring: false });
+    expect(baseTile({ plotSize: 16 }, 17, 30)).toEqual({ x: 8, y: 15, ring: true });
+    for (const plotSize of [4, 8]) {
+      expect(baseTile({ plotSize }, 5, 6)).toEqual({ x: 5, y: 6, ring: false });
+    }
   });
 
   it("comes once, from the town, in a world of 8-tile plots", () => {

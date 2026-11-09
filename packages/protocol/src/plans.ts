@@ -1,7 +1,7 @@
 import type { Command } from "@terrakin/sim";
 import type { BuildAction } from "./actions";
 import { DESIGN_SIZE, DESIGNS, designToPlan } from "./designs";
-import { type MapInput, mapToPlan, type PlotNow } from "./maps";
+import { type MapInput, mapToPlan, type PlanLists, type PlotNow } from "./maps";
 
 type BuildCommand = Extract<Command, { type: "build" }>;
 
@@ -61,15 +61,22 @@ export function buildCommand(
   if (design !== undefined) {
     const found = DESIGNS.find((d) => d.id === design);
     if (!found) return { problem: `There's no design called ${design}. See GET /v1/designs.` };
-    if (plot.size !== DESIGN_SIZE) {
+    if (plot.size < DESIGN_SIZE) {
       return {
-        problem: `Designs are drawn for plots of ${DESIGN_SIZE} tiles, and this world's are ${plot.size}. Send a map or lists instead.`,
+        problem: `Designs are drawn for lots of ${DESIGN_SIZE} tiles, and this one is ${plot.size}. Send a map or lists instead.`,
       };
     }
     const drawn = designToPlan(found, action);
     if ("problem" in drawn) return drawn;
-    const read = mapToPlan(drawn.map, { size: plot.size, now: plot.now, replace });
-    return "problem" in read ? read : { command: command(read.plan) };
+    // A design is drawn 8 by 8 and stands in the middle of a bigger lot (RFC 0052): it reads and
+    // replaces only its own square, and its tiles move out by the margin.
+    const off = Math.floor((plot.size - DESIGN_SIZE) / 2);
+    const read = mapToPlan(drawn.map, {
+      size: DESIGN_SIZE,
+      now: shiftNow(plot.now, -off),
+      replace,
+    });
+    return "problem" in read ? read : { command: command(shiftLists(read.plan, off)) };
   }
   if (map !== undefined) {
     const read = mapToPlan(map, {
@@ -82,3 +89,24 @@ export function buildCommand(
   }
   return { command: command({ blocks, ground, remove, lift, edges, removeEdges }) };
 }
+
+/** A list's tiles moved by `d` on both axes. */
+const shifted = <T extends { x: number; y: number }>(list: readonly T[] | undefined, d: number) =>
+  list?.map((t) => ({ ...t, x: t.x + d, y: t.y + d }));
+
+/** Every tile of a plan's lists moved by `d` on both axes. */
+function shiftLists(lists: PlanLists, d: number): PlanLists {
+  const out: PlanLists = {};
+  for (const key of ["blocks", "ground", "remove", "lift", "edges", "removeEdges"] as const) {
+    const list = shifted(lists[key] as readonly { x: number; y: number }[] | undefined, d);
+    if (list) (out as Record<string, unknown>)[key] = list;
+  }
+  return out;
+}
+
+/** What stands on a lot now, moved by `d` on both axes. */
+const shiftNow = (now: PlotNow, d: number): PlotNow => ({
+  blocks: shifted(now.blocks, d) ?? [],
+  ground: shifted(now.ground, d) ?? [],
+  ...(now.edges ? { edges: shifted(now.edges, d) ?? [] } : {}),
+});

@@ -2691,7 +2691,9 @@ export const ActionResponse = z.discriminatedUnion("ok", [
       .number()
       .int()
       .optional()
-      .describe("`add_floor`: the coins it took, or on a dry run would take (RFC 0028)."),
+      .describe(
+        "`add_floor` and `grow_lot`: the coins it took, or on a dry run would take (RFC 0028, RFC 0052).",
+      ),
     plotSale: PlotSaleView.optional().describe(
       "`list_plot` and `buy_plot`: what the sale moves, or on a dry run would move: the price, the fee, what the seller gets, your balance after, and whether it clears a hearth (RFC 0039).",
     ),

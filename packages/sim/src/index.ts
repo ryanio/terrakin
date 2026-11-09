@@ -805,6 +805,7 @@ export {
   createWorld,
   DEFAULT_CONFIG,
   downtown,
+  earshotOf,
   gameTableTiles,
   hallDoor,
   hallTiles,

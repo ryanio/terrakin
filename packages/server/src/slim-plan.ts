@@ -17,6 +17,7 @@ import {
   HOLDING_BLOCKS,
   isEdgeKind,
   isWay,
+  lotBounds,
   type PlanEdge,
   type PlanTile,
   prepare,
@@ -104,8 +105,9 @@ export function slimPlan(
   px: number,
   py: number,
 ): { remove: PlanTile[]; edges: PlanEdge[] } | { problem: string } {
-  const S = state.config.plotSize;
-  const world = (x: number, y: number) => tileKey(px * S + x, py * S + y);
+  // A slim is a build, so its tiles count from the lot's corner (RFC 0052).
+  const { x0, y0 } = lotBounds(state, px, py);
+  const world = (x: number, y: number) => tileKey(x0 + x, y0 + y);
   const floors = Array.from({ length: FLOORS.max + 1 }, (_, floor) => {
     const rooms = slimFloor(state, px, py, floor);
     const loose = looseFloor(state, px, py, floor, rooms);
@@ -192,9 +194,8 @@ interface Gap {
  * doorway stays an opening with no line, since doors stay on the ground floor.
  */
 function slimFloor(state: WorldState, px: number, py: number, floor: number): FloorPart {
-  const S = state.config.plotSize;
-  const x0 = px * S;
-  const y0 = py * S;
+  // The lot (RFC 0052): what's built stands there, and plan tiles count from its corner.
+  const { x0, y0, side: S } = lotBounds(state, px, py);
   const blocks = blocksOn(state, floor);
   const flooring = groundOn(state, floor);
   const onPlot = (x: number, y: number) => x >= 0 && y >= 0 && x < S && y < S;
@@ -571,9 +572,8 @@ function looseFloor(
   floor: number,
   rooms: FloorPart,
 ): FloorPart {
-  const S = state.config.plotSize;
-  const x0 = px * S;
-  const y0 = py * S;
+  // The lot (RFC 0052): what's built stands there, and plan tiles count from its corner.
+  const { x0, y0, side: S } = lotBounds(state, px, py);
   const blocks = blocksOn(state, floor);
   const flooring = groundOn(state, floor);
   const onPlot = (x: number, y: number) => x >= 0 && y >= 0 && x < S && y < S;
@@ -731,12 +731,12 @@ function paidFor(
   remove: readonly PlanTile[],
   lines: { edge: PlanEdge; from: string }[],
 ): PlanEdge[] {
-  const S = state.config.plotSize;
+  const { x0, y0 } = lotBounds(state, px, py);
   const unit = (block: BlockKind, grade: Grade = "plain") => `${block}:${grade}`;
   const had = new Map<string, number>();
   for (const t of remove) {
     const floor = t.floor ?? 0;
-    const key = tileKey(px * S + t.x, py * S + t.y);
+    const key = tileKey(x0 + t.x, y0 + t.y);
     const block = blocksOn(state, floor)[key];
     if (block === undefined) continue;
     const u = unit(block, gradeAt(state, key, floor));
@@ -864,7 +864,7 @@ export function townLines(
   if (shutHearths(notesAfter) > shutHearths(before)) {
     return { problem: "It would wall a hearth in with no way to it." };
   }
-  const S = state.config.plotSize;
+  const { x0, y0 } = lotBounds(state, px, py);
   const lostKeys = (notes: typeof before) =>
     new Set(
       notes
@@ -876,7 +876,7 @@ export function townLines(
   const newlyLost = [...lostKeys(notesAfter)].filter((k) => {
     if (lost.has(k)) return false;
     const [x, y] = k.split(",").map(Number) as [number, number];
-    return ground0[tileKey(px * S + x, py * S + y)] === undefined;
+    return ground0[tileKey(x0 + x, y0 + y)] === undefined;
   });
   if (newlyLost.length > 0) {
     return { problem: "It would close open ground in with no way to it." };
@@ -885,7 +885,7 @@ export function townLines(
   return { command, walls: plan.walled.length, back };
 }
 
-/** How many wall blocks stand on plot (px, py), on every floor. */
+/** How many wall blocks stand on plot (px, py), on every floor: the whole slot, lot and yard. */
 export function wallBlocksOn(state: WorldState, px: number, py: number): number {
   const S = state.config.plotSize;
   let n = 0;

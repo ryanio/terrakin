@@ -5,6 +5,7 @@ import { type Grade, gradeAt, isGrade, unitKey } from "./grades";
 import { insetOf } from "./grid";
 import { blockNeeds } from "./items";
 import { plotKey, tileKey } from "./keys";
+import { lotBounds } from "./lots";
 import {
   type BlockKind,
   type Command,
@@ -66,9 +67,8 @@ export function starterEdgeHut(
  * and grade (`unitKey`, RFC 0051), so a fine brick home slims into a fine brick home.
  */
 function slimGift(state: WorldState, command: Slim): Record<string, number> {
-  const S = state.config.plotSize;
-  const x0 = command.px * S;
-  const y0 = command.py * S;
+  // A slim is a build, so its tiles count from the lot's corner (RFC 0052).
+  const { x0, y0 } = lotBounds(state, command.px, command.py);
   const back = new Map<string, number>();
   for (const t of command.remove) {
     const floor = t.floor ?? 0;

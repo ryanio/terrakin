@@ -80,8 +80,9 @@ export interface Persona {
     roof: RoofChoice;
     /**
      * Signature walls put up after the starter home, so each home in the world echoes its
-     * postcard. Each stands on the line on `side` of a tile, in tiles from the plot's north-west
-     * corner, since walls go only on the lines between tiles. The starter home walls in the tiles
+     * postcard. Each stands on the line on `side` of a tile, in tiles from the north-west corner of
+     * the plot's first lot (the slot's middle 8 by 8, RFC 0052), since walls go only on the lines
+     * between tiles. The starter home walls in the tiles
      * from (1, 1) to (5, 5) with its door south of (3, 5) and the hearth at (3, 3); every wall here
      * stands outside it, within reach of the hearth, and off the tile in front of the door.
      */

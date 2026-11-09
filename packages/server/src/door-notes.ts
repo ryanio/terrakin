@@ -11,6 +11,7 @@ import {
   type DesignNote,
   doorFacing,
   doorOutward,
+  lotSide,
   MAP_BLOCKS,
   NOTE_CODES,
   openingFacts,
@@ -45,16 +46,29 @@ export function doorNote(
   const id = how === "starter_home" ? "hut" : how.design;
   const turn = how === "starter_home" ? 0 : (how.turn ?? 0);
   const design = DESIGNS.find((d) => d.id === id);
-  if (!design || state.config.plotSize !== design.blocks.length) return undefined;
+  const size = design?.blocks.length ?? 0;
+  const lot = lotSide(state, px, py);
+  if (!design || lot < size) return undefined;
   const rows = designOnTiles(design, turn);
   const y = rows.findIndex((r) => r.includes("+"));
   if (y < 0) return undefined;
-  const door = { x: (rows[y] as string).indexOf("+"), y };
+  const drawn = { x: (rows[y] as string).indexOf("+"), y };
   const blocks: Readonly<Record<string, BlockKind>> = MAP_BLOCKS;
   const wall = (x: number, y: number) => blocksWalkers(blocks[rows[y]?.[x] ?? "."]);
-  const out = doorOutward(design.blocks.length, door, wall);
+  const out = doorOutward(size, drawn, wall);
   if (!out) return undefined;
-  const facing = doorFacing(openingFacts(state), px, py, door, out);
+  // The design stands in the middle of the lot, which is the middle of the slot (RFC 0052): the
+  // note names the door from the lot's corner, and the walk out starts from the slot's.
+  const inLot = Math.floor((lot - size) / 2);
+  const door = { x: drawn.x + inLot, y: drawn.y + inLot };
+  const inSlot = Math.floor((state.config.plotSize - size) / 2);
+  const facing = doorFacing(
+    openingFacts(state),
+    px,
+    py,
+    { x: drawn.x + inSlot, y: drawn.y + inSlot },
+    out,
+  );
   if (facing.faces || facing.quarters === undefined) return undefined;
   const to = DESIGN_TURNS[(DESIGN_TURNS.indexOf(turn) + facing.quarters) % DESIGN_TURNS.length];
   const fix =

@@ -6,7 +6,6 @@ import {
   type WorldEvent,
 } from "@terrakin/protocol";
 import {
-  CHAT_EARSHOT,
   canBuildOn,
   chebyshev,
   claimExitsIn,
@@ -15,6 +14,7 @@ import {
   countOf,
   dayDateWords,
   designNotes,
+  earshotOf,
   freeRenamesLeft,
   homePlotOf,
   ITEM_INFO,
@@ -26,6 +26,7 @@ import {
   isTownSquare,
   isTownsfolk,
   lastDeclineDay,
+  lotBounds,
   MAP_BLOCKS,
   MAP_GROUND,
   MAP_MARKS,
@@ -358,7 +359,7 @@ export function worldLinks(
         (p) => !isTownsfolk(state, p.ownerId),
       ).length;
       const nearby = everyone
-        .filter((o) => o.id !== viewer && o.online && chebyshev(o, r) <= CHAT_EARSHOT)
+        .filter((o) => o.id !== viewer && o.online && chebyshev(o, r) <= earshotOf(state.config))
         .sort((a, b) => chebyshev(a, r) - chebyshev(b, r) || a.id.localeCompare(b.id));
       const free = owned ? [] : freePlotsNear(state, r.x, r.y, 5);
       return answer(
@@ -367,7 +368,7 @@ export function worldLinks(
         "# Around you",
         `You're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         owned
-          ? `Your plot is (${owned.px}, ${owned.py}).`
+          ? `Your plot is (${owned.px}, ${owned.py}).${lotWords(state, owned.px, owned.py)}`
           : "You don't have a plot yet. Settling one takes one link, from anywhere.",
         `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${plural(onlineCount, "resident")} online, ${plural(plotCount, "plot")} claimed, not counting townsfolk.`,
         free.length > 0 &&
@@ -379,7 +380,7 @@ export function worldLinks(
                 `- Plot (${p.px}, ${p.py}), ${p.away} ${p.away === 1 ? "plot" : "plots"} away: ${l.settle(p.px, p.py)}`,
             ),
           ]),
-        `## Residents online within ${CHAT_EARSHOT} tiles`,
+        `## Residents online within ${earshotOf(state.config)} tiles`,
         nearby.length === 0
           ? "Nobody right now."
           : untrusted(
@@ -809,4 +810,14 @@ export function worldLinks(
       );
     },
   };
+}
+
+/**
+ * Where a plot's lot is (RFC 0052), once the world's slots are bigger than a lot: its corner and
+ * side, which plans and maps count from. Empty before the regrid, when the lot is the whole plot.
+ */
+function lotWords(state: WorldState, px: number, py: number): string {
+  const { x0, y0, side } = lotBounds(state, px, py);
+  if (side >= state.config.plotSize) return "";
+  return ` You build on its lot, ${side} by ${side} tiles from (${x0}, ${y0}); the rest of the plot is wild yard.`;
 }

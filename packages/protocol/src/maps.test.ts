@@ -461,13 +461,23 @@ describe("buildCommand (RFC 0032)", () => {
     );
   });
 
-  it("refuses a design on a world whose plots aren't the size designs are drawn for", () => {
-    const parsed = Action.parse({ type: "build", px: 0, py: 0, design: "hut" });
+  it("stands a design in the middle of a bigger lot, replacing only its own square, and refuses a lot too small (RFC 0052)", () => {
+    const parsed = Action.parse({ type: "build", px: 0, py: 0, design: "hut", replace: true });
     if (parsed.type !== "build") throw new Error("not a build");
-    const out = buildCommand(parsed, { size: 10, now: EMPTY });
-    expect(out).toEqual({
+    const on8 = buildCommand(parsed, { size: 8, now: EMPTY });
+    // A fence in the corner of a 12-tile lot, outside the design's square.
+    const now = { blocks: [{ x: 0, y: 0, block: "fence" as const }], ground: [] };
+    const on12 = buildCommand(parsed, { size: 12, now });
+    if (!("command" in on8) || !("command" in on12)) throw new Error("no command");
+    const moved = (t: { x: number; y: number }) => ({ ...t, x: t.x + 2, y: t.y + 2 });
+    expect(on12.command.edges).toEqual(on8.command.edges?.map(moved));
+    expect(on12.command.blocks).toEqual(on8.command.blocks?.map(moved));
+    // `replace` reads only the design's square, so the fence in the corner stays.
+    expect(on12.command.remove).toBeUndefined();
+    const small = buildCommand(parsed, { size: 6, now: EMPTY });
+    expect(small).toEqual({
       problem:
-        "Designs are drawn for plots of 8 tiles, and this world's are 10. Send a map or lists instead.",
+        "Designs are drawn for lots of 8 tiles, and this one is 6. Send a map or lists instead.",
     });
   });
 });

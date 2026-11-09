@@ -1,6 +1,7 @@
 import type { BuildPlan } from "./build";
 import { edgeBlocks, edgeOf } from "./edges";
 import { plotKey } from "./keys";
+import { lotBounds } from "./lots";
 import { type PlotTiles, plotLines, plotTiles } from "./map";
 import { claimExitsIn, nearestFreePlot, plotOpenings } from "./openings";
 import {
@@ -109,8 +110,8 @@ export function designNotes(
  * it. Only what the plan changes is said, so a plot already landlocked hears nothing here.
  */
 function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan): DesignNote[] {
-  const S = state.config.plotSize;
-  const local = (t: Tile) => ({ x: t.x - px * S, y: t.y - py * S });
+  const { x0, y0 } = lotBounds(state, px, py);
+  const local = (t: Tile) => ({ x: t.x - x0, y: t.y - y0 });
   const notes: DesignNote[] = [];
   const before = plotOpenings(state, px, py);
   const first = before[0];
@@ -147,13 +148,14 @@ function openingNotes(state: WorldState, px: number, py: number, plan: BuildPlan
 /**
  * Notes for a `settle` or `claim` of plot (`px`, `py`), read before it's claimed (decision 0354):
  * `no_opening` when the plot would have no way out of its own, and `seals_neighbor` for each plot
- * around it whose last way out the claim takes. Their tiles are on this plot, from its north-west
- * corner: where a neighbour's way out steps onto it. The first note names the nearest free plot
+ * around it whose last way out the claim takes. Their tiles are on this plot, from its lot's
+ * north-west corner (in the wild yard past the lot, after a regrid, they run below 0 or past the
+ * lot's side): where a neighbour's way out steps onto it. The first note names the nearest free plot
  * whose claim closes nobody in, when there is one. Empty when the claim closes nobody in.
  */
 export function claimNotes(state: WorldState, px: number, py: number): DesignNote[] {
   const exits = claimExitsIn(state)(px, py);
-  const S = state.config.plotSize;
+  const { x0, y0 } = lotBounds(state, px, py);
   const notes: DesignNote[] = [];
   if (exits.own.length === 0) {
     notes.push({
@@ -168,7 +170,7 @@ export function claimNotes(state: WorldState, px: number, py: number): DesignNot
   for (const sealed of exits.seals) {
     const tiles: Tile[] = [];
     for (const o of sealed.lost) {
-      const t = { x: o.to.x - px * S, y: o.to.y - py * S };
+      const t = { x: o.to.x - x0, y: o.to.y - y0 };
       if (!tiles.some((u) => u.x === t.x && u.y === t.y)) tiles.push(t);
     }
     const first = tiles[0] as Tile;
@@ -199,13 +201,16 @@ export function claimNotes(state: WorldState, px: number, py: number): DesignNot
   return notes;
 }
 
-/** The public way tiles on plot (`px`, `py`), from its north-west corner, north to south. */
+/**
+ * The public way tiles on plot (`px`, `py`)'s lot, where they leave a gap in what's built, from the
+ * lot's north-west corner, north to south.
+ */
 function wayTilesOn(state: WorldState, px: number, py: number): Tile[] {
   if (!state.ways) return [];
-  const S = state.config.plotSize;
+  const { x0, y0, side } = lotBounds(state, px, py);
   const out: Tile[] = [];
-  for (let y = 0; y < S; y++) {
-    for (let x = 0; x < S; x++) if (isWay(state, px * S + x, py * S + y)) out.push({ x, y });
+  for (let y = 0; y < side; y++) {
+    for (let x = 0; x < side; x++) if (isWay(state, x0 + x, y0 + y)) out.push({ x, y });
   }
   return out;
 }
@@ -225,8 +230,8 @@ export interface NoteFacts {
  */
 export function plotNotes(plot: PlotTiles, facts: NoteFacts): DesignNote[] {
   const S = plot.size;
-  const x0 = plot.px * S;
-  const y0 = plot.py * S;
+  const x0 = plot.corner?.x ?? plot.px * S;
+  const y0 = plot.corner?.y ?? plot.py * S;
   const all: Tile[] = [];
   for (let y = 0; y < S; y++) for (let x = 0; x < S; x++) all.push({ x, y });
   const blockAt = (t: Tile) => plot.block(0, t.x, t.y);

@@ -3,13 +3,13 @@ import {
   apply,
   BUY_ORDERS,
   buildSummary,
-  CHAT_EARSHOT,
   type Command,
   canonicalJson,
   countOf,
   createWorld,
   DEFAULT_CONFIG,
   EARNED_WEAR,
+  earshotOf,
   FISHING,
   FLOORS,
   FURNITURE_KINDS,
@@ -35,6 +35,7 @@ import {
   JOBS,
   type Job,
   jobUnlocks,
+  lotBounds,
   PATTERNS,
   PET_COATS,
   PET_KINDS,
@@ -48,6 +49,7 @@ import {
   pointsFor,
   prepare,
   RECIPES,
+  REGRID,
   SEASON_BUYS,
   SEASON_STOCK,
   SEASONS,
@@ -237,8 +239,10 @@ describe("SKILL.md stays in sync with the schemas", () => {
     expect(skill).toContain(`### ${type}`);
   });
 
-  it("states the chat earshot the server uses", () => {
-    expect(skill).toContain(`within ${CHAT_EARSHOT} tiles`);
+  it("states the chat earshot the server uses, on both plot sizes (RFC 0052)", () => {
+    expect(skill).toContain(
+      `within ${earshotOf({ plotSize: 8 })} tiles hears it on 8-tile plots, and within ${earshotOf({ plotSize: REGRID.to })} on ${REGRID.to}-tile plots`,
+    );
   });
 
   it.each(ERROR_CODES)("documents the %s error code", (code) => {
@@ -364,12 +368,14 @@ describe("Action", () => {
       lift: [{ x: 2, y: 3, floor: 1 }],
     };
     expect(Action.parse(loft)).toEqual(loft);
-    // Each list holds a whole plot on every floor, as the sim's plans do, and no more.
-    const S = DEFAULT_CONFIG.plotSize;
+    // Each list holds a whole lot of a regridded plot (RFC 0052) on every floor, as the sim's
+    // plans do, and no more.
+    const lot = { ...DEFAULT_CONFIG, plotSize: REGRID.to };
+    const S = lot.plotSize;
     const plot = (floor: number) =>
       Array.from({ length: S * S }, (_, i) => ({ x: i % S, y: Math.floor(i / S), floor }));
     const whole = Array.from({ length: 1 + FLOORS.max }, (_, s) => plot(s)).flat();
-    expect(whole).toHaveLength(planMax(DEFAULT_CONFIG));
+    expect(whole).toHaveLength(planMax(lot));
     expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: whole }).success).toBe(true);
     const over = [...whole, { x: 0, y: 0 }];
     expect(Action.safeParse({ type: "build", px: 0, py: 0, lift: over }).success).toBe(false);
@@ -1345,9 +1351,13 @@ describe("GET /v1/catalog", () => {
 describe("SKILL.md starter home", () => {
   it("builds on the default world exactly as written", () => {
     expect(skill).toContain(
-      "stand at (19, 11), wall in the lines round (17, 9) to (21, 13), with the door on the south line of (19, 13)",
+      "stand at (39, 23), wall in the lines round (37, 21) to (41, 25), with the door on the south line of (39, 25)",
     );
+    // A world after the regrid (RFC 0052), as terrakin.org is: 16-tile plots, each lot 8.
     const world = createWorld(DEFAULT_CONFIG);
+    expect(apply(world, { actor: TOWN_ACTOR, command: { type: "regrid" } })).toMatchObject({
+      ok: true,
+    });
     const act = (command: Command) => {
       const result = apply(world, { actor: "muse", command });
       expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
@@ -1355,8 +1365,9 @@ describe("SKILL.md starter home", () => {
     act({ type: "join", name: "Wren", kind: "agent" });
 
     // Walk from spawn to the center of the hut on plot (2, 1), then claim.
-    const S = DEFAULT_CONFIG.plotSize;
-    const [x0, y0] = [2 * S + 1, 1 * S + 1];
+    const lot = lotBounds(world, 2, 1);
+    expect(lot).toEqual({ x0: 36, y0: 20, side: 8 });
+    const [x0, y0] = [lot.x0 + 1, lot.y0 + 1];
     const spawn = spawnTile(world);
     for (let x = spawn.x; x > x0 + 2; x--) act({ type: "move", dir: "w" });
     for (let y = spawn.y; y > y0 + 2; y--) act({ type: "move", dir: "n" });
@@ -1617,12 +1628,14 @@ describe("SKILL.md Town Hall", () => {
 
 describe("SKILL.md first visit garden", () => {
   it("places a planter and plants from the hearth, as written", () => {
-    expect(skill).toContain("that corner is `x = px*S + 2`, `y = py*S + 2`");
+    expect(skill).toContain("that corner is `x = lx + 2`, `y = ly + 2`");
     const world = createWorld(DEFAULT_CONFIG);
     const act = (actor: string, command: Command) => {
       const result = apply(world, { actor, command });
       expect(result, JSON.stringify(command)).toMatchObject({ ok: true });
     };
+    // On 16-tile plots (RFC 0052), from the lot's corner.
+    act(TOWN_ACTOR, { type: "regrid" });
     act(TOWN_ACTOR, { type: "new_day", day: 20_000 });
     act(TOWN_ACTOR, { type: "open_economy" });
     act(TOWN_ACTOR, { type: "open_items" });
@@ -1634,8 +1647,8 @@ describe("SKILL.md first visit garden", () => {
       ok: false,
       rejection: { code: "already_home" },
     });
-    const S = DEFAULT_CONFIG.plotSize;
-    const [x, y] = [2 * S + 2, 1 * S + 2];
+    const lot = lotBounds(world, 2, 1);
+    const [x, y] = [lot.x0 + 2, lot.y0 + 2];
     act("muse", { type: "place", x, y, block: "planter" });
     act("muse", { type: "plant", x, y, seed: "flower" });
   });

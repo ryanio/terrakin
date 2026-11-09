@@ -70,9 +70,11 @@ import {
   isTownsfolk,
   LOOK_MEDIA_KEYS,
   lastSlot,
+  lotSide,
   MINUTE_MS,
   marketFee,
   nameProblem,
+  nextLotStep,
   own,
   ownerPaired,
   type PastPlain,
@@ -122,6 +124,7 @@ import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
 import { plotSaleOf } from "./plot-market";
+import { regridCheck, regridProblemWords } from "./regrid-check";
 import { slimPlan, townLines, townSlim, wallBlocksOn } from "./slim-plan";
 import {
   boot,
@@ -542,8 +545,13 @@ function costOf(view: WorldState, input: Input): { cost?: DryCost } {
 }
 
 /** An `add_floor`'s answer: the coins it took, or on a dry run would take (RFC 0028). */
-const priceOf = (command: Command): { price?: number } =>
-  command.type === "add_floor" ? { price: FLOORS.price } : {};
+/** The coins an `add_floor` or a `grow_lot` takes (RFC 0028, RFC 0052), read before it commits. */
+function priceOf(state: WorldState, command: Command): { price?: number } {
+  if (command.type === "add_floor") return { price: FLOORS.price };
+  if (command.type !== "grow_lot") return {};
+  const step = nextLotStep(lotSide(state, command.px, command.py), state.config.plotSize);
+  return step ? { price: step.coins } : {};
+}
 
 /** A pot sold in the market (RFC 0047), as its seller's notice says it: codes and numbers only. */
 export interface PotSold {
@@ -815,11 +823,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     command: { type: "plot_reach" },
     label: "let building reach the whole plot",
   },
-  // After the town's sweep has put every wall on a line, so no wall block moves with the regrid.
+  // After the town's sweep has put every wall on a line, so no wall block moves with the regrid,
+  // and only once a dry run on a copy holds (`regridIfSafe`).
   {
     option: "regrid",
     due: (s) => !s.regridded && !!s.wallsOnLines,
-    command: { type: "regrid" },
+    command: (service) => service.regridIfSafe(),
     label: "double every plot slot",
   },
   {
@@ -1001,6 +1010,8 @@ export class WorldService {
   private readonly wallsOnLines: boolean;
   /** The world day the town last turned wall blocks into lines, so it tries once a day. */
   private linesDay: number | undefined;
+  /** The world day the regrid's dry run last failed, so it runs again only the next day. */
+  private regridHeldDay: number | undefined;
   private readonly shop: boolean;
   private readonly market: boolean;
   private readonly bounties: boolean;
@@ -2565,7 +2576,8 @@ export class WorldService {
       // gives it, is the legend its digits read by (issue #135).
       const own = action.map ? plotMap(this.state, action.px, action.py) : undefined;
       const expanded = buildCommand(action, {
-        size: this.state.config.plotSize,
+        // Plans count from the lot's corner, and run across it (RFC 0052).
+        size: lotSide(this.state, action.px, action.py),
         now,
         current: own ? { legend: own.legend, grades: own.grades } : undefined,
       });
@@ -2702,7 +2714,7 @@ export class WorldService {
     const me = this.state.residents[residentId];
     if (!me) return null;
     const near = Object.values(this.state.residents)
-      .filter((r) => r.online && r.id !== residentId && withinEarshot(me, r))
+      .filter((r) => r.online && r.id !== residentId && withinEarshot(this.state.config, me, r))
       .sort((a, b) => chebyshev(me, a) - chebyshev(me, b) || (a.id < b.id ? -1 : 1))
       .slice(0, PUTTER_GREET_TRIES);
     for (const r of near) {
@@ -2740,7 +2752,7 @@ export class WorldService {
     for (const [id, set] of this.listeners) {
       const other = this.state.residents[id];
       if (!other?.online) continue;
-      if (channel === "nearby" && !withinEarshot(r, other)) continue;
+      if (channel === "nearby" && !withinEarshot(this.state.config, r, other)) continue;
       if (id !== residentId) heard++;
       for (const listener of set) listener(message);
     }
@@ -2786,7 +2798,7 @@ export class WorldService {
       seq: this.state.seq,
       events: [],
       ...planOf(view, input, prepared, false),
-      ...priceOf(input.command),
+      ...priceOf(view, input.command),
       ...handedInOf(view, input),
       ...plotSaleOf(view, input),
       ...costOf(view, input),
@@ -2820,6 +2832,7 @@ export class WorldService {
     const sale = plotSaleOf(this.state, input);
     // Who could hear each circle's events before the commit, for one it disbands (RFC 0033).
     const circlesBefore = circleRoster(this.state);
+    const price = priceOf(this.state, command);
     const { seq, events } = prepared.commit();
     const planned = planOf(this.state, input, prepared, true);
     let walked = false;
@@ -3060,7 +3073,7 @@ export class WorldService {
       seq,
       events: eventsFor(wire, input.actor, audience),
       ...planned,
-      ...priceOf(command),
+      ...price,
       ...handedIn,
       ...firedOf(events, input.actor),
       ...sale,
@@ -3321,6 +3334,23 @@ export class WorldService {
    * their id anywhere else in the world, a plot included). Sorted. Undefined until `socialUsers`
    * is wired, so the switch never runs on what the world alone can see.
    */
+  /**
+   * `regrid`, once a dry run of it on a copy of the world holds (`regridCheck`: the coin supply,
+   * every thing kept, everyone online on open ground, every hearth still reached from town).
+   * Otherwise nothing is logged, a line with codes and counts says why, and it waits for the next
+   * world day.
+   */
+  regridIfSafe(): Command | undefined {
+    if (this.regridHeldDay !== undefined && this.regridHeldDay === this.state.day) return undefined;
+    const check = regridCheck(this.state);
+    if (check.ok) return { type: "regrid" };
+    this.regridHeldDay = this.state.day;
+    const words = regridProblemWords(check.problems);
+    console.error(`The regrid's dry run didn't hold (${words}), so it waits for another day.`);
+    report(new Error(`regrid dry run: ${words}`), "world.regrid");
+    return undefined;
+  }
+
   repeatJoinsToRetire(): string[] | undefined {
     const used = this.socialUsers?.();
     if (!used) return undefined;

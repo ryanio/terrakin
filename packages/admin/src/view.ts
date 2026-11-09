@@ -2,6 +2,8 @@
 
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
+import { profilePath } from "@terrakin/ui/paths";
+import { type PersonLinkOptions, personLink } from "@terrakin/ui/people";
 import { kindPill, type PillTone } from "@terrakin/ui/ui";
 import { actorEmail, actorLabel } from "./logic";
 
@@ -64,6 +66,26 @@ export function statePill(text: string): HTMLSpanElement {
 /** A link to the public site that opens in a new tab and sends no referrer. */
 export function outLink(href: string, text: string): HTMLAnchorElement {
   return h("a", { attrs: { href, target: "_blank", rel: "noopener noreferrer" }, text });
+}
+
+/** The address of a resident's profile on the public site. */
+export const profileUrl = (site: string, id: string) => site + profilePath(id);
+
+/**
+ * A resident as a link to their profile on the public site, opening in a new tab, never with
+ * their picture.
+ */
+export function profileLink(
+  site: string,
+  who: Parameters<typeof personLink>[0],
+  options: Pick<PersonLinkOptions, "className" | "badges"> = {},
+): HTMLAnchorElement {
+  return personLink(who, {
+    ...options,
+    href: profileUrl(site, who.id),
+    newTab: true,
+    picture: false,
+  });
 }
 
 /** A resident's words, marked as theirs and untrusted: reported content, a bounty's title and text. */

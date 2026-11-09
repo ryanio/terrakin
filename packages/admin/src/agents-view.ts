@@ -14,12 +14,10 @@
 import type { StaffRekeyResponse, StaffSigninLinkResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { fullDate } from "@terrakin/ui/format";
-import { profilePath } from "@terrakin/ui/paths";
-import { personLink } from "@terrakin/ui/people";
 import { confirmTwice, copyBlock, whileBusyAll } from "@terrakin/ui/ui";
 import { api } from "./api";
 import { mainSite, mergeSummary, reasonProblem, rekeyMessage, signinMessage } from "./logic";
-import { button, pageHead, type View } from "./view";
+import { button, pageHead, profileLink, type View } from "./view";
 
 export function agentsView(): View {
   const site = mainSite(location.origin);
@@ -80,12 +78,7 @@ export function agentsView(): View {
     return h(
       "article",
       { class: "stack paper card rekey-made", attrs: { "data-agent": r.agent.id } },
-      h(
-        "p",
-        { class: "item-author" },
-        "Re-key code for ",
-        personLink(r.agent, { href: site + profilePath(r.agent.id), newTab: true, picture: false }),
-      ),
+      h("p", { class: "item-author" }, "Re-key code for ", profileLink(site, r.agent)),
       h("p", { class: "rekey-code", attrs: { "aria-label": "Re-key code" }, text: r.code }),
       h("p", {
         class: "field-hint",
@@ -147,16 +140,7 @@ export function agentsView(): View {
     return h(
       "article",
       { class: "stack paper card signin-made", attrs: { "data-resident": r.resident.id } },
-      h(
-        "p",
-        { class: "item-author" },
-        "Sign-in link for ",
-        personLink(r.resident, {
-          href: site + profilePath(r.resident.id),
-          newTab: true,
-          picture: false,
-        }),
-      ),
+      h("p", { class: "item-author" }, "Sign-in link for ", profileLink(site, r.resident)),
       h("p", {
         class: "field-hint",
         text: `Works once, until ${fullDate(r.expiresAt)}. Shown only now, and never logged. Opening it adds a passkey to their character, and they get a notice that one was added.`,

@@ -7,8 +7,6 @@
 import { type AdminOverviewResponse, AWARD_RULES, type BountyView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
 import { plural } from "@terrakin/ui/format";
-import { profilePath } from "@terrakin/ui/paths";
-import { personLink } from "@terrakin/ui/people";
 import {
   confirmTwice,
   pageLayout,
@@ -19,7 +17,7 @@ import {
 } from "@terrakin/ui/ui";
 import { api, type Result } from "./api";
 import { awardedWords, awardProblem, bountyActions, mainSite, reasonProblem } from "./logic";
-import { button, pageHead, quoted, type View } from "./view";
+import { button, pageHead, profileLink, quoted, type View } from "./view";
 
 export function bountiesView(overview: AdminOverviewResponse): View {
   const { me } = overview;
@@ -202,8 +200,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
         () => reasonProblem(reason.value) === undefined,
       );
     }
-    const person = (who: BountyView["poster"]) =>
-      personLink(who, { href: site + profilePath(who.id), newTab: true, picture: false });
+    const person = (who: BountyView["poster"]) => profileLink(site, who);
     return h(
       "article",
       { class: "stack paper card item bounty", attrs: { "data-bounty": b.id } },

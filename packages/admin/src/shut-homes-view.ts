@@ -8,8 +8,6 @@
 import type { ShutHomesResponse, StaffRole } from "@terrakin/protocol";
 import { clearCost } from "@terrakin/ui/blocks";
 import { h } from "@terrakin/ui/dom";
-import { profilePath } from "@terrakin/ui/paths";
-import { personLink } from "@terrakin/ui/people";
 import {
   confirmTwice,
   itemRow,
@@ -31,7 +29,7 @@ import {
   mainSite,
   reasonProblem,
 } from "./logic";
-import { button } from "./view";
+import { button, profileLink } from "./view";
 
 type Home = ShutHomesResponse["homes"][number];
 
@@ -55,8 +53,7 @@ export function shutHomesCard(role: StaffRole, isGone: () => boolean): HTMLEleme
     }),
     list,
   );
-  const link = (person: Home["resident"]) =>
-    personLink(person, { href: site + profilePath(person.id), newTab: true, picture: false });
+  const link = (person: Home["resident"]) => profileLink(site, person);
 
   async function load() {
     const res = await api.shutHomes();

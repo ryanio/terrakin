@@ -303,6 +303,11 @@ function shownFields(shown: Shown) {
 }
 
 /** Back to whoever put it there, or held aside for them when their things are full. */
+/** Gives a thing on show back to whoever put it there, held aside when they're full. */
+export function giveBackShown(state: WorldState, shown: Shown): WorldEvent[] {
+  return state.items ? giveBack(state, state.items, shown) : [];
+}
+
 function giveBack(state: WorldState, items: ItemsState, shown: Shown): WorldEvent[] {
   const { by } = shown;
   if (!fitsOne(state, items, by)) {

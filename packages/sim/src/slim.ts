@@ -2,6 +2,7 @@ import { type BuildPlan, checkBuild } from "./build";
 import { oneTimeSwitch, refuse } from "./check";
 import { EDGE_KINDS, edgeKey, edgesOn, edgeTiles } from "./edges";
 import { type Grade, gradeAt, isGrade, unitKey } from "./grades";
+import { insetOf } from "./grid";
 import { blockNeeds } from "./items";
 import { plotKey, tileKey } from "./keys";
 import {
@@ -47,8 +48,9 @@ export function starterEdgeHut(
   walls: BlockKind,
   windows: BlockKind,
 ): { x: number; y: number; side: "n" | "w"; block: BlockKind }[] {
-  const x0 = px * config.plotSize + 1;
-  const y0 = py * config.plotSize + 1;
+  // In the slot's middle square (RFC 0052), which is the whole plot before a regrid.
+  const x0 = px * config.plotSize + insetOf(config) + 1;
+  const y0 = py * config.plotSize + insetOf(config) + 1;
   const out: { x: number; y: number; side: "n" | "w"; block: BlockKind }[] = [];
   for (let i = 0; i < 5; i++) {
     out.push({ x: x0 + i, y: y0, side: "n", block: walls });

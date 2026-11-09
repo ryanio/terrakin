@@ -585,6 +585,15 @@ export function worldSnapshot(state: WorldState, extras: SnapshotExtras): WorldS
     ...(state.starterEdges ? { starterEdges: true as const } : {}),
     ...(state.plotReach ? { plotReach: true as const } : {}),
     ...(state.wallsOnLines ? { wallsOnLines: true as const } : {}),
+    ...(state.regridded ? { regridded: true as const } : {}),
+    ...(state.lots
+      ? {
+          lots: Object.entries(state.lots).map(([key, lot]) => {
+            const [px, py] = key.split(",").map(Number) as [number, number];
+            return { px, py, lot };
+          }),
+        }
+      : {}),
     ...(state.homesSlimmed ? { homesSlimmed: true as const } : {}),
     ...(state.shop?.inPerson ? { shopInPerson: true as const } : {}),
     ...(state.proposeInPerson ? { proposeInPerson: true as const } : {}),

@@ -298,6 +298,18 @@ export const AddFloorAction = z.object({
 });
 
 /**
+ * Grow the lot on plot (`px`, `py`), one you own or share, by one step from anywhere (RFC 0052):
+ * from 8 tiles a side to 10, 12, 14 and the whole 16-tile slot. Each step costs coins and needs
+ * the home to show enough furniture and things on show. A dry run says what the next step asks.
+ */
+export const GrowLotAction = z.object({
+  type: z.literal("grow_lot"),
+  px: coord,
+  py: coord,
+  ...dry,
+});
+
+/**
  * The roof over plot (`px`, `py`), one you own or share, from anywhere (RFC 0041). A roof is
  * chosen, not built: one field on the plot, drawn over whatever walls the home's top floor has.
  * `style: "flat"` is no roof and takes down the one that's up. Every other style takes 8 of
@@ -1312,6 +1324,7 @@ export const Action = z.discriminatedUnion("type", [
   LayAction,
   LiftAction,
   AddFloorAction,
+  GrowLotAction,
   SetRoofAction,
   BuildAction,
   SetHearthAction,

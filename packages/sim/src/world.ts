@@ -1,4 +1,5 @@
 import { WALKED_ONTO_SEATS } from "./furniture";
+import { BASE_PLOT, insetOf } from "./grid";
 import { plotKey, tileKey } from "./keys";
 import type {
   BlockKind,
@@ -177,7 +178,9 @@ export function squareOf(config: WorldConfig, tiles: readonly Tile[]): Square | 
  * edge. Clients draw the hall here, and tapping it opens the Town Hall page.
  */
 export function hallDoor(config: WorldConfig, square: Square): Tile {
-  return { x: square.x, y: square.py * config.plotSize + Math.min(1, config.plotSize - 1) };
+  // In the slot's middle square (RFC 0052), where the regrid moved it.
+  const top = square.py * config.plotSize + insetOf(config);
+  return { x: square.x, y: top + Math.min(1, config.plotSize - 1) };
 }
 
 /**
@@ -197,8 +200,10 @@ export function hallTiles(config: WorldConfig, square: Square): Tile[] {
  */
 export function counterDoor(config: WorldConfig, square: Square): Tile {
   const { plotSize } = config;
-  const south = (square.py + 1) * plotSize - 1;
-  return { x: square.x, y: Math.max(square.py * plotSize, south - 1) };
+  // In the slot's middle square (RFC 0052), where the regrid moved it.
+  const inset = insetOf(config);
+  const south = (square.py + 1) * plotSize - 1 - inset;
+  return { x: square.x, y: Math.max(square.py * plotSize + inset, south - 1) };
 }
 
 /**
@@ -334,10 +339,12 @@ export function isShopTile(state: WorldState, x: number, y: number): boolean {
  * like its green.
  */
 export function gameTableTiles(state: WorldState): Tile[] {
-  const { plotSize } = state.config;
+  // Laid out on the slot's middle square (RFC 0052), where the regrid moved the tables.
+  const plotSize = Math.min(state.config.plotSize, BASE_PLOT);
   const c = commonsPlot(state);
-  const x0 = c.px * plotSize;
-  const y0 = c.py * plotSize;
+  const inset = insetOf(state.config);
+  const x0 = c.px * state.config.plotSize + inset;
+  const y0 = c.py * state.config.plotSize + inset;
   const spawn = spawnTile(state);
   const tiles: Tile[] = [];
   for (const dy of [2, plotSize - 3]) {
@@ -519,8 +526,9 @@ export function starterHome(
   windows: BlockKind,
   door = false,
 ): { blocks: (Tile & { block: BlockKind })[]; hearth: Tile } {
-  const x0 = px * config.plotSize + 1;
-  const y0 = py * config.plotSize + 1;
+  // In the slot's middle square (RFC 0052), which is the whole plot before a regrid.
+  const x0 = px * config.plotSize + insetOf(config) + 1;
+  const y0 = py * config.plotSize + insetOf(config) + 1;
   const blocks: (Tile & { block: BlockKind })[] = [];
   for (let x = x0; x <= x0 + 4; x++) {
     for (let y = y0; y <= y0 + 4; y++) {

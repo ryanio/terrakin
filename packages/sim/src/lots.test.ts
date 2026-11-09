@@ -1,0 +1,139 @@
+import { describe, expect, it } from "vitest";
+import { apply } from "./apply";
+import { hashWorld } from "./hash";
+import { inLot, LOTS, lotBounds } from "./lots";
+import { expectSupplyHolds, fund, stock } from "./test-support";
+import { type Command, type Rejection, TOWN_ACTOR, type WorldEvent } from "./types";
+import { createWorld } from "./world";
+
+/**
+ * Ada on plot (0, 0) of a regridded world (RFC 0052): her starter hut in the middle of a 16-tile
+ * slot, her lot the first 8 by 8, tiles 4 to 11. Every refusal leaves the state as it was.
+ */
+function world() {
+  const state = createWorld({
+    width: 48,
+    height: 48,
+    plotSize: 8,
+    maxPlotsPerResident: 1,
+    reach: 3,
+  });
+  const send = (actor: string, command: Command) => {
+    const before = hashWorld(state);
+    const result = apply(state, { actor, command });
+    if (!result.ok) expect(hashWorld(state)).toBe(before);
+    return result;
+  };
+  const ok = (actor: string, command: Command): WorldEvent[] => {
+    const result = send(actor, command);
+    expect(result, `${actor} ${JSON.stringify(command)}`).toMatchObject({ ok: true });
+    return result.ok ? result.events : [];
+  };
+  const refused = (actor: string, command: Command): Rejection => {
+    const result = send(actor, command);
+    expect(result.ok, `${actor} ${JSON.stringify(command)} should be refused`).toBe(false);
+    return result.ok ? { code: "internal" as never, message: "" } : result.rejection;
+  };
+  ok(TOWN_ACTOR, { type: "new_day", day: 20_000 });
+  for (const type of [
+    "open_economy",
+    "open_items",
+    "starter_edges",
+    "plot_reach",
+    "regrid",
+  ] as const) {
+    ok(TOWN_ACTOR, { type });
+  }
+  ok("ada", { type: "join", name: "ada", kind: "human" });
+  ok("ada", { type: "settle", px: 0, py: 0 });
+  ok("ada", { type: "build_starter_home" });
+  return { state, ok, refused };
+}
+
+/** Sets `n` more armchairs down inside the hut, past the hearth. */
+function furnish(w: ReturnType<typeof world>, n: number) {
+  stock(w.state, "ada", { armchair: n });
+  const spots = [6, 7, 8, 9].flatMap((x) => [6, 8, 9].map((y) => ({ x, y })));
+  const placed = Object.values(w.state.blocks).filter((b) => b === "armchair").length;
+  for (const { x, y } of spots.slice(placed, placed + n)) {
+    w.ok("ada", { type: "place", x, y, block: "armchair" });
+  }
+}
+
+const grow = { type: "grow_lot", px: 0, py: 0 } as const;
+
+describe("lots (RFC 0052)", () => {
+  it("starts at 8 in the middle of the slot, with the hut inside it", () => {
+    const w = world();
+    expect(lotBounds(w.state, 0, 0)).toEqual({ x0: 4, y0: 4, side: 8 });
+    const hearth = w.state.residents.ada?.hearth;
+    expect(hearth && inLot(w.state, hearth.x, hearth.y)).toBe(true);
+    expect(w.refused("ada", { type: "lay", x: 3, y: 6, ground: "dirt" }).code).toBe("outside_lot");
+    expect(w.refused("ada", { type: "place", x: 12, y: 6, block: "planter" }).code).toBe(
+      "outside_lot",
+    );
+  });
+
+  it("grows a step once the home shows enough and the coins are there, and the lot reaches further", () => {
+    const w = world();
+    const first = LOTS.steps[0];
+    furnish(w, first.pieces - 1);
+    fund(w.state, "ada", first.coins);
+    expect(w.refused("ada", grow).code).toBe("not_eligible");
+    furnish(w, 1);
+    const coins = w.state.economy?.coins.ada ?? 0;
+    expect(w.ok("ada", grow)).toContainEqual({
+      type: "lot_grown",
+      px: 0,
+      py: 0,
+      lot: 10,
+      by: "ada",
+    });
+    expect(w.state.economy?.coins.ada).toBe(coins - first.coins);
+    expectSupplyHolds(w.state);
+    expect(lotBounds(w.state, 0, 0)).toEqual({ x0: 3, y0: 3, side: 10 });
+    w.ok("ada", { type: "lay", x: 3, y: 6, ground: "dirt" });
+  });
+
+  it("refuses without the coins", () => {
+    const w = world();
+    furnish(w, LOTS.steps[0].pieces);
+    const purse = w.state.economy?.coins.ada ?? 0;
+    if (purse >= LOTS.steps[0].coins) fund(w.state, "ada", -purse);
+    expect(w.refused("ada", grow).code).toBe("not_enough_coins");
+  });
+
+  it("stops at the whole slot", () => {
+    const w = world();
+    w.state.lots = { "0,0": 16 };
+    expect(w.refused("ada", grow).code).toBe("lot_full");
+  });
+
+  it("is only for a plot you build on", () => {
+    const w = world();
+    w.ok("bo", { type: "join", name: "bo", kind: "human" });
+    expect(w.refused("bo", grow).code).toBe("not_your_plot");
+  });
+
+  it("stays with the slot when the plot is released", () => {
+    const w = world();
+    w.ok("bo", { type: "join", name: "bo", kind: "human" });
+    w.ok("bo", { type: "settle", px: 2, py: 0 });
+    w.state.lots = { "2,0": 12 };
+    w.ok("bo", { type: "release" });
+    expect(w.state.plots["2,0"]).toBeUndefined();
+    expect(lotBounds(w.state, 2, 0).side).toBe(12);
+  });
+
+  it("is the whole plot before a regrid, so nothing grows and nothing is refused for it", () => {
+    const state = createWorld({
+      width: 24,
+      height: 24,
+      plotSize: 8,
+      maxPlotsPerResident: 1,
+      reach: 3,
+    });
+    expect(lotBounds(state, 1, 1)).toEqual({ x0: 8, y0: 8, side: 8 });
+    expect(inLot(state, 8, 15)).toBe(true);
+  });
+});

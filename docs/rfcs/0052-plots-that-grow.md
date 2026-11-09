@@ -2,7 +2,7 @@
 
 - Author: Ryan Ghods, with Claude
 - Date: 2026-11-09
-- Status: draft
+- Status: accepted (building slice 1: the regrid, lots and the wild yard)
 - Discussion: <PR link>
 - Builds on: [RFC 0016](0016-build-with-what-you-gather.md) (blocks and plans), [RFC 0028](0028-homes-with-storeys.md) (floors), [RFC 0038](0038-new-lands.md) (lands), [RFC 0046](0046-streets.md) (streets and ways), [RFC 0050](0050-roomier-homes.md) (walls between tiles, surfaces, hung things), [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (replay), [decision 0400](../knowledge/decisions/0400-a-furnished-home-counts-furniture-and-seats-as-pieces-and-wh.md) (furnished counts), [decision 0428](../knowledge/decisions/0428-building-reaches-the-whole-plot-and-walls-go-only-on-lines-f.md) (whole-plot reach, walls on lines)
 
@@ -133,7 +133,19 @@ Old logs replay unchanged: `regrid` is one more input. A snapshot from before it
 - **A fresh world** at the new size, with everyone starting over. Cleanest for code, but it throws away everyone's homes and history. The regrid keeps them.
 - **Only a bigger starter hut.** RFC 0044 and 0050 weighed it; the plot is the limit, not the hut.
 
-## Open questions
+## Decided
+
+Ryan settled the open questions on 2026-11-09, each as recommended:
+
+1. Streets keep their slot. After the regrid a street slot draws a 4-tile road down its middle and wild verge either side, nobody's, as the street was.
+2. The Commons keeps its buildings at their size, moved to the middle of its new slot; the rest is a paved square and a bigger green.
+3. The lot steps cost 150, 300, 600 and 1,000 coins and need 6, 12, 20 and 30 pieces with 0, 4, 10 and 20 things on show, tuned only if the economy run says they drain or never bind.
+4. A lot stays with its slot: a sale or a release keeps it, and nothing shrinks.
+5. Unclaimed slots draw the same wild meadow as a yard.
+6. The first features are drawing only: an old tree, a boulder, a flowering bank, an old stone wall, or none. The brook and the well wait for their own numbers.
+7. Slice 1 is the regrid, lots with `grow_lot`, and the wild yard. Rugs, wallpaper, shelves, signs, gates, porches and sized designs are later slices.
+
+## Open questions (settled above)
 
 1. Streets after the regrid: a 4-tile road down a 16-wide slot with wild verge on each side, or lay streets out narrower in the transform?
 2. The town's middle doubles in size too: the Commons becomes 16 by 16. Fill it with the same buildings and a bigger green, or keep the buildings and draw a square around them?

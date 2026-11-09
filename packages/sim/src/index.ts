@@ -298,6 +298,7 @@ export {
   PAST_PLAIN,
   type PastPlain,
 } from "./grades";
+export { BASE_PLOT, baseTile, insetOf, moveCoord } from "./grid";
 export {
   GROUND_INFO,
   GROUND_KINDS,
@@ -469,6 +470,7 @@ export {
   unlockedBy,
 } from "./levels";
 export * from "./looks";
+export { inLot, LOTS, lotBounds, lotSide, nextLotStep, outsideLotProblem } from "./lots";
 export {
   MAP_BLOCKS,
   MAP_EDGE_MARKS,
@@ -638,6 +640,7 @@ export {
   teachingToday,
   townsfolkLessonDue,
 } from "./recipes";
+export { REGRID } from "./regrid";
 export { isRetired, retireProblems } from "./repeat-joins";
 export { REPLAY_VERSION, replay } from "./replay";
 export {

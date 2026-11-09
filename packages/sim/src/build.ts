@@ -59,6 +59,7 @@ import {
 } from "./items";
 import { plotKey, tileKey } from "./keys";
 import { isStreet, streetWords } from "./lands";
+import { lotBounds } from "./lots";
 import { wallOnTileProblem } from "./plot-building";
 import { plotListedProblem } from "./plot-market";
 import { clayRule, KILN, POT_BLOCK, potteryClosed } from "./pottery";
@@ -242,10 +243,6 @@ function planTile(entry: unknown, size: number, plot: Plot | undefined): PlanSpo
   return floor;
 }
 
-/** A plot's first world tile on each axis. */
-const x0Of = (px: number, size: number) => px * size;
-const y0Of = (py: number, size: number) => py * size;
-
 /** A tile's place in the plan's running view: the tile key, with the floor above the ground. */
 const spotKey = (floor: number, key: string) => (floor === 0 ? key : `${floor}:${key}`);
 
@@ -319,8 +316,9 @@ export function planBuild(
   const listed = plotListedProblem(state, px, py);
   if (listed) return listed;
 
-  // The plan's shape: whole tiles on the plot, each at most once in each list.
-  const S = config.plotSize;
+  // The plan's shape: whole tiles on the plot's lot (RFC 0052), each at most once in each list.
+  // Tiles count from the lot's north-west corner, which is the plot's own before a regrid.
+  const { x0: lotX, y0: lotY, side: S } = lotBounds(state, px, py);
   const max = planMax(config);
   const lists = {
     remove: listOf(command.remove),
@@ -399,7 +397,7 @@ export function planBuild(
     // A public way holds no block on the ground floor, which no turn of the world changes, so a
     // plan that puts one there is wrong rather than skipped (RFC 0046).
     const spot = tiles.blocks[i] as PlanSpot;
-    if (wayProblem(state, px * S + spot.x, py * S + spot.y, spot.floor)) {
+    if (wayProblem(state, lotX + spot.x, lotY + spot.y, spot.floor)) {
       return refuse(
         "public_ground",
         `${spotWords(spot)} is on a public way, which holds no block: everyone walks it to town. Leave it open, or lay a path there.`,
@@ -446,7 +444,7 @@ export function planBuild(
       if (!isSide(side)) {
         return refuse("invalid_plan", `${spotWords(t)} needs a side: n, e, s or w.`);
       }
-      const key = spotKey(t.floor, edgeKey(x0Of(px, S) + t.x, y0Of(py, S) + t.y, side));
+      const key = spotKey(t.floor, edgeKey(lotX + t.x, lotY + t.y, side));
       if (seen.has(key))
         return refuse("invalid_plan", `A line at ${spotWords(t)} is in ${name} twice.`);
       seen.add(key);
@@ -466,8 +464,8 @@ export function planBuild(
   }
 
   // What happens to each tile, in the plan's order, against its running view of the world.
-  const x0 = px * S;
-  const y0 = py * S;
+  const x0 = lotX;
+  const y0 = lotY;
   const hearths = new Set<string>();
   const standing = new Set<string>();
   for (const r of Object.values(state.residents)) {
@@ -914,7 +912,7 @@ export function buildSummary(plan: BuildPlan): BuildSummary {
 }
 
 /**
- * A plot's blocks and ground on every floor as a plan for `build` (tiles from its north-west
+ * A plot's lot's blocks and ground on every floor as a plan for `build` (tiles from its north-west
  * corner, the ground floor's first, `floor` on the rest), with its hearths, which a build leaves
  * alone, and its walls between tiles (RFC 0050) as `build`'s `edges` takes them, only when it has
  * some: a tile's `n` and `w` lines, and `s` and `e` for its south and east borders. For
@@ -939,9 +937,8 @@ export function plotPlan(
   | undefined {
   const { config } = state;
   if (!plotInBounds(config, px, py)) return undefined;
-  const S = config.plotSize;
-  const x0 = px * S;
-  const y0 = py * S;
+  // The lot (RFC 0052): a plan reads and copies what its owners can build on, from its corner.
+  const { x0, y0, side: S } = lotBounds(state, px, py);
   const blocks: (FloorTile & { block: BlockKind; grade?: PastPlain })[] = [];
   const ground: (FloorTile & { ground: GroundKind })[] = [];
   const edges: (FloorTile & { side: Side; block: BlockKind; grade?: PastPlain })[] = [];

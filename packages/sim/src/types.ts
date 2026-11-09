@@ -596,6 +596,17 @@ export interface WorldState {
    */
   wallsOnLines?: true;
   /**
+   * Each slot's lot past the first size (RFC 0052), by `plotKey`: the side of the square in the
+   * middle of the slot its owners build on. Kept on the world, not the plot, so a sale or a
+   * release keeps it. Absent until the first `grow_lot`.
+   */
+  lots?: Record<string, number>;
+  /**
+   * Set by `regrid` (RFC 0052) once the world's plot slots doubled from 8 tiles to 16, everything
+   * built moved to the middle of its slot. Absent until then.
+   */
+  regridded?: true;
+  /**
    * Plots whose walls the town has helped slim (RFC 0050), by plot key: the first `slim_walls` on a
    * plot tops up the made material its lines need, once for good, whoever holds the plot later.
    * Kept on the world, not the plot, so releasing and settling again never earns it twice.
@@ -1849,6 +1860,8 @@ export const COIN_REASONS = [
   "circle_refund",
   /** From the treasury, awarded by a maintainer for outstanding work (RFC 0036). No vote. */
   "award",
+  /** A plot's lot grown a step (RFC 0052). A small share goes to the treasury and the rest is burned. */
+  "lot",
 ] as const;
 export type CoinReason = (typeof COIN_REASONS)[number];
 
@@ -1981,6 +1994,8 @@ export type Command =
   | { type: "lift"; x: number; y: number; floor?: number | undefined }
   /** Add the next floor to plot (px, py), one you own or share, from anywhere (RFC 0028). */
   | { type: "add_floor"; px: number; py: number }
+  /** Grows the lot on plot (px, py) by one step (RFC 0052). */
+  | { type: "grow_lot"; px: number; py: number }
   /**
    * The roof over plot (px, py), one you own or share, from anywhere (RFC 0041). `flat` is no roof
    * and takes down the one that's up, giving its material back.
@@ -2336,6 +2351,8 @@ export type Command =
   | { type: "plot_reach" }
   /** From now on walls go only on the lines between tiles, never on a tile. TOWN_ACTOR only. */
   | { type: "walls_on_lines" }
+  /** Doubles every plot slot to 16 tiles, moving what's built to the middle (RFC 0052). TOWN_ACTOR only. */
+  | { type: "regrid" }
   | { type: "slim_homes" }
   | { type: "open_shop" }
   /** The treasury's share of shop spending from now on, in percent; the rest is burned. */
@@ -2584,6 +2601,7 @@ export const SERVER_COMMANDS = [
   "starter_edges",
   "plot_reach",
   "walls_on_lines",
+  "regrid",
   "town_slim",
   "slim_homes",
   "test_grant",
@@ -2698,6 +2716,10 @@ export type WorldEvent =
   | { type: "ground_lifted"; x: number; y: number; floor?: number; by: ResidentId }
   /** A plot added a floor (RFC 0028). Public. Its price is in the payer's `coins` event. */
   | { type: "floor_added"; px: number; py: number; floor: number; by: ResidentId }
+  /** A plot's lot grew to `lot` tiles a side (RFC 0052). Public. */
+  | { type: "lot_grown"; px: number; py: number; lot: number; by: ResidentId }
+  /** The world's plot slots doubled to `plotSize` tiles; read the world again (RFC 0052). Public. */
+  | { type: "world_regridded"; plotSize: number }
   /** A plot's roof changed (RFC 0041). Public. No `material` when the style is `flat`. */
   | {
       type: "roof_set";
@@ -3629,6 +3651,10 @@ export const REJECTION_CODES = [
    * e, s or w), or put it in a plan's `edges`.
    */
   "needs_side",
+  /** That tile is in a plot's wild yard, past the lot its owners build on (RFC 0052). */
+  "outside_lot",
+  /** The lot already covers as much of the plot as a lot grows to (RFC 0052). */
+  "lot_full",
 ] as const;
 export type RejectionCode = (typeof REJECTION_CODES)[number];
 

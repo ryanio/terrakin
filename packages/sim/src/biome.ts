@@ -1,3 +1,4 @@
+import { baseTile } from "./grid";
 import type { WorldConfig } from "./types";
 
 /**
@@ -30,9 +31,11 @@ export const BIOME_REGION = 4;
 
 /** The biome at tile (x, y), hashed per region so neighbors usually share it. */
 export function biomeAt(config: WorldConfig, x: number, y: number): Biome {
-  void config;
-  const rx = Math.floor(x / BIOME_REGION);
-  const ry = Math.floor(y / BIOME_REGION);
+  // After a regrid (RFC 0052) a tile reads the biome of the tile it moved from, and the wild yard
+  // that of the nearest tile of its slot's middle, so every home keeps the ground it had.
+  const base = baseTile(config, x, y);
+  const rx = Math.floor(base.x / BIOME_REGION);
+  const ry = Math.floor(base.y / BIOME_REGION);
   // Mix the two integers with a finalizer, so neighboring regions are independent both across and
   // down (hashing a string like `rx|ry` left the map in vertical stripes).
   let h = (Math.imul(rx, 374761393) + Math.imul(ry, 668265263)) | 0;

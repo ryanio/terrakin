@@ -59,7 +59,7 @@ import {
   welcomeDue,
 } from "./economy";
 import { checkEdge } from "./edge-actions";
-import { edgesFor, edgeTiles, isEdgeKind } from "./edges";
+import { edgeOf, edgesFor, edgeTiles, isEdgeKind } from "./edges";
 import { checkSetEntitlements, unentitled } from "./entitlements";
 import {
   checkAttendAtTen,
@@ -166,6 +166,7 @@ import {
   wearProblem,
   wearStyleProblem,
 } from "./looks";
+import { checkGrowLot, inLot, outsideLotProblem } from "./lots";
 import {
   checkBuyListing,
   checkListItem,
@@ -223,6 +224,7 @@ import {
   type RecipesChecked,
   recipeUnknown,
 } from "./recipes";
+import { checkRegrid } from "./regrid";
 import { currentCommand } from "./renamed";
 import { checkRetireRepeatJoins, isRetired } from "./repeat-joins";
 import { checkRest } from "./rest";
@@ -890,6 +892,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkPlotReach(state));
       case "walls_on_lines":
         return town(checkWallsOnLines(state));
+      case "regrid":
+        return town(checkRegrid(state));
       case "slim_homes":
         return town(checkSlimHomes(state));
       case "town_slim": {
@@ -1305,6 +1309,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       }
       const hearthListed = tileListedProblem(state, x, y);
       if (hearthListed) return { ok: false, rejection: hearthListed };
+      const hearthFar = outsideLotProblem(state, x, y);
+      if (hearthFar) return { ok: false, rejection: hearthFar };
       // Any block, stairs too (RFC 0028).
       if (state.blocks[tileKey(x, y)] !== undefined) {
         return reject("tile_occupied", "A block is there.");
@@ -1389,6 +1395,19 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
       }
       const buildListed = tileListedProblem(state, x, y);
       if (buildListed) return { ok: false, rejection: buildListed };
+      // Past the lot is the wild yard (RFC 0052). A line counts as in the lot when either of its
+      // tiles is, so a fence can run round the lot's rim. Taking back what you put somewhere is
+      // never held back by it.
+      const lineSide =
+        (command.type === "place" || command.type === "remove") && command.side !== undefined
+          ? command.side
+          : undefined;
+      const line = lineSide ? edgeOf(x, y, lineSide) : undefined;
+      const lineInLot = line
+        ? edgeTiles(line.x, line.y, line.side).some((t) => inLot(state, t.x, t.y))
+        : false;
+      const lotFar = theirs || lineInLot ? null : outsideLotProblem(state, x, y);
+      if (lotFar) return { ok: false, rejection: lotFar };
       // The floor the tile is on (RFC 0028): absent is the ground floor.
       const floor = floorOf(plot, command.floor);
       if (typeof floor !== "number") return { ok: false, rejection: floor };
@@ -1519,6 +1538,9 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         ];
       };
     }
+
+    case "grow_lot":
+      return town(checkGrowLot(state, actor, command));
 
     case "add_floor":
       return town(checkAddFloor(state, actor, command));

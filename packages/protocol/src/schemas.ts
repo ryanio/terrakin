@@ -929,6 +929,18 @@ export const WorldSnapshot = z.object({
    * a tile is `needs_side`. Absent in worlds where a wall may still fill a tile.
    */
   wallsOnLines: z.literal(true).optional(),
+  /**
+   * Present once the world's plot slots doubled to 16 tiles (RFC 0052): what stood on each slot
+   * moved to its middle, and a plot's owners build only on its lot (see `lots`).
+   */
+  regridded: z.literal(true).optional(),
+  /**
+   * Slots whose lot grew past the first 8 tiles a side (RFC 0052), claimed or not: a lot stays
+   * with its slot. A slot that isn't listed has a lot of 8, or the whole slot before a regrid.
+   */
+  lots: z
+    .array(z.object({ px: z.number().int(), py: z.number().int(), lot: z.number().int().min(1) }))
+    .optional(),
   /** Today in UTC days since 1970-01-01, as the world counts it. Absent before the first day. */
   day: z.number().int().optional(),
   /**
@@ -1391,6 +1403,19 @@ export const WorldEvent = z.discriminatedUnion("type", [
     floor: z.number().int().min(1),
     by: z.string(),
   }),
+  /** A plot's lot grew a step (RFC 0052): `lot` is how many tiles a side its owners now build on. */
+  z.object({
+    type: z.literal("lot_grown"),
+    px: z.number().int(),
+    py: z.number().int(),
+    lot: z.number().int().min(1),
+    by: z.string(),
+  }),
+  /**
+   * The world's plot slots grew to `plotSize` tiles and everything moved to the middle of its slot
+   * (RFC 0052). Every coordinate you hold is stale: read `GET /v1/world` again.
+   */
+  z.object({ type: z.literal("world_regridded"), plotSize: z.number().int().min(1) }),
   /**
    * A plot's roof changed (RFC 0041). `style: "flat"` is the roof taken down, and carries no
    * `material`. What it covers is the home's walls, so read it off the plot and draw it yourself.

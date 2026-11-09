@@ -3,6 +3,7 @@ import type { RecipeName } from "./catalog";
 import { oneTimeSwitch, refuse } from "./check";
 import { isWater, type WaterFacts, waterBeside } from "./fishing";
 import { upstairsProblem } from "./floors";
+import { baseTile } from "./grid";
 import {
   addStack,
   closed,
@@ -183,6 +184,9 @@ function findAt(biome: Biome, x: number, y: number, day: number): FindKind | nul
  * `clay` is how clay lies (RFC 0047, `clayRule`): `none` lays none, `meadow_and_sand` on any
  * meadow or sand tile, and `by_water` only where `water` says the tile is beside a pond or the sea.
  */
+/** Shifts a wild-yard tile's rolls past every tile of the world before the regrid (RFC 0052). */
+const YARD_SALT = 1_000_003;
+
 export function gatherableAt(
   config: WorldConfig,
   x: number,
@@ -196,6 +200,10 @@ export function gatherableAt(
   spring = false,
 ): PickupKind | null {
   const biome = biomeAt(config, x, y);
+  // After a regrid (RFC 0052) a tile rolls as the tile it moved from, so what lies on every home
+  // stays where it was; the wild yard rolls on tiles of its own, kept apart from those.
+  const base = baseTile(config, x, y);
+  [x, y] = base.ring ? [x + YARD_SALT, y] : [base.x, base.y];
   const kind: ResourceKind | null =
     biome === "forest" ? "wood" : biome === "stone" ? "stone" : null;
   if (kind) {

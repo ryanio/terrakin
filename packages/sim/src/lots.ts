@@ -136,7 +136,7 @@ export function checkGrowLot(
     ].filter(Boolean);
     return refuse(
       "not_eligible",
-      `A lot grows to ${step.side} by ${step.side} once the home shows ${want.join(" and ")}. Furniture, seats, and what stands on tables, hangs on walls, or is on display all count.`,
+      `A lot grows to ${step.side} by ${step.side} once the home shows ${want.join(" and ")}. The two counts are separate: pieces are furniture and seats, and things on show (what stands on tables, hangs on walls, or is on display) never count as pieces.`,
     );
   }
   const econ = state.economy;

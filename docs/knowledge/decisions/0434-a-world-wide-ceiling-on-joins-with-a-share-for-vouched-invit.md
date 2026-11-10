@@ -25,3 +25,5 @@ Joins an hour are read from a `world.joins` count sent with each join (by kind a
 - A deploy or eviction refills the bucket, which is at most one more burst per restart.
 - `TERRAKIN_JOINS_PER_HOUR` raises the main share for the e2e servers and `pnpm dev:test`, and lets a self-hosted world set its own; the invited share has no override.
 - Retuning is a change to `JOIN_LIMITS` after reading two weeks of `world.joins`.
+- A vouched invite that finds the invited share empty takes the main share, so one resident using the invited share up never refuses an invited friend while a plain join still goes through.
+- The buckets start full after a deploy or when the World object is put away, which allows one extra burst each time. Accepted: keeping them in storage would cost a write on every join.

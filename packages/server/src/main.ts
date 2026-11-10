@@ -55,7 +55,9 @@ if (!Number.isInteger(trustedProxies) || trustedProxies < 0) {
 const sessionsPerMinute = Number(process.env.TERRAKIN_SESSIONS_PER_MINUTE ?? 0) || undefined;
 // New residents an hour for the whole world (RFC 0055). The e2e suite and test worlds raise it,
 // since every spec joins someone new; a self-hosted world can set its own.
-const joinsPerHour = Number(process.env.TERRAKIN_JOINS_PER_HOUR ?? 0) || undefined;
+const joinsPerHourSet = Number(process.env.TERRAKIN_JOINS_PER_HOUR);
+const joinsPerHour =
+  Number.isFinite(joinsPerHourSet) && joinsPerHourSet > 0 ? joinsPerHourSet : undefined;
 // Tests only: a clock that `POST /v1/test/advance-day` moves forward a day at a time (or by
 // `minutes`), so the e2e suite can watch a proposal open, pass, and build, and an event start.
 // Never in production.

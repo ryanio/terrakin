@@ -180,6 +180,11 @@ describe("the world-wide ceiling on joins (RFC 0055)", () => {
     expect(telemetry.gauges.at(-1)).toMatchObject({ name: "world.joins_full", share: "invited" });
     // Spending the invited share took nothing from the main one, which is still empty.
     expect((await t.join()).status).toBe(429);
+    // With both empty, an invited friend takes the main share's next join: Ada can't shut her own
+    // friends out by using her share up.
+    t.advance(1000 / JOIN_LIMITS.all.perSecond);
+    expect((await t.accept(ada.token)).status).toBe(201);
+    expect((await t.join()).status).toBe(429);
   });
 
   it("sends an invite from a resident with no hearth, or one here under a day, through the main share", async () => {

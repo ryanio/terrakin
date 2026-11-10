@@ -42,19 +42,26 @@ export class JoinCeiling {
   }
 
   /**
-   * Spend one join from `share`. Undefined when it may go ahead; otherwise the seconds until the
-   * share has room again. Each refusal reports how many in a row the share has turned away, counts
-   * only, so the first one is heard.
+   * Spend one join. A vouched-for invite takes the invited share first and the main share when
+   * that one is empty, so draining the invited share never shuts an invited friend out while
+   * anyone else can still join. Answers the share it took, or the seconds until there is room
+   * again. Each refusal reports how many in a row the share has turned away, counts only, so the
+   * first one is heard.
    */
-  take(share: JoinShare): number | undefined {
-    const took = this.shares[share].takeInfo();
-    if (took.allowed) {
-      this.refused[share] = 0;
-      return undefined;
+  take(vouched: boolean): { share: JoinShare } | { wait: number } {
+    if (vouched && this.shares.invited.takeInfo().allowed) {
+      this.refused.invited = 0;
+      return { share: "invited" };
     }
+    const took = this.shares.all.takeInfo();
+    if (took.allowed) {
+      this.refused.all = 0;
+      return { share: "all" };
+    }
+    const share: JoinShare = vouched ? "invited" : "all";
     this.refused[share] += 1;
     gauge("world.joins_full", this.refused[share], { share });
-    return took.retryAfter;
+    return { wait: took.retryAfter };
   }
 
   /**

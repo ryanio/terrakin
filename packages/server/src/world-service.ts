@@ -2390,9 +2390,9 @@ export class WorldService {
     const media = checkLookMedia(this.actions.mediaType, residentId, profile);
     if (media) return media;
     // Last before the join is logged, so a name refused above spends nothing from the ceiling.
-    const share = via.invitedBy !== undefined && this.vouches(via.invitedBy) ? "invited" : "all";
-    const wait = this.joins?.take(share);
-    if (wait !== undefined) {
+    const room = this.joins?.take(via.invitedBy !== undefined && this.vouches(via.invitedBy));
+    if (room && "wait" in room) {
+      const { wait } = room;
       return {
         ok: false,
         error: { code: "rate_limited", message: joinsFullMessage(wait), retryAfter: wait },
@@ -2403,7 +2403,7 @@ export class WorldService {
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
-    this.joins?.joined(kind, share);
+    if (room) this.joins?.joined(kind, room.share);
     // `run` noted the world's day. A world that doesn't count days uses the clock's, which a
     // restart forgets.
     if (this.state.day === undefined) this.facts.joinedDay.set(residentId, utcDay(this.now()));

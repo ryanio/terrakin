@@ -596,6 +596,12 @@ export interface WorldState {
    */
   wallsOnLines?: true;
   /**
+   * From the server's `close_rule_gaps` on (RFC 0053), townsfolk can't spend on `add_floor` or
+   * `grow_lot`, and a Town Hall build puts no block in the Commons' wild yard, past its lot.
+   * Absent until then, so inputs logged before it replay as they were.
+   */
+  ruleGapsClosed?: true;
+  /**
    * Each slot's lot past the first size (RFC 0052), by `plotKey`: the side of the square in the
    * middle of the slot its owners build on. Kept on the world, not the plot, so a sale or a
    * release keeps it. Absent until the first `grow_lot`.
@@ -2351,6 +2357,11 @@ export type Command =
   | { type: "plot_reach" }
   /** From now on walls go only on the lines between tiles, never on a tile. TOWN_ACTOR only. */
   | { type: "walls_on_lines" }
+  /**
+   * From now on townsfolk don't buy upstairs or lot steps, and Town Hall builds put no block in the
+   * Commons' wild yard (RFC 0053). TOWN_ACTOR only.
+   */
+  | { type: "close_rule_gaps" }
   /** Doubles every plot slot to 16 tiles, moving what's built to the middle (RFC 0052). TOWN_ACTOR only. */
   | { type: "regrid" }
   | { type: "slim_homes" }
@@ -2601,6 +2612,7 @@ export const SERVER_COMMANDS = [
   "starter_edges",
   "plot_reach",
   "walls_on_lines",
+  "close_rule_gaps",
   "regrid",
   "town_slim",
   "slim_homes",
@@ -2861,6 +2873,8 @@ export type WorldEvent =
   | { type: "plot_reach_set" }
   /** From now on walls go only on the lines between tiles. Public. */
   | { type: "walls_on_lines_set" }
+  /** `close_rule_gaps` turned on (RFC 0053). Public. */
+  | { type: "rule_gaps_closed" }
   | { type: "homes_slimmed_set" }
   /** A home's wall blocks became walls between tiles (RFC 0050), the first time on its plot. */
   | { type: "home_slimmed"; px: number; py: number; by: ResidentId }

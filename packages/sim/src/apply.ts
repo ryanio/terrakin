@@ -47,6 +47,7 @@ import {
 } from "./display";
 import {
   allowanceDue,
+  checkCloseRuleGaps,
   checkEconomyServer,
   checkGive,
   type EconomyChecked,
@@ -179,7 +180,7 @@ import { checkMergeResident, mergedInto } from "./merge";
 import { checkRenameResident, NAME_MAX_LENGTH } from "./names";
 import { checkSetOffFirework } from "./newyear";
 import { nearestFreePlot } from "./openings";
-import { residentById } from "./own";
+import { isOwnableKey, residentById } from "./own";
 import {
   checkAdoptPet,
   checkGroomPet,
@@ -558,7 +559,7 @@ export function prepare(state: WorldState, input: Input): Prepared {
     // Coin bookkeeping worked out against the state as it is now (RFC 0008). All of it is a no-op
     // until the economy opens.
     welcome = "ok" in checked ? null : welcomeDue(state, actor, command);
-    newcomer = command.type === "join" && !state.residents[actor];
+    newcomer = command.type === "join" && !residentById(state, actor);
   } finally {
     if (back && away) state.residents[actor] = away;
   }
@@ -582,7 +583,7 @@ export function prepare(state: WorldState, input: Input): Prepared {
       if (newcomer) markNewcomer(state, actor);
       if (welcome !== null) events.push(...payWelcome(state, actor, welcome, seq));
       // The allowance: whatever the resident did, if it leaves them on their own hearth.
-      if (state.residents[actor] && isActivity(command)) {
+      if (residentById(state, actor) && isActivity(command)) {
         // Things held aside for them while their things were full, as far as there's room now.
         events.push(...returnHeldAside(state, actor));
         events.push(...payAllowance(state, actor, seq));
@@ -592,7 +593,7 @@ export function prepare(state: WorldState, input: Input): Prepared {
       // Town Hall bookkeeping: the last day each resident acted. Only once the world counts days,
       // so logs from before the Town Hall replay to the same hash. No event: no client draws it,
       // and /v1/town reports what it means (eligibility).
-      if (state.day !== undefined && state.residents[actor] && isActivity(command)) {
+      if (state.day !== undefined && residentById(state, actor) && isActivity(command)) {
         state.lastActiveDay ??= {};
         state.lastActiveDay[actor] = state.day;
       }
@@ -759,7 +760,7 @@ function joining(
   actor: string,
   command: Extract<Command, { type: "join" }>,
 ): Resident | Prepared {
-  const me = state.residents[actor];
+  const me = residentById(state, actor);
   const name = command.name.trim();
   if (name.length < 1 || name.length > NAME_MAX_LENGTH) {
     return reject("invalid_name", `Names must be 1 to ${NAME_MAX_LENGTH} characters.`);
@@ -854,7 +855,7 @@ const stampDay = (state: WorldState) => (state.day === undefined ? {} : { claime
  */
 function check(state: WorldState, actor: string, command: Command, rejoining: boolean): Checked {
   const { config } = state;
-  const me = state.residents[actor];
+  const me = residentById(state, actor);
 
   // Day changes, the townsfolk list, closes, voids, and the coin lists come from the server.
   if (isServerCommand(command)) {
@@ -891,6 +892,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
         return town(checkPlotReach(state));
       case "walls_on_lines":
         return town(checkWallsOnLines(state));
+      case "close_rule_gaps":
+        return town(checkCloseRuleGaps(state));
       case "regrid":
         return town(checkRegrid(state));
       case "slim_homes":
@@ -1060,6 +1063,8 @@ function check(state: WorldState, actor: string, command: Command, rejoining: bo
   }
 
   if (command.type === "join") {
+    // A resident is written under their id, so an id every object inherits can't be one.
+    if (!isOwnableKey(actor)) return reject("not_eligible", "That id can't be a resident's.");
     if (me?.online) return reject("already_joined", "You are already in the world.");
     if (isRetired(state, actor)) {
       return reject("not_eligible", "That record was retired as a repeat of another's name.");

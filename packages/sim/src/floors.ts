@@ -1,5 +1,5 @@
 import { coinCount, isWhole, refuse } from "./check";
-import { allowanceTip, shopPayment } from "./economy";
+import { allowanceTip, shopPayment, townCoinsProblem } from "./economy";
 import { edgeKey, edgesOn, edgeTiles, hasEdges, parseEdgeKey } from "./edges";
 import type { GroundKind } from "./ground";
 import { tileKey } from "./keys";
@@ -746,6 +746,8 @@ export function checkAddFloor(
   command: Extract<Command, { type: "add_floor" }>,
 ): Mutation | Rejection {
   const { px, py } = command;
+  const townsfolk = townCoinsProblem(state, actor, "add upstairs");
+  if (townsfolk) return townsfolk;
   const plot = plotToChange(state, actor, px, py, {
     commons: "The Commons stays on the ground. Add an upstairs to your own plot.",
     notYours: "You can add an upstairs only to a plot you own or share.",

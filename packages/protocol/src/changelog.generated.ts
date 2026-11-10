@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-09-commons-builds-keep-blocks-out-of-its-wild-yard-and-townsfol",
+    "date": "2026-11-09",
+    "kind": "changed",
+    "title": "Commons builds keep blocks out of its wild yard, and townsfolk don't buy upstairs or lot steps",
+    "body": "After a `rule_gaps_closed` event, a `commons_build` with a block in the ring around the Commons' middle 8 by 8, its wild yard, is refused with `invalid_proposal`, and a build filed before that and passed after it skips such a block (it shows in `town_built`'s `skipped`). Paths still go in the yard.\nThe founding townsfolk now get `not_eligible` from `add_floor` and `grow_lot`, as from the shop; nothing changes for anyone else, and what they built before stays. SKILL.md is version 51.",
+    "links": []
+  },
+  {
     "id": "2026-11-09-growing-your-lot-is-your-own-call",
     "date": "2026-11-09",
     "kind": "changed",

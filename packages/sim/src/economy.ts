@@ -1,5 +1,5 @@
-import { coinCount as coins, isWhole, refuse } from "./check";
-import { residentById } from "./own";
+import { coinCount as coins, isWhole, oneTimeSwitch, refuse } from "./check";
+import { isOwnableKey, residentById } from "./own";
 import type {
   CoinReason,
   Command,
@@ -73,6 +73,37 @@ export type EconomyChecked = Mutation | Rejection;
 
 export const isTownsfolk = (state: WorldState, id: ResidentId) =>
   state.townsfolk?.includes(id) ?? false;
+
+/**
+ * `not_eligible` for a townsfolk spending the town's coins on `what` once `close_rule_gaps` is
+ * logged (RFC 0053), or null: before the switch, or for anyone else. `add_floor` and `grow_lot`
+ * ask it, as every other coin sink asks `isTownsfolk`.
+ */
+export function townCoinsProblem(
+  state: WorldState,
+  actor: ResidentId,
+  what: string,
+): Rejection | null {
+  if (!state.ruleGapsClosed || !isTownsfolk(state, actor)) return null;
+  return refuse("not_eligible", `Townsfolk don't ${what}. Their coins are the town's.`);
+}
+
+/**
+ * `close_rule_gaps`, which only TOWN_ACTOR sends (RFC 0053): from now on townsfolk are refused
+ * `add_floor` and `grow_lot`, and a Town Hall build puts no block past the Commons' lot. A home
+ * that already has an upstairs or a grown lot keeps it. Comes once.
+ */
+export function checkCloseRuleGaps(state: WorldState): EconomyChecked {
+  return oneTimeSwitch({
+    on: state.ruleGapsClosed,
+    already: "The townsfolk and Commons yard rules are already in place.",
+    turnOn: () => {
+      state.ruleGapsClosed = true;
+    },
+    event: { type: "rule_gaps_closed" },
+  });
+}
+
 export const isMaintainer = (state: WorldState, id: ResidentId) =>
   state.maintainers?.includes(id) ?? false;
 
@@ -309,7 +340,7 @@ type EconomyServerCommand = Extract<
 const isPair = (p: unknown): p is [ResidentId, ResidentId] =>
   Array.isArray(p) &&
   p.length === 2 &&
-  p.every((id) => typeof id === "string" && id !== "") &&
+  p.every((id) => isOwnableKey(id) && id !== "") &&
   p[0] !== p[1];
 
 const sortPair = (a: ResidentId, b: ResidentId): [ResidentId, ResidentId] =>
@@ -540,7 +571,7 @@ export function economyNewDay(state: WorldState, day: number): Mutation | null {
   }
   const budgets: [ResidentId, number][] = [];
   for (const id of townsfolk) {
-    if (!state.residents[id]) continue;
+    if (!residentById(state, id)) continue;
     const pay = Math.min(ECONOMY.townsfolkBudget, treasury - ECONOMY.budgetReserve);
     if (pay <= 0) break;
     budgets.push([id, pay]);

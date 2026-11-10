@@ -627,6 +627,7 @@ const GENS: Gens = {
   starter_edges: () => ({}),
   plot_reach: () => ({}),
   walls_on_lines: () => ({}),
+  close_rule_gaps: () => ({}),
   regrid: () => ({}),
   slim_homes: () => ({}),
   open_shop: () => ({}),
@@ -849,9 +850,8 @@ function generate(rng: () => number, state: WorldState, joined: number): Input {
   else if (type === "join" && r < 0.7) actor = `fz${joined}`;
   else if (r < 0.92) actor = pickId();
   else if (r < 0.96) actor = TOWN_ACTOR;
-  // The server mints every actor id, so a hostile actor is one nobody has, never a key every
-  // object inherits.
-  else actor = rng() < 0.5 ? "nobody" : "";
+  // A hostile actor is one nobody has, or a key every object inherits, which `join` refuses.
+  else actor = HOSTILE_IDS[Math.floor(rng() * HOSTILE_IDS.length)] as string;
   const resident = !SERVER.has(type) && type !== "join" && r < 0.92;
   const likely = resident && rng() < 0.6 ? likelyActors(state, type) : [];
   if (likely.length > 0) actor = likely[Math.floor(rng() * likely.length)] as string;
@@ -975,34 +975,8 @@ interface KnownFailure {
   matches: (input: Input, state: WorldState) => boolean;
 }
 
-/** An id every object inherits a value under (`__proto__`, `constructor`, `toString`, ...). */
-const inherited = (id: unknown) => typeof id === "string" && id in Object.prototype;
-
 /** The defects the fuzz has found that the sim keeps for now. */
-export const KNOWN_FAILURES: readonly KnownFailure[] = [
-  {
-    // `set_townsfolk` takes any string, and `economyNewDay` finds a townsfolk with
-    // `state.residents[id]`, so `hasOwnProperty` or `toString` passes as a resident. The next
-    // `new_day` with the economy open then pays that name a budget and throws in its commit
-    // (`lines.push is not a function`, on the purse ledger it inherits), so every later `new_day`
-    // throws. Server-only: the server sends real resident ids.
-    name: "set_townsfolk with an inherited id breaks every later new_day",
-    matches: ({ command }, state) =>
-      command.type === "set_townsfolk" &&
-      command.ids.some((id) => inherited(id) && !Object.hasOwn(state.residents, id)),
-  },
-  {
-    // The owner-pair commands key `ownerPairDays` by the ids in the pair without `isOwnableKey`,
-    // so `__proto__` replaces the record's prototype and `hasOwnProperty` stores a function where
-    // a day belongs (`{ ...days[a] }` copies the inherited one). The world is then not plain
-    // JSON and hashes differently after a round trip. Server-only: the server sends real ids.
-    name: "owner pair commands with an inherited id",
-    matches: ({ command }) =>
-      (command.type === "set_owner_pairs" && command.pairs.flat().some(inherited)) ||
-      ((command.type === "add_owner_pair" || command.type === "remove_owner_pair") &&
-        command.pair.some(inherited)),
-  },
-];
+export const KNOWN_FAILURES: readonly KnownFailure[] = [];
 
 /** One failure, with what it takes to reproduce it from the starting world. */
 interface Failure {

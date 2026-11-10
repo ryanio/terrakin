@@ -19,6 +19,7 @@ export const WORLD_SWITCHES = {
   starterDoors: true,
   starterEdges: true,
   plotReach: true,
+  ruleGaps: true,
   regrid: true,
   slimHomes: true,
   wallsOnLines: true,

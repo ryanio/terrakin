@@ -310,4 +310,26 @@ describe("ids an object inherits", () => {
       expect(Object.keys(Object.prototype)).toEqual([]);
     }
   });
+
+  // These take ids for residents who may not have joined yet, so only an id every object
+  // inherits is refused: one would be written as a key, or found where nothing was written.
+  it("are refused as townsfolk, owner pairs, and a joining resident's id", () => {
+    for (const id of DANGEROUS.filter((d) => !isOwnableKey(d))) {
+      const state = world();
+      const before = hashWorld(state);
+      const tries: [string, Command][] = [
+        [TOWN_ACTOR, { type: "set_townsfolk", ids: [id] }],
+        [TOWN_ACTOR, { type: "set_owner_pairs", pairs: [["ada", id]] }],
+        [TOWN_ACTOR, { type: "add_owner_pair", pair: ["ada", id] }],
+        [TOWN_ACTOR, { type: "remove_owner_pair", pair: ["ada", id] }],
+        [id, { type: "join", name: "Wren", kind: "agent" }],
+      ];
+      for (const [actor, command] of tries) {
+        const result = apply(state, { actor, command });
+        expect(result.ok, `${actor} ${JSON.stringify(command)}`).toBe(false);
+        expect(hashWorld(state), `${actor} ${JSON.stringify(command)}`).toBe(before);
+      }
+      expect(Object.keys(Object.prototype)).toEqual([]);
+    }
+  });
 });

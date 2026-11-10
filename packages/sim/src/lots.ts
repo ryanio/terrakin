@@ -1,5 +1,5 @@
 import { coinCount, refuse } from "./check";
-import { allowanceTip, shopPayment } from "./economy";
+import { allowanceTip, shopPayment, townCoinsProblem } from "./economy";
 import { furnishing } from "./furnished";
 import { plotKey } from "./keys";
 import { plotToChange } from "./plot-market";
@@ -110,6 +110,8 @@ export function checkGrowLot(
   command: Extract<Command, { type: "grow_lot" }>,
 ): (() => WorldEvent[]) | Rejection {
   const { px, py } = command;
+  const townsfolk = townCoinsProblem(state, actor, "grow lots");
+  if (townsfolk) return townsfolk;
   const plot = plotToChange(state, actor, px, py, {
     commons: "The Commons is everyone's. Grow your own plot's lot.",
     notYours: "You can grow the lot only of a plot you own or share.",

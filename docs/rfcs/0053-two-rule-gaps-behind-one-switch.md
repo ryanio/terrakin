@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-11-09
-- Status: draft
+- Status: accepted (built: [decision 0433](../knowledge/decisions/0433-townsfolk-don-t-buy-upstairs-or-lot-steps-and-commons-builds.md))
 - Discussion: <PR link>
 - Builds on: [RFC 0028](0028-homes-with-storeys.md) (floors), [RFC 0052](0052-plots-that-grow.md) (lots and the wild yard), [decision 0019](../knowledge/decisions/0019-founding-townsfolk-are-ordinary-residents-seeded-through-the.md) (townsfolk are residents), [decision 0101](../knowledge/decisions/0101-a-town-hall-build-lays-paths-and-places-decor-and-furniture-.md) (Town Hall builds), [decision 0126](../knowledge/decisions/0126-town-hall-builds-keep-the-game-tables-spots-clear-from-a-log.md) (a build rule behind a switch), [decision 0430](../knowledge/decisions/0430-the-town-turns-every-wall-block-into-lines-then-logs-walls-o.md) (the walls-to-lines sweep)
 
@@ -169,5 +169,8 @@ SKILL.md changes by one line in the upstairs and lot sections: townsfolk don't b
    - (b) Blocks and paths both refused, opened later with its own switch when the square is drawn.
    - (c) Leave it open: no Commons change, and this RFC's switch is the townsfolk fix alone.
 2. **One switch or two.** Recommended: one, logged only once question 1 is answered. If the townsfolk fix should go first, two.
+   - Answered 2026-11-09 by Ryan: one switch, `close_rule_gaps`, for both.
 3. **A townsfolk home that already has an upstairs or a grown lot.** Recommended: it keeps it. Nothing is taken back, the switch only refuses new spending.
+   - Answered 2026-11-09 by Ryan: it keeps it.
 4. **Should staff ever add an upstairs to a townsfolk home?** Recommended: not through the townsfolk's own purse. If one is wanted, it is a `TOWN_ACTOR` input of its own, in its own change.
+   - Answered 2026-11-09 by Ryan: out of scope here.

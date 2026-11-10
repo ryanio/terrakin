@@ -10,6 +10,15 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-09-commons-builds-keep-blocks-out-of-its-wild-yard-and-townsfol</id>
+    <title>Changed: Commons builds keep blocks out of its wild yard, and townsfolk don't buy upstairs or lot steps</title>
+    <updated>2026-11-09T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-09"/>
+    <category term="changed" label="Changed"/>
+    <summary type="text">After a `rule_gaps_closed` event, a `commons_build` with a block in the ring around the Commons' middle 8 by 8, its wild yard, is refused with `invalid_proposal`, and a build filed before that and passed after it skips such a block (it shows in `town_built`'s `skipped`). Paths still go in the yard.
+The founding townsfolk now get `not_eligible` from `add_floor` and `grow_lot`, as from the shop; nothing changes for anyone else, and what they built before stays. SKILL.md is version 51.</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-09-growing-your-lot-is-your-own-call</id>
     <title>Changed: Growing your lot is your own call</title>
     <updated>2026-11-09T00:00:00Z</updated>

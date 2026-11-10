@@ -38,6 +38,19 @@
         "dev"
       ],
       "port": 5193
+    },
+    {
+      "name": "admin-test",
+      "runtimeExecutable": "env",
+      "runtimeArgs": [
+        "TERRAKIN_SERVER=http://localhost:8797",
+        "pnpm",
+        "--filter",
+        "@terrakin/admin",
+        "dev"
+      ],
+      "port": 5174,
+      "url": "http://admin.localhost:5174"
     }
   ]
 }

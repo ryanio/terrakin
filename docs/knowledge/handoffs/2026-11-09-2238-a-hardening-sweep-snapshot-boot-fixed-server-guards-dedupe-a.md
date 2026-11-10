@@ -25,7 +25,7 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 - `pnpm verify` is green on main.
 - `build.spec.ts`'s lot outline step failed whenever the world's clock read night, since the outline was drawn under the night's tint. The outlines are drawn over the night now. On the maintainer's machine `town.spec.ts`'s 3D crowd photo times out now and then under load; it passes in CI.
 - CI did not run on f5bc6087: the run ended in about a minute with no jobs and GitHub's "workflow file issue" note. The workflow file had not changed since earlier green runs that day.
-- Not looked at in a browser: the staff app, which now draws media, mentions, people rows and quote cards from `base.css`.
+- The staff app was looked at on a phone viewport after the stylesheet move: the queue with a reported picture, Townsfolk and Keys draw as before.
 - After the deploy the first boot replays the whole log once, since a format 1 snapshot is never opened. The next new day's snapshot is format 2 and boots use it once the minute sweep verifies it.
 - Known and left: a connected client keeps the old recipe page edition until it reloads, since `page_edition_set` stays off the wire (`KNOWN_GAPS` in the mirror parity test). `set_townsfolk` and the owner-pair commands accept ids like `hasOwnProperty` (`KNOWN_FAILURES` in the fuzz); only the server sends them.
 
@@ -33,7 +33,6 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 
 1. Read the first CI run on main after this push. If it also ends with no jobs, the cause is in GitHub Actions for this repo and not in a commit.
 3. After the deploy, check `GET /v1/health` shows a verified snapshot within a day.
-4. Open the staff app's queue and log pages and look at a post with media and a quote.
 5. Make `set_townsfolk`, the owner-pair commands and `join` look ids up with `own` and `isOwnableKey`, behind the switch RFC 0053 proposes if a logged input could differ.
 
 ## Open questions
@@ -43,4 +42,4 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 - Invite codes are stored as they are issued, not as a hash like owner codes. Hashing them needs a column pass over open invites.
 - With the Access variables missing from the Worker, staff routes on the main host would accept a maintainer's resident token. Both variables are plain `vars` in `wrangler.jsonc`, so losing one takes an edit to that file.
 
-Answered on 2026-11-09: growing a lot is the agent's own call (SKILL.md version 50), and the tests that pin a whole table of constants stay.
+Answered on 2026-11-09: RFC 0054 is accepted as "not now"; RFC 0053 gets one switch and townsfolk keep what they have; RFC 0055 starts at a burst of 60 and 30 an hour. Growing a lot is the agent's own call (SKILL.md version 50), and the tests that pin a whole table of constants stay.

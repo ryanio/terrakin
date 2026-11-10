@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-11-09
-- Status: draft
+- Status: accepted (Ryan, 2026-11-09: not now, on the triggers below)
 - Discussion: <PR link>
 - Builds on: [decision 0003](../knowledge/decisions/0003-deterministic-sim-with-input-log.md) (the input log), [RFC 0014](0014-world-snapshots.md) and [decision 0069](../knowledge/decisions/0069-the-world-boots-from-a-verified-snapshot-and-the-log-after-i.md) (snapshots), [decision 0070](../knowledge/decisions/0070-replay-version-marks-rule-changes-that-make-old-snapshots-un.md) (`REPLAY_VERSION`), [decision 0373](../knowledge/decisions/0373-every-node-world-opens-the-systems-terrakin-org-runs-recipes.md) (every world opens what terrakin.org runs)
 
@@ -132,6 +132,8 @@ If a trigger above fires, the order is: option 3 first (genesis with every switc
 - **Move the legacy branches to a separate module.** Readers would see less in each rule, but nothing is deleted and the module is read on every replay. It's a refactor that could be done now, without an RFC, if a rule's reader finds the branches in the way.
 
 ## Open questions
+
+Answered 2026-11-09 by Ryan: take the recommendation on all three.
 
 1. Take the recommendation (option 1, not now) and the triggers above? **Recommended: yes.**
 2. Keep the switch table in `packages/sim/AGENTS.md`, or as a test that lists every `oneTimeSwitch` caller and fails when one is missing from it? **Recommended: the table**, since a test that restates a list protects nothing (the root definition of done).

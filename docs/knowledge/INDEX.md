@@ -361,6 +361,7 @@ What we chose and why. Newest last.
 - [The wild yard and each slot's feature are drawn from a hash, on the map and in 3D](decisions/0432-the-wild-yard-and-each-slot-s-feature-are-drawn-from-a-hash-.md) · 2026-11-09 · accepted · `client` `rendering` `3d` `rfc-0052`
 - [Townsfolk don't buy upstairs or lot steps and Commons builds keep blocks out of the wild yard, behind close_rule_gaps](decisions/0433-townsfolk-don-t-buy-upstairs-or-lot-steps-and-commons-builds.md) · 2026-11-10 · accepted · `sim` `economy` `town-hall` `townsfolk` `rfc-0053`
 - [A world-wide ceiling on joins, with a share for vouched invites, kept in memory](decisions/0434-a-world-wide-ceiling-on-joins-with-a-share-for-vouched-invit.md) · 2026-11-10 · accepted · `server` `protocol` `security` `rfc-0055`
+- [grow_lot's pieces and things on show stay separate counts, and its words say so](decisions/0435-grow-lot-s-pieces-and-things-on-show-stay-separate-counts-an.md) · 2026-11-09 · accepted · `sim` `protocol` `homes`
 
 ### Superseded
 

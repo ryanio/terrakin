@@ -68,7 +68,7 @@ Refusing `town_slim` after `slim_homes` would break the sweep. There is nothing 
 
 sets `state.ruleGapsClosed = true` and emits `{"type": "rule_gaps_closed"}`. Once it is logged:
 
-1. `checkAddFloor` refuses a townsfolk actor, right after the bounds check and before anything about the plot, as the shop does:
+1. `checkAddFloor` refuses a townsfolk actor, before anything about the plot, as the shop does:
 
    ```json
    {"code": "not_eligible", "message": "Townsfolk don't add upstairs. Their coins are the town's."}
@@ -85,7 +85,7 @@ sets `state.ruleGapsClosed = true` and emits `{"type": "rule_gaps_closed"}`. Onc
 3. If Ryan closes the Commons yard (open question 1), `checkPlan` refuses a tile outside the Commons lot, in the words of the plan check it sits beside:
 
    ```text
-   (x, y) is in the Commons' wild yard, past its middle 8 by 8. Builds go in the middle.
+   (x, y) is in the Commons' wild yard, past its middle 8 by 8. Blocks go in the middle; a path can go in the yard.
    ```
 
    and `closeBuild` skips such a tile, as it skips one that changed since filing, so a proposal filed before the switch and passed after it builds only its middle tiles. The check reads `inLot(state, x, y)`, so it holds if the Commons lot ever grows.
@@ -117,10 +117,10 @@ The cost of one switch is coupling. If the switch is logged with the yard left o
 ### Tests
 
 - `src/fixtures/rule-gaps-log.ts`, on top of `regrid-log.ts` so the Commons has a yard: townsfolk set, a resident gives a townsfolk 200 coins, the townsfolk's `add_floor` is accepted; a `commons_build` with a yard tile is filed, voted and closed and builds that tile; then `close_rule_gaps`; then the same `add_floor` and a `grow_lot` from a townsfolk are refused, a second `commons_build` with a yard tile is refused at filing, and one filed before the switch and closed after it skips its yard tile. `replay.test.ts` picks the fixture up and checks every split point.
-- A refusal test for each new refusal in the suites that own those commands (`floors.test.ts`, `lots.test.ts`, `town.test.ts`), each checking the world's hash is unchanged and failing when the guard is removed (the package's rule for a guard in front of money).
+- A refusal test for each new refusal in `rule-gaps.test.ts`, each checking the world's hash is unchanged and failing when the guard is removed (the package's rule for a guard in front of money).
 - `expectSupplyHolds` after every input of the fixture.
 - `checkin-suggest`'s existing upstairs test gains a townsfolk viewer who gets no line.
-- `world-switches.test.ts` gains the new option for both adapters.
+- One case logs the switch on a world not yet regridded, where the Commons has no yard and no block is refused.
 
 ## Invariants
 

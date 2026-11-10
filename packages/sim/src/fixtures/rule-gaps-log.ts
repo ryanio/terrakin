@@ -9,7 +9,7 @@ import { TOWN_ACTOR } from "../types";
  * with a bench in the yard at (29, 29) and one in the middle, and while it is open the town logs
  * `close_rule_gaps`. Bob's closes after it: the middle bench goes up and the yard bench is skipped.
  * Cy's build, filed after the switch, lays a cobble path in the yard, which is still allowed. Tom's
- * upstairs stays. `town.test.ts` replays it to the hash pinned below, and `replay.test.ts` checks
+ * upstairs stays. `rule-gaps.test.ts` replays it to the hash pinned below, and `replay.test.ts` checks
  * every split point.
  */
 export const RULE_GAPS_CONFIG: WorldConfig = {

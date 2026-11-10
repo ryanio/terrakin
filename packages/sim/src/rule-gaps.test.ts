@@ -42,10 +42,19 @@ const yardBench: Command = {
 describe("closing the rule gaps (close_rule_gaps)", () => {
   it("replays a log with inputs on both sides of the switch to its pinned hash", () => {
     const state = createWorld(RULE_GAPS_CONFIG);
+    const events = [];
     for (const input of RULE_GAPS_LOG) {
-      expect(apply(state, input), JSON.stringify(input)).toMatchObject({ ok: true });
+      const result = apply(state, input);
+      expect(result, JSON.stringify(input)).toMatchObject({ ok: true });
+      if (result.ok) events.push(...result.events);
       expectSupplyHolds(state);
     }
+    // Bob's build says which tile it left out.
+    expect(events.filter((e) => e.type === "town_built").map((e) => e.skipped)).toEqual([
+      [],
+      [{ x: 29, y: 29 }],
+      [],
+    ]);
     expect(hashWorld(state)).toBe(RULE_GAPS_HASH);
     // Tom's upstairs from before the switch stays.
     expect(state.plots["2,2"]?.floors).toBe(1);
@@ -93,5 +102,19 @@ describe("closing the rule gaps (close_rule_gaps)", () => {
       blocks: [{ x: 20, y: 22, block: "bench" }],
       ground: [{ x: 17, y: 22, ground: "cobble" }],
     });
+  });
+
+  it("refuses no Commons block on a world whose slots are still the lot's size", () => {
+    // The server logs the switch before `regrid` on such a world, where the Commons has no yard.
+    const state = replay(
+      RULE_GAPS_CONFIG,
+      RULE_GAPS_LOG.slice(
+        0,
+        RULE_GAPS_LOG.findIndex((i) => i.command.type === "add_floor"),
+      ).filter((i) => i.command.type !== "regrid"),
+    );
+    expect(apply(state, { actor: TOWN_ACTOR, command: { type: "close_rule_gaps" } }).ok).toBe(true);
+    const edge = { ...yardBench, blocks: [{ x: 8, y: 12, block: "bench" as const }] };
+    expect(apply(state, { actor: "cy", command: edge })).toMatchObject({ ok: true });
   });
 });

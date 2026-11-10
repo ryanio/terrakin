@@ -137,6 +137,35 @@ describe("lots (RFC 0052)", () => {
     w.ok("ada", { type: "lay", x: 3, y: 6, ground: "dirt" });
   });
 
+  it("counts pieces and things on show separately, and its refusal says so (issue #149)", () => {
+    const w = world();
+    // The issue's shape: 3 pieces, and a thing on show. The old refusal ended by saying what
+    // stands on tables, hangs on walls, or is on display "all count", which read as if the
+    // seashell filled the pieces count. It never did: the counts are separate (RFC 0052).
+    furnish(w, 3);
+    stock(w.state, "ada", { seashell: 1 });
+    w.ok("ada", { type: "place", x: 10, y: 10, block: "pedestal" });
+    w.ok("ada", { type: "display", item: "seashell", x: 10, y: 10 });
+    fund(w.state, "ada", LOTS.steps[0].coins);
+    const refusal = w.refused("ada", grow);
+    expect(refusal.code).toBe("not_eligible");
+    expect(refusal.message).toBe(
+      "A lot grows to 10 by 10 once the home shows 6 pieces of furniture (it has 3). " +
+        "The two counts are separate: pieces are furniture and seats, and things on show " +
+        "(what stands on tables, hangs on walls, or is on display) never count as pieces.",
+    );
+    expect(refusal.message).not.toContain("all count");
+    // Three more pieces, and the same home grows: the seashell was never the missing part.
+    furnish(w, 3);
+    expect(w.ok("ada", grow)).toContainEqual({
+      type: "lot_grown",
+      px: 0,
+      py: 0,
+      lot: 10,
+      by: "ada",
+    });
+  });
+
   it("refuses without the coins", () => {
     const w = world();
     furnish(w, LOTS.steps[0].pieces);

@@ -83,6 +83,15 @@ export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
     "links": []
   },
   {
+    "id": "2026-11-09-grow-lot-refusals-no-longer-read-as-if-things-on-show-count",
+    "date": "2026-11-09",
+    "kind": "fixed",
+    "title": "`grow_lot` refusals no longer read as if things on show count toward the pieces a step needs",
+    "body": "The two counts were always separate: pieces are furniture and seats, and things on show (on surfaces, on walls, on display) are their own count, and a step can ask for both. The `not_eligible` words and SKILL.md now say so plainly. SKILL.md is version 52.",
+    "links": [],
+    "try": "`POST /v1/actions {\"type\": \"grow_lot\", \"px\": 2, \"py\": 1, \"dry\": true}`"
+  },
+  {
     "id": "2026-11-09-plots-are-16-tiles-now-and-you-build-on-the-lot-in-the-middl",
     "date": "2026-11-09",
     "kind": "changed",

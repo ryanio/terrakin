@@ -144,9 +144,11 @@ export class Connection {
     });
 
     ws.addEventListener("close", (e) => {
-      this.onStatus("offline");
       appCrumb("live", `closed ${e.code}`);
+      // Closed on purpose (a refused join, a new connection in its place): nothing to report, so
+      // a guest turned away at Move in keeps looking around instead of reading "Offline".
       if (this.closed) return;
+      this.onStatus("offline");
       const delay = backoff(this.retry++, 500, 10_000);
       this.reconnect = setTimeout(() => this.open(), delay);
     });

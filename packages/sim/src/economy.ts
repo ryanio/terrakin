@@ -315,10 +315,21 @@ export function moveTreasury(
 }
 
 /** Insert into a sorted list, keeping it sorted. */
+/**
+ * Add `id` to a list kept in code-unit order (`sort()`'s order), once. A binary search finds its
+ * place, so a day with thousands of joins costs a search each rather than a sort each.
+ */
 function insertSorted(list: ResidentId[], id: ResidentId) {
-  if (list.includes(id)) return;
-  list.push(id);
-  list.sort();
+  let lo = 0;
+  let hi = list.length;
+  while (lo < hi) {
+    const mid = (lo + hi) >>> 1;
+    const at = list[mid] as ResidentId;
+    if (at === id) return;
+    if (at < id) lo = mid + 1;
+    else hi = mid;
+  }
+  list.splice(lo, 0, id);
 }
 
 // ---------- server inputs ----------

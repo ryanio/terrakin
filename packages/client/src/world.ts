@@ -672,6 +672,8 @@ function joinRefused(code: string, message: string, free?: readonly string[]) {
   joiningFresh = false;
   conn?.close();
   conn = undefined;
+  // No connection is wanted now: a guest turned away (the town full, say) keeps looking around.
+  status.textContent = "";
   landing.setJoining(false);
   landing.setError(joinProblem(code, message, free?.length ?? 0, passkeysWork()), free);
   // A taken name may be your own character from another browser: the way back is a passkey.

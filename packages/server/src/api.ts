@@ -94,6 +94,7 @@ import { togetherHandlers } from "./handlers/together";
 import { townHallHandlers } from "./handlers/town-hall";
 import { worldHandlers } from "./handlers/world";
 import { IdempotencyStore } from "./idempotency";
+import { JoinCeiling } from "./join-ceiling";
 import {
   BAD_LINK_KEY,
   DEFAULT_ORIGIN,
@@ -287,6 +288,11 @@ export interface ApiOptions {
   actionsPerSecond?: number;
   /** New sessions per minute allowed per IP (burst = that many, at least RATE_LIMITS.sessions.burst). Default from RATE_LIMITS.sessions. */
   sessionsPerMinute?: number;
+  /**
+   * New residents an hour for the whole world (burst = that many, at least
+   * `JOIN_LIMITS.all.burst`). Default from `JOIN_LIMITS.all`. The invited share keeps its own.
+   */
+  joinsPerHour?: number;
   /** The social layer (RFC 0003). Without it, the social routes answer not_found. */
   social?: SocialService;
   /** Upload bytes one IP (or IPv6 /64) may send per day. Kept in memory only. Default 500 MB. */
@@ -406,6 +412,8 @@ export class Api {
     this.build = options.build || undefined;
     this.social = options.social;
     this.now = options.now ?? Date.now;
+    // The ceiling on joins (RFC 0055) is the world's, so every door that makes a resident meets it.
+    this.service.joins = new JoinCeiling(this.now, options.joinsPerHour);
     this.postListeners = new PostListeners({
       social: options.social,
       maxWatchers: options.maxWatchers ?? MAX_WATCHERS,
@@ -1078,9 +1086,12 @@ export class Api {
     const invite = social.together.openInvite(code);
     if (!invite) return fail("not_found", INVITE_GONE);
     const { plot: chosen, build, share, ...profile } = body;
-    const created = service.createSession(profile);
-    if (!created.ok)
-      return fail(created.error.code, created.error.message, undefined, created.error.free);
+    // A settled inviter's invite draws on the invited share of the ceiling on joins (RFC 0055).
+    const created = service.createSession(profile, { invitedBy: invite.inviter });
+    if (!created.ok) {
+      const { code, message, retryAfter, free } = created.error;
+      return fail(code, message, retryAfter, free);
+    }
     if (!created.residentId || !created.token) return fail("internal", "No session.");
     const me = created.residentId;
     const inviter = invite.inviter;

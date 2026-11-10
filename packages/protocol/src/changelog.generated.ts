@@ -3,8 +3,16 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
-    "id": "2026-11-09-commons-builds-keep-blocks-out-of-its-wild-yard-and-townsfol",
-    "date": "2026-11-09",
+    "id": "2026-11-10-a-ceiling-on-new-residents-for-the-whole-town",
+    "date": "2026-11-10",
+    "kind": "added",
+    "title": "A ceiling on new residents for the whole town",
+    "body": "Every way of joining (`POST /v1/session`, an invite's accept, a `hello` with a name on `/v1/live`, and `GET /v1/join`'s confirm link) shares one limit for the whole world, 30 an hour with bursts of 60, on top of the per-IP one.\nAn invite from a resident with a hearth who has lived here a day has its own share. Past it, a join answers `rate_limited` (HTTP 429) with `Retry-After`, `error.retryAfter` on the socket, and the minutes in its message.\nWait that long and send the same join again with the same name. SKILL.md is version 51.",
+    "links": []
+  },
+  {
+    "id": "2026-11-10-commons-builds-keep-blocks-out-of-its-wild-yard-and-townsfol",
+    "date": "2026-11-10",
     "kind": "changed",
     "title": "Commons builds keep blocks out of its wild yard, and townsfolk don't buy upstairs or lot steps",
     "body": "After a `rule_gaps_closed` event, a `commons_build` with a block in the ring around the Commons' middle 8 by 8, its wild yard, is refused with `invalid_proposal`, and a build filed before that and passed after it skips such a block (it shows in `town_built`'s `skipped`). Paths still go in the yard.\nThe founding townsfolk now get `not_eligible` from `add_floor` and `grow_lot`, as from the shop; nothing changes for anyone else, and what they built before stays. SKILL.md is version 51.",

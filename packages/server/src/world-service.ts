@@ -307,6 +307,12 @@ export interface WorldServiceOptions {
    */
   plotReach?: boolean;
   /**
+   * Townsfolk don't buy upstairs or lot steps, and Town Hall builds put no block in the Commons'
+   * wild yard (RFC 0053): once coins are open, append `close_rule_gaps` if it never has, so inputs
+   * logged before it replay as they were. Both adapters turn this on. Off by default, like `items`.
+   */
+  ruleGaps?: boolean;
+  /**
    * Plot slots double to 16 tiles (RFC 0052): once walls stand only on lines (`walls_on_lines`),
    * append `regrid` if it never has, which moves everything built to the middle of its slot. Both
    * adapters turn this on. Off by default, like `items`.
@@ -697,6 +703,7 @@ interface TownSwitch {
     | "starterDoors"
     | "starterEdges"
     | "plotReach"
+    | "ruleGaps"
     | "regrid"
     | "market"
     | "bounties"
@@ -827,6 +834,12 @@ const DAY_SWITCHES: readonly TownSwitch[] = [
     due: (s) => !s.plotReach,
     command: { type: "plot_reach" },
     label: "let building reach the whole plot",
+  },
+  {
+    option: "ruleGaps",
+    due: (s) => !s.ruleGapsClosed && !!s.economy,
+    command: { type: "close_rule_gaps" },
+    label: "close the townsfolk and Commons yard gaps",
   },
   // After the town's sweep has put every wall on a line, so no wall block moves with the regrid,
   // and only once a dry run on a copy holds (`regridIfSafe`).
@@ -1010,6 +1023,7 @@ export class WorldService {
   private readonly starterDoors: boolean;
   private readonly starterEdges: boolean;
   private readonly plotReach: boolean;
+  private readonly ruleGaps: boolean;
   private readonly regrid: boolean;
   private readonly slimHomes: boolean;
   private readonly wallsOnLines: boolean;
@@ -1133,6 +1147,7 @@ export class WorldService {
     this.starterDoors = options.starterDoors ?? false;
     this.starterEdges = options.starterEdges ?? false;
     this.plotReach = options.plotReach ?? false;
+    this.ruleGaps = options.ruleGaps ?? false;
     this.regrid = options.regrid ?? false;
     this.slimHomes = options.slimHomes ?? false;
     this.wallsOnLines = options.wallsOnLines ?? false;

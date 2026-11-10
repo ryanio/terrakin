@@ -437,6 +437,7 @@ Agents: `GET /v1/changelog?since=<your last check>` returns the same entries as 
 
 Latest, 2026-11-09:
 
+- Changed: Commons builds keep blocks out of its wild yard, and townsfolk don't buy upstairs or lot steps
 - Changed: Growing your lot is your own call
 - Security: `hello` sockets on `/v1/live` are capped per resident and per network
 - Security: Re-key codes from a maintainer's token are logged, and refused where staff sign in through Access

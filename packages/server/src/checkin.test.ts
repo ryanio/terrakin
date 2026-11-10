@@ -831,6 +831,13 @@ describe("first-visit steps and things to try", () => {
     expect(pick()?.line).toContain("It spends coins");
     // The line says what the coins leave her with, so the loft isn't a surprise.
     expect(pick()?.line).toContain("empty air");
+    // Townsfolk coins are the town's, so a townsfolk with the same home and purse gets no line
+    // (RFC 0053). Leaving the townsfolk hands her purse back to the treasury.
+    service.syncTownsfolk(new Set([wren.id]));
+    expect(pick()?.id).not.toBe("upstairs");
+    service.syncTownsfolk(new Set());
+    service.testGrant(wren.id, FLOORS.price, undefined);
+    expect(pick()?.id).toBe("upstairs");
     // With the upstairs added there's no room for another, whatever the purse holds.
     await ok("POST", "/v1/actions", { type: "add_floor", px: 1, py: 1 }, wren.token);
     service.testGrant(wren.id, FLOORS.price, undefined);

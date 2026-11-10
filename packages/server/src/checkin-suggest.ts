@@ -215,6 +215,8 @@ function hostStart(state: WorldState): number {
  * on, with room for one more, and the coins for it in their purse.
  */
 function loftPlot(state: WorldState, viewer: string) {
+  // Townsfolk coins are the town's (RFC 0053).
+  if (isTownsfolk(state, viewer)) return undefined;
   const plot = homePlotOf(state, viewer);
   if (!plot || !canBuildOn(plot, viewer) || (plot.floors ?? 0) >= FLOORS.max) return undefined;
   return (purseOf(state, viewer)?.balance ?? 0) >= FLOORS.price ? plot : undefined;

@@ -179,6 +179,8 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   starterDoors: "starterDoors",
   starterEdges: "starterEdges",
   plotReach: "plotReach",
+  // Off the wire on purpose (RFC 0053): no client draws anything from it.
+  ruleGaps: null,
   regrid: "regridded",
   slimHomes: "homesSlimmed",
   wallsOnLines: "wallsOnLines",

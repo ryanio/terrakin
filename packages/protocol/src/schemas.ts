@@ -1565,6 +1565,11 @@ export const WorldEvent = z.discriminatedUnion("type", [
   z.object({ type: z.literal("plot_reach_set") }),
   /** From now on walls go only on the lines between tiles (`wallsOnLines`). */
   z.object({ type: z.literal("walls_on_lines_set") }),
+  /**
+   * From now on townsfolk don't buy upstairs or lot steps, and a Town Hall build puts no block in
+   * the Commons' wild yard, past its lot (RFC 0053).
+   */
+  z.object({ type: z.literal("rule_gaps_closed") }),
   /** The town has moved every home's wall blocks it could onto the lines between tiles (RFC 0050). */
   z.object({ type: z.literal("homes_slimmed_set") }),
   /** A wall went up on the line on `side` (`n` or `w`) of (x, y) (RFC 0050). Public. */

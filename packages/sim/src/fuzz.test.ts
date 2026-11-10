@@ -13,6 +13,7 @@ import { LOTS_CONFIG, LOTS_LOG } from "./fixtures/lots-log";
 import { MARKET_CONFIG, MARKET_LOG } from "./fixtures/market-log";
 import { PLOT_MARKET_CONFIG, PLOT_MARKET_LOG } from "./fixtures/plot-market-log";
 import { REGRID_CONFIG, REGRID_LOG } from "./fixtures/regrid-log";
+import { RULE_GAPS_CONFIG, RULE_GAPS_LOG } from "./fixtures/rule-gaps-log";
 import { SURFACES_CONFIG, SURFACES_LOG } from "./fixtures/surfaces-log";
 import { COMMAND_TYPES, deepen, describeFailure, fuzz, KNOWN_FAILURES } from "./fuzz-support";
 import { hashWorld } from "./hash";
@@ -44,6 +45,7 @@ const STARTS: { name: string; config: WorldConfig; log: Input[] }[] = [
   { name: "plot-market-log", config: PLOT_MARKET_CONFIG, log: PLOT_MARKET_LOG },
   { name: "kiln-log", config: KILN_CONFIG, log: KILN_LOG },
   { name: "surfaces-log", config: SURFACES_CONFIG, log: SURFACES_LOG },
+  { name: "rule-gaps-log", config: RULE_GAPS_CONFIG, log: RULE_GAPS_LOG },
 ];
 
 const env = (name: string) => {

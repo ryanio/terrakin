@@ -137,6 +137,7 @@ const NO_TILES = [
   "starterEdges",
   "plotReach",
   "wallsOnLines",
+  "ruleGapsClosed",
   "lots",
   "regridded",
   "slimmed",

@@ -4,7 +4,8 @@ import { oneTimeSwitch, refuse } from "./check";
 import { notAtDoor } from "./doors";
 import { GROUND_INFO, GROUND_KINDS, isGroundKind } from "./ground";
 import { tileKey } from "./keys";
-import { own, residentById } from "./own";
+import { inLot, lotBounds } from "./lots";
+import { isOwnableKey, own, residentById } from "./own";
 import { wallOnTileProblem } from "./plot-building";
 import { setTurn } from "./turns";
 import type {
@@ -323,6 +324,7 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   for (const b of blocks) {
     const shop = onShop(b);
     if (shop) return shop;
+    if (inYard(state, b)) return yardWords(state, b);
     if (spots.has(tileKey(b.x, b.y))) {
       return `(${b.x}, ${b.y}) is one of the four spots where game tables stand. Keep it clear for them: a path can go there, a block can't.`;
     }
@@ -362,6 +364,20 @@ function checkPlan(state: WorldState, plan: CommonsPlan): string | null {
   }
   return null;
 }
+
+/** The words for a Town Hall block planned at `t` in the Commons' wild yard (RFC 0053). */
+function yardWords(state: WorldState, t: Tile): string {
+  const { px, py } = commonsPlot(state);
+  const { side } = lotBounds(state, px, py);
+  return `(${t.x}, ${t.y}) is in the Commons' wild yard, past its middle ${side} by ${side}. Blocks go in the middle; a path can go in the yard.`;
+}
+
+/**
+ * Whether a Town Hall build keeps a block off `t` because it is in the Commons' wild yard, past
+ * the Commons' lot: only once `close_rule_gaps` is logged (RFC 0053), so older builds replay as
+ * they were made. Paths still go there.
+ */
+const inYard = (state: WorldState, t: Tile) => !!state.ruleGapsClosed && !inLot(state, t.x, t.y);
 
 /**
  * The game tables' spots a Town Hall build keeps clear of blocks, as tile keys: all four once the
@@ -409,7 +425,7 @@ export function checkTown(state: WorldState, actor: string, command: TownCommand
     }
 
     case "set_townsfolk": {
-      if (!Array.isArray(command.ids) || command.ids.some((id) => typeof id !== "string")) {
+      if (!Array.isArray(command.ids) || !command.ids.every(isOwnableKey)) {
         return refuse("server_only", "Townsfolk are a list of resident ids.");
       }
       const ids = [...new Set(command.ids)].sort();
@@ -696,7 +712,8 @@ interface CommonsBuilt {
  * blocks, then paths, each as filed. A removal or a lift happens if something is still there. A
  * block goes in unless its tile has a block by then (after the removals), a hearth, or an online
  * resident on it, or is the Town Hall's, the open shop's, or a game table's spot once the server
- * has logged `keep_table_spots`. A path goes in unless its tile has one by then (after the
+ * has logged `keep_table_spots`, or is in the Commons' wild yard once it has logged
+ * `close_rule_gaps`. A path goes in unless its tile has one by then (after the
  * lifts), or is the hall's or the open shop's; it goes under anyone standing there. Skipped tiles
  * are listed so the event says what didn't happen. Reads only.
  */
@@ -734,7 +751,8 @@ function closeBuild(state: WorldState, plan: CommonsPlan): CommonsBuilt {
   }
   for (const b of plan.blocks) {
     const key = tileKey(b.x, b.y);
-    if (blockAt(key) !== undefined || taken.has(key) || building(b) || spots.has(key)) skip(b);
+    const kept = blockAt(key) !== undefined || taken.has(key) || building(b) || spots.has(key);
+    if (kept || inYard(state, b)) skip(b);
     else {
       built.placed.push({ ...b });
       blocksNow.set(key, b.block);

@@ -51,10 +51,12 @@ import {
 } from "../social";
 import {
   DAILY_LIMITS,
+  describeJoinLimit,
   describeRateLimit,
   empty,
   GESTURE_COOLDOWN_MINUTES,
   JOIN_CONFIRM_CODE,
+  JOIN_LIMITS,
   json,
   LinkKeyParams,
   link,
@@ -117,6 +119,7 @@ export const LINK_ROUTES = [
     // and spends nothing, so a join by link costs what a POST does.
     limits: [
       `${describeRateLimit(RATE_LIMITS.sessions)}, shared with \`POST /v1/session\`, only when it joins`,
+      `new residents: ${describeJoinLimit(JOIN_LIMITS.all)}`,
     ],
     once: true,
   },

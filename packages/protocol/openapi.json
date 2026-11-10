@@ -327,7 +327,10 @@
           "perSecond": 0.05,
           "burst": 20,
           "description": "3 a minute per IP, bursts of 20"
-        }
+        },
+        "x-limits": [
+          "new residents: 30 an hour for the whole world, bursts of 60"
+        ]
       },
       "delete": {
         "operationId": "deleteSession",
@@ -9673,7 +9676,8 @@
           }
         },
         "x-limits": [
-          "3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins"
+          "3 a minute per IP, bursts of 20, shared with `POST /v1/session`, only when it joins",
+          "new residents: 30 an hour for the whole world, bursts of 60"
         ],
         "x-repeat-window-ms": 120000
       }
@@ -18475,7 +18479,11 @@
           "perSecond": 0.05,
           "burst": 20,
           "description": "3 a minute per IP, bursts of 20"
-        }
+        },
+        "x-limits": [
+          "new residents, when the inviter has a hearth and has lived here at least 1 day: 10 an hour for the whole world, bursts of 20",
+          "any other invite: 30 an hour for the whole world, bursts of 60, shared with every join"
+        ]
       }
     },
     "/v1/letters": {

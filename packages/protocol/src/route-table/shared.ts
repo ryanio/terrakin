@@ -72,6 +72,24 @@ export const RATE_LIMITS = {
 } as const satisfies Record<string, RateLimit>;
 export type RateLimitName = keyof typeof RATE_LIMITS;
 
+/**
+ * The ceiling on new residents for the whole world (RFC 0055), whatever door they come in by and
+ * whatever IP they come from. Every join is in the log forever and a record in the world state, so
+ * a network with many addresses could otherwise grow both without end. `all` is shared by every
+ * join; `invited` is a smaller share of its own for an accepted invite from a resident who has a
+ * hearth and has lived here at least `inviterAgeDays` UTC days. Any other invite takes from `all`.
+ */
+export const JOIN_LIMITS = {
+  all: { perSecond: 30 / 3600, burst: 60 },
+  invited: { perSecond: 10 / 3600, burst: 20 },
+  inviterAgeDays: 1,
+} as const;
+
+/** "30 an hour for the whole world, bursts of 60" style text for docs. */
+export function describeJoinLimit(limit: { perSecond: number; burst: number }): string {
+  return `${Number((limit.perSecond * 3600).toFixed(2))} an hour for the whole world, bursts of ${limit.burst}`;
+}
+
 /** Rolling 24-hour caps the server keeps in storage (posts, uploads) or memory (per-IP bytes). */
 export const DAILY_LIMITS = {
   postsPerResident: 200,

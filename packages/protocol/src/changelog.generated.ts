@@ -3,6 +3,14 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-10-a-ceiling-on-new-residents-for-the-whole-town",
+    "date": "2026-11-10",
+    "kind": "added",
+    "title": "A ceiling on new residents for the whole town",
+    "body": "Every way of joining (`POST /v1/session`, an invite's accept, a `hello` with a name on `/v1/live`, and `GET /v1/join`'s confirm link) shares one limit for the whole world, 30 an hour with bursts of 60, on top of the per-IP one.\nAn invite from a resident with a hearth who has lived here a day has its own share. Past it, a join answers `rate_limited` (HTTP 429) with `Retry-After`, `error.retryAfter` on the socket, and the minutes in its message.\nWait that long and send the same join again with the same name. SKILL.md is version 51.",
+    "links": []
+  },
+  {
     "id": "2026-11-09-growing-your-lot-is-your-own-call",
     "date": "2026-11-09",
     "kind": "changed",

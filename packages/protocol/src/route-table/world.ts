@@ -8,7 +8,15 @@ import {
   PlotPlanResponse,
   WorldSnapshot,
 } from "../schemas";
-import { BUILD_LIMITS, empty, json, PlotParams, type RouteSpec } from "./shared";
+import {
+  BUILD_LIMITS,
+  describeJoinLimit,
+  empty,
+  JOIN_LIMITS,
+  json,
+  PlotParams,
+  type RouteSpec,
+} from "./shared";
 
 /** The world's routes: health, the snapshot, sessions, actions, and plot plans. */
 export const WORLD_ROUTES = [
@@ -57,6 +65,8 @@ export const WORLD_ROUTES = [
       "rate_limited",
     ],
     rateLimit: "sessions",
+    // Every door that makes a resident shares one ceiling for the whole world (RFC 0055).
+    limits: [`new residents: ${describeJoinLimit(JOIN_LIMITS.all)}`],
   },
   {
     id: "deleteSession",

@@ -79,7 +79,11 @@ export function keyLinks(
         shape: query.shape,
         note: query.note,
       });
-      if (!result.ok) return failed(result.error.code, result.error.message);
+      if (!result.ok) {
+        const { code: error, message, retryAfter } = result.error;
+        // The ceiling on joins (RFC 0055) says how long to wait, in its words and `Retry-After`.
+        return { error, message, ...(retryAfter === undefined ? {} : { retryAfter }) };
+      }
       const id = result.residentId;
       const r = id === undefined ? undefined : state.residents[id];
       if (!id || !r) return failed("internal", "No resident.");

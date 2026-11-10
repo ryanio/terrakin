@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-11-09
-- Status: draft
+- Status: accepted (Ryan, 2026-11-09; option A and the `insertSorted` fix built, answers under Open questions)
 - Discussion: <PR link>
 - Builds on: [RFC 0014](0014-world-snapshots.md) (snapshots and the 128 MB isolate), [RFC 0048](0048-guest-visitors.md) and [decision 0380](../knowledge/decisions/0380-a-newcomer-walks-the-town-as-a-guest-first-and-moves-in-with.md) (guests walk without joining), [decision 0148](../knowledge/decisions/0148-resident-names-are-unique-at-join.md) (unique names), [decision 0230](../knowledge/decisions/0230-old-repeat-joins-are-retired-once-by-a-logged-input-the-sim-.md) (retiring old repeat joins), [decision 0141](../knowledge/decisions/0141-the-newcomer-funnel-counts-first-steps-from-what-the-world-a.md) (the newcomer funnel)
 
@@ -152,7 +152,12 @@ SKILL.md's joining section says that a join can be refused with `rate_limited` w
 ## Open questions
 
 1. **The ceiling's numbers.** Recommended: start at a burst of 60 and 30 an hour, then set them from two weeks of hourly counts at five times the busiest hour.
+   - Answered 2026-11-09 by Ryan: start at a burst of 60 and 30 an hour, for the whole world.
 2. **What a person sees when it is full.** Recommended: they stay a guest, keep looking around, and the move-in answer says how many minutes to wait.
+   - Answered 2026-11-09 by Ryan: as recommended.
 3. **Do invites skip the ceiling?** Recommended: they take a smaller share of their own (a burst of 20, 10 an hour), and only from an inviter with a hearth and a day in the town.
+   - Answered 2026-11-09 by Ryan: as recommended. Any other invite takes from the main bucket.
 4. **Option C: retire unused records on a schedule?** Recommended: decide after the measurement; if more than a third of a week's joins reach no step, build it with 30 world days of no use as the line.
+   - Answered 2026-11-09 by Ryan: not in this build.
 5. **Tighten the per-IP limit too?** Recommended: not yet. Read the hourly counts first.
+   - Answered 2026-11-09 by Ryan: not yet. Deferring the logged join (option B) is out of scope too.

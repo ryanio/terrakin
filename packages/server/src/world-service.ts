@@ -18,6 +18,7 @@ import {
   buildCommand,
   facingFrom,
   GAME_TIMES,
+  JOIN_LIMITS,
   KARMA,
   LINKS,
   levelUps,
@@ -121,6 +122,7 @@ import { randomId } from "./bytes";
 import { doorNote, withNote } from "./door-notes";
 import { type GuestFacts, SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";
+import { type JoinCeiling, joinsFullMessage } from "./join-ceiling";
 import { landDue, planLand } from "./lands";
 import { listingRefusal } from "./market";
 import { Moderation } from "./moderation";
@@ -169,6 +171,11 @@ import {
   toWire,
   worldSnapshot,
 } from "./world-wire";
+
+/** How a join came in, for the ceiling on joins: through an invite, and whose. */
+export interface JoinVia {
+  invitedBy?: string;
+}
 
 /**
  * What stopped a `move` with `steps` short of the tiles it asked for: the refusal of the step it
@@ -2301,8 +2308,9 @@ export class WorldService {
 
   createSession(
     request: { name: string; kind: ResidentKind } & LooseProfile,
+    via: JoinVia = {},
   ): ActResult & { residentId?: string; token?: string } {
-    const result = this.createResident(request);
+    const result = this.createResident(request, via);
     if (!result.ok || !result.residentId) return result;
     const { residentId } = result;
     const token = this.issueToken(residentId);
@@ -2330,9 +2338,26 @@ export class WorldService {
     return { code: "name_taken", message: `${whose} ${NAME_TAKEN}${offer}`, free };
   }
 
+  /**
+   * The world-wide ceiling on joins (RFC 0055), which `Api` sets. Without it, as in a bare
+   * `WorldService`, joins are limited only at the door.
+   */
+  joins: JoinCeiling | undefined;
+
+  /**
+   * Whether an invite from `inviterId` takes the invited share of the ceiling: the inviter has a
+   * hearth and has lived here at least `JOIN_LIMITS.inviterAgeDays` UTC days, so a resident made
+   * a minute ago can't vouch for more of their own.
+   */
+  vouches(inviterId: string): boolean {
+    const inviter = residentById(this.state, inviterId);
+    return !!inviter?.hearth && this.residentAgeDays(inviterId) >= JOIN_LIMITS.inviterAgeDays;
+  }
+
   /** A new resident in the world, with no bearer token. `GET /v1/join` gives it a link key instead. */
   createResident(
     request: { name: string; kind: ResidentKind } & LooseProfile,
+    via: JoinVia = {},
   ): ActResult & { residentId?: string } {
     const residentId = randomId("r");
     const { name, kind, ...profile } = request;
@@ -2349,11 +2374,21 @@ export class WorldService {
     // A brand-new resident owns no uploads, so any media here is refused.
     const media = checkLookMedia(this.actions.mediaType, residentId, profile);
     if (media) return media;
+    // Last before the join is logged, so a name refused above spends nothing from the ceiling.
+    const share = via.invitedBy !== undefined && this.vouches(via.invitedBy) ? "invited" : "all";
+    const wait = this.joins?.take(share);
+    if (wait !== undefined) {
+      return {
+        ok: false,
+        error: { code: "rate_limited", message: joinsFullMessage(wait), retryAfter: wait },
+      };
+    }
     const result = this.run({
       actor: residentId,
       command: { type: "join", name: cleanText(name), kind, ...cleanProfile(profile) },
     });
     if (!result.ok) return result;
+    this.joins?.joined(kind, share);
     // `run` noted the world's day. A world that doesn't count days uses the clock's, which a
     // restart forgets.
     if (this.state.day === undefined) this.facts.joinedDay.set(residentId, utcDay(this.now()));

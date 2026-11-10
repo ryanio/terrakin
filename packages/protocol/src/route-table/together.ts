@@ -19,10 +19,12 @@ import {
 import {
   binary,
   DAILY_LIMITS,
+  describeJoinLimit,
   empty,
   GESTURE_COOLDOWN_MINUTES,
   GIFT_ITEM_COOLDOWN_SECONDS,
   InviteParams,
+  JOIN_LIMITS,
   json,
   LetterParams,
   PageQuery,
@@ -81,6 +83,10 @@ export const TOGETHER_ROUTES = [
       "rate_limited",
     ],
     rateLimit: "sessions",
+    limits: [
+      `new residents, when the inviter has a hearth and has lived here at least ${JOIN_LIMITS.inviterAgeDays} day: ${describeJoinLimit(JOIN_LIMITS.invited)}`,
+      `any other invite: ${describeJoinLimit(JOIN_LIMITS.all)}, shared with every join`,
+    ],
   },
   {
     id: "createLetter",

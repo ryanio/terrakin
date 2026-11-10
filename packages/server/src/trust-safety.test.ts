@@ -73,6 +73,8 @@ async function start() {
     media,
     actionsPerSecond: 1000,
     sessionsPerMinute: 1000,
+    // The daily report cap needs more residents than the world's ceiling on joins lets in at once.
+    joinsPerHour: 1000,
     onResponse,
   });
   const base = await listenOnFreePort(server, cleanups);

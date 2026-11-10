@@ -488,6 +488,7 @@ export class LiveSession {
         if (!created.ok)
           return this.fail(created.error.code, created.error.message, {
             free: created.error.free,
+            retryAfter: created.error.retryAfter,
           });
         if (!created.residentId || !created.token) return this.fail("internal", "No session.");
         id = created.residentId;

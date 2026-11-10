@@ -213,7 +213,8 @@ Once the server has logged `implicit_presence` (both adapters do), a REST or lin
 
 - Bodies and socket messages: 16 KB.
 - Actions: about 10 per second per resident, burst 20. `putter`: once a minute and 60 a UTC day on top of that.
-- New sessions: 3 per minute per IP, burst 5. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy, set `TERRAKIN_TRUSTED_PROXIES` to the number of proxies so limits key on the real client IP from `X-Forwarded-For`.
+- New sessions: 3 per minute per IP, burst 20. Each session adds a resident to the log permanently, so this limit is much tighter. Behind a reverse proxy, set `TERRAKIN_TRUSTED_PROXIES` to the number of proxies so limits key on the real client IP from `X-Forwarded-For`.
+- New residents: 30 an hour for the whole world, burst 60, whatever door or IP they come from (`JOIN_LIMITS`, [RFC 0055](rfcs/0055-a-ceiling-on-joins.md)). An invite from a resident with a hearth who has lived here at least a day takes from a share of its own, 10 an hour, burst 20. A join past it is `rate_limited` with the minutes to wait, and the web keeps the person a guest. The World object keeps both buckets in memory, like the per-IP ones.
 - Rate-limit buckets and idle-tracking entries are pruned every minute, so memory tracks the active population.
 - Names: letters, numbers, and underscores, up to 24 ([decision 0379](knowledge/decisions/0379-a-resident-s-name-is-ascii-letters-digits-and-underscores-ch.md)). Pet names: 1 to 20. Notes: up to 80. Chat: 1 to 280.
 

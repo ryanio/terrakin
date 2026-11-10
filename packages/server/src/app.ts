@@ -69,6 +69,8 @@ export interface AppOptions {
   actionsPerSecond?: number;
   /** New sessions per minute allowed per IP (burst = 5, or this many when higher). Default 3. */
   sessionsPerMinute?: number;
+  /** See `ApiOptions.joinsPerHour`. Default `JOIN_LIMITS.all`. */
+  joinsPerHour?: number;
   /**
    * Number of reverse proxies in front of this server (default 0). With N > 0, the client IP is
    * the Nth address from the right of X-Forwarded-For. Never set this without a proxy that
@@ -226,6 +228,7 @@ export function createApp(options: AppOptions): Server {
     ...(options.sessionsPerMinute === undefined
       ? {}
       : { sessionsPerMinute: options.sessionsPerMinute }),
+    ...(options.joinsPerHour === undefined ? {} : { joinsPerHour: options.joinsPerHour }),
     ...(options.social ? { social: options.social } : {}),
     ...(options.ipUploadBytesPerDay === undefined
       ? {}

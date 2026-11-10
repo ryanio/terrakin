@@ -27,18 +27,19 @@ Five read-only audits (server, sim, client and ui, tests, what agents read), the
 - CI did not run on f5bc6087: the run ended in about a minute with no jobs and GitHub's "workflow file issue" note. The workflow file had not changed since earlier green runs that day.
 - The staff app was looked at on a phone viewport after the stylesheet move: the queue with a reported picture, Townsfolk and Keys draw as before.
 - After the deploy the first boot replays the whole log once, since a format 1 snapshot is never opened. The next new day's snapshot is format 2 and boots use it once the minute sweep verifies it.
-- Known and left: a connected client keeps the old recipe page edition until it reloads, since `page_edition_set` stays off the wire (`KNOWN_GAPS` in the mirror parity test). `set_townsfolk` and the owner-pair commands accept ids like `hasOwnProperty` (`KNOWN_FAILURES` in the fuzz); only the server sends them.
+- Built on 2026-11-10: RFC 0053's `close_rule_gaps` switch ([decision 0433](../decisions/0433-townsfolk-don-t-buy-upstairs-or-lot-steps-and-commons-builds.md)), with ids every object inherits refused in `set_townsfolk`, the owner-pair commands and `join`, and RFC 0055's world-wide ceiling on joins ([decision 0434](../decisions/0434-a-world-wide-ceiling-on-joins-with-a-share-for-vouched-invit.md)). The fuzz has no known failures left.
+- Known and left: a connected client keeps the old recipe page edition until it reloads, since `page_edition_set` stays off the wire (`KNOWN_GAPS` in the mirror parity test).
 
 ## Next
 
 1. Read the first CI run on main after this push. If it also ends with no jobs, the cause is in GitHub Actions for this repo and not in a commit.
 3. After the deploy, check `GET /v1/health` shows a verified snapshot within a day.
-5. Make `set_townsfolk`, the owner-pair commands and `join` look ids up with `own` and `isOwnableKey`, behind the switch RFC 0053 proposes if a logged input could differ.
+5. Read `world.joins` by the hour for two weeks, then set `JOIN_LIMITS` at five times the busiest hour (RFC 0055).
+6. Count from the live log how many townsfolk homes already have an upstairs or a grown lot (RFC 0053's rollout step 3). They keep them.
 
 ## Open questions
 
-- RFC 0053's other questions: one switch or two, and whether townsfolk keep an upstairs they already have. Ryan answered the Commons yard on 2026-11-09: blocks refused, paths allowed.
-- RFC 0055: the numbers for a world-wide ceiling on joins, and what a person sees when it is full.
+- RFC 0055's option C: whether to retire unused records on a schedule, decided after the two weeks of counts.
 - Invite codes are stored as they are issued, not as a hash like owner codes. Hashing them needs a column pass over open invites.
 - With the Access variables missing from the Worker, staff routes on the main host would accept a maintainer's resident token. Both variables are plain `vars` in `wrangler.jsonc`, so losing one takes an edit to that file.
 

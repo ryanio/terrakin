@@ -160,6 +160,7 @@ export async function freePlotsOver(
   http: Http,
   n: number,
   corner: "bottom-right" | "bottom-left" | "top-right" = "bottom-right",
+  downtownOnly = false,
 ): Promise<[number, number][]> {
   const world = (await http.call("GET", "/v1/world")).body as {
     config: { width: number; height: number; plotSize: number };
@@ -180,12 +181,10 @@ export async function freePlotsOver(
   // `lands`, and every slot in one is land.
   const lands = world.lands;
   const slots = new Set((lands?.list ?? []).flatMap((l) => l.plots.map((p) => `${p.px},${p.py}`)));
+  const downtown = (px: number, py: number) =>
+    !lands || (px * plotSize < lands.home.width && py * plotSize < lands.home.height);
   const dry = (px: number, py: number) =>
-    !lands ||
-    (px >= 0 &&
-      py >= 0 &&
-      ((px * plotSize < lands.home.width && py * plotSize < lands.home.height) ||
-        slots.has(`${px},${py}`)));
+    px >= 0 && py >= 0 && (downtown(px, py) || (!downtownOnly && slots.has(`${px},${py}`)));
   const span = (size: number, backwards: boolean) => {
     const all = Array.from({ length: size / plotSize }, (_, i) => i);
     return backwards ? all.reverse() : all;
@@ -226,7 +225,11 @@ export async function makePersona(http: Http, spec: PersonaSpec): Promise<Person
   const home = spec.home || spec.pet !== undefined;
   if (spec.plot || home) {
     const corner = spec.downtown ? "bottom-left" : "bottom-right";
-    out.plot = await settleFreeOver(http, who.token, await freePlotsOver(http, 5, corner));
+    out.plot = await settleFreeOver(
+      http,
+      who.token,
+      await freePlotsOver(http, 5, corner, spec.downtown),
+    );
   }
   if (home) {
     await expectOk(

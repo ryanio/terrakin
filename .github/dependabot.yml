@@ -5,6 +5,13 @@ updates:
     schedule:
       interval: weekly
     groups:
+      # The server's playwright-core draws scene photos with the Chromium that @playwright/test
+      # installs in CI. Bumped apart, the server asks for a browser build CI never downloaded.
+      # It sits first because a dependency joins the first group it matches.
+      playwright:
+        patterns:
+          - "@playwright/test"
+          - "playwright-core"
       dev-tools:
         dependency-type: development
       # Sentry packages share types across @sentry/core. Bumped apart, two copies of

@@ -2,7 +2,7 @@
 
 - Author: drafted by Claude for Ryan
 - Date: 2026-10-19
-- Status: accepted, building
+- Status: accepted, built, open at terrakin.org since 2026-11-13
 - Discussion: [issue #88](https://github.com/ryanio/terrakin/issues/88)
 - Builds on: [decision 0056](../knowledge/decisions/0056-the-market-holds-listings-in-escrow-in-the-sim-burns-a-listi.md) (the item market: escrow, a burned listing fee, 5% to the treasury), [decision 0018](../knowledge/decisions/0018-release-refuses-with-blocks-clears-the-hearth.md) (release refuses with blocks and clears the hearth), [decision 0008](../knowledge/decisions/0008-mainstream-first-no-wallet-required.md) (never block someone over cost), [RFC 0038](0038-new-lands.md) (new land at the edges), [RFC 0033](0033-kindreds.md) (a Circle's hall)
 

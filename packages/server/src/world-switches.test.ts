@@ -34,10 +34,13 @@ describe("world switches", () => {
     }
   });
 
-  it("reach both adapters once, and only the Worker adds pottery, lands, and the repeat-join cleanup", () => {
+  it("reach both adapters once, and only the Worker adds pottery, lands, plots for sale, and the repeat-join cleanup", () => {
     const node = switchesIn(read("./main.ts"));
     const worker = switchesIn(read("../cloudflare/worker.ts"));
     expect(node).toEqual({ spreads: 1, own: [] });
-    expect(worker).toEqual({ spreads: 1, own: ["clay", "lands", "retireRepeatJoins"] });
+    expect(worker).toEqual({
+      spreads: 1,
+      own: ["clay", "lands", "plotMarket", "retireRepeatJoins"],
+    });
   });
 });

@@ -201,6 +201,8 @@ export const SNAPSHOT_FIELDS: Record<string, string | null> = {
   // The snapshot carries `lands` only once one is open (`landsField`), and the option only
   // watches the count, so there is nothing to look for until the first island opens (RFC 0038).
   lands: null,
+  // `open_plot_market` raises `config.maxPlotsPerResident` in the same input, so the flag is the cap.
+  plotMarket: "plotMarketOpen",
   retireRepeatJoins: null,
   market: null,
   bounties: null,

@@ -1,6 +1,6 @@
 # Plan: the plot market on the web, and switching it on
 
-RFC 0039, slice 3. Commits 1 to 10 of the order of work are built, dark ([decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md)); `forSale` on the snapshot is built with the map's sign, the going price, and the free island plot ([decision 0427](../knowledge/decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md)); the switch-on is left. Switch on once downtown's free plots run out, so the market has scarce land to price.
+RFC 0039, slice 3. Commits 1 to 10 of the order of work are built, dark ([decision 0365](../knowledge/decisions/0365-plots-past-the-first-are-only-bought-the-market-opens-with-i.md)); `forSale` on the snapshot is built with the map's sign, the going price, and the free island plot ([decision 0427](../knowledge/decisions/0427-plots-for-sale-open-with-one-free-island-plot-a-going-price-.md)); switched on at terrakin.org on 2026-11-13 ([decision 0436](../knowledge/decisions/0436-terrakin-org-opens-the-plot-market-with-the-cap-of-3-on-ryan.md)).
 
 ## What existed, and five gaps, now closed
 
@@ -102,18 +102,18 @@ The market and the cap of 3 go live in one push.
 
 | # | Must be true | Who decides |
 |---|---|---|
-| 1 | The first island is open (`lands` on `GET /v1/world`) | nobody, watch it |
+| 1 | The first island is open (`lands` on `GET /v1/world`) | done: Willowmere, 24 plots |
 | 2 | Issue #98 is closed | done |
-| 3 | Commits 1 to 10 on main, verify and e2e green, the copy seen on a phone | built; Ryan on his phone |
+| 3 | Commits 1 to 10 on main, verify and e2e green, the copy seen on a phone | done: verify, 58 e2e, a 375px pass of /market#plots as buyer and seller |
 | 4 | The cap rises in the same logged input that opens the market, reviewed | the agent and the reviewer |
 | 5 | `scripts/economy-sim.ts` rerun with plot sales and the flip test (claim free, wait 14 days, sell), median purse and treasury reported | done: `--plots`, [decision 0417](../knowledge/decisions/0417-the-economy-run-with-plot-sales-keeps-the-plot-market-s-numb.md); Ryan kept 25 coins and 14 days |
 | 6 | Question 1 below answered, and built if it changes `claim` | done: option b, built |
 | 7 | SKILL.md "Plots for sale" section (escrow, the listing and `price` a buyer saw, the going price, untrusted plot names, the cap and the island plot), version bump, CHANGELOG entry, `pnpm gen` | done, version 47; agents decide on their own (decision 0427); a switch-on entry still to write |
-| 8 | `plotMarket: true` in `packages/server/cloudflare/worker.ts`, with its own decision record | Ryan says go |
-| 9 | `scripts/deploy-smoke.ts` expects `plotMarketOpen` and a cap of 3 | the agent |
-| 10 | Staff know the `plot_listing` report and takedown | Ryan |
-| 11 | It is one way: the cap can't come back down once someone owns 3 | Ryan accepts |
-| 12 | Close issue #88, update the plans page, a devlog post | the agent; Ryan sends anything out |
+| 8 | `plotMarket: true` in `packages/server/cloudflare/worker.ts`, with its own decision record | done: Ryan said go on 2026-11-13, decision 0436 |
+| 9 | `scripts/deploy-smoke.ts` expects `plotMarketOpen` and a cap of 3 | done: `plotMarketOpen`, which comes in the same input as the cap |
+| 10 | Staff know the `plot_listing` report and takedown | Ryan: the report kind `plot_listing`, id `px,py`, taken down as `plot_listing` |
+| 11 | It is one way: the cap can't come back down once someone owns 3 | done: Ryan accepted with his go |
+| 12 | Close issue #88, update the plans page, a devlog post | done with the switch-on push; Ryan sends anything out |
 
 ## Ryan's answers (2026-10-22)
 

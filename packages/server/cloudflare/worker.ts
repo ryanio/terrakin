@@ -488,6 +488,10 @@ class WorldObject extends DurableObject<Env> {
       // Terrakin must never do. `planLand` refuses a plan no walk reaches, and says so when a due
       // island can't be opened, so a bad plan opens nothing rather than stranding a settler.
       lands: true,
+      // Plots for sale (RFC 0039, Ryan's word 2026-11-13). Logged on the World object's first tick
+      // after this deploy, since the item market and Willowmere are open. The same input raises the
+      // plot cap to 3, and the cap never comes back down (decision 0436).
+      plotMarket: true,
       // Retires terrakin.org's old repeat joins once, by a logged input (decision 0230).
       retireRepeatJoins: true,
       townEvents: townCalendar,

@@ -84,7 +84,7 @@ const UNOPENED = PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_m
 
 describe("the switch that puts plots on sale", () => {
   it("has no test route in the Worker, and once set logs the market with the cap of 3, once", async () => {
-    // No adapter sets plotMarket (world-switches.test.ts).
+    // Only the Worker sets plotMarket (world-switches.test.ts, decision 0436).
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(/open-plot-market|testOpenPlotMarket|open_plot_market/);
     const now = () => (PLOT_MARKET_DAY + 14) * DAY_MS;

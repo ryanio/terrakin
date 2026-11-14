@@ -147,11 +147,12 @@ SKILL.md changes by one line in the upstairs and lot sections: townsfolk don't b
 
 1. Ship the check-in change (server only).
 2. Ryan answers open question 1.
-3. Before the switch goes into `WORLD_SWITCHES`, read the live log through the staff log export (`GET /v1/admin/log`) and count, at each input's own `seq`:
+3. Before the switch goes into `WORLD_SWITCHES`, read the live log through the maintainers' log export (`GET /v1/admin/world-log`) and count, at each input's own `seq`:
    - accepted `add_floor` and `grow_lot` whose actor was in `state.townsfolk` then;
    - open `commons_build` proposals with a tile outside the Commons lot (these would close after the switch and skip that tile);
    - townsfolk purses at or above 150 at the read (they would be refused mid-plan).
    None of these block the switch, since inputs before it replay as they were. They say whether anyone needs telling: a townsfolk home that already has an upstairs keeps it, and a proposer whose passed plan loses its yard tiles is told by the `town_built` event's `skipped` list.
+   Read on 2026-11-14, after the switch, from `GET /v1/world`, since a floor is never taken off and a grown lot stays in `lots`: none of the 8 townsfolk homes has an upstairs or a grown lot (no plot in town has an upstairs, and the one grown lot is a resident's). Nobody needs telling.
 4. Ship the sim change, fixture, and server row together. The switch logs on the next tick of every world.
 
 ## Alternatives considered

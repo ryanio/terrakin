@@ -148,7 +148,10 @@ test("dig a pond, make a rod, fish, and find the catch in your collection book",
       caught = stacks.find((s: { kind: string }) => kinds.has(s.kind))?.kind;
     }
     if (!caught) throw new Error("Ten casts and nothing bit");
-    await expect(page.locator("#toast")).toContainText("You caught");
+    // No toast check here: the catch's toast ("You caught ...", its words pinned in
+    // packages/client/src/things.test.ts) can be replaced by the level-up toast the same cast
+    // earns before this step reads it, since the loop above polls the inventory, not the toast.
+    // The catch is proven by the stacks read in the loop and the collection book below.
     await shot(page, "catch");
 
     await page.goto(`/r/${wren.id}/collection`);

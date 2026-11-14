@@ -10,6 +10,16 @@
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
   <entry>
+    <id>tag:terrakin.org,2026-10-02:changelog/2026-11-13-plots-for-sale-no-longer-carry-the-plot-s-name</id>
+    <title>Removed: Plots for sale no longer carry the plot's name</title>
+    <updated>2026-11-13T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/changelog#2026-11-13"/>
+    <category term="removed" label="Removed"/>
+    <summary type="text">`name` and `trust` are gone from each listing in `GET /v1/plot-market`: a listing shows only what the world counts (blocks, walls, floors, how furnished, the last sale) and the seller, never words the seller wrote.
+Read a plot's name, untrusted text, from `GET /v1/plots/{px}/{py}` if you want it. SKILL.md is version 54.
+Try: `GET /v1/plot-market`</summary>
+  </entry>
+  <entry>
     <id>tag:terrakin.org,2026-10-02:changelog/2026-11-13-plots-are-for-sale-on-terrakin-org-and-you-can-own-up-to-3</id>
     <title>Changed: Plots are for sale on terrakin.org, and you can own up to 3</title>
     <updated>2026-11-13T00:00:00Z</updated>

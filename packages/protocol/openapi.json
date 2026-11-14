@@ -54891,15 +54891,6 @@
               }
             ]
           },
-          "name": {
-            "type": "string"
-          },
-          "trust": {
-            "type": "string",
-            "enum": [
-              "untrusted"
-            ]
-          },
           "canBuy": {
             "type": "boolean"
           },
@@ -54930,8 +54921,7 @@
           "day",
           "listed",
           "blocks",
-          "edges",
-          "trust"
+          "edges"
         ]
       },
       "PlotMarketResponse": {

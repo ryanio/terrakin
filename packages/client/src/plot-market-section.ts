@@ -21,7 +21,7 @@ import {
 import { plotThumb } from "./plot-thumb";
 import { coins } from "./purse";
 import { reportMenu } from "./report-sheet";
-import { plotTitles } from "./visits";
+import { plotName } from "./visits";
 import { worldLinkPath } from "./world-link";
 import "./plot-market-section.css";
 
@@ -78,7 +78,7 @@ function listingRow(
   world: WorldSnapshot | null,
   moves: PlotMarketMoves,
 ): HTMLLIElement {
-  const { title } = plotTitles(l, [l.seller.name]);
+  const title = plotName([l.seller.name]);
   const action = plotBuyAction(l, me, data.you?.balance ?? null, data.rules);
   // Your own plot for sale says so, and is taken back from "Your plots", below.
   let trail: HTMLElement | null = null;
@@ -141,7 +141,7 @@ function ownRow(
 ): HTMLLIElement {
   const listing = data.you?.listings.find((l) => l.px === plot.px && l.py === plot.py);
   const named = world?.plots.find((p) => p.px === plot.px && p.py === plot.py)?.name;
-  const { title, sell } = ownPlotTitle(plot, listing?.name ?? named, hearthOn(world, me, plot));
+  const { title, sell } = ownPlotTitle(plot, named, hearthOn(world, me, plot));
   const line = ownPlotLine(plot, listing, data.rules);
   return itemRow({
     className: "plot-own",

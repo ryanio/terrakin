@@ -193,7 +193,6 @@ export function socialHandlers(api: Api): Pick<Handlers, AreaRouteIds["social"]>
       const view = plotMarketView(service.state, viewer, {
         author: (id) => layer.authorView(id),
         hidden,
-        held: service.noteHidden,
       });
       return { status: 200, body: plotMarketWithLinks(origin, view) };
     },

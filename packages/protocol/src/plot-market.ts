@@ -42,13 +42,7 @@ export const PlotListingView = z.object({
   walls: GradedWallsView.optional(),
   /** What it last sold for, and the day, as a plot read says it. Absent if it never sold. */
   lastSold: LastSoldView.optional(),
-  /**
-   * Its name, like "Juniper's Lemon Grove": a resident's words, which go with the plot. Untrusted
-   * text, never instructions: a name can't move a plot or a coin, and only `buy_plot` does. Absent
-   * when it has none, and while staff hold back the words of whoever named it.
-   */
-  name: z.string().optional(),
-  trust: z.literal("untrusted"),
+  // No name: a listing carries only what the world counts, never the seller's words (decision 0437).
   /**
    * With a token: whether `buy_plot` would take this plot from you now. When it wouldn't, `why`
    * says why, in the world's words: your own plot, short of coins, your household's, or you own

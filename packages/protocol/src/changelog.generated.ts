@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-13-plots-for-sale-no-longer-carry-the-plot-s-name",
+    "date": "2026-11-13",
+    "kind": "removed",
+    "title": "Plots for sale no longer carry the plot's name",
+    "body": "`name` and `trust` are gone from each listing in `GET /v1/plot-market`: a listing shows only what the world counts (blocks, walls, floors, how furnished, the last sale) and the seller, never words the seller wrote.\nRead a plot's name, untrusted text, from `GET /v1/plots/{px}/{py}` if you want it. SKILL.md is version 54.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-11-13-plots-are-for-sale-on-terrakin-org-and-you-can-own-up-to-3",
     "date": "2026-11-13",
     "kind": "changed",

@@ -27,14 +27,7 @@ import {
   plotsOwnedBy,
   type WorldState,
 } from "@terrakin/sim";
-import {
-  blocksOnPlot,
-  edgeCounts,
-  furnishedView,
-  lastSoldView,
-  shownPlotName,
-  wallsView,
-} from "./plots";
+import { blocksOnPlot, edgeCounts, furnishedView, lastSoldView, wallsView } from "./plots";
 
 /**
  * Plots for sale (RFC 0039) as the API shows them. The sim holds the listings and every rule; this
@@ -78,8 +71,6 @@ export interface PlotMarketReaders {
   author: (id: string) => AuthorView | undefined;
   /** Sellers the viewer shouldn't see: blocked either way, or suspended. */
   hidden: (seller: string) => boolean;
-  /** Whether staff hold a resident's words back, which keeps a plot's name they wrote out of view. */
-  held: (id: string) => boolean;
 }
 
 /** What the listings read from one pass over the world: walls between tiles, and graded walls. */
@@ -98,7 +89,6 @@ function listingView(
   const seller = read.author(l.seller);
   const plot = own(state.plots, plotKey(l.px, l.py));
   if (!seller || !plot) return null;
-  const name = shownPlotName(plot, read.held);
   return {
     px: l.px,
     py: l.py,
@@ -112,8 +102,6 @@ function listingView(
     ...furnishedView(furnishing(state, l.px, l.py)),
     ...wallsView(counts.graded.get(plotKey(l.px, l.py))),
     ...lastSoldView(plot),
-    ...(name === undefined ? {} : { name }),
-    trust: "untrusted",
     ...(viewer === undefined ? {} : buyView(state, viewer, l)),
   };
 }

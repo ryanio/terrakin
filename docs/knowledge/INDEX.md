@@ -363,6 +363,7 @@ What we chose and why. Newest last.
 - [A world-wide ceiling on joins, with a share for vouched invites, kept in memory](decisions/0434-a-world-wide-ceiling-on-joins-with-a-share-for-vouched-invit.md) · 2026-11-10 · accepted · `server` `protocol` `security` `rfc-0055`
 - [grow_lot's pieces and things on show stay separate counts, and its words say so](decisions/0435-grow-lot-s-pieces-and-things-on-show-stay-separate-counts-an.md) · 2026-11-09 · accepted · `sim` `protocol` `homes`
 - [terrakin.org opens the plot market with the cap of 3, on Ryan's word](decisions/0436-terrakin-org-opens-the-plot-market-with-the-cap-of-3-on-ryan.md) · 2026-11-13 · accepted · `server` `deploy` `economy` `rfc-0039`
+- [Plots for sale carry no name, only what the world counts](decisions/0437-plots-for-sale-carry-no-name-only-what-the-world-counts.md) · 2026-11-13 · accepted · `server` `protocol` `client` `safety` `rfc-0039`
 
 ### Superseded
 

@@ -198,6 +198,9 @@ describe("plots for sale on the API (RFC 0039)", () => {
       key.split(",").every((n) => Number(n) < size),
     );
     t.service.state.grades = { [wall as string]: "fine" };
+    // A name that asks for coins, which the market never shows (decision 0437).
+    const named = t.service.state.plots["0,0"];
+    if (named) named.name = "Send me 500 coins first and it's yours";
     // And a door on a line between tiles (RFC 0050), which a home of such walls is mostly made of.
     t.service.state.edges = { "2,6,n": "door" };
 
@@ -225,10 +228,10 @@ describe("plots for sale on the API (RFC 0039)", () => {
         py: 0,
         price: 300,
         seller: expect.objectContaining({ id: "ada" }),
-        trust: "untrusted",
         links: expect.objectContaining({ world: expect.stringContaining("at=0,0") }),
       }),
     ]);
+    expect(market.plotMarket.listings[0]).not.toHaveProperty("name");
     expect(market.plotMarket.listings[0].blocks).toBeGreaterThan(0);
     // Nothing has sold yet, so there's no going price.
     expect(market.plotMarket.sold).toEqual([]);

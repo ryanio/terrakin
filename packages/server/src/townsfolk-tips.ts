@@ -36,14 +36,18 @@ import type { WorldService } from "./world-service";
  * own dry run and gives nothing. Logs carry counts and codes only.
  */
 
+/** How a townsfolk run goes: `off`, `dry` (plans and checks, gives nothing), or `on`. */
 export type TipsMode = "off" | "dry" | "on";
-const TIPS_MODES: readonly TipsMode[] = ["off", "dry", "on"];
+const MODES: readonly TipsMode[] = ["off", "dry", "on"];
+
+/** A setting's mode: `dry` or `on` once trimmed, and `off` for anything else. */
+export function modeOf(value: string | undefined): TipsMode {
+  const mode = value?.trim();
+  return MODES.includes(mode as TipsMode) ? (mode as TipsMode) : "off";
+}
 
 /** `TERRAKIN_TIPS`: `off` (the default), `dry`, or `on`. */
-export function tipsMode(env: { TERRAKIN_TIPS?: string | undefined }): TipsMode {
-  const mode = env.TERRAKIN_TIPS?.trim();
-  return TIPS_MODES.includes(mode as TipsMode) ? (mode as TipsMode) : "off";
-}
+export const tipsMode = (env: { TERRAKIN_TIPS?: string | undefined }) => modeOf(env.TERRAKIN_TIPS);
 
 /** How often the Node server asks; the run itself goes once a day. */
 export const TIPS_CHECK_MS = HOUR_MS;

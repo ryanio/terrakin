@@ -11,6 +11,7 @@ import { MemoryStore } from "./store";
 import { jsonCaller, listenOnFreePort, responseChecker } from "./test-support";
 import { TIP_NOTES, TIPS } from "./tip-plan";
 import { TIPS_CRON, type TipsMode, TownsfolkTips, tipsMode } from "./townsfolk-tips";
+import { welcomeMode } from "./townsfolk-welcome";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -143,6 +144,9 @@ describe("the tips setting", () => {
     expect(tipsMode({ TERRAKIN_TIPS: " on " })).toBe("on");
     expect(tipsMode({ TERRAKIN_TIPS: "dry" })).toBe("dry");
     expect(tipsMode({ TERRAKIN_TIPS: "1" })).toBe("off");
+    // The welcome visits read their setting the same way.
+    expect(welcomeMode({ TERRAKIN_WELCOME_VISITS: " dry " })).toBe("dry");
+    expect(welcomeMode({ TERRAKIN_WELCOME_VISITS: "yes" })).toBe("off");
   });
 });
 

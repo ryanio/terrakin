@@ -21,7 +21,7 @@ import {
 import type { SocialService } from "./social-service";
 import type { SqlExec } from "./sql-store";
 import { report } from "./telemetry";
-import type { TownsfolkTips } from "./townsfolk-tips";
+import { modeOf, type TipsMode, type TownsfolkTips } from "./townsfolk-tips";
 import type { WorldService } from "./world-service";
 
 /**
@@ -51,14 +51,11 @@ import type { WorldService } from "./world-service";
  * sees in the giver's ledger. Logs carry counts and codes only.
  */
 
-export type WelcomeMode = "off" | "dry" | "on";
-const WELCOME_MODES: readonly WelcomeMode[] = ["off", "dry", "on"];
+export type WelcomeMode = TipsMode;
 
 /** `TERRAKIN_WELCOME_VISITS`: `off` (the default), `dry`, or `on`. */
-export function welcomeMode(env: { TERRAKIN_WELCOME_VISITS?: string | undefined }): WelcomeMode {
-  const mode = env.TERRAKIN_WELCOME_VISITS?.trim();
-  return WELCOME_MODES.includes(mode as WelcomeMode) ? (mode as WelcomeMode) : "off";
-}
+export const welcomeMode = (env: { TERRAKIN_WELCOME_VISITS?: string | undefined }) =>
+  modeOf(env.TERRAKIN_WELCOME_VISITS);
 
 export const WELCOME = {
   /** How long after the claim the visit comes: time to look around, still the same sitting. */

@@ -16,13 +16,7 @@ import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
 import { TIP_NOTES, TIPS } from "./tip-plan";
 import { type TipsMode, TownsfolkTips } from "./townsfolk-tips";
-import {
-  GREET,
-  TownsfolkWelcome,
-  WELCOME,
-  type WelcomeMode,
-  welcomeMode,
-} from "./townsfolk-welcome";
+import { GREET, TownsfolkWelcome, WELCOME, type WelcomeMode } from "./townsfolk-welcome";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -144,15 +138,6 @@ function town(mode: WelcomeMode = "on", tipsMode: TipsMode = "on") {
     advance: (ms: number) => (now += ms),
   };
 }
-
-describe("the welcome setting", () => {
-  it("is off unless it says dry or on", () => {
-    expect(welcomeMode({})).toBe("off");
-    expect(welcomeMode({ TERRAKIN_WELCOME_VISITS: "yes" })).toBe("off");
-    expect(welcomeMode({ TERRAKIN_WELCOME_VISITS: " dry " })).toBe("dry");
-    expect(welcomeMode({ TERRAKIN_WELCOME_VISITS: "on" })).toBe("on");
-  });
-});
 
 describe("a welcome visit", () => {
   it("comes minutes after a person's first claim: the nearest townsfolk visits and waves", () => {

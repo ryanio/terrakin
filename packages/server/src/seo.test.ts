@@ -388,6 +388,8 @@ describe("card route", () => {
       },
       cache: { get: async (k) => stored.get(k), put: (k, v) => void stored.set(k, v) },
       allowRender: () => true,
+      allowPicture: () => true,
+      allowDraw: () => true,
       ...over,
     };
     return { d, renders: () => renders };

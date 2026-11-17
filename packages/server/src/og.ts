@@ -258,12 +258,12 @@ export interface CardDeps {
    */
   picture?(route: PictureRoute): Promise<PictureSpec | undefined>;
   /** Whether this client may ask for another picture by link right now (per IP per minute). */
-  allowPicture?(ip: string): boolean;
+  allowPicture(ip: string): boolean;
   /**
    * Whether another picture by link may be drawn right now, counting every client: per isolate on
    * Cloudflare, per process on Node.
    */
-  allowDraw?(): boolean;
+  allowDraw(): boolean;
 }
 
 export interface CardRequest {
@@ -376,7 +376,7 @@ async function servePicture(
   deps: CardDeps,
 ): Promise<CardResponse> {
   if (!deps.picture) return redirect("no-store");
-  if (deps.allowPicture && !deps.allowPicture(req.ip)) return redirect("no-store");
+  if (!deps.allowPicture(req.ip)) return redirect("no-store");
   const ttl = PICTURE_TTL[route.kind];
   const at = pictureAtKey(route);
   const ask = async (): Promise<PictureSpec | "missing" | "unavailable"> => {
@@ -445,7 +445,7 @@ async function servePicture(
   // client over its own allowance spends none of the server's, and a draw the server refuses
   // spends none of the client's.
   if (!deps.allowRender(req.ip, false)) return redirect("no-store");
-  if (deps.allowDraw && !deps.allowDraw()) return redirect("no-store");
+  if (!deps.allowDraw()) return redirect("no-store");
   if (!deps.allowRender(req.ip)) return redirect("no-store");
   try {
     const card = await materializePicture(spec, deps.loadMedia);

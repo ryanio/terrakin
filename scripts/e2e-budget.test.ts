@@ -137,6 +137,19 @@ describe("the e2e suite", () => {
     }
   });
 
+  it("drives scene photos with the browser CI installs", () => {
+    // CI installs the Chromium of @playwright/test's version and no other. The server's renderer
+    // launches the one its own playwright-core expects, so when the two differ every render
+    // throws and the photo route answers photos_busy, in CI only.
+    const version = (path: string, dep: string) => {
+      const pkg = JSON.parse(readFileSync(join(import.meta.dirname, "..", path), "utf8"));
+      return { ...pkg.dependencies, ...pkg.devDependencies }[dep];
+    };
+    expect(version("packages/server/package.json", "playwright-core")).toBe(
+      version("package.json", "@playwright/test"),
+    );
+  });
+
   it("counts tests the way Playwright lists them", () => {
     expect(testsIn("shop")).toBe(2);
     expect(testsIn("smoke-3d")).toBe(2);

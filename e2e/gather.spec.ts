@@ -156,26 +156,45 @@ test("tap a pickup within reach and find it in your things; on someone else's pl
   });
 
   await test.step("gather everything within reach with one tap of Gather all", async () => {
-    // Fay settles a free plot with pickups on it and lands in its middle, where the map offers
-    // Gather all for what lies within her reach: hers, or on land anyone may gather on.
+    // Fay settles a free plot with pickups within reach of its middle and lands there, where
+    // the map offers Gather all for what lies within her reach: hers, or on land anyone may
+    // gather on. Candidates are ranked by what lies within reach of the plot's centre, where
+    // `settle` lands her, not by the plot's whole count: since plots grew to 16 tiles
+    // (RFC 0052) a plot can carry pickups and have none near its middle, which is how the
+    // 2026-11-16 nightly failed here. A plot whose centre window is empty when she lands
+    // (another spec gathered it first) is given up and the next one tried.
     const fay = await join(page.request, "Fay");
+    const half = Math.floor((S - 1) / 2);
+    const nearCentre = (px: number, py: number) =>
+      (world.pickups as Pickup[]).filter(
+        (p) =>
+          Math.max(Math.abs(p.x - (px * S + half)), Math.abs(p.y - (py * S + half))) <=
+            config.reach &&
+          (!p.ownersOnly || inPlot(p, px, py)),
+      ).length;
+    const candidates = [...plots]
+      .sort((a, b) => nearCentre(b.px, b.py) - nearCentre(a.px, a.py))
+      .filter((p) => nearCentre(p.px, p.py) > 0);
     let home: { px: number; py: number } | undefined;
-    for (const p of plots.slice(0, 12)) {
-      if ((await act(page.request, fay.token, { type: "settle", px: p.px, py: p.py })).ok) {
+    let inReach: Pickup[] = [];
+    for (const p of candidates) {
+      if (!(await act(page.request, fay.token, { type: "settle", px: p.px, py: p.py })).ok)
+        continue;
+      const now = await (await page.request.get("/v1/world")).json();
+      const me = now.residents.find((r: { id: string }) => r.id === fay.id) as Tile;
+      const reach = (now.pickups as Pickup[]).filter(
+        (q) =>
+          Math.max(Math.abs(q.x - me.x), Math.abs(q.y - me.y)) <= config.reach &&
+          (!q.ownersOnly || inPlot(q, p.px, p.py)),
+      );
+      if (reach.length > 0) {
         home = p;
+        inReach = reach;
         break;
       }
+      await act(page.request, fay.token, { type: "release" });
     }
-    if (!home) throw new Error("No free plot to settle in the test world");
-    const settled = home;
-    const now = await (await page.request.get("/v1/world")).json();
-    const me = now.residents.find((r: { id: string }) => r.id === fay.id) as Tile;
-    const inReach = (now.pickups as Pickup[]).filter(
-      (p) =>
-        Math.max(Math.abs(p.x - me.x), Math.abs(p.y - me.y)) <= config.reach &&
-        (!p.ownersOnly || inPlot(p, settled.px, settled.py)),
-    );
-    if (inReach.length === 0) throw new Error(`Nothing lies within reach of ${me.x},${me.y}`);
+    if (!home) throw new Error("No free plot with a pickup near its middle in the test world");
 
     await signIn(page, fay);
     await page.goto("/world");

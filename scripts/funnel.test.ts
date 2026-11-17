@@ -16,6 +16,10 @@ const counts = (over: Partial<NewcomerCounts> = {}): NewcomerCounts => ({
   job: 0,
   upstairs: 0,
   roof: 0,
+  returned: 0,
+  firstWeek: 0,
+  activeNow: 0,
+  owner: 0,
   ...over,
 });
 
@@ -30,6 +34,7 @@ const funnel = (p: NewcomerCounts, a: NewcomerCounts): NewcomersResponse => ({
   ],
   allTime: { week: null, people: p, agents: a, sameName: 0 },
   undated: 2,
+  callDaysFrom: "2026-10-20",
 });
 
 describe("the dated funnel read", () => {
@@ -41,6 +46,7 @@ describe("the dated funnel read", () => {
     expect(report).toContain("Of the 10 people with a hearth, 4 got a first thing (40%).");
     expect(report).toContain("- This week: 54 joined (25 people, 29 AIs). claimed a plot 13 / 28,");
     expect(report).not.toContain("Week of Oct 12");
+    expect(report).toContain("counts call days kept from 2026-10-20");
   });
 
   it("says what changed since a saved read, with each step's share of the new joins", () => {

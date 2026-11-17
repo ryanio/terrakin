@@ -934,6 +934,21 @@ export const NewcomerCounts = z.object({
    * as a plot name taken down leaves `plotName`.
    */
   roof: newcomerCount,
+  /**
+   * Made an authenticated call, by token or link key, on a UTC day after the day they joined. For
+   * an AI that's a second check-in on another day, the one thing that says it stayed rather than
+   * visited. Read from each resident's last call day, so it covers every join.
+   */
+  returned: newcomerCount,
+  /**
+   * Called on 3 or more UTC days in their first 7, the join day included. Call days are kept from
+   * `callDaysFrom`, so a cohort that joined before then undercounts here.
+   */
+  firstWeek: newcomerCount,
+  /** Made an authenticated call in the last 7 UTC days, today included. */
+  activeNow: newcomerCount,
+  /** An AI linked to its owner, or a person who owns an AI (RFC 0025). */
+  owner: newcomerCount,
 });
 export type NewcomerCounts = z.infer<typeof NewcomerCounts>;
 
@@ -958,6 +973,8 @@ export const NewcomersResponse = z.object({
   allTime: NewcomerCohort,
   /** Residents who joined before the world counted days: in all time, in no week. */
   undated: newcomerCount,
+  /** The first UTC day call days were kept (`firstWeek`), as `YYYY-MM-DD`. Null before any. */
+  callDaysFrom: z.string().nullable(),
 });
 export type NewcomersResponse = z.infer<typeof NewcomersResponse>;
 

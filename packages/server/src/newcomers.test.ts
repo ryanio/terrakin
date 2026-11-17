@@ -176,10 +176,24 @@ describe("GET /v1/admin/newcomers", () => {
       job: 0,
       upstairs: 0,
       roof: 0,
+      returned: 0,
+      firstWeek: 0,
+      activeNow: 0,
+      owner: 0,
     };
+    // Everyone who called this week is active now; only Wren came back on a later day.
     const thisWeek = {
-      people: { ...none, joined: 1, claimed: 1, hearth: 1, thing: 1, hearthAndThing: 1, handle: 1 },
-      agents: { ...none, joined: 3, claimed: 1, social: 1 },
+      people: {
+        ...none,
+        joined: 1,
+        claimed: 1,
+        hearth: 1,
+        thing: 1,
+        hearthAndThing: 1,
+        handle: 1,
+        activeNow: 1,
+      },
+      agents: { ...none, joined: 3, claimed: 1, social: 1, activeNow: 3 },
       sameName: 1,
     };
     const twoBack = {
@@ -195,6 +209,8 @@ describe("GET /v1/admin/newcomers", () => {
         social: 1,
         handle: 1,
         pet: 1,
+        returned: 1,
+        activeNow: 1,
       },
       agents: none,
       sameName: 0,
@@ -216,11 +232,14 @@ describe("GET /v1/admin/newcomers", () => {
         social: 1,
         handle: 2,
         pet: 1,
+        returned: 1,
+        activeNow: 2,
       },
       agents: thisWeek.agents,
       sameName: 1,
     });
     expect(body.undated).toBe(0);
+    expect(body.callDaysFrom).toBe("2023-11-14");
     // Counts only: no resident's id or name.
     const text = JSON.stringify(body);
     for (const r of [wren, moss, juniper, fern, bolt, wren2, ryan])
@@ -277,6 +296,8 @@ describe("GET /v1/admin/newcomers", () => {
       social: new Set(),
       things: new Set(),
       handles: new Set(),
+      calls: { last: new Map(), days: new Map(), from: undefined },
+      owners: new Set(),
       today,
     });
     // Ada's upstairs and Cy's released one; only Cy's log says he ever roofed anything.
@@ -301,8 +322,58 @@ describe("GET /v1/admin/newcomers", () => {
       social: new Set(),
       things: new Set(),
       handles: new Set(),
+      calls: { last: new Map(), days: new Map(), from: undefined },
+      owners: new Set(),
       today,
     });
     expect(funnel.allTime.people).toMatchObject({ joined: 1, claimed: 1, upstairs: 0, roof: 0 });
+  });
+
+  it("counts coming back from call days, from a last call alone, and an owner link", () => {
+    // Ada called on 3 days of her first week. Bo called on 2, then once more a month on. Cy's call
+    // days were never kept, but her last call is after her join day, so she came back. Dee called
+    // only on the day she joined. Bo and Ada's AI, Eli, are linked.
+    const today = 20736;
+    const joined = today - 40;
+    const state = {
+      residents: Object.fromEntries(
+        [
+          ["ada", "human"],
+          ["bo", "agent"],
+          ["cy", "agent"],
+          ["dee", "agent"],
+        ].map(([id, kind]) => [id, { id, name: id, kind, hearth: null }]),
+      ),
+      plots: {},
+    } as unknown as WorldState;
+    const funnel = newcomerFunnel({
+      state,
+      joinedDay: new Map(["ada", "bo", "cy", "dee"].map((id) => [id, joined])),
+      done: () => new Set(["join"]),
+      social: new Set(),
+      things: new Set(),
+      handles: new Set(),
+      calls: {
+        last: new Map([["cy", today - 2]]),
+        days: new Map([
+          ["ada", [joined, joined + 2, joined + 6]],
+          ["bo", [joined, joined + 1, joined + 7, joined + 30]],
+          ["dee", [joined]],
+        ]),
+        from: joined,
+      },
+      owners: new Set(["bo"]),
+      today,
+    });
+    // Bo's third day falls on day 8, outside his first week.
+    expect(funnel.allTime.people).toMatchObject({ returned: 1, firstWeek: 1, activeNow: 0 });
+    expect(funnel.allTime.agents).toMatchObject({
+      joined: 3,
+      returned: 2,
+      firstWeek: 0,
+      activeNow: 1,
+      owner: 1,
+    });
+    expect(funnel.callDaysFrom).toBe("2026-08-31");
   });
 });

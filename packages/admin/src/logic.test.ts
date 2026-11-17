@@ -761,6 +761,10 @@ describe("newcomers", () => {
     job: 2,
     upstairs: 1,
     roof: 1,
+    returned: 1,
+    firstWeek: 0,
+    activeNow: 1,
+    owner: 0,
   };
 
   it("gives every count the server sends a row, bar the one pair that isn't a step", () => {

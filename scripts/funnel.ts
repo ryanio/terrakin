@@ -76,6 +76,9 @@ export function funnelReport(f: NewcomersResponse, where: string): string {
     hearthThingLine(people, "people"),
     hearthThingLine(agents, "AIs"),
     sameNameLine(f.allTime.sameName),
+    f.callDaysFrom
+      ? `"Here 3 days of their first 7" counts call days kept from ${f.callDaysFrom}, so earlier weeks undercount it.`
+      : null,
   ].filter((l): l is string => l !== null);
   if (extra.length) lines.push(...extra, "");
   const weeks = f.weeks.filter((w) => w.people.joined + w.agents.joined > 0);

@@ -38,9 +38,9 @@ const fromRow = (row: Record<string, unknown>): AwayRow => ({
 
 /**
  * The away log (RFC 0009): what each resident's routines did while they were away, kept
- * `ROUTINE_LIMITS.keepDays` days, and the UTC day of each resident's last call, which pauses
- * routines after `ROUTINE_LIMITS.pauseAfterDays` quiet days. It's a social table, outside the sim,
- * because nothing replays from it. Its lines hold codes and ids only: the server writes every
+ * `ROUTINE_LIMITS.keepDays` days; the UTC day of each resident's last call, which pauses routines
+ * after `ROUTINE_LIMITS.pauseAfterDays` quiet days; and every day each resident called, for the
+ * newcomer funnel. It's a social table, outside the sim, because nothing replays from it. Its lines hold codes and ids only: the server writes every
  * word a resident reads about them from those (`awayReason`), never from anyone's text.
  */
 export class AwayLog {
@@ -69,6 +69,11 @@ export class AwayLog {
       // The UTC day of each resident's last authenticated call, for pausing routines.
       `CREATE TABLE IF NOT EXISTS last_calls (
         resident TEXT PRIMARY KEY, day INTEGER NOT NULL
+      )`,
+      // Every UTC day each resident made an authenticated call, for the newcomer funnel's coming-back
+      // rows (decision 0438): one row a resident a day, kept for good.
+      `CREATE TABLE IF NOT EXISTS call_days (
+        resident TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (resident, day)
       )`,
     ]) {
       sql.exec(statement);
@@ -231,6 +236,7 @@ export class AwayLog {
       resident,
       day,
     );
+    this.sql.exec("INSERT OR IGNORE INTO call_days (resident, day) VALUES (?, ?)", resident, day);
   }
 
   /** The UTC day of a resident's last call, if one was ever written. */

@@ -22,7 +22,8 @@ import { dayString } from "./together";
  * The newcomer funnel behind `GET /v1/admin/newcomers` (decision 0141): for each UTC week of
  * joins, how many people and AIs reached each first step. It reads only what the server already
  * keeps: the world, `LogFacts` (each resident's join day and the command kinds they've had
- * accepted), the collection book, and the social tables. Townsfolk are left out.
+ * accepted), the collection book, the social tables, and the away log's call days. Townsfolk are
+ * left out.
  */
 
 /** Commands that bring a resident a thing by their own hand. */
@@ -66,6 +67,44 @@ export function thingHolders(sql: SqlExec): Set<string> {
   return new Set([...rows].map((r) => String(r.resident)));
 }
 
+/** What the away log keeps of each resident's calls: the last day, and every day since call days began. */
+export interface CallFacts {
+  last: ReadonlyMap<string, number>;
+  days: ReadonlyMap<string, readonly number[]>;
+  /** The first day `call_days` holds, or undefined while it's empty. */
+  from: number | undefined;
+}
+
+export function callFacts(sql: SqlExec): CallFacts {
+  const last = new Map<string, number>();
+  for (const row of sql.exec("SELECT resident, day FROM last_calls")) {
+    last.set(String(row.resident), Number(row.day));
+  }
+  const days = new Map<string, number[]>();
+  let from: number | undefined;
+  for (const row of sql.exec("SELECT resident, day FROM call_days ORDER BY day")) {
+    const day = Number(row.day);
+    from ??= day;
+    const id = String(row.resident);
+    const list = days.get(id);
+    if (list) list.push(day);
+    else days.set(id, [day]);
+  }
+  return { last, days, from };
+}
+
+/** AIs with an owner link, and the people on the other end of one. */
+export function ownerLinked(sql: SqlExec): Set<string> {
+  return idsFrom(sql, ["SELECT agent_id FROM owner_links", "SELECT owner_id FROM owner_links"]);
+}
+
+/** Days a resident's first week spans: the join day and the 6 after it. */
+const FIRST_WEEK_DAYS = 7;
+/** Call days in the first week that count as staying. */
+const FIRST_WEEK_CALLS = 3;
+/** How far back "active now" looks, today included. */
+const ACTIVE_DAYS = 7;
+
 interface NewcomerSources {
   state: WorldState;
   /** Each resident's first join day, in the order they first joined (the log's). */
@@ -75,6 +114,10 @@ interface NewcomerSources {
   social: ReadonlySet<string>;
   things: ReadonlySet<string>;
   handles: ReadonlySet<string>;
+  /** Each resident's authenticated call days, as `callFacts` reads them. */
+  calls: CallFacts;
+  /** AIs linked to an owner, and the people who own one. */
+  owners: ReadonlySet<string>;
   /** Today, in UTC days since 1970-01-01. */
   today: number;
 }
@@ -93,6 +136,10 @@ const noCounts = (): NewcomerCounts => ({
   job: 0,
   upstairs: 0,
   roof: 0,
+  returned: 0,
+  firstWeek: 0,
+  activeNow: 0,
+  owner: 0,
 });
 
 const cohort = (week: string | null): NewcomerCohort => ({
@@ -141,6 +188,21 @@ function stepsOf(r: Resident, s: NewcomerSources, plots: PlotHolders) {
     // command, so a floor or a roof on a plot since released or taken down still counts.
     upstairs: plots.upstairs.has(r.id) || done.has("add_floor"),
     roof: plots.roof.has(r.id) || done.has("set_roof"),
+    ...comingBack(r.id, s),
+  };
+}
+
+/** The coming-back rows: a later day, a first week of 3 call days, a call this week, an owner. */
+function comingBack(id: string, s: NewcomerSources) {
+  const joined = s.joinedDay.get(id) ?? 0;
+  const days = s.calls.days.get(id) ?? [];
+  const last = Math.max(s.calls.last.get(id) ?? -1, days.at(-1) ?? -1);
+  const firstWeek = days.filter((d) => d >= joined && d < joined + FIRST_WEEK_DAYS).length;
+  return {
+    returned: last > joined,
+    firstWeek: firstWeek >= FIRST_WEEK_CALLS,
+    activeNow: last > s.today - ACTIVE_DAYS,
+    owner: s.owners.has(id),
   };
 }
 
@@ -203,5 +265,6 @@ export function newcomerFunnel(s: NewcomerSources): NewcomersResponse {
       if (repeat) c.sameName++;
     }
   }
-  return { today: dayString(s.today), weeks, allTime, undated };
+  const callDaysFrom = s.calls.from === undefined ? null : dayString(s.calls.from);
+  return { today: dayString(s.today), weeks, allTime, undated, callDaysFrom };
 }

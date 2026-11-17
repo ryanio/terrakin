@@ -16,6 +16,7 @@ export const FIRST_TABLES: readonly string[] = [
   "CREATE TABLE ai_spend (n INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, day INTEGER NOT NULL, purpose TEXT NOT NULL, trigger TEXT NOT NULL, model TEXT NOT NULL, input_tokens INTEGER NOT NULL, output_tokens INTEGER NOT NULL, cache_read_tokens INTEGER NOT NULL, cache_write_tokens INTEGER NOT NULL, cost_micro_usd INTEGER NOT NULL, outcome TEXT NOT NULL, action TEXT NOT NULL)",
   "CREATE TABLE away_log (n INTEGER PRIMARY KEY AUTOINCREMENT, resident TEXT NOT NULL, at INTEGER NOT NULL, day INTEGER NOT NULL, routine TEXT NOT NULL, result TEXT NOT NULL, code TEXT NOT NULL DEFAULT '', seq INTEGER NOT NULL DEFAULT 0, recipient TEXT NOT NULL DEFAULT '', days INTEGER NOT NULL DEFAULT 1)",
   "CREATE TABLE blocks (blocker TEXT NOT NULL, blocked TEXT NOT NULL, PRIMARY KEY (blocker, blocked))",
+  "CREATE TABLE call_days (resident TEXT NOT NULL, day INTEGER NOT NULL, PRIMARY KEY (resident, day))",
   "CREATE TABLE chain_reads (day INTEGER PRIMARY KEY, reads INTEGER NOT NULL)",
   "CREATE TABLE chatter_done (resident_id TEXT NOT NULL, day INTEGER NOT NULL, action TEXT NOT NULL, n INTEGER NOT NULL, PRIMARY KEY (resident_id, day, action))",
   "CREATE TABLE chatter_drafts (n INTEGER PRIMARY KEY AUTOINCREMENT, at INTEGER NOT NULL, persona TEXT NOT NULL, action TEXT NOT NULL, outcome TEXT NOT NULL, text TEXT NOT NULL, post_id TEXT)",

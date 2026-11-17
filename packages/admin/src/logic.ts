@@ -1000,6 +1000,10 @@ export const NEWCOMER_ROWS: readonly {
   { key: "pet", label: "Adopted a pet", side: true },
   { key: "upstairs", label: "Added an upstairs", side: true },
   { key: "roof", label: "Put a roof up", side: true },
+  { key: "returned", label: "Came back on a later day", side: true },
+  { key: "firstWeek", label: "Here 3 days of their first 7", side: true },
+  { key: "activeNow", label: "Here in the last 7 days", side: true },
+  { key: "owner", label: "Linked to an owner", side: true },
 ];
 
 /** A step's count, and its share of the cohort's joins as a whole percent ("" for the joins). */

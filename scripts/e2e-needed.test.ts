@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { baseOf, needsE2e } from "./e2e-needed";
+import { baseOf, needsE2e, nightlyNeeds2d } from "./e2e-needed";
 
 describe("needsE2e", () => {
   it("skips a change e2e can't see: the sim, scripts, docs, and Markdown", () => {
@@ -53,6 +53,17 @@ describe("needsE2e", () => {
     expect(needsE2e(["packages/sim/src/shop.ts", "docs/plans/README.md", "e2e/shop.spec.ts"])).toBe(
       true,
     );
+  });
+});
+
+describe("nightlyNeeds2d", () => {
+  it("runs the nightly 2D suite only after a sim source change, which a push skips e2e for", () => {
+    expect(nightlyNeeds2d(["packages/sim/src/shop.ts", "docs/plans/README.md"])).toBe(true);
+    // A push ran e2e for these, or they reach no page.
+    expect(nightlyNeeds2d(["packages/client/src/world.ts", "e2e/shop.spec.ts"])).toBe(false);
+    expect(nightlyNeeds2d(["packages/sim/src/shop.test.ts", "packages/sim/AGENTS.md"])).toBe(false);
+    expect(nightlyNeeds2d(["scripts/kb.ts", "docs/rfcs/0024-x.md"])).toBe(false);
+    expect(nightlyNeeds2d([])).toBe(false);
   });
 });
 

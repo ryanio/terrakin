@@ -10,7 +10,11 @@
  * changes reach terrakin.org without e2e. On a pull request, everything since it left its base.
  * When either can't be worked out, e2e runs.
  *
- *   node scripts/e2e-needed.ts   prints `e2e=true` or `e2e=false` for $GITHUB_OUTPUT
+ * The nightly 2D run (nightly.yml) is there for the pushes that skipped e2e, so with `--nightly` it
+ * runs only when the sim's source changed since the newest green nightly run this commit contains.
+ *
+ *   node scripts/e2e-needed.ts             prints `e2e=true` or `e2e=false` for $GITHUB_OUTPUT
+ *   node scripts/e2e-needed.ts --nightly   the same, for the nightly 2D run
  */
 import { execFileSync } from "node:child_process";
 import { fileURLToPath } from "node:url";
@@ -44,6 +48,16 @@ export function needsE2e(paths: readonly string[]): boolean {
 }
 
 /**
+ * Whether the nightly 2D run is needed for these paths: one of them is code a push skips e2e for
+ * that the e2e servers still run, the sim's source. Its tests and docs reach no page.
+ */
+export function nightlyNeeds2d(paths: readonly string[]): boolean {
+  return paths.some(
+    (p) => !needsE2e([p]) && /^packages\/sim\/src\//.test(p) && !p.endsWith(".test.ts"),
+  );
+}
+
+/**
  * The commit to compare against on a push: the newest green run's commit that HEAD contains, or
  * null when there's none, so e2e runs.
  */
@@ -55,8 +69,8 @@ function git(...args: string[]): string {
   return execFileSync("git", args, { encoding: "utf8" }).trim();
 }
 
-function base(): string | null {
-  if (process.env.GITHUB_EVENT_NAME === "pull_request") {
+function base(nightly: boolean): string | null {
+  if (!nightly && process.env.GITHUB_EVENT_NAME === "pull_request") {
     const target = process.env.GITHUB_BASE_REF;
     if (!target) return null;
     git("fetch", "--quiet", "origin", target);
@@ -68,11 +82,10 @@ function base(): string | null {
       "run",
       "list",
       "--workflow",
-      "ci.yml",
+      nightly ? "nightly.yml" : "ci.yml",
       "--branch",
       "main",
-      "--event",
-      "push",
+      ...(nightly ? [] : ["--event", "push"]),
       "--status",
       "success",
       "--limit",
@@ -97,13 +110,14 @@ function base(): string | null {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const nightly = process.argv.includes("--nightly");
   let run = true;
   let why = "";
   try {
-    const from = base();
+    const from = base(nightly);
     if (from) {
       const paths = git("diff", "--name-only", from, "HEAD").split("\n").filter(Boolean);
-      run = needsE2e(paths);
+      run = nightly ? nightlyNeeds2d(paths) : needsE2e(paths);
       why = `${paths.length} files changed since ${from.slice(0, 7)}`;
     } else {
       why = "no green run to compare with";

@@ -2,7 +2,8 @@ name: Nightly
 
 # The e2e checks that don't run on every push (decision 0200): the deeper 3D specs, one at a time
 # with one worker, and the whole 2D suite, which catches a sim-only push that broke something a
-# spec sees (CI skips e2e on those). Deploys nothing. A red night opens or comments on the
+# spec sees (CI skips e2e on those). The 2D suite runs only when the sim's source changed since the
+# last green night (`changes`), or when started by hand. Deploys nothing. A red night opens or comments on the
 # `nightly-red` issue (the `alert` job) and gets a line in e2e/red-runs.md, like any other red run.
 # The `landlocked` job reads the live world and keeps the `landlocked-plots` issue up to date
 # (decision 0351).
@@ -19,16 +20,37 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Whether tonight needs the 2D suite (scripts/e2e-needed.ts --nightly). It reads the run list, so
+  # it needs `actions: read`.
+  changes:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      actions: read
+    outputs:
+      e2e: ${{ steps.decide.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - id: decide
+        run: node scripts/e2e-needed.ts --nightly >> "$GITHUB_OUTPUT"
+        env:
+          GH_TOKEN: ${{ github.token }}
+
   e2e:
     name: e2e (${{ matrix.name }})
+    needs: changes
     runs-on: ubuntu-latest
     timeout-minutes: 20
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - { name: 3D, only: nightly, args: --workers=1 }
-          - { name: 2D, only: 2d, args: "" }
+        include: ${{ fromJSON((github.event_name == 'workflow_dispatch' || needs.changes.outputs.e2e == 'true') && '[{"name":"3D","only":"nightly","args":"--workers=1"},{"name":"2D","only":"2d","args":""}]' || '[{"name":"3D","only":"nightly","args":"--workers=1"}]') }}
     steps:
       - uses: actions/checkout@v7
       - uses: pnpm/action-setup@v6

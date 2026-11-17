@@ -24,6 +24,7 @@
     "lint": "biome check .",
     "knip": "knip --no-progress",
     "format": "biome check --write .",
+    "prepare": "git config core.hooksPath .githooks || true",
     "kb": "node scripts/kb.ts",
     "kb:check": "node scripts/kb.ts --check",
     "brand": "node scripts/brand/logo.ts && node scripts/brand/x-banner.ts",

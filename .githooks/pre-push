@@ -1,0 +1,18 @@
+#!/bin/sh
+# Runs `pnpm verify` (lint, knip, typecheck, the full test suite, the generated
+# file checks and the build) before every push. `pnpm install` points git at
+# this folder through the root package's prepare script.
+# A clean tree whose HEAD is the tree verify last passed on is not checked a
+# second time; the stamp is written only when the tree stayed clean throughout.
+# Skip once with `git push --no-verify`.
+stamp=$(git rev-parse --git-path verify-stamp)
+tree=$(git rev-parse 'HEAD^{tree}')
+clean=$(git status --porcelain)
+if [ -z "$clean" ] && [ -f "$stamp" ] && [ "$(cat "$stamp")" = "$tree" ]; then
+	echo "pre-push: pnpm verify already passed on this tree"
+	exit 0
+fi
+pnpm verify || exit 1
+if [ -z "$clean" ] && [ -z "$(git status --porcelain)" ] && [ "$(git rev-parse 'HEAD^{tree}')" = "$tree" ]; then
+	echo "$tree" >"$stamp"
+fi

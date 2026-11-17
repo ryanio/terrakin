@@ -65,6 +65,8 @@ pnpm kb           # rebuild the knowledge index
 pnpm cf:deploy    # deploy both Workers to terrakin.org by hand; main also deploys itself once CI passes (docs/deploy.md)
 ```
 
+`pnpm install` points git at `.githooks/`. Pre-commit runs Biome on the staged files and the tests they reach through their imports (the full suite when a vitest config or the lockfile is staged); pre-push runs `pnpm verify`, skipped when a clean tree already passed it. Output lands in `/tmp/terrakin-pre-commit-output.txt`.
+
 Staff work Ryan asks for in a chat (a re-key code, the review queue, a merge, clearing a block, laying ways) goes over the staff API with his vault key, never the staff app: [docs/staff-agents.md](docs/staff-agents.md#calling-the-staff-routes).
 
 ## Definition of done

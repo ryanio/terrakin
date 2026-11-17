@@ -1,0 +1,35 @@
+#!/bin/bash
+# Pre-commit checks only the staged change: Biome on the staged files, then the
+# vitest tests those files reach through their imports. Typecheck, knip, the
+# generated-file checks, the build and the full suite run in pre-push
+# (`pnpm verify`) and CI, once over the whole tree.
+
+# Full output stays readable when a tool truncates it.
+LOG_FILE="/tmp/terrakin-pre-commit-output.txt"
+exec > >(tee "$LOG_FILE") 2>&1
+export PATH="$PWD/node_modules/.bin:$PATH"
+
+STAGED=$(git diff --cached --name-only --diff-filter=ACMR)
+[ -z "$STAGED" ] && exit 0
+
+fail() {
+  echo ""
+  echo ">>> Pre-commit $1 failed. Full output saved to $LOG_FILE"
+  exit 1
+}
+
+# --staged reads the file list from the index and never writes, so a partly
+# staged file is left as it is.
+biome check --staged --no-errors-on-unmatched --files-ignore-unknown=true || fail lint
+
+# A change to how tests run or what they install can break any of them.
+if echo "$STAGED" | grep -qE '(^|/)vitest\.config\.[cm]?[jt]s$|^pnpm-lock\.yaml$'; then
+  vitest run || fail tests
+  exit 0
+fi
+
+SOURCES=()
+while IFS= read -r f; do SOURCES+=("$f"); done < <(echo "$STAGED" | grep -E '\.(ts|tsx|js|jsx|mjs|cjs|mts|cts)$')
+[ ${#SOURCES[@]} -eq 0 ] && exit 0
+
+vitest related --run --passWithNoTests "${SOURCES[@]}" || fail tests

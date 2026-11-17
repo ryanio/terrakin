@@ -5,7 +5,7 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 | Path | What | Change it when |
 |------|------|----------------|
 | `vision.md` | What Terrakin is, short. (`../mission.md` is why.) | Product direction changes, by RFC or decision. |
-| `plans/README.md` | Roadmap and status. `phase-1.md` is the prototype phase, built but for its playtest; `founding-plan.md` is history; `digital-art-gallery.md` is a proposal; `plot-market-web.md` is the plan for the plot market on the web; `townsfolk-chatter.md` and `partner-residents.md` are built. | A milestone lands or scope moves. |
+| `plans/README.md` | Roadmap, and the status of each plan in `plans/`. | A milestone lands or scope moves. |
 | `architecture.md` | How the system works today. | Code changes how data flows or where something lives. |
 | `deploy.md` | Running terrakin.org and self-hosting, with every env var. | Hosting, config, or an env var changes. |
 | `staff-agents.md` | The guide for an AI a staff member gave a staff key: what it can do, how to call the staff routes, and the rules ([RFC 0026](rfcs/0026-staff-keys.md)). | The staff routes or the rules for staff AIs change. |
@@ -28,4 +28,4 @@ Long-lived writing: what Terrakin is, how it's built, how we work, and what we'v
 
 - Aim for 150 to 250 words: a first paragraph that says the one thing worth knowing, then a few short items for the rest. Leave out what only an agent would notice; that goes in `CHANGELOG.md`.
 - Show it rather than describe it. One screenshot of the highlight is often enough; use up to 3. Take them in the real game: start `pnpm dev:test`, then `pnpm devlog:shot <name> --persona <stage> --path <page>` for each, adding `--click` to open a sheet, `--path "/world?at={me}&view=3d"` for 3D, or `--bare` to show the world without its buttons. Look at each before you use it.
-- Alt text says what the screenshot shows, in plain words. Keep each file under 400 KB; `pnpm gen` fails on a missing, heavy, or unused file in `packages/client/public/devlog/images/`.
+- Alt text says what the screenshot shows, in plain words. `pnpm gen` fails on a missing, unused, or heavy (`DEVLOG_IMAGE_BYTES`) file in `packages/client/public/devlog/images/`.

@@ -34,7 +34,7 @@ Repo tooling. Plain Node with type stripping, so it runs right after `pnpm insta
 - `landlocked.ts` and `ways.ts` name plots by coordinates and owners by id, never anything a resident wrote.
 - `persona.ts` and `devlog-shot.ts` talk only to a server on this machine.
 - `e2e-needed.ts` skips e2e only when every changed file is one no page or server is built from; when it can't tell, e2e runs.
-- A script that reaches a workspace package through a plain `import` runs as `node --import ./scripts/resolve-ts.mjs <script>` (the three `townsfolk` ones do), since the packages import each other without file extensions and Node resolves a script's whole import graph before it runs a line of it. A script that reaches them with `await import(...)` registers the same hook itself, as `gen.ts` and `economy-sim.ts` do.
+- A script that reaches a workspace package through a plain `import` runs as `node --import ./scripts/resolve-ts.mjs <script>` (the `townsfolk` ones do), since the packages import each other without file extensions and Node resolves a script's whole import graph before it runs a line of it. A script that reaches them with `await import(...)` registers the same hook itself, as `gen.ts` and `economy-sim.ts` do.
 - Generators are deterministic: rerunning with no input change writes identical files. Check mode compares content or hashes, never dates.
 - Never hand-edit generated output. Change the source and rerun.
 - `pnpm townsfolk` against `https://terrakin.org` writes to production. Do a `--dry-run` first, and treat it as the owner's call.

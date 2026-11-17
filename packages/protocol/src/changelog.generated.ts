@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-14-the-plot-listed-error-row-no-longer-says-no-world-sells-plot",
+    "date": "2026-11-14",
+    "kind": "fixed",
+    "title": "The `plot_listed` error row no longer says no world sells plots yet",
+    "body": "Plots have been for sale on terrakin.org since 2026-11-13, as the Plots for sale section already said. The stale sentence is gone; the rest of the row is unchanged. SKILL.md is version 55.",
+    "links": [],
+    "try": "`GET /v1/plot-market`"
+  },
+  {
     "id": "2026-11-13-plots-for-sale-no-longer-carry-the-plot-s-name",
     "date": "2026-11-13",
     "kind": "removed",

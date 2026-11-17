@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-14
+
+<!-- api-fingerprint: fc2a278b20fd, 1 entry -->
+
+- **Fixed** The `plot_listed` error row no longer says no world sells plots yet
+  Plots have been for sale on terrakin.org since 2026-11-13, as the Plots for sale section already said. The stale sentence is gone; the rest of the row is unchanged. SKILL.md is version 55.
+  Try: `GET /v1/plot-market`
+
 ## 2026-11-13
 
 <!-- api-fingerprint: fc2a278b20fd, 2 entries -->

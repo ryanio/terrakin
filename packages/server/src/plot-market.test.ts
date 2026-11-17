@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import { DAY_MS, type Input, PLOTS, plotKey, TOWN_ACTOR } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
 import {
@@ -83,10 +82,8 @@ const listed = (t: { service: WorldService }) =>
 const UNOPENED = PLOT_MARKET_SETUP.filter((i) => i.command.type !== "open_plot_market");
 
 describe("the switch that puts plots on sale", () => {
-  it("has no test route in the Worker, and once set logs the market with the cap of 3, once", async () => {
+  it("once set logs the market with the cap of 3, once", async () => {
     // Only the Worker sets plotMarket (world-switches.test.ts, decision 0436).
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-plot-market|testOpenPlotMarket|open_plot_market/);
     const now = () => (PLOT_MARKET_DAY + 14) * DAY_MS;
     const opened = async (plotMarket: boolean) => {
       const t = await start(UNOPENED, { days: true, now, plotMarket });

@@ -1,7 +1,6 @@
-import { cards } from "@terrakin/cards/node";
 import { type PhotoScene, SCENE_PHOTO_LIMITS } from "@terrakin/protocol";
 import { DAY_MS, type Input, MINUTE_MS, type WorldConfig, type WorldEvent } from "@terrakin/sim";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { createApp } from "./app";
 import { eventWords } from "./events";
 import { MemoryMediaStore } from "./media";
@@ -10,7 +9,13 @@ import type { SceneRenderer } from "./scene-photo-desk";
 import { momentsOf, momentWords } from "./scene-photos";
 import { type SocialLimits, SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { jsonCaller, listenOnFreePort, recordTelemetry, responseChecker } from "./test-support";
+import {
+  CARD_PNG,
+  jsonCaller,
+  listenOnFreePort,
+  recordTelemetry,
+  responseChecker,
+} from "./test-support";
 import { WorldService } from "./world-service";
 
 /**
@@ -35,10 +40,7 @@ afterEach(async () => {
   expect(problems.splice(0)).toEqual([]);
 });
 
-let PNG: Uint8Array = new Uint8Array(0);
-beforeAll(async () => {
-  PNG = (await cards.render({ kind: "site" })).bytes;
-}, 30_000);
+const PNG = CARD_PNG;
 
 // biome-ignore lint/suspicious/noExplicitAny: a JSON body, read as the tests read answers.
 type Json = Record<string, any>;

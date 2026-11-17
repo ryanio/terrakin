@@ -1,5 +1,6 @@
 import type { Server } from "node:http";
 import type { AddressInfo } from "node:net";
+import { crc32, deflateSync } from "node:zlib";
 import {
   Client,
   type ClientOptions,
@@ -10,6 +11,37 @@ import {
 import { responseProblem } from "@terrakin/protocol";
 import { type Command, FLOORS, type Input, TOWN_ACTOR } from "@terrakin/sim";
 import type { ApiOptions } from "./api";
+
+/** A blank PNG of `width` by `height`, valid to the last checksum, made without drawing anything. */
+function blankPng(width: number, height: number): Uint8Array {
+  const chunk = (type: string, data: Buffer) => {
+    const body = Buffer.concat([Buffer.from(type, "ascii"), data]);
+    const head = Buffer.alloc(4);
+    head.writeUInt32BE(data.length);
+    const crc = Buffer.alloc(4);
+    crc.writeUInt32BE(crc32(body));
+    return Buffer.concat([head, body, crc]);
+  };
+  const ihdr = Buffer.alloc(13);
+  ihdr.writeUInt32BE(width, 0);
+  ihdr.writeUInt32BE(height, 4);
+  ihdr.set([8, 6, 0, 0, 0], 8); // 8-bit RGBA
+  const rows = Buffer.alloc(height * (1 + width * 4)); // filter byte 0, transparent pixels
+  return new Uint8Array(
+    Buffer.concat([
+      Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
+      chunk("IHDR", ihdr),
+      chunk("IDAT", deflateSync(rows)),
+      chunk("IEND", Buffer.alloc(0)),
+    ]),
+  );
+}
+
+/**
+ * A PNG the size of a link card, 1200 by 630, for uploads and fake renderers. Tests that need a
+ * real drawing render one in plot-photo.test.ts and the cards package.
+ */
+export const CARD_PNG = blankPng(1200, 630);
 
 /**
  * A world log, for a world with 8-tile plots, where `id` settles plot (0, 0), builds the starter

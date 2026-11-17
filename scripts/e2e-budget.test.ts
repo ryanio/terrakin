@@ -2,7 +2,8 @@
  * The e2e suite's gate and budget (e2e/AGENTS.md, decision 0200), checked so they hold without
  * anyone remembering them: every spec has a row in e2e/AGENTS.md saying where it runs and what
  * journey it covers, every spec runs in exactly one place (e2e/suite.ts), the suite every push
- * runs stays under its budget of files and tests, and no spec adds a fixed wait.
+ * runs stays under its budget of files and tests, no spec adds a fixed wait, and specs share their
+ * helpers through e2e/support.ts instead of defining their own copies.
  */
 import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
@@ -51,6 +52,39 @@ const countTests = (source: string) =>
 
 const testsIn = (spec: string) => countTests(readFileSync(join(E2E, `${spec}.spec.ts`), "utf8"));
 
+/** Helpers every spec takes from e2e/support.ts. */
+const SHARED = [
+  "persona",
+  "join",
+  "act",
+  "read",
+  "signIn",
+  "freePlots",
+  "settler",
+  "advanceDay",
+  "watchErrors",
+  "overflowsSideways",
+  "tinyPng",
+  "tapTile",
+  "tapsTheMap",
+  "signedInAs",
+  "savedSignIn",
+];
+/** Specs that tap the 3D view by hand, where `tapTile`'s map math doesn't reach. */
+const TAPS_IN_3D = ["smoke-3d", "world-3d"];
+
+/** Each line of every spec that matches `pattern`, as `e2e/<spec>.spec.ts:<line>: <text>`. */
+const linesMatching = (pattern: RegExp, skip: string[] = []) =>
+  specs
+    .filter((spec) => !skip.includes(spec))
+    .flatMap((spec) =>
+      readFileSync(join(E2E, `${spec}.spec.ts`), "utf8")
+        .split("\n")
+        .flatMap((line, i) =>
+          pattern.test(line) ? [`e2e/${spec}.spec.ts:${i + 1}: ${line.trim()}`] : [],
+        ),
+    );
+
 describe("the e2e suite", () => {
   it("runs every spec in exactly one place: a 2D shard, the 3D smoke, or nightly", () => {
     expect(specs).toContain("smoke");
@@ -78,6 +112,28 @@ describe("the e2e suite", () => {
         readFileSync(join(E2E, `${spec}.spec.ts`), "utf8").match(/\bwaitForTimeout\(/g)?.length ??
         0;
       expect(waits, `${spec}.spec.ts waits a fixed time; wait for what the page shows`).toBe(0);
+    }
+  });
+
+  it("has no spec define its own copy of a shared helper", () => {
+    const copy = new RegExp(`^(?:async )?function (${SHARED.join("|")})\\(`);
+    expect(linesMatching(copy)).toEqual([]);
+  });
+
+  it("reads who is signed in through signedInAs or savedSignIn, never local storage", () => {
+    // A join or a passkey sign-in lands after the HUD shows, so a read the moment the page looks
+    // ready can still find nothing; `signedInAs` waits for it.
+    expect(linesMatching(/localStorage\.getItem\(/)).toEqual([]);
+  });
+
+  it("taps the map through tapTile, which waits for the world's buttons to settle", () => {
+    // Gather all and the next-step chip take their places after the loader goes, so a tap
+    // placed by hand can land on a button that wasn't there a moment before.
+    expect(linesMatching(/\.mouse\.(click|down)\(/, TAPS_IN_3D)).toEqual([]);
+    const support = readFileSync(join(E2E, "support.ts"), "utf8");
+    for (const name of ["tapTile", "tapsTheMap"]) {
+      const body = support.slice(support.indexOf(`export async function ${name}(`));
+      expect(body.slice(0, body.indexOf("\n}\n")), name).toContain("await worldSettled(page);");
     }
   });
 

@@ -3,7 +3,7 @@ import { apply } from "./apply";
 import { ROOF_CONFIG, ROOF_HASH, ROOF_LOG } from "./fixtures/roof-log";
 import { hashWorld } from "./hash";
 import { ITEMS } from "./items";
-import { REPLAY_VERSION, replay } from "./replay";
+import { replay } from "./replay";
 import { plotRoof, ROOFS, roofBoxes, roofNeeds, roofShape } from "./roofs";
 import { expectMaterialsHold, stock } from "./test-support";
 import {
@@ -465,10 +465,9 @@ describe("how it's drawn", () => {
 });
 
 describe("replay", () => {
-  it("replays a log with roofs in it to the pinned hash, with no version bump", () => {
+  it("replays a log with roofs in it to the pinned hash", () => {
+    // A roof is state no older input ever set, so nothing before it replays differently.
+    // `replay.test.ts` holds every older fixture's pinned hash and the pinned REPLAY_VERSION.
     expect(hashWorld(replay(ROOF_CONFIG, ROOF_LOG))).toBe(ROOF_HASH);
-    // A roof is state no older input ever set, so nothing before it replays differently and the
-    // version doesn't move. `replay.test.ts` holds every older fixture's pinned hash as the proof.
-    expect(REPLAY_VERSION).toBe(2);
   });
 });

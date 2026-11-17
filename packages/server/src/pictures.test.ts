@@ -1,8 +1,7 @@
 import { type Card, drawingSvg } from "@terrakin/cards";
-import { cards } from "@terrakin/cards/node";
 import { type Input, PRINTS, type WorldConfig } from "@terrakin/sim";
 import { figureDrawing } from "@terrakin/ui/figure-svg";
-import { afterEach, beforeAll, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 import { Api, type ApiRequest } from "./api";
 import { createApp } from "./app";
 import { MemoryMediaStore } from "./media";
@@ -27,7 +26,7 @@ import {
 import { edgeLook } from "./plot-photo";
 import { SocialService } from "./social-service";
 import { MemoryStore } from "./store";
-import { listenOnFreePort, loftLog, responseChecker } from "./test-support";
+import { CARD_PNG, listenOnFreePort, loftLog, responseChecker } from "./test-support";
 import { WorldService } from "./world-service";
 
 const CONFIG: WorldConfig = {
@@ -45,11 +44,8 @@ afterEach(async () => {
   expect(problems.splice(0)).toEqual([]);
 });
 
-/** A real PNG, for uploads and for the fake renderer to hand back. */
-let PNG: Uint8Array = new Uint8Array(0);
-beforeAll(async () => {
-  PNG = (await cards.render({ kind: "site" })).bytes;
-}, 30_000);
+/** A PNG for uploads and for the fake renderer to hand back. */
+const PNG = CARD_PNG;
 
 /** A world with the social layer, driven through `Api.handle` like any client. */
 function world() {

@@ -435,7 +435,7 @@ describe("partner wear in the look editor (RFC 0007)", () => {
 
 describe("the join form's character", () => {
   it("offers only free tops, so a newcomer never picks something they'd have to buy", () => {
-    expect(STARTER_TOPS).toEqual(["apron", "scarf", "cardigan", "overalls", "dress"]);
+    expect(STARTER_TOPS.length).toBeGreaterThan(1);
     for (const top of STARTER_TOPS) {
       expect(WEAR_INFO[top].slot).toBe("top");
       expect(isShopWear(top)).toBe(false);

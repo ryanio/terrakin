@@ -315,9 +315,9 @@ describe("taking a pet out on the green", () => {
         met: ["ada", "bob"],
         counted: ["cy", "ada", "bob"],
       },
-      hosting("cy", PROGRESS.petMeet),
-      hosting("ada", PROGRESS.petMeet),
-      hosting("bob", PROGRESS.petMeet),
+      hosting("cy", 2),
+      hosting("ada", 2),
+      hosting("bob", 2),
     ]);
     // The next day Bob and Cy still stand there, but their pets went out yesterday.
     expect(walks[3]).toEqual([{ type: "pet_walked", residentId: "ada", day: day + 1, met: [] }]);

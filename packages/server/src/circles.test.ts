@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type { NotificationView, ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import { DAY_MS, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
@@ -189,12 +188,6 @@ describe("the circles switch", () => {
     t.later(DAY_MS);
     expect(t.logged("open_circles")).toHaveLength(1);
     expect((await t.call("GET", "/v1/world")).body.circlesOpen).toBe(true);
-  });
-
-  it("has no test route in the Worker", () => {
-    // Both adapters set circles (world-switches.test.ts).
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-circles|testOpenCircles|open_circles/);
   });
 });
 

@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import {
   JOB_WORDS,
   type JobDoneView,
@@ -290,9 +289,6 @@ describe("a world that never opened jobs", () => {
     const early = threeDays(true, false);
     expect(early.logged).not.toContain("open_jobs");
     expect(early.refused).toEqual([]);
-    // Both adapters set jobs (world-switches.test.ts), and the Worker has no test route.
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-jobs|testOpenJobs|open_jobs/);
   });
 
   it("reads as it always did: no jobs field, event, notice, line, or link anywhere on the wire", async () => {

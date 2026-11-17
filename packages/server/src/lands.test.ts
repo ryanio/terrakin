@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import {
   apply,
@@ -299,7 +298,7 @@ describe("the Town Hall once a land is open", () => {
 });
 
 describe("the test route", () => {
-  it("opens a land now, and never reaches the Worker", async () => {
+  it("opens a land now", async () => {
     const w = await start({ testClock: true });
     expect(w.service.state.lands).toBeUndefined();
     expect((await w.call("POST", TEST_OPEN_LAND_PATH)).status).toBe(200);
@@ -313,8 +312,6 @@ describe("the test route", () => {
       Math.max(...(first?.plots.map(([px]) => px) ?? [])),
     );
     expect(second?.bridge.map(([, y]) => y)).toEqual(first?.bridge.map(([, y]) => y));
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-land|testOpenLand|open_land/);
   });
 });
 

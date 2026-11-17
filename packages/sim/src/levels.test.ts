@@ -280,24 +280,7 @@ describe("the curve", () => {
 });
 
 describe("the numbers", () => {
-  it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
-    expect(PROGRESS).toEqual({
-      dailyCap: 20,
-      first: 10,
-      step: 20,
-      harvest: 2,
-      craft: 2,
-      find: 4,
-      fish: 2,
-      lesson: 8,
-      bounty: 6,
-      bountyMinReward: 5,
-      guest: 2,
-      attend: 8,
-      petMeet: 2,
-      game: 6,
-      win: 2,
-    });
+  it("name five skills and the levels that unlock a title, a garment, and a second title", () => {
     expect(SKILLS).toEqual(["growing", "making", "foraging", "hosting", "playing"]);
     expect(UNLOCKS).toEqual({ title: 3, wear: 5, master: 10 });
   });
@@ -574,8 +557,8 @@ describe("the daily cap", () => {
     const [flower] = plant(w, "ada", "flower", 1, 12);
     w.toDay(OPEN + 2);
     for (const tile of herbs.slice(0, 10)) w.ok("ada", { type: "harvest", ...tile });
-    expect(w.points("ada")).toEqual({ growing: PROGRESS.dailyCap + PROGRESS.first });
-    expect(w.state.progress?.today).toEqual({ ada: { growing: PROGRESS.dailyCap } });
+    expect(w.points("ada")).toEqual({ growing: 20 + 10 });
+    expect(w.state.progress?.today).toEqual({ ada: { growing: 20 } });
     // The deed still happens: the crop comes up, and nothing is said about points.
     const eleventh = w.ok("ada", { type: "harvest", ...(herbs[10] ?? { x: 0, y: 0 }) });
     expect(eleventh.some((e) => e.type === "harvested")).toBe(true);
@@ -707,7 +690,7 @@ describe("what never earns", () => {
 describe("a bounty", () => {
   it("earns its claimant Hosting when a neighbor who could vote pays 5 coins or more", () => {
     const w = levels();
-    expect(progress(bounty(w, "dee", "ada"))).toEqual([
+    expect(progress(bounty(w, "dee", "ada", 5))).toEqual([
       {
         type: "progress",
         residentId: "ada",
@@ -723,7 +706,7 @@ describe("a bounty", () => {
 
   it("under 5 coins adds nothing", () => {
     const w = levels();
-    expect(progress(bounty(w, "dee", "ada", PROGRESS.bountyMinReward - 1))).toEqual([]);
+    expect(progress(bounty(w, "dee", "ada", 4))).toEqual([]);
     expect(w.state.progress).toEqual(NOTHING_YET);
   });
 

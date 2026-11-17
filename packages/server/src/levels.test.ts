@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import {
   CROPS,
@@ -215,9 +214,6 @@ describe("a world that never opened levels", () => {
     expect(logged).not.toContain("open_levels");
     expect(logged).not.toContain("credit_event");
     expect(service.state.progress).toBeUndefined();
-    // Both adapters set levels (world-switches.test.ts), and the Worker has no test route.
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-levels|testOpenLevels|open_levels/);
   });
 
   it("reads as it always did: no level field, step, event, or notice anywhere on the wire", async () => {

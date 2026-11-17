@@ -9,8 +9,6 @@ import { dayOfDate, SEASONS } from "./season";
 import {
   BUY_ORDERS,
   HOLIDAY_STOCK,
-  ROTATION_CROPS,
-  ROTATION_GOODS,
   SEASON_BUYS,
   SEASON_STOCK,
   SHOP_CATALOG,
@@ -160,20 +158,9 @@ describe("seasonal buying", () => {
     for (const sku of SEASON_STOCK.autumn) expect(stockSeason(sku)).toBe("autumn");
   });
 
-  it("leaves the rotation every past day was bought from as it was", () => {
-    // What the town bought on each day in the log comes from these, in this order. A new kind goes
-    // in a season's buys instead, so an old sell_to_town replays the same.
-    expect(ROTATION_GOODS).toEqual([
-      "lemon_jam",
-      "strawberry_jam",
-      "lemonade",
-      "tomato_sauce",
-      "herb_tea",
-      "bouquet",
-      "herb_sachet",
-      "flower_wreath",
-    ]);
-    expect(ROTATION_CROPS).toEqual(["lemon", "strawberry", "tomato", "herb", "flower"]);
+  it("adds a season's buys after the rotation every past day was bought from", () => {
+    // A new kind goes in a season's buys, never the rotation (frozen in catalog.test.ts), so an
+    // old sell_to_town replays the same.
     expect(townBuys(20_013)).toEqual([
       "bouquet",
       "lemon_jam",

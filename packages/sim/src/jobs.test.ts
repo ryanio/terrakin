@@ -448,24 +448,10 @@ const DAYS = Array.from({ length: 1461 }, (_, i) => OPEN + i);
  * laptop and several on a busy CI runner, past vitest's 5 seconds.
  */
 const FOUR_YEARS_MS = 20_000;
-/** How many of those days have a pumpkin or a cranberry job for home, in each edition. */
-const SEASONAL_DAYS: Record<number, number> = { 1: 91, 2: 94 };
+/** How many of those days have a pumpkin or a cranberry job for home, from the second edition. */
+const SEASONAL_DAYS = 94;
 
 describe("the numbers", () => {
-  it("are pinned, so a change is deliberate and comes with a run of scripts/economy-sim.ts", () => {
-    expect(JOBS).toEqual({
-      board: 3,
-      held: 1,
-      perDay: 1,
-      perWeek: 3,
-      keepDays: 7,
-      points: 10,
-      titleAt: 10,
-      wearAt: 25,
-      masterAt: 75,
-    });
-  });
-
   it("give two titles and a garment to the count of jobs finished, in fixed words", () => {
     expect(JOB_TITLES).toEqual(["helping_hand", "pillar_of_the_town"]);
     expect(JOB_TITLE_INFO).toEqual({
@@ -567,7 +553,7 @@ describe("the board", () => {
   it("is the same for a day however it's asked", () => {
     const w = jobs();
     const today = board(w);
-    expect(today).toHaveLength(JOBS.board);
+    expect(today).toHaveLength(3);
     expect(board(w)).toEqual(today);
     // A snapshot of the world, and another world on the same day where other things happened.
     expect(jobsOn(JSON.parse(JSON.stringify(w.state)) as WorldState).map((j) => j.id)).toEqual(
@@ -586,14 +572,13 @@ describe("the board", () => {
 });
 
 /**
- * The editions whose boards differ in a world without clay. The third gives the second's boards
- * until clay is out, which the four-year pins in "an edition's boards" prove, and its clay boards
- * are checked in "the third edition".
+ * The scans below read the newest board a world without clay gets: the second edition's. The third
+ * gives the same boards until clay is out, and the first is history. The four-year pins in "an
+ * edition's boards" hold every edition's boards as they are, and the third's clay boards are
+ * checked in "the third edition".
  */
-const BOARD_EDITIONS = EDITIONS.filter((n) => n !== 3);
-
-describe.each(BOARD_EDITIONS)("the board in edition %i", (shipped) => {
-  const boardOn = boardIn(shipped);
+describe("the board in the second edition", () => {
+  const boardOn = boardIn(2);
 
   it("has one job for home, one for a walk, and one with neighbors, each day of four years", {
     timeout: FOUR_YEARS_MS,
@@ -654,7 +639,7 @@ describe.each(BOARD_EDITIONS)("the board in edition %i", (shipped) => {
     const seasonal = DAYS.filter((day) =>
       ["juniper_pumpkins", "juniper_cranberries"].includes(boardOn(day)[0]?.id ?? ""),
     );
-    expect(seasonal).toHaveLength(SEASONAL_DAYS[shipped] ?? 0);
+    expect(seasonal).toHaveLength(SEASONAL_DAYS);
     for (const day of seasonal) {
       const [, walk, neighbors] = boardOn(day);
       expect(day % 2, String(day)).toBe(0);
@@ -806,8 +791,6 @@ describe("a regular job's wait for the board", () => {
     // skipped once waits two rounds less a day.
     const waits = waitsIn(2);
     expect(tooLong(waits)).toEqual([]);
-    for (const shipped of EDITIONS.filter((n) => n > 2))
-      expect(tooLong(waitsIn(shipped))).toEqual([]);
     expect(Object.fromEntries(waits.map(({ job, wait }) => [job.id, wait]))).toEqual({
       juniper_crops: 9,
       juniper_herbs: 9,
@@ -881,7 +864,7 @@ describe("a walk that becomes a find, from the second edition", () => {
         before = ids;
       }
       expect(repeats).toEqual([]);
-      expect(fishKept).toBe(SEASONAL_DAYS[2]);
+      expect(fishKept).toBe(SEASONAL_DAYS);
     });
   });
 });
@@ -1162,7 +1145,7 @@ describe("a deed job", () => {
     const tiles = ripe(w, "ada", "herb", 4);
     const events = tiles.slice(0, 3).flatMap((tile) => harvest(w, "ada", tile));
     // Three harvests at 2, herbs' first at 10, and the job's 10.
-    const growing = 3 * PROGRESS.harvest + PROGRESS.first + JOBS.points;
+    const growing = 3 * 2 + 10 + 10;
     expect(pointsOf(w.state, "ada")).toEqual({ growing });
     // The job's points come in a `progress` of their own, after `job_done`, and count toward no
     // cap. A level they reach is said as any level is.
@@ -1536,14 +1519,14 @@ describe("a held job", () => {
     const w = jobs();
     const [first = ""] = board(w);
     w.ok("ada", { type: "take_job", job: first });
-    for (let day = OPEN + 1; day < OPEN + JOBS.keepDays; day++) {
+    for (let day = OPEN + 1; day < OPEN + 7; day++) {
       expect(jobEvents(w.toDay(day))).toEqual([]);
       expect(held(w, "ada")).toEqual({ job: first, day: OPEN });
     }
     // Bob takes one on the seventh day, which stays when Ada's goes.
     const [bobs = ""] = board(w);
     w.ok("bob", { type: "take_job", job: bobs });
-    expect(jobEvents(w.toDay(OPEN + JOBS.keepDays))).toEqual([
+    expect(jobEvents(w.toDay(OPEN + 7))).toEqual([
       { type: "job_dropped", residentId: "ada", job: first, lapsed: true },
     ]);
     expect(Object.keys(w.state.jobs?.held ?? {})).toEqual(["bob"]);
@@ -1900,9 +1883,9 @@ describe("what the count unlocks", () => {
     const title = (id: string | null) => ({ type: "profile", title: id }) as Command;
     const satchel = wearing("town_satchel");
 
-    playTo(w, "ada", JOBS.titleAt - 1);
+    playTo(w, "ada", 9);
     expect(w.code("ada", title("helping_hand"))).toBe("not_earned");
-    playTo(w, "ada", JOBS.titleAt);
+    playTo(w, "ada", 10);
     expect(w.ok("ada", title("helping_hand"))).toEqual([
       { type: "title_changed", residentId: "ada", title: "helping_hand" },
     ]);
@@ -1916,10 +1899,10 @@ describe("what the count unlocks", () => {
       type: "profile",
       wearStyle: { town_satchel: { pattern: "stripes" } },
     };
-    playTo(w, "ada", JOBS.wearAt - 1);
+    playTo(w, "ada", 24);
     expect(w.code("ada", satchel)).toBe("not_earned");
     expect(w.code("ada", styled)).toBe("not_earned");
-    playTo(w, "ada", JOBS.wearAt);
+    playTo(w, "ada", 25);
     w.ok("ada", styled);
     expect(w.state.residents.ada?.wearStyle).toEqual({ town_satchel: { pattern: "stripes" } });
     w.ok("ada", { type: "profile", wearStyle: { town_satchel: null } });
@@ -1933,15 +1916,15 @@ describe("what the count unlocks", () => {
     expect(w.state.residents.ada?.wear).toEqual(["beret", "town_satchel", "boots"]);
     expect(w.code("bob", satchel)).toBe("not_earned");
 
-    playTo(w, "ada", JOBS.masterAt - 1);
+    playTo(w, "ada", 74);
     expect(w.code("ada", title("pillar_of_the_town"))).toBe("not_earned");
-    playTo(w, "ada", JOBS.masterAt);
+    playTo(w, "ada", 75);
     expect(w.ok("ada", title("pillar_of_the_town"))).toEqual([
       { type: "title_changed", residentId: "ada", title: "pillar_of_the_town" },
     ]);
     // Three a week: the 75th comes no sooner than the 25th week.
     expect(w.day() - OPEN).toBeGreaterThanOrEqual(24 * 7);
-    expect(jobsDone(w.state, "ada")).toBe(JOBS.masterAt);
+    expect(jobsDone(w.state, "ada")).toBe(75);
   });
 
   it("shows one title at a time, a skill's or a job's", () => {

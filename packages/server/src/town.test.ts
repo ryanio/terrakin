@@ -809,7 +809,7 @@ describe("the test clock", () => {
     expect(service.state.progress).toBeUndefined();
     const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
     expect(worker).not.toMatch(
-      /testClock|advance-day|test\/sweep|test\/grant|testGrant|test\/open-|testOpen|TEST_CLOCK/,
+      /testClock|advance-day|test\/sweep|test\/grant|testGrant|test\/open-|testOpen|TEST_CLOCK|open_(circles|jobs|levels|land|plot_market)\b/,
     );
   });
 });

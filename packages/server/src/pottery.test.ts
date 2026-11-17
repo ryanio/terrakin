@@ -1,4 +1,3 @@
-import { readFileSync } from "node:fs";
 import type { ServerMessage, WorldEvent as WireEvent } from "@terrakin/protocol";
 import { DAY_MS, POTTERY, POTTERY_JOB_EDITION, type WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it, vi } from "vitest";
@@ -105,12 +104,6 @@ async function start(
 }
 
 describe("a world that never opened clay", () => {
-  it("has no test route in the Worker", () => {
-    // Only the Worker sets clay (world-switches.test.ts); a test world opens it by its route.
-    const worker = readFileSync(new URL("../cloudflare/worker.ts", import.meta.url), "utf8");
-    expect(worker).not.toMatch(/open-clay|testOpenClay/);
-  });
-
   it("reads as it always did: no clay, kiln, pot, card, or book group anywhere on the wire", async () => {
     const t = await start();
     const ada = await t.settler("Ada", 0);

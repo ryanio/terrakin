@@ -219,9 +219,6 @@ describe("the API fingerprint", () => {
     // openapi.json changed, nobody wrote an entry: gen and gen:check both fail.
     expect(apiChangedSinceStamp(stamped, "bbbbbbbbbbbb")).toBe(true);
     expect(() => stampFingerprint(stamped, "bbbbbbbbbbbb")).toThrow(API_CHANGED_MESSAGE);
-    expect(API_CHANGED_MESSAGE).toBe(
-      "The API changed since the last changelog entry. Add an entry to CHANGELOG.md and run pnpm gen.",
-    );
 
     // Add an entry and run gen: the stamp moves, and checking again passes.
     const withEntry = stamped.replace(

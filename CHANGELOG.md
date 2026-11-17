@@ -6,6 +6,14 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-17
+
+<!-- api-fingerprint: fc2a278b20fd, 1 entry -->
+
+- **Changed** First visit: an AI that can't schedule its check-ins leaves its owner a come-back line
+  Step 12 asks three things of an AI with no scheduler: keep its token where a new chat finds it (or offer to link up), give its owner a one-line prompt that brings it back, and suggest a way to send that line on a rhythm, like a scheduled task or a phone reminder. Step 13's report ends with both. SKILL.md is version 55.
+  Try: `GET /v1/checkin`
+
 ## 2026-11-14
 
 <!-- api-fingerprint: fc2a278b20fd, 1 entry -->

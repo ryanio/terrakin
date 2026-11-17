@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/doc-refs lib/doc-refs.mjs (126fa63, body 19ad2866b0c9). Edit it there and run `npm run sync`; changes made here are refused.
+// Generated from ryanio/doc-refs lib/doc-refs.mjs (4f86dbf, body 73ef23c0abf0). Edit it there and run `npm run sync`; changes made here are refused.
 import { execFileSync } from 'node:child_process'
 /**
  * Checks that the docs agents read still point at things that exist.
@@ -36,6 +36,11 @@ import { execFileSync } from 'node:child_process'
  *   ignore         globs of tokens that are not repo paths (R2 keys, Mac paths)
  *   externalSlash  `/names` that are bot or app commands, not agent commands
  *   slash          false to turn the slash check off, "all" to run it in every doc
+ *   text           rules on what given docs say: `{ docs, require, forbid, why }`.
+ *                  `docs` are globs of tracked files (code blocks included),
+ *                  `require` strings each doc must contain, `forbid` regular
+ *                  expressions no line may match. A rule whose globs match no
+ *                  file is reported, so a rename cannot leave it checking nothing.
  */
 import { createHash } from 'node:crypto'
 import { existsSync, lstatSync, readFileSync, readlinkSync, realpathSync } from 'node:fs'
@@ -355,6 +360,8 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 			}
 		}
 	}
+	const textBroken = checkText(files, read, config.text ?? [])
+	checked += textBroken.checked
 	// One git call for every unresolved path: a gitignored one is a runtime file.
 	const target = (b) =>
 		b.kind === 'link'
@@ -363,10 +370,47 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 	const paths = broken.filter((b) => b.kind !== 'slash').map(target)
 	const ignored = paths.length ? gitIgnored(paths) : new Set()
 	return {
-		broken: broken.filter((b) => b.kind === 'slash' || !ignored.has(target(b))),
+		broken: [
+			...broken.filter((b) => b.kind === 'slash' || !ignored.has(target(b))),
+			...textBroken.broken,
+		],
 		checked,
 		docs: docs.length,
 	}
+}
+
+function checkText(files, read, rules) {
+	const broken = []
+	let checked = 0
+	for (const rule of rules) {
+		const why = rule.why ?? ''
+		const matches = files.filter(anyGlob(rule.docs ?? [])).sort()
+		if (!matches.length) {
+			broken.push({ doc: 'doc-refs.config.json', line: 0, kind: 'rule', token: (rule.docs ?? []).join(', '), why })
+			continue
+		}
+		const forbid = (rule.forbid ?? []).map((f) => new RegExp(f))
+		for (const doc of matches) {
+			const text = read(doc)
+			for (const want of rule.require ?? []) {
+				checked++
+				if (!text.includes(want)) {
+					broken.push({ doc, line: 0, kind: 'require', token: want, why })
+				}
+			}
+			const lines = text.split('\n')
+			for (const re of forbid) {
+				checked++
+				lines.forEach((l, i) => {
+					const m = l.match(re)
+					if (m) {
+						broken.push({ doc, line: i + 1, kind: 'forbid', token: m[0], why })
+					}
+				})
+			}
+		}
+	}
+	return { broken, checked }
 }
 
 // ── command line ──────────────────────────────────────────────────────────
@@ -423,8 +467,14 @@ function main() {
 
 	const report = process.argv.includes('--report')
 	const cfgRel = normalize(relative(root, cfgPath))
+	const WHY = {
+		slash: 'no such command or skill',
+		require: 'is required here and missing',
+		forbid: 'is forbidden here',
+		rule: 'matches no file (a text rule checks nothing)',
+	}
 	for (const b of result.broken) {
-		const why = b.kind === 'slash' ? 'no such command or skill' : 'not in the repo'
+		const why = `${WHY[b.kind] ?? 'not in the repo'}${b.why ? `: ${b.why}` : ''}`
 		console.error(
 			`  ${b.doc}:${b.line}  ${b.kind === 'link' ? `(${b.token})` : `\`${b.token}\``}  ${why}`
 		)

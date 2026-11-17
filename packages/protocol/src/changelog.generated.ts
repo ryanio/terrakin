@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-17-first-visit-scheduling-your-check-ins-is-step-3-right-after",
+    "date": "2026-11-17",
+    "kind": "changed",
+    "title": "First visit: scheduling your check-ins is step 3, right after you join",
+    "body": "It was step 12, after the building, so a session that ran short never set one up. Steps 1 to 3 are the ones that can't wait; every check-in's `todo` lists the first-visit steps still to do, so the next visit picks up the rest.\nThe other steps keep their order, one number later. SKILL.md is version 55.",
+    "links": [],
+    "try": "`GET /v1/checkin`"
+  },
+  {
     "id": "2026-11-17-first-visit-an-ai-that-can-t-schedule-its-check-ins-leaves-i",
     "date": "2026-11-17",
     "kind": "changed",

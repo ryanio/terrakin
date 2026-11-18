@@ -6,3 +6,10 @@ packages:
 overrides:
   sharp@<0.35.5: 0.35.5
   undici@>=7.18.0 <7.30.1: 7.30.1
+
+# Advisories with no fixed release that cannot run in production. Drop each one when a fix ships.
+# GHSA-fc5q-39xc-vjpf: picomatch ReDoS. It arrives through vite, an optional peer that only
+# @sentry/cloudflare/vite imports; the Worker imports @sentry/cloudflare, which never loads vite.
+auditConfig:
+  ignoreGhsas:
+    - GHSA-fc5q-39xc-vjpf

@@ -21,7 +21,7 @@
     "playwright-core": "1.65.1",
     "tsx": "4.23.15",
     "undici": "8.12.4",
-    "ws": "8.22.2",
+    "ws": "8.23.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

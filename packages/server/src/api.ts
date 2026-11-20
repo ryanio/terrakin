@@ -213,7 +213,7 @@ export interface ApiRequest {
   /** The Idempotency-Key header, if the client sent one. */
   idempotencyKey?: string | undefined;
   /**
-   * The email of a Cloudflare Access sign-in the adapter has already verified (`access.ts`). Only
+   * The email of a Cloudflare Access sign-in the adapter has already verified (`adminGate`). Only
    * the Worker sets it, after checking the JWT; never copy it from a request header.
    */
   staffEmail?: string | undefined;

@@ -12,7 +12,7 @@ import {
   residentById,
   votesCast,
 } from "@terrakin/sim";
-import { AccessVerifier, accessConfig, parseEmails, parseStaffResidents } from "../src/access";
+import { accessIsOn, parseEmails, parseStaffResidents, staffAccessConfig } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
 import { Api, isApiPath, MAX_BODY_BYTES } from "../src/api";
@@ -153,28 +153,22 @@ interface Env {
   TERRAKIN_CHAIN_DAILY_READS?: string;
 }
 
-/** The Access verifier, with its key cache, lives as long as the isolate. */
-let verifier: { key: string; verifier: AccessVerifier } | undefined;
-function accessVerifier(env: Env): AccessVerifier | undefined {
-  const config = accessConfig(
-    env.TERRAKIN_ACCESS_TEAM,
-    env.TERRAKIN_ACCESS_AUD,
-    env.TERRAKIN_ACCESS_DEPLOY_CLIENT,
-  );
-  if (!config) return undefined;
-  const key = `${config.team} ${config.aud} ${config.deployClient ?? ""}`;
-  if (verifier?.key !== key) verifier = { key, verifier: new AccessVerifier(config) };
-  return verifier.verifier;
-}
-
 /**
  * admin.terrakin.org: the staff app and the API it calls (RFC 0006, decision 0040). With Access set
- * up, every request needs a valid Access sign-in, checked here as well as at Cloudflare's edge, and
- * the real admin host refuses to run without it (`adminGate`).
+ * up, every request needs a valid Access sign-in by staff, checked here as well as at Cloudflare's
+ * edge, and the real admin host refuses to run without it (`adminGate`).
  */
 async function admin(request: Request, env: Env, url: URL): Promise<Response> {
   const gate = await adminGate(request, url, {
-    verifier: accessVerifier(env),
+    access: staffAccessConfig({
+      team: env.TERRAKIN_ACCESS_TEAM,
+      aud: env.TERRAKIN_ACCESS_AUD,
+      deployClient: env.TERRAKIN_ACCESS_DEPLOY_CLIENT,
+      staffEmails: [
+        ...parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
+        ...parseEmails(env.TERRAKIN_MODERATOR_EMAILS),
+      ],
+    }),
     requireAccess: url.hostname === `admin.${CANONICAL_HOST}`,
   });
   if ("refuse" in gate) return gate.refuse;
@@ -583,7 +577,7 @@ class WorldObject extends DurableObject<Env> {
         ? { scenePhotos: { render: browserRunScenes(env), origin: SITE_ORIGIN } }
         : {}),
       staff: {
-        access: accessConfig(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD) !== undefined,
+        access: accessIsOn(env.TERRAKIN_ACCESS_TEAM, env.TERRAKIN_ACCESS_AUD),
         maintainerEmails: parseEmails(env.TERRAKIN_MAINTAINER_EMAILS),
         moderatorEmails: parseEmails(env.TERRAKIN_MODERATOR_EMAILS),
         staffResidents: parseStaffResidents(env.TERRAKIN_STAFF_RESIDENTS, {

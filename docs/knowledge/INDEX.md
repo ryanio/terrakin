@@ -365,6 +365,7 @@ What we chose and why. Newest last.
 - [terrakin.org opens the plot market with the cap of 3, on Ryan's word](decisions/0436-terrakin-org-opens-the-plot-market-with-the-cap-of-3-on-ryan.md) · 2026-11-13 · accepted · `server` `deploy` `economy` `rfc-0039`
 - [Plots for sale carry no name, only what the world counts](decisions/0437-plots-for-sale-carry-no-name-only-what-the-world-counts.md) · 2026-11-13 · accepted · `server` `protocol` `client` `safety` `rfc-0039`
 - [The newcomer funnel counts coming back from call days the away log keeps](decisions/0438-the-newcomer-funnel-counts-coming-back-from-call-days-the-aw.md) · 2026-11-17 · accepted · `funnel` `staff` `retention`
+- [Access sign-ins are checked by workers-start, and only staff emails pass the admin gate](decisions/0439-access-sign-ins-are-checked-by-workers-start-and-only-staff-.md) · 2026-11-20 · accepted · `staff` `access` `security` `dependencies`
 
 ### Superseded
 

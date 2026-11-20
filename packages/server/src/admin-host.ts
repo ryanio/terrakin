@@ -5,19 +5,23 @@
  * packages/admin/vite.config.ts).
  */
 import {
+  type AccessConfig,
   type AccessVerifier,
   accessToken,
-  DEPLOY_READS_LOG_ONLY,
-  type DEPLOY_SERVICE,
-} from "./access";
+  verifyAccessToken,
+} from "workers-start/access";
+import { DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE } from "./access";
 import { isApiPath } from "./api";
+import { STAFF_ONLY } from "./handlers/shared";
 import { ADMIN_ASSET_PREFIX, ADMIN_PAGE_HEADERS } from "./pages";
 
 export const ACCESS_SIGN_IN = "Sign in to admin.terrakin.org through Cloudflare Access.";
 /** The one path the deploy check's service token opens: `getWorldLog` in the route table. */
 export const WORLD_LOG_PATH = "/v1/admin/world-log";
 export const ACCESS_NOT_SET_UP =
-  "The staff site isn't set up yet. It needs Cloudflare Access (TERRAKIN_ACCESS_TEAM and TERRAKIN_ACCESS_AUD).";
+  "The staff site isn't set up yet. It needs Cloudflare Access (TERRAKIN_ACCESS_TEAM and TERRAKIN_ACCESS_AUD) and at least one staff email.";
+export const ACCESS_KEYS_DOWN =
+  "Couldn't check the Access sign-in just now. Try again in a minute.";
 
 /** A refusal on the admin host: JSON for the API, plain text for pages, strict headers on both. */
 function adminRefusal(url: URL, status: 401 | 403 | 503, code: string, message: string) {
@@ -38,9 +42,10 @@ export type AdminGate =
 
 /**
  * Who is calling the admin host. With Access set up, only a request carrying a valid Access JWT
- * (the header Access adds, or its cookie) gets through, checked here as well as at Cloudflare's
- * edge, and its email is the staff identity, and the `Api` then ignores resident tokens on staff
- * routes on every host, terrakin.org included. Without Access, requests get through with no email
+ * (the header Access adds, or its cookie) for a maintainer's or moderator's email gets through,
+ * checked here as well as at Cloudflare's edge, and its email is the staff identity, and the `Api`
+ * then ignores resident tokens on staff routes on every host, terrakin.org included. A valid
+ * sign-in for anyone else is refused with 403. Without Access, requests get through with no email
  * and staff routes fall back to a maintainer's or moderator's token. `requireAccess` (the real
  * admin.terrakin.org) refuses to serve the admin host that way, but until Access is configured the
  * staff routes on terrakin.org's own API still take those tokens.
@@ -51,24 +56,31 @@ export type AdminGate =
 export async function adminGate(
   request: Request,
   url: URL,
-  options: { verifier: AccessVerifier | undefined; requireAccess: boolean },
+  options: { access: AccessConfig | null; requireAccess: boolean; verify?: AccessVerifier },
 ): Promise<AdminGate> {
-  const { verifier } = options;
-  if (!verifier) {
+  const { access, verify = verifyAccessToken } = options;
+  if (!access) {
     if (options.requireAccess) {
       return { refuse: adminRefusal(url, 503, "unavailable", ACCESS_NOT_SET_UP) };
     }
     return { email: undefined };
   }
-  const identity = await verifier.verify(
-    accessToken(request.headers.get("cf-access-jwt-assertion"), request.headers.get("cookie")),
-  );
-  if (!identity) return { refuse: adminRefusal(url, 401, "unauthorized", ACCESS_SIGN_IN) };
-  if ("email" in identity) return { email: identity.email };
+  const result = await verify(accessToken(request), access);
+  if (!result.ok) {
+    if (result.status === 503) {
+      return { refuse: adminRefusal(url, 503, "unavailable", ACCESS_KEYS_DOWN) };
+    }
+    if (result.status === 403) {
+      return { refuse: adminRefusal(url, 403, "forbidden", STAFF_ONLY) };
+    }
+    return { refuse: adminRefusal(url, 401, "unauthorized", ACCESS_SIGN_IN) };
+  }
+  if (result.email !== undefined) return { email: result.email };
+  // The deploy check's client id is the only service token in the config.
   if (request.method !== "GET" || url.pathname !== WORLD_LOG_PATH) {
     return { refuse: adminRefusal(url, 403, "forbidden", DEPLOY_READS_LOG_ONLY) };
   }
-  return { email: undefined, service: identity.service };
+  return { email: undefined, service: DEPLOY_SERVICE };
 }
 
 /**

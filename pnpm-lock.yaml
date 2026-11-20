@@ -189,6 +189,9 @@ importers:
       undici:
         specifier: 8.12.4
         version: 8.12.4
+      workers-start:
+        specifier: ^0.8.0
+        version: 0.8.0
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -1815,6 +1818,11 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
+  workers-start@0.8.0:
+    resolution: {integrity: sha512-ZtvoiFE5gGHhns2mgI9stOu5wv/04Wu77dP04DeMOVcBMyZTMeZNr+UL4FOLpvMP4c5neaS9Hp1i4+9CMuUjpA==}
+    engines: {node: '>=22'}
+    hasBin: true
+
   wrangler@4.163.0:
     resolution: {integrity: sha512-EBM/QOpQsce6LenEDv1nXsK+AX9BYfAhE5yHosriPhFZPj47Z0usk6oGYWgPpLPa5qYDzhm9EDzaDD/WI5lzOA==}
     engines: {node: '>=22.12.0'}
@@ -3108,6 +3116,8 @@ snapshots:
       '@cloudflare/workerd-linux-64': 1.20261116.1
       '@cloudflare/workerd-linux-arm64': 1.20261116.1
       '@cloudflare/workerd-windows-64': 1.20261116.1
+
+  workers-start@0.8.0: {}
 
   wrangler@4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6):
     dependencies:

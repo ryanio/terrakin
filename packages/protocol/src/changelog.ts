@@ -1,3 +1,4 @@
+import { slugify } from "workers-start/format";
 import { escapeXml } from "workers-start/seo";
 import { z } from "zod";
 import { isDay } from "./day";
@@ -115,15 +116,6 @@ const REMOVAL = /Earliest removal: (\d{4}-\d{2}-\d{2})/;
 /** An entry's optional last line: one example to try, with the call in a code span. */
 const TRY = /^Try: (.+)$/;
 
-/** The title as an id-safe slug: lowercase letters and digits joined by single dashes. */
-export function changelogSlug(title: string): string {
-  return title
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, "-")
-    .slice(0, SLUG_MAX)
-    .replace(/^-+|-+$/g, "");
-}
-
 /** Markdown link targets and bare URLs in `text`, made absolute, in order, without repeats. */
 function linksIn(text: string): string[] {
   const found: string[] = [];
@@ -175,7 +167,7 @@ export function parseChangelog(text: string, file = "CHANGELOG.md"): Changelog {
     if (body.length === 0) {
       fail(at, `"${title}" needs 1 to ${BODY_LINES} lines under it, indented two spaces.`);
     }
-    const id = `${date}-${changelogSlug(title)}`;
+    const id = `${date}-${slugify(title, { maxLength: SLUG_MAX })}`;
     if (ids.has(id)) fail(at, `two entries on ${date} have the id ${id}. Give one another title.`);
     ids.add(id);
     const joined = body.join("\n");

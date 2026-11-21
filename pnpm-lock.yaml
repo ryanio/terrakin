@@ -61,8 +61,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -92,11 +92,11 @@ importers:
         specifier: 0.32.0
         version: 0.32.0
       workers-cards:
-        specifier: ^0.1.0
-        version: 0.1.0
+        specifier: ^0.2.0
+        version: 0.2.0
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
@@ -132,8 +132,8 @@ importers:
         specifier: 0.187.0
         version: 0.187.0
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -163,8 +163,8 @@ importers:
         specifier: workspace:*
         version: link:../sim
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -205,8 +205,8 @@ importers:
         specifier: 8.12.4
         version: 8.12.4
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -238,8 +238,8 @@ importers:
         specifier: 1.71.0
         version: 1.71.0
       workers-start:
-        specifier: ^0.18.0
-        version: 0.18.0
+        specifier: ^0.21.0
+        version: 0.21.0
 
 packages:
 
@@ -1836,12 +1836,12 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  workers-cards@0.1.0:
-    resolution: {integrity: sha512-BDmVXA6O3q6PuiDlVsqMuP3qo9IOl0UreDNUXffTMo8sRf9naCA1+vi+e1lNeF/b6/VvCWE2vPBYzKhle58sxg==}
+  workers-cards@0.2.0:
+    resolution: {integrity: sha512-YGbRB3pSIFnelh6Gp3Icr4QglJ7KQZ45dQSaz9JfkAYUOt6HN6sf2UcibUDIjtbXWiTXS328HjBC5BA/Wf9+8Q==}
     engines: {node: '>=22'}
 
-  workers-start@0.18.0:
-    resolution: {integrity: sha512-/UwgF8eVuWYWDsiAAcbPiB1PvkYD08w0XWoJjPcJK5dfy+9PMRiAtchLv6E8Dz15sV2pPDFhOABb6y4HCtLP4g==}
+  workers-start@0.21.0:
+    resolution: {integrity: sha512-kWA9cvnm39oSXBWsF5eBymA1vC8RjO5pEwBp8hGaTATg3AKFDGM53mZzK+3IEX/ocPklQfGjkLT5KV9XFZM+FA==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -3139,9 +3139,9 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261116.1
       '@cloudflare/workerd-windows-64': 1.20261116.1
 
-  workers-cards@0.1.0: {}
+  workers-cards@0.2.0: {}
 
-  workers-start@0.18.0: {}
+  workers-start@0.21.0: {}
 
   wrangler@4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6):
     dependencies:

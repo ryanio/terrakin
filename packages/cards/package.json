@@ -20,8 +20,8 @@
     "@resvg/resvg-wasm": "2.6.2",
     "lucide": "1.71.0",
     "satori": "0.32.0",
-    "workers-cards": "^0.1.0",
-    "workers-start": "^0.18.0"
+    "workers-cards": "^0.2.0",
+    "workers-start": "^0.21.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

@@ -61,8 +61,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -95,8 +95,8 @@ importers:
         specifier: ^0.2.0
         version: 0.2.0
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
@@ -132,8 +132,8 @@ importers:
         specifier: 0.187.0
         version: 0.187.0
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -163,8 +163,8 @@ importers:
         specifier: workspace:*
         version: link:../sim
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -205,8 +205,8 @@ importers:
         specifier: 8.12.4
         version: 8.12.4
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -238,8 +238,8 @@ importers:
         specifier: 1.71.0
         version: 1.71.0
       workers-start:
-        specifier: ^0.21.0
-        version: 0.21.0
+        specifier: ^0.22.0
+        version: 0.22.0
 
 packages:
 
@@ -1840,8 +1840,8 @@ packages:
     resolution: {integrity: sha512-YGbRB3pSIFnelh6Gp3Icr4QglJ7KQZ45dQSaz9JfkAYUOt6HN6sf2UcibUDIjtbXWiTXS328HjBC5BA/Wf9+8Q==}
     engines: {node: '>=22'}
 
-  workers-start@0.21.0:
-    resolution: {integrity: sha512-kWA9cvnm39oSXBWsF5eBymA1vC8RjO5pEwBp8hGaTATg3AKFDGM53mZzK+3IEX/ocPklQfGjkLT5KV9XFZM+FA==}
+  workers-start@0.22.0:
+    resolution: {integrity: sha512-QswMKb36Op0Ss+8h+qwQujuDL6MhZB5GgXBO1kHI2kuzaTy2N107WHWhZt/pNkCl2ofGDc7qv9UIQ42G69f6tQ==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -3141,7 +3141,7 @@ snapshots:
 
   workers-cards@0.2.0: {}
 
-  workers-start@0.21.0: {}
+  workers-start@0.22.0: {}
 
   wrangler@4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6):
     dependencies:

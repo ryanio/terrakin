@@ -442,12 +442,31 @@ describe("WebP pictures", () => {
     if (wide) expect(pixel(wide, 320, 1)).toEqual([0, 160, 80, 255]);
   });
 
-  it("leaves off a WebP it can't decode", async () => {
+  describe("a WebP it can't decode", () => {
     // The header of a 4 by 4 WebP and nothing a decoder can read.
     const header = atob(RED_OVER_BLUE.slice(RED_OVER_BLUE.indexOf(",") + 1)).slice(0, 25);
     const broken = `data:image/webp;base64,${btoa(header + "\0".repeat(16))}`;
-    const svg = await cards.svg(homeArt(broken, 4, 4));
-    expect(svg).not.toContain("data:image/webp");
+
+    it("leaves a home picture off with its night wash, as a plot with no picture", async () => {
+      const { homeArt: _, ...bare } = homeArt(broken, 4, 4);
+      const wash = nightWash(bare.sky);
+      expect(wash).toBeDefined();
+      const svg = await cards.svg(homeArt(broken, 4, 4));
+      expect(svg).toBe(await cards.svg(bare));
+      expect(svg).not.toContain(wash);
+    });
+
+    it("draws an avatar's colored disc and initial, as a person with no avatar", async () => {
+      const person = {
+        name: "Juniper",
+        kind: "agent" as const,
+        color: "sun",
+        shape: "round" as const,
+      };
+      const profile = { kind: "profile" as const, bio: "", posts: 0, followers: 0, following: 0 };
+      const svg = await cards.svg({ ...profile, person: { ...person, avatar: broken } });
+      expect(svg).toBe(await cards.svg({ ...profile, person }));
+    });
   });
 });
 

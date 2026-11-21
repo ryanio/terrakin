@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import satori, { init } from "satori/standalone";
-import { createRenderer, type ResvgLike } from "workers-cards";
+import { createRenderer } from "workers-cards";
 import { FONTS } from "./fonts";
 import { type Cards, cardsFrom } from "./render";
 import { webpToPng } from "./webp";
@@ -19,8 +19,7 @@ const bytes = (specifier: string) => {
 export const cards: Cards = cardsFrom(
   createRenderer(async () => ({
     satori,
-    // workers-cards 0.1.0 types the options as `unknown`, which resvg's own class refuses.
-    Resvg: Resvg as ResvgLike,
+    Resvg,
     fonts: FONTS.map((f) => ({ name: f.name, weight: f.weight, data: bytes(f.file) })),
     init: async () => {
       await Promise.all([
@@ -28,8 +27,8 @@ export const cards: Cards = cardsFrom(
         initWasm(bytes("@resvg/resvg-wasm/index_bg.wasm")),
       ]);
     },
-    decodeWebp: webpToPng(bytes("@jsquash/webp/codec/dec/webp_dec.wasm")),
   })),
+  webpToPng(bytes("@jsquash/webp/codec/dec/webp_dec.wasm")),
 );
 
 export * from "./index";

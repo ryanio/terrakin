@@ -1,12 +1,13 @@
 /**
  * Cards on a `workers-cards` renderer. `node.ts` and `worker.ts` each make the renderer from the
- * wasm and fonts their runtime can load; this turns a `Card` into its element tree and size, and
- * draws the paper once.
+ * wasm and fonts their runtime can load; this turns each WebP on a `Card` into a PNG, turns the
+ * card into its element tree and size, and draws the paper once.
  */
 
 import { Resvg } from "@resvg/resvg-wasm";
 import { type CardRenderer, dataUri, type RenderedCard } from "workers-cards";
 import { type Art, type Card, cardSize, element, PAPER_SVG, W } from "./templates";
+import type { WebpToPng } from "./webp";
 
 /** A drawn card: plain data, so it crosses RPC as it is. */
 export type Rendered = RenderedCard;
@@ -51,8 +52,11 @@ export interface SceneDrawer {
   scene(url: string, origin: string, o: SceneOptions): Promise<SceneShot>;
 }
 
-/** The cards drawn by `renderer`, whose engine has booted resvg by the time `ready()` settles. */
-export function cardsFrom(renderer: CardRenderer): Cards {
+/**
+ * The cards drawn by `renderer`, whose engine has booted resvg by the time `ready()` settles, with
+ * every WebP on a card turned into a PNG by `toPng` first.
+ */
+export function cardsFrom(renderer: CardRenderer, toPng: WebpToPng): Cards {
   let paper: Promise<Art> | undefined;
   // The grain filter is the slowest thing on a card, so draw the paper once and reuse it.
   const art = () => {
@@ -62,10 +66,38 @@ export function cardsFrom(renderer: CardRenderer): Cards {
     });
     return paper;
   };
+  const tree = async (card: Card) => element(await withoutWebp(card, toPng), await art());
   return {
-    svg: async (card) => renderer.svg(element(card, await art()), cardSize(card)),
-    render: async (card) => renderer.png(element(card, await art()), cardSize(card)),
+    svg: async (card) => renderer.svg(await tree(card), cardSize(card)),
+    render: async (card) => renderer.png(await tree(card), cardSize(card)),
   };
+}
+
+/**
+ * The card with each WebP picture as a PNG, since resvg draws nothing for a WebP. One that can't
+ * be decoded is left off the card, so the card is drawn as it is without that picture: an avatar
+ * falls back to its colored disc and initial, and a home picture goes with its night wash.
+ */
+async function withoutWebp(card: Card, toPng: WebpToPng): Promise<Card> {
+  const png = async (uri: string | undefined) =>
+    uri?.startsWith("data:image/webp;") ? await toPng(uri) : uri;
+  switch (card.kind) {
+    case "profile":
+      return { ...card, person: { ...card.person, avatar: await png(card.person.avatar) } };
+    case "post":
+      return {
+        ...card,
+        author: { ...card.author, avatar: await png(card.author.avatar) },
+        image: await png(card.image),
+      };
+    case "plot": {
+      if (!card.homeArt) return card;
+      const src = await png(card.homeArt.src);
+      return { ...card, homeArt: src ? { ...card.homeArt, src } : undefined };
+    }
+    default:
+      return card;
+  }
 }
 
 function rasterize(markup: string): Uint8Array {

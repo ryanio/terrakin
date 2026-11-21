@@ -19,7 +19,7 @@ import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import resvg from "@resvg/resvg-wasm/index_bg.wasm";
 import satori, { init } from "satori/standalone";
 import yoga from "satori/yoga.wasm";
-import { type CardFont, createRenderer, type ResvgLike } from "workers-cards";
+import { type CardFont, createRenderer } from "workers-cards";
 import { type Cards, cardsFrom } from "./render";
 import { webpToPng } from "./webp";
 
@@ -38,14 +38,13 @@ const fonts: CardFont[] = [
 export const cards: Cards = cardsFrom(
   createRenderer(async () => ({
     satori,
-    // workers-cards 0.1.0 types the options as `unknown`, which resvg's own class refuses.
-    Resvg: Resvg as ResvgLike,
+    Resvg,
     fonts,
     init: async () => {
       await Promise.all([init(yoga), initWasm(resvg)]);
     },
-    decodeWebp: webpToPng(webp),
   })),
+  webpToPng(webp),
 );
 
 export * from "./index";

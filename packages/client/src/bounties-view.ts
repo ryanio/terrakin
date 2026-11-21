@@ -87,8 +87,9 @@ export function bountyStatus(
   }
 }
 
-/** "Open until Nov 4". */
-const until = (iso: string) => `Open until ${shortDate(Date.parse(iso), undefined, "UTC")}`;
+/** "Open until Nov 4", on the reader's calendar (a bounty ends at a moment, not on a UTC day). */
+export const untilWords = (iso: string, timeZone?: string) =>
+  `Open until ${shortDate(Date.parse(iso), undefined, timeZone)}`;
 
 export function bountiesView(ctx: ViewContext): View {
   ctx.setTitle("Bounties · Terrakin");
@@ -162,7 +163,7 @@ export function bountiesView(ctx: ViewContext): View {
           })
         : null,
       b.expiresAt && b.status !== "done"
-        ? h("p", { class: "proposal-why", text: until(b.expiresAt) })
+        ? h("p", { class: "proposal-why", text: untilWords(b.expiresAt) })
         : null,
       moves(b),
       report,

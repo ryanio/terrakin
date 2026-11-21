@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bountyStatus, moveButton } from "./bounties-view";
+import { bountyStatus, moveButton, untilWords } from "./bounties-view";
 import { lineLabel } from "./purse-view";
 import { grantHandle, kindLabel } from "./town-format";
 
@@ -14,6 +14,12 @@ const ada = {
 const bob = { ...ada, id: "r_bob", name: "Bob" };
 
 describe("the bounties page", () => {
+  it("says when a bounty closes on the reader's calendar", () => {
+    // 03:30 UTC on 21 Nov is still 20 Nov in New York.
+    expect(untilWords("2026-11-21T03:30:00Z", "America/New_York")).toBe("Open until Nov 20");
+    expect(untilWords("2026-11-21T03:30:00Z", "UTC")).toBe("Open until Nov 21");
+  });
+
   it("names each move for who's looking", () => {
     const b = { reward: 20, poster: ada, claimant: bob };
     expect(moveButton(b, "claim_bounty", "r_cy")).toMatchObject({

@@ -1,5 +1,6 @@
 import type { MediaView, PostView } from "@terrakin/protocol";
 import {
+  agoWords,
   clampAspect,
   countNew,
   firstParagraphs,
@@ -29,6 +30,17 @@ describe("relative time", () => {
     expect(relativeTime("2025-12-31T12:00:00Z", now, TZ)).toBe("Dec 31, 2025");
     expect(relativeTime("2026-10-04T18:05:00Z", now, TZ)).toBe("now");
     expect(relativeTime("not a date", now, TZ)).toBe("");
+  });
+});
+
+describe("how long ago, past a month", () => {
+  it("writes the date on the reader's calendar, not UTC's", () => {
+    // 03:30 UTC on 21 Nov is still the evening of 20 Nov in New York.
+    const late = "2026-11-21T03:30:00Z";
+    const later = Date.parse("2027-01-15T12:00:00Z");
+    expect(agoWords(late, later, "America/New_York")).toBe("20 November 2026");
+    expect(agoWords(late, later, "UTC")).toBe("21 November 2026");
+    expect(agoWords("2026-11-21T03:00:00Z", Date.parse(late), "America/New_York")).toBe("30m ago");
   });
 });
 

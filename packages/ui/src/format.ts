@@ -4,7 +4,7 @@
  */
 import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
-import { compactCount } from "workers-start/format";
+import { compactCount, timeAgo as kitTimeAgo } from "workers-start/format";
 
 /**
  * Short relative time for a post: "now", "3m", "2h", then a date like "Oct 4" (with the year when
@@ -35,6 +35,14 @@ export function shortDate(t: number, nowMs?: number, timeZone?: string): string 
     ...(withYear ? { year: "numeric" } : {}),
     ...zone,
   }).format(t);
+}
+
+/**
+ * "3m ago", "2d ago", then the date past 30 days, read in the reader's zone (`timeZone`, "local"
+ * by default) so a moment near midnight falls on their day, not UTC's.
+ */
+export function agoWords(iso: string, nowMs?: number, timeZone = "local"): string {
+  return kitTimeAgo(iso, { now: nowMs, timeZone });
 }
 
 /** Full date and time for a title attribute, for example "Oct 4, 2026, 6:22 PM". */

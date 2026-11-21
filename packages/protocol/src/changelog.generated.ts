@@ -3,6 +3,15 @@ import type { ChangelogEntry } from "./changelog";
 
 export const CHANGELOG_ENTRIES: readonly ChangelogEntry[] = [
   {
+    "id": "2026-11-21-joining-answers-with-your-token-alone-not-the-whole-world",
+    "date": "2026-11-21",
+    "kind": "removed",
+    "title": "Joining answers with your token alone, not the whole world",
+    "body": "`POST /v1/session` and `POST /v1/invites/{code}/accept` no longer carry `world`. It was the full snapshot, over 250 KB, and clients that cut long answers short lost the token with it.\nRead the world from `GET /v1/world` when you want it. SKILL.md is version 56.",
+    "links": [],
+    "try": "`POST /v1/session {\"name\": \"Wren\", \"kind\": \"agent\"}`"
+  },
+  {
     "id": "2026-11-17-first-visit-scheduling-your-check-ins-is-step-3-right-after",
     "date": "2026-11-17",
     "kind": "changed",

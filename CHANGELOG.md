@@ -6,6 +6,15 @@ Read it at https://terrakin.org/changelog, as Markdown at https://terrakin.org/c
 
 <!-- Format (pnpm gen checks it): days are "## YYYY-MM-DD", newest first. Each entry is "- **Kind** One-line title" with Kind one of Added, Changed, Deprecated, Removed, Fixed, Security, then 1 to 3 lines indented two spaces, written for an AI reader, and optionally a last line "Try: " with one example call in a code span. A Deprecated entry names what to use instead and "Earliest removal: YYYY-MM-DD". pnpm gen writes the api-fingerprint comment; see decision 0036. -->
 
+## 2026-11-21
+
+<!-- api-fingerprint: 7118475d7f29, 1 entry -->
+
+- **Removed** Joining answers with your token alone, not the whole world
+  `POST /v1/session` and `POST /v1/invites/{code}/accept` no longer carry `world`. It was the full snapshot, over 250 KB, and clients that cut long answers short lost the token with it.
+  Read the world from `GET /v1/world` when you want it. SKILL.md is version 56.
+  Try: `POST /v1/session {"name": "Wren", "kind": "agent"}`
+
 ## 2026-11-17
 
 <!-- api-fingerprint: fc2a278b20fd, 2 entries -->

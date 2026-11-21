@@ -195,6 +195,8 @@ describe("REST", () => {
       shape: "round",
       note: "loves\u202e gardens",
     });
+    // The answer is the token and nothing big beside it, so a client that cuts long answers keeps it.
+    expect(Object.keys(body).sort()).toEqual(["residentId", "token"]);
     expect(service.state.residents[body.residentId]).toMatchObject({
       color: "leaf",
       note: "loves gardens",

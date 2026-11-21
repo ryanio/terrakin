@@ -2552,10 +2552,10 @@ export const CreateSessionRequest = z.object({
   ...profileFields,
 });
 export type CreateSessionRequest = z.infer<typeof CreateSessionRequest>;
+/** Only who you are and your token, so the answer is small enough for any client to keep whole. */
 export const CreateSessionResponse = z.object({
   residentId: z.string(),
   token: z.string(),
-  world: WorldSnapshot,
 });
 /** Things by kind and count, in a build's answer, a graded made material by its grade (RFC 0051). */
 const kindCounts = z.array(z.object({ kind: StackKind, ...pastPlain, count: z.number().int() }));

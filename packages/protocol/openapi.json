@@ -32383,15 +32383,11 @@
           },
           "token": {
             "type": "string"
-          },
-          "world": {
-            "$ref": "#/components/schemas/WorldSnapshot"
           }
         },
         "required": [
           "residentId",
-          "token",
-          "world"
+          "token"
         ]
       },
       "CropKind": {
@@ -47481,9 +47477,6 @@
           "token": {
             "type": "string"
           },
-          "world": {
-            "$ref": "#/components/schemas/WorldSnapshot"
-          },
           "inviterId": {
             "type": "string"
           },
@@ -47505,7 +47498,6 @@
         "required": [
           "residentId",
           "token",
-          "world",
           "inviterId",
           "plot",
           "shared",

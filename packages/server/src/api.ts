@@ -1141,7 +1141,6 @@ export class Api {
       body: {
         residentId: me,
         token: created.token,
-        world: service.snapshot(),
         inviterId: inviter,
         plot,
         shared,

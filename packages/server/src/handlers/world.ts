@@ -41,7 +41,7 @@ export function worldHandlers(api: Api): Pick<Handlers, AreaRouteIds["world"]> {
       if (!result.residentId || !result.token) return fail("internal", "No session.");
       return {
         status: 201,
-        body: { residentId: result.residentId, token: result.token, world: service.snapshot() },
+        body: { residentId: result.residentId, token: result.token },
       };
     },
     deleteSession: ({ viewer }) => {

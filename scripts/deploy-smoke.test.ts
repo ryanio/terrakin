@@ -537,3 +537,18 @@ describe("a run with the deployed version", () => {
     expect(new Set(near).size).toBe(near.length);
   });
 });
+
+describe("what the smoke script may import", () => {
+  // CI's smoke job runs the script with no install, so a package import fails
+  // there after every deploy while passing everywhere else.
+  it("imports only Node built-ins and the repo's own files", () => {
+    const source = readFileSync(new URL("./deploy-smoke.ts", import.meta.url), "utf8");
+    const specifiers = [...source.matchAll(/^import\s+(?!type\b)[^"']*["']([^"']+)["']/gm)].map(
+      (match) => match[1],
+    );
+    expect(specifiers.length).toBeGreaterThan(0);
+    for (const specifier of specifiers) {
+      expect(specifier, specifier).toMatch(/^(node:|\.{1,2}\/)/);
+    }
+  });
+});

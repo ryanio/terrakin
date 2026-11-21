@@ -36,8 +36,11 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
-import { sleep } from "workers-start/http";
 import { WORLD_SWITCHES } from "../packages/server/src/world-switches.ts";
+
+// CI's smoke job runs this file with no install, so it imports nothing outside
+// Node and the repo's own sources.
+const sleep = (ms: number) => new Promise<void>((done) => setTimeout(done, ms));
 
 /** What one GET gave back, redirects not followed. */
 export interface Got {

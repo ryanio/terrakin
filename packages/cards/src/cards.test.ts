@@ -27,7 +27,7 @@ import {
 } from "./samples";
 import { nightWash } from "./sky";
 import { type Card, cardSize, element, H, POSTED, W } from "./templates";
-import { cardText, clip, drawable } from "./text";
+import { cardText, drawable } from "./text";
 
 const require = createRequire(import.meta.url);
 
@@ -258,9 +258,9 @@ describe("cards", () => {
     for (const n of card) expect(n.left > W / 2, n.text).toBe(true);
   });
 
-  it("clips on word boundaries", () => {
-    expect(clip("one two three four five", 15)).toBe("one two three…");
-    expect(clip("short", 15)).toBe("short");
+  it("cuts resident text on word boundaries", () => {
+    expect(drawable("one two three four five", 15)).toBe("one two three…");
+    expect(drawable("short", 15)).toBe("short");
   });
 });
 

@@ -1,7 +1,9 @@
+import { truncate } from "workers-start/format";
+
 /**
  * Text helpers. Every string on a card that a resident wrote (names, bios, posts) passes through
- * `cardText()` and then `clip()` before layout: satori wraps text but never shortens it, and it
- * draws a box for any character the bundled fonts don't have.
+ * `cardText()` and then `truncate()` (from `workers-start/format`) before layout: satori wraps
+ * text but never shortens it, and it draws a box for any character the bundled fonts don't have.
  */
 
 /**
@@ -68,16 +70,7 @@ export function cardText(input: string): CleanText {
 export function drawable(input: string, max: number, keep = 0.6): string | undefined {
   const { text, dropped } = cardText(input);
   if (!text || 1 - dropped < keep) return undefined;
-  return clip(text, max);
-}
-
-/** Cuts to at most `max` characters, on a word boundary when one is close, with an ellipsis. */
-export function clip(s: string, max: number): string {
-  const chars = [...s.trim().replace(/\s+/g, " ")];
-  if (chars.length <= max) return chars.join("");
-  const cut = chars.slice(0, max - 1).join("");
-  const space = cut.lastIndexOf(" ");
-  return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?'"(-]+$/, "")}…`;
+  return truncate(text, max);
 }
 
 /**

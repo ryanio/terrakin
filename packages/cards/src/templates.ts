@@ -11,12 +11,12 @@
 
 import { Heart, type IconNode, MessageCircle } from "lucide";
 import { div, type El, img, type Style, svgImage, text } from "workers-cards";
-import { compactCount, fullDate, plural } from "workers-start/format";
+import { compactCount, fullDate, plural, truncate } from "workers-start/format";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { nightWash } from "./sky";
-import { clip, drawable, fit } from "./text";
+import { drawable, fit } from "./text";
 
 export const W = 1200;
 export const H = 630;
@@ -367,7 +367,7 @@ function site(art: Art): El {
 }
 
 function page(c: PageCard, art: Art): El {
-  const title = clip(c.title, 48);
+  const title = truncate(c.title, 48);
   return stage(
     art,
     div(
@@ -387,7 +387,7 @@ function page(c: PageCard, art: Art): El {
           textTransform: "uppercase",
           color: C.clay,
         },
-        clip(c.eyebrow, 40),
+        truncate(c.eyebrow, 40),
       ),
       text(
         {
@@ -409,7 +409,7 @@ function page(c: PageCard, art: Art): El {
           marginTop: 24,
           color: INK_SOFT,
         },
-        clip(c.subtitle, 120),
+        truncate(c.subtitle, 120),
       ),
     ),
     mark(300, abs({ right: 96, top: 140 })),
@@ -695,7 +695,7 @@ const STAMP_ADVANCE = 0.57;
  * rest, and the advance is a capital's, not the mixed-case `SANS_ADVANCE`.
  */
 function stamp(words: string[], width: number, align: "center" | "flex-start"): El | null {
-  const line = clip(words.join("  ·  "), 52);
+  const line = truncate(words.join(" · "), 52);
   if (!line) return null;
   const room = width - STAMP_TRACKING * [...line].length;
   return div(
@@ -723,9 +723,9 @@ function stamp(words: string[], width: number, align: "center" | "flex-start"): 
 function plot(c: PlotCard, art: Art): El {
   const named = c.title ? drawable(c.title, 40) : undefined;
   const title = named ?? homeTitle(c.name);
-  const facts = clip([c.place, ...c.facts].join("  ·  "), 60);
+  const facts = truncate([c.place, ...c.facts].join(" · "), 60);
   const marks = c.stamp ?? [];
-  const told = c.story ? clip(c.story, 58) : "";
+  const told = c.story ? truncate(c.story, 58) : "";
   if (c.posted === true) {
     // The frame fills the sheet but for a margin that keeps its tilt and shadow on the paper. A
     // story line needs its own room under the caption, so the photo gives up what the lip takes.
@@ -733,7 +733,7 @@ function plot(c: PlotCard, art: Art): El {
     const pad = 20;
     const lip = told ? 194 : 170;
     const photo = POSTED.height - margin * 2 - pad - lip;
-    const caption = clip(named ? [homeTitle(c.name), c.place].join("  ·  ") : facts, 60);
+    const caption = truncate(named ? [homeTitle(c.name), c.place].join(" · ") : facts, 60);
     return clear(
       POSTED,
       photoFrame(
@@ -781,7 +781,7 @@ function plot(c: PlotCard, art: Art): El {
       ),
     );
   }
-  const line = clip(c.facts.join("  ·  "), 46);
+  const line = truncate(c.facts.join(" · "), 46);
   const photo = 452;
   const pad = 18;
   const column = 452;
@@ -801,7 +801,7 @@ function plot(c: PlotCard, art: Art): El {
       }),
       text(
         { fontSize: 20, fontWeight: 800, letterSpacing: 2.2, color: C.clayDeep },
-        clip(c.place.toUpperCase(), 28),
+        truncate(c.place.toUpperCase(), 28),
       ),
       text(
         {
@@ -817,7 +817,7 @@ function plot(c: PlotCard, art: Art): El {
       named
         ? text(
             { fontSize: 26, fontWeight: 600, color: INK_SOFT, marginTop: 12 },
-            clip(homeTitle(c.name), 40),
+            truncate(homeTitle(c.name), 40),
           )
         : null,
       text(
@@ -905,7 +905,7 @@ function near(c: NearCard, art: Art): El {
           ),
           text(
             { fontSize: 22, fontWeight: 600, color: INK_SOFT },
-            clip([c.place, ...c.facts].join("  ·  "), 64),
+            truncate([c.place, ...c.facts].join(" · "), 64),
           ),
         ),
       ),
@@ -965,7 +965,7 @@ function look(c: LookCard, art: Art): El {
         .map((line) =>
           text(
             { fontFamily: SERIF, fontSize: 30, lineHeight: 1.3, marginTop: 12, color: INK_SOFT },
-            clip(line, 40),
+            truncate(line, 40),
           ),
         ),
     ),

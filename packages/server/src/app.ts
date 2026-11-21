@@ -605,7 +605,8 @@ async function readJson(req: IncomingMessage): Promise<unknown> {
   const bytes = await readBytes(req, MAX_BODY_BYTES);
   if (!bytes) return undefined;
   try {
-    return JSON.parse(new TextDecoder().decode(bytes));
+    // Fatal, as on the Worker (`readJsonBody`): a body that isn't UTF-8 is refused, never patched.
+    return JSON.parse(new TextDecoder("utf-8", { fatal: true }).decode(bytes));
   } catch {
     return undefined;
   }

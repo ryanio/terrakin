@@ -1,5 +1,6 @@
 import { MEDIA_TYPES, type MediaType } from "@terrakin/protocol";
 import { MEDIA_ID_PATTERN } from "@terrakin/sim";
+import { readJson } from "workers-start/body";
 import { ascii } from "./bytes";
 
 /**
@@ -96,6 +97,17 @@ export async function readCapped(
     at += chunk.byteLength;
   }
   return out;
+}
+
+/**
+ * A JSON request body on the Worker, read under `maxBytes` by `workers-start/body`: streamed through
+ * a byte counter and cancelled past the cap, a `Content-Length` over it refused before reading.
+ * Undefined for a body that is too large, not UTF-8, or not JSON, which the route's schema then
+ * refuses. The content type isn't checked, the same as the Node adapter's reader.
+ */
+export async function readJsonBody(request: Request, maxBytes: number): Promise<unknown> {
+  const body = await readJson(request, { maxBytes, requireJsonType: false });
+  return body.ok ? body.value : undefined;
 }
 
 /** ISO base media brands that browsers play as MP4. HEIC, AVIF, M4A, 3GP and QuickTime aren't here. */

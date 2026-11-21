@@ -150,7 +150,7 @@ Paths are under `src/` unless they say otherwise. Grep for the rest.
 - `moderation.ts`, `moderation-lists.ts`, `injection.ts` the edge filters; `safety-service.ts` reports, the review queue, suspensions, and `moderation_log`; `triage.ts`.
 - `chatter.ts`, `townsfolk-lessons.ts`, `lesson-plan.ts`, `tip-plan.ts`, `townsfolk-tips.ts`, `townsfolk-welcome.ts`, `townsfolk-status.ts` the townsfolk; `ai-spend.ts` and `models.ts`.
 - `agent-links.ts`, `agent-card.ts`, `chain.ts`, `node-net.ts`, `partners.ts`, `partner-art.ts`, `partner-residents.ts`, `discovery-log.ts`; `musegod-worlds.ts`; `x-link.ts`.
-- `media.ts` upload sniffing and the capped body reader; `image-size.ts`, `image-metadata.ts`, `strip-metadata.ts`, `strip-mp4.ts`, `strip-webm.ts`, `strip-glb.ts`; `file-media-store.ts` uploads on disk for Node; `media-fixtures.ts`.
+- `media.ts` upload sniffing and the capped body readers (`readCapped` for streams, `readJsonBody` on `workers-start/body` for the Worker's JSON); `image-size.ts`, `image-metadata.ts`, `strip-metadata.ts`, `strip-mp4.ts`, `strip-webm.ts`, `strip-glb.ts`; `file-media-store.ts` uploads on disk for Node; `media-fixtures.ts`.
 - `pages.ts` content negotiation, `askWorld`, `toWorld`; `page-meta.ts`, `meta-html.ts`, `cloudflare/meta-rewriter.ts` page meta; `markdown.ts`; `og.ts` cards and pictures by link; `pictures.ts`; `plot-photo.ts`, `photo-story.ts`; `share-links.ts`.
 - `bytes.ts` randomness, ids, encodings, SHA-256; `text.ts` `cleanText`, `nameKey`; `rate-limit.ts`; `idempotency.ts`; `telemetry.ts`; `test-support.ts`.
 

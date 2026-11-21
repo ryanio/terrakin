@@ -23,7 +23,13 @@ import { circleWords } from "../src/circles";
 import { type StartFile, staticArrival } from "../src/discovery-log";
 import { eventWords } from "../src/events";
 import { ipKey } from "../src/handlers/shared";
-import { type MediaBucket, type MediaStore, readCapped, serveFromBucket } from "../src/media";
+import {
+  type MediaBucket,
+  type MediaStore,
+  readCapped,
+  readJsonBody,
+  serveFromBucket,
+} from "../src/media";
 import { Moderation } from "../src/moderation";
 import { PLACE_FILE_PATH, placeFile } from "../src/musegod-worlds";
 import {
@@ -732,7 +738,7 @@ class WorldObject extends DurableObject<Env> {
       ip,
       authorization: request.headers.get("authorization") ?? undefined,
       query: url.searchParams,
-      readJson: () => readJson(request),
+      readJson: () => readJsonBody(request, MAX_BODY_BYTES),
       readBytes: (max) => readCapped(request.body, max),
       contentLength: length === null ? undefined : Number(length),
       // Links in Markdown answers always point at https on the real domain, even for a plain
@@ -806,13 +812,3 @@ export class PlotPhotos extends WorkerEntrypoint<Env> {
 
 /** The single authoritative world. Its name is the class name in wrangler.jsonc. */
 export const World = instrumentDurableObjectWithSentry(sentry, WorldObject);
-
-async function readJson(request: Request): Promise<unknown> {
-  const bytes = await readCapped(request.body, MAX_BODY_BYTES);
-  if (!bytes) return undefined;
-  try {
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    return undefined;
-  }
-}

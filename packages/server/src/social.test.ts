@@ -8,6 +8,7 @@ import {
   type MediaBucket,
   MemoryMediaStore,
   readCapped,
+  readJsonBody,
   serveFromBucket,
   sniffMediaType,
 } from "./media";
@@ -535,6 +536,32 @@ describe("hardening", () => {
       },
     });
     expect(await readCapped(small, 5_000)).toEqual(new Uint8Array([1, 2, 3]));
+  });
+
+  it("reads a Worker's JSON body under the cap, whatever its content type", async () => {
+    let pulled = 0;
+    const endless = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        pulled++;
+        controller.enqueue(new TextEncoder().encode(" ".repeat(1_000)));
+      },
+    });
+    const post = (body: BodyInit, headers: Record<string, string> = {}) =>
+      new Request("https://terrakin.org/v1/act", {
+        method: "POST",
+        body,
+        headers,
+        duplex: "half",
+      } as RequestInit);
+    expect(await readJsonBody(post(endless), 5_000)).toBeUndefined();
+    expect(pulled).toBeLessThan(10);
+    // A Content-Length past the cap is refused before a byte is read.
+    expect(await readJsonBody(post("{}", { "content-length": "9000" }), 5_000)).toBeUndefined();
+    expect(await readJsonBody(post(new Uint8Array([0x7b, 0xff, 0x7d])), 5_000)).toBeUndefined();
+    // No JSON content type is required, the same as the Node adapter.
+    expect(await readJsonBody(post('{"a":1}', { "content-type": "text/plain" }), 5_000)).toEqual({
+      a: 1,
+    });
   });
 
   it("buffers at most two uploads at once", async () => {

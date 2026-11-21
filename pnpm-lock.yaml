@@ -190,8 +190,8 @@ importers:
         specifier: 8.12.4
         version: 8.12.4
       workers-start:
-        specifier: ^0.8.0
-        version: 0.8.0
+        specifier: ^0.14.0
+        version: 0.14.0
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -1818,8 +1818,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  workers-start@0.8.0:
-    resolution: {integrity: sha512-ZtvoiFE5gGHhns2mgI9stOu5wv/04Wu77dP04DeMOVcBMyZTMeZNr+UL4FOLpvMP4c5neaS9Hp1i4+9CMuUjpA==}
+  workers-start@0.14.0:
+    resolution: {integrity: sha512-Chh3S9tim9sVDex6ZzL1QHA6JdeqEuIMnxkIuIXQtRyqiQemJrQhrNyR/zXFPD3pKy1h3XPJNfRJHJ/fGxTykw==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -3117,7 +3117,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261116.1
       '@cloudflare/workerd-windows-64': 1.20261116.1
 
-  workers-start@0.8.0: {}
+  workers-start@0.14.0: {}
 
   wrangler@4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6):
     dependencies:

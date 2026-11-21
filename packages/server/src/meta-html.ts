@@ -1,13 +1,11 @@
+import { escapeText } from "workers-start/mail";
 import { type DocumentEdits, noscriptParts } from "./page-meta";
 
 /**
  * Applies `DocumentEdits` to index.html as a string, for the Node server. The Worker does the same
  * with HTMLRewriter (cloudflare/meta-rewriter.ts). Every value is escaped here: attribute values
- * with `escapeAttr`, text with `escapeText`, and JSON-LD arrives already script-safe.
+ * with `escapeAttr`, text with `escapeText` from workers-start, and JSON-LD arrives already script-safe.
  */
-
-const escapeText = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
 const escapeAttr = (s: string) => escapeText(s).replace(/"/g, "&quot;");
 

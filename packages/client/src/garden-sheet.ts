@@ -43,7 +43,6 @@ import {
   TEA,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { listOf, plural } from "@terrakin/ui/format";
 import { GLAZE_HEX, itemArt, thingPicture } from "@terrakin/ui/item-art";
 import {
   closeOverlay,
@@ -56,6 +55,7 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { counted, listOf } from "workers-start/format";
 import { INVENTORY_EVENT, inventoryApi, SET_DOWN_EVENT, type SetDown } from "./api/inventory";
 import { actProblem, worldApi } from "./api/world";
 import { glazeCostLine, glazeName } from "./glaze-words";
@@ -399,7 +399,7 @@ export function openTileSheet(o: TileSheetOptions) {
     const recipes = knownAt(ITEM_CATALOG.recipes, at, inv.recipes);
     const more = moreToLearn(ITEM_CATALOG.recipes, at, inv.recipes);
     learn.hidden = more === 0;
-    learnWords.textContent = `${plural(more, "more recipe", "more recipes")} to learn`;
+    learnWords.textContent = `${counted(more, "more recipe", "more recipes", { compact: true })} to learn`;
     const doneToday = inv.craftedToday >= rules.craftPerDay;
     hint.textContent = doneToday
       ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
@@ -514,7 +514,7 @@ export function openTileSheet(o: TileSheetOptions) {
     const pots = knownAt(ITEM_CATALOG.recipes, "kiln", inv.recipes);
     const more = moreToLearn(ITEM_CATALOG.recipes, "kiln", inv.recipes);
     learn.hidden = more === 0;
-    learnWords.textContent = `${plural(more, "more pot", "more pots")} to learn`;
+    learnWords.textContent = `${counted(more, "more pot", "more pots", { compact: true })} to learn`;
     const doneToday = inv.craftedToday >= rules.craftPerDay;
     hint.textContent = doneToday
       ? `You've made ${inv.craftedToday} things today, the most for one day. Come back tomorrow.`
@@ -692,7 +692,12 @@ export function openTileSheet(o: TileSheetOptions) {
           plain: true,
           attrs: { "data-pupil": n.id },
           name: n.kind === "agent" ? `${n.name} ⚙` : n.name,
-          lines: [`Doesn't know ${listOf(l.canLearn.map((r) => recipeWords(r).toLowerCase()))}`],
+          lines: [
+            `Doesn't know ${listOf(
+              l.canLearn.map((r) => recipeWords(r).toLowerCase()),
+              { oxfordComma: true },
+            )}`,
+          ],
           trail: button,
         }),
       ];

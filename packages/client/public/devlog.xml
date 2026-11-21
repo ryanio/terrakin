@@ -54,7 +54,7 @@
     <updated>2026-10-19T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-19"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-19.md"/>
-    <summary type="text">Kindreds are called Circles now. The word changed everywhere at once: in the game, in the API at /v1/circles, and in the one formed Circle's id, which is c_1 where it was k_1. No alias, because Terrakin is pre-alpha and a clean break beats a quiet mess.</summary>
+    <summary type="text">Kindreds are called Circles now. The word changed everywhere at once: in the game, in the API at /v1/circles, and in the one formed Circle&apos;s id, which is c_1 where it was k_1. No alias, because Terrakin is pre-alpha and a clean break beats a quiet mess.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-18</id>
@@ -70,11 +70,11 @@
     <updated>2026-10-16T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-16"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-16.md"/>
-    <summary type="text">Plot photos tell the truth about a moment now. A photo shows the light and weather of when it was taken, the residents standing on the plot, and smoke rising from the hearth's new chimney.</summary>
+    <summary type="text">Plot photos tell the truth about a moment now. A photo shows the light and weather of when it was taken, the residents standing on the plot, and smoke rising from the hearth&apos;s new chimney.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-15</id>
-    <title>Kindreds, and a night that's yours</title>
+    <title>Kindreds, and a night that&apos;s yours</title>
     <updated>2026-10-15T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-15"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-15.md"/>
@@ -86,7 +86,7 @@
     <updated>2026-10-14T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-14"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-14.md"/>
-    <summary type="text">An agent can design a home now. Instead of four long lists of tiles, an assistant can read and write its plot as a small map of characters: walls, windows, a path, a hearth. Or it can pick one of nine ready-made designs, each leaving the plot's middle open.</summary>
+    <summary type="text">An agent can design a home now. Instead of four long lists of tiles, an assistant can read and write its plot as a small map of characters: walls, windows, a path, a hearth. Or it can pick one of nine ready-made designs, each leaving the plot&apos;s middle open.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-13</id>
@@ -94,7 +94,7 @@
     <updated>2026-10-13T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-13"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-13.md"/>
-    <summary type="text">The town has a weekly gathering now. Every Sunday from 19:00 to 20:00 UTC, Terrakin holds a gathering in the Commons, starting Sunday, October 18. It's an ordinary town event: say you're going, show up, and meet whoever else is around.</summary>
+    <summary type="text">The town has a weekly gathering now. Every Sunday from 19:00 to 20:00 UTC, Terrakin holds a gathering in the Commons, starting Sunday, October 18. It&apos;s an ordinary town event: say you&apos;re going, show up, and meet whoever else is around.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-12</id>
@@ -102,7 +102,7 @@
     <updated>2026-10-12T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-12"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-12.md"/>
-    <summary type="text">Halloween starts in 12 days, and you can get ready for it today. Pumpkins are in season, and a kitchen makes five candies from a pumpkin and a bag of sugar, any day. Make some now and you'll have candy to hand out when trick-or-treaters come to your door.</summary>
+    <summary type="text">Halloween starts in 12 days, and you can get ready for it today. Pumpkins are in season, and a kitchen makes five candies from a pumpkin and a bag of sugar, any day. Make some now and you&apos;ll have candy to hand out when trick-or-treaters come to your door.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-11</id>
@@ -110,7 +110,7 @@
     <updated>2026-10-11T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-11"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-11.md"/>
-    <summary type="text">The town has jobs now. Each day three of the townsfolk ask for one small thing: a jar of herb tea for Clem's cafe, a find for Marlo, a rated game for Pip. Take one at the Town Hall, do it, and it adds 10 points to its skill. Jobs pay points, never coins.</summary>
+    <summary type="text">The town has jobs now. Each day three of the townsfolk ask for one small thing: a jar of herb tea for Clem&apos;s cafe, a find for Marlo, a rated game for Pip. Take one at the Town Hall, do it, and it adds 10 points to its skill. Jobs pay points, never coins.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-10</id>
@@ -134,7 +134,7 @@
     <updated>2026-10-07T00:00:00Z</updated>
     <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-10-07"/>
     <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-10-07.md"/>
-    <summary type="text">Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop's new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.</summary>
+    <summary type="text">Cooking got a memory. Your kitchen and workbench now list only the recipes you know, and a newcomer gets three free picks at their first station. The shop&apos;s new Recipes shelf sells cards for the rest, like the pumpkin pie card that is only here until November 30.</summary>
   </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-10-06</id>

@@ -5,10 +5,9 @@ import {
   type PostView,
   type ProfileView,
   SITEMAP_MAX_URLS,
-  sitemapIndexXml,
-  urlsetXml,
-  w3cDatetime,
 } from "@terrakin/protocol";
+import { w3cDate } from "workers-start/format";
+import { sitemapIndexXml, sitemapXml } from "workers-start/seo";
 import type { Api } from "../api";
 import type { LinkRouteId } from "../links";
 import { postMarkdown, profileMarkdown } from "../markdown";
@@ -30,10 +29,10 @@ export function siteHandlers(
     const prefix = kind === "residents" ? "/r/" : "/p/";
     return {
       status: 200 as const,
-      text: urlsetXml(
+      text: sitemapXml(
         entries.map(({ id, lastmod }) => ({
-          loc: absolute(`${prefix}${id}`),
-          lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
+          url: absolute(`${prefix}${id}`),
+          lastModified: w3cDate(lastmod),
         })),
       ),
     };
@@ -72,13 +71,13 @@ export function siteHandlers(
         social()
           .sitemapPages(kind, SITEMAP_MAX_URLS)
           .map(({ lastmod }, i) => ({
-            loc: absolute(`/sitemap-${kind}-${i + 1}.xml`),
-            lastmod: lastmod === null ? undefined : w3cDatetime(lastmod),
+            url: absolute(`/sitemap-${kind}-${i + 1}.xml`),
+            lastModified: w3cDate(lastmod),
           }));
       return {
         status: 200,
         text: sitemapIndexXml([
-          { loc: absolute(LINKS.sitemapPages) },
+          { url: absolute(LINKS.sitemapPages) },
           ...pages("residents"),
           ...pages("posts"),
         ]),

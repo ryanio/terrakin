@@ -24,7 +24,6 @@ import {
   type WearItem,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { skLine } from "@terrakin/ui/skeleton";
 import {
@@ -36,6 +35,7 @@ import {
   progressBar,
   sheet,
 } from "@terrakin/ui/ui";
+import { counted } from "workers-start/format";
 import { jobsApi } from "./api/jobs";
 import { progressApi } from "./api/progress";
 import { actProblem, worldApi } from "./api/world";
@@ -260,7 +260,7 @@ export function openLevelSheet(o: LevelSheetOptions): void {
       return;
     }
     const p = result.data;
-    total.textContent = `Level ${p.level}. ${plural(p.nextAt - p.points, "point", "points")} to level ${p.level + 1}.`;
+    total.textContent = `Level ${p.level}. ${counted(p.nextAt - p.points, "point", "points", { compact: true })} to level ${p.level + 1}.`;
     list.replaceChildren(
       ...p.skills.map((sk) =>
         skillRow(

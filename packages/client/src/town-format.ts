@@ -18,7 +18,7 @@ import {
   type Tile,
   tallyOutcome,
 } from "@terrakin/sim";
-import { listOf, plural } from "@terrakin/ui/format";
+import { counted, listOf } from "workers-start/format";
 
 export interface TallyBar {
   /** Percent of the bar for yes, no, and abstain. They add up to 100, or are all 0 with no votes. */
@@ -63,10 +63,10 @@ export function tallyBar(t: TallyView): TallyBar {
 
 /** The quorum line under a closed proposal: whether it got enough yes and no votes to count. */
 export function closedQuorum(t: TallyView): string {
-  const counted = t.yes + t.no;
+  const votes = t.yes + t.no;
   return tallyOutcome(t, t.quorum) !== "no_quorum"
-    ? `Quorum met with ${plural(counted, "vote", "votes")}`
-    : `Short of quorum: ${counted} of ${t.quorum} votes`;
+    ? `Quorum met with ${counted(votes, "vote", "votes", { compact: true })}`
+    : `Short of quorum: ${votes} of ${t.quorum} votes`;
 }
 
 /** What a proposal's kind is called on its card. Pure, so tests pin it. */
@@ -117,7 +117,7 @@ function timeUntil(iso: string, now: number): string | null {
   const days = Math.floor(minutes / 1440);
   const hours = Math.floor((minutes % 1440) / 60);
   const mins = minutes % 60;
-  const unit = (n: number, word: string) => plural(n, word, `${word}s`);
+  const unit = (n: number, word: string) => counted(n, word, `${word}s`, { compact: true });
   if (days > 0) return `${unit(days, "day")}${hours ? `, ${unit(hours, "hour")}` : ""}`;
   if (hours > 0) return `${unit(hours, "hour")}${mins ? `, ${unit(mins, "minute")}` : ""}`;
   return unit(mins, "minute");
@@ -137,8 +137,8 @@ export function comesDownIn(expiresAt: string, now: number): string {
 
 /** How long a notice stays up, in its author's words: "3 hours", "1 day", "2 days". */
 export function stayWords(hours: number): string {
-  if (hours % 24 === 0) return plural(hours / 24, "day", "days");
-  return plural(hours, "hour", "hours");
+  if (hours % 24 === 0) return counted(hours / 24, "day", "days", { compact: true });
+  return counted(hours, "hour", "hours", { compact: true });
 }
 
 /**
@@ -286,12 +286,18 @@ export function planWords(lists: {
   lift: readonly unknown[];
 }): string {
   const parts = [
-    lists.blocks.length > 0 ? plural(lists.blocks.length, "block", "blocks") : "",
-    lists.ground.length > 0 ? plural(lists.ground.length, "path", "paths") : "",
-    lists.remove.length > 0 ? `${plural(lists.remove.length, "block", "blocks")} taken away` : "",
-    lists.lift.length > 0 ? `${plural(lists.lift.length, "path", "paths")} lifted` : "",
+    lists.blocks.length > 0
+      ? counted(lists.blocks.length, "block", "blocks", { compact: true })
+      : "",
+    lists.ground.length > 0 ? counted(lists.ground.length, "path", "paths", { compact: true }) : "",
+    lists.remove.length > 0
+      ? `${counted(lists.remove.length, "block", "blocks", { compact: true })} taken away`
+      : "",
+    lists.lift.length > 0
+      ? `${counted(lists.lift.length, "path", "paths", { compact: true })} lifted`
+      : "",
   ].filter(Boolean);
-  return parts.length > 0 ? listOf(parts) : "Nothing";
+  return parts.length > 0 ? listOf(parts, { oxfordComma: true }) : "Nothing";
 }
 
 /** What a proposal's status is called on its card. */

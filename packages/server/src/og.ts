@@ -10,7 +10,7 @@ import {
 } from "@terrakin/cards";
 import type { PostView, ProfileView } from "@terrakin/protocol";
 import { heartCount } from "@terrakin/protocol";
-import { sha256Hex } from "./bytes";
+import { sha256Hex } from "workers-start/bytes";
 import { type ApiGet, type Loaded, mediaId, type PageImage, SITE_ORIGIN } from "./page-meta";
 import { materializePicture, type PictureRoute, type PictureSpec } from "./pictures";
 

@@ -11,7 +11,7 @@ import type {
   ReportReason,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { fullDate, isMediaUrl, plural, relativeTime } from "@terrakin/ui/format";
+import { fullDate, isMediaUrl, relativeTime } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { postPath } from "@terrakin/ui/paths";
 import { reasonLabel } from "@terrakin/ui/safety";
@@ -26,6 +26,7 @@ import {
   whileBusy,
   whileBusyAll,
 } from "@terrakin/ui/ui";
+import { counted } from "workers-start/format";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
@@ -107,7 +108,7 @@ export function queueView(overview: AdminOverviewResponse): View {
       }
       return;
     }
-    count.textContent = plural(res.data.open, "open report", "open reports");
+    count.textContent = counted(res.data.open, "open report", "open reports", { compact: true });
     if (res.data.items.length === 0) {
       list.replaceChildren(stateCard({ title: "All clear", body: "No open reports right now." }));
       return;
@@ -157,7 +158,10 @@ export function queueView(overview: AdminOverviewResponse): View {
       "select",
       { class: "field-input days", attrs: { id: daysId, "data-part": "days" } },
       ...limits.choices.map((d) =>
-        h("option", { attrs: { value: d, selected: d === 7 }, text: plural(d, "day", "days") }),
+        h("option", {
+          attrs: { value: d, selected: d === 7 },
+          text: counted(d, "day", "days", { compact: true }),
+        }),
       ),
     );
     // Decision 0064: a takedown tells its owner which rule it broke. It starts on the rule most
@@ -515,7 +519,9 @@ function chatterDrafts(drafts: AdminOverviewResponse["chatter"]["drafts"]): HTML
   return h(
     "details",
     { class: "fold" },
-    h("summary", { text: `Read ${plural(drafts.length, "chatter draft", "chatter drafts")}` }),
+    h("summary", {
+      text: `Read ${counted(drafts.length, "chatter draft", "chatter drafts", { compact: true })}`,
+    }),
     h(
       "ul",
       { class: "reports", attrs: { "aria-label": "Chatter drafts" } },
@@ -554,7 +560,9 @@ function reportList(reports: ReportQueueItem["reports"]): HTMLElement {
       ? h(
           "details",
           { class: "fold" },
-          h("summary", { text: `Show ${plural(rest.length, "more report", "more reports")}` }),
+          h("summary", {
+            text: `Show ${counted(rest.length, "more report", "more reports", { compact: true })}`,
+          }),
           h(
             "ul",
             { class: "reports", attrs: { "aria-label": "More reports" } },

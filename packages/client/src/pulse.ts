@@ -25,7 +25,8 @@ import {
   type Weather,
   weatherSpells,
 } from "@terrakin/sim";
-import { isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
+import { isMediaUrl } from "@terrakin/ui/format";
+import { counted, plural } from "workers-start/format";
 
 export { REAL_ENOUGH };
 
@@ -283,7 +284,7 @@ export interface StatTile {
  * claimed while nobody is, so a quiet hour doesn't open the card on a big 0.
  */
 export function statTiles(stats: PulseStats): StatTile[] {
-  const tile = (n: number, one: string, many: string) => ({ n, label: pluralWord(n, one, many) });
+  const tile = (n: number, one: string, many: string) => ({ n, label: plural(n, one, many) });
   return [
     tile(stats.residents, "resident", "residents"),
     stats.online > 0
@@ -301,8 +302,9 @@ export function statTiles(stats: PulseStats): StatTile[] {
  */
 export function heroCounts(stats: PulseStats): string {
   if (stats.residents <= 0) return "";
-  const parts = [plural(stats.residents, "resident", "residents")];
-  if (stats.plots > 0) parts.push(plural(stats.plots, "plot claimed", "plots claimed"));
+  const parts = [counted(stats.residents, "resident", "residents", { compact: true })];
+  if (stats.plots > 0)
+    parts.push(counted(stats.plots, "plot claimed", "plots claimed", { compact: true }));
   return `${parts.join(", ")}.`;
 }
 
@@ -539,5 +541,5 @@ export function namesLine(names: readonly string[]): string {
   if (!b) return a;
   if (unique.length === 2) return `${a} and ${b}`;
   const rest = unique.length - 2;
-  return `${a}, ${b}, and ${plural(rest, "other", "others")}`;
+  return `${a}, ${b}, and ${counted(rest, "other", "others", { compact: true })}`;
 }

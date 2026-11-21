@@ -23,10 +23,10 @@ import {
   type ItemKind,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { listOf, plural } from "@terrakin/ui/format";
 import { itemArt, thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import { itemRow, itemRows, kindPill, landOnHash, pageLayout } from "@terrakin/ui/ui";
+import { counted, listOf } from "workers-start/format";
 import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { shopApi } from "./api/shop";
@@ -133,7 +133,7 @@ export function recipesHint(picks: number): string {
   const what =
     "Learn one and it's yours for good: make it at any kitchen or workbench, yours or a neighbor's.";
   return picks > 0
-    ? `${what} You have ${plural(picks, "free pick", "free picks")} left, so any card here is free.`
+    ? `${what} You have ${counted(picks, "free pick", "free picks", { compact: true })} left, so any card here is free.`
     : what;
 }
 
@@ -159,7 +159,7 @@ export function howToGet(kind: ItemKind): string | null {
   const entry = CATALOG[kind];
   if (entry.recipe) {
     const needs = Object.entries(entry.recipe.needs).map(([k, n]) => thingCount(k as ItemKind, n));
-    return `Make it at a ${entry.recipe.station} from ${listOf(needs)}.`;
+    return `Make it at a ${entry.recipe.station} from ${listOf(needs, { oxfordComma: true })}.`;
   }
   if (entry.crop) return `Grow it from ${aThing(CROP_INFO[kind as Crop].seed)} in a planter.`;
   if (entry.role === "find") return "Found lying on the ground.";

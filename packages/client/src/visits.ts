@@ -5,7 +5,7 @@
  */
 import type { PlotView } from "@terrakin/protocol";
 import { canBuildOn, DAY_MS, plotKey } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 
 /**
  * When the home wall shows "Plots to visit". Like the townsfolk card (decision 0034), it counts
@@ -77,8 +77,11 @@ export const quietWeek = (plot: Pick<PlotView, "admirers" | "visitors">): boolea
 /** "Admired by 2 neighbors, 5 visitors this week", or as much of it as there is. */
 export function weekLine(plot: Pick<PlotView, "admirers" | "visitors">): string {
   const admired =
-    plot.admirers > 0 ? `Admired by ${plural(plot.admirers, "neighbor", "neighbors")}` : "";
-  const came = plot.visitors > 0 ? plural(plot.visitors, "visitor", "visitors") : "";
+    plot.admirers > 0
+      ? `Admired by ${counted(plot.admirers, "neighbor", "neighbors", { compact: true })}`
+      : "";
+  const came =
+    plot.visitors > 0 ? counted(plot.visitors, "visitor", "visitors", { compact: true }) : "";
   if (admired && came) return `${admired}, ${came} this week`;
   if (admired || came) return `${admired || came} this week`;
   return "No visitors yet this week";

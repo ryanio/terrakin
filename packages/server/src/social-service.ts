@@ -73,10 +73,10 @@ import {
   type Resident,
   utcDay,
 } from "@terrakin/sim";
+import { randomId } from "workers-start/bytes";
 import { z } from "zod";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
-import { randomId } from "./bytes";
 import { CheckinLog } from "./checkin-log";
 import { CircleNotices } from "./circle-notices";
 import type { CircleContext } from "./circles";

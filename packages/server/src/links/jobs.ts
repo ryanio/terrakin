@@ -11,9 +11,9 @@ import {
   skillName,
   takeJobProblem,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Handlers } from "../handlers/shared";
 import { giverIds, linkCanFinish } from "../jobs";
-import { plural } from "../markdown";
 import { type LinkCtx, type Links, linkHelp, linksFor, list, refuse } from "./shared";
 
 /**
@@ -117,7 +117,7 @@ export function jobLinks(ctx: LinkCtx): Pick<Handlers, "linkJobs"> {
         did,
         holding,
         board,
-        `You've finished ${week} of the ${JOBS.perWeek} jobs that count this week, and ${plural(jobsDone(state, viewer), "job")} in all. Jobs pay points and never coins, and they're optional: take one only when it fits what your owner likes. A job that asks for a made thing takes it for good.`,
+        `You've finished ${week} of the ${JOBS.perWeek} jobs that count this week, and ${counted(jobsDone(state, viewer), "job")} in all. Jobs pay points and never coins, and they're optional: take one only when it fits what your owner likes. A job that asks for a made thing takes it for good.`,
       );
     },
   };

@@ -13,7 +13,7 @@ import {
   ITEM_INFO,
   MINUTE_MS,
 } from "@terrakin/sim";
-import { plural, pluralWord } from "@terrakin/ui/format";
+import { counted, plural } from "workers-start/format";
 
 /** What each kind is called on a card and in the Schedule sheet. */
 export const KIND_WORDS: Record<EventKind, string> = {
@@ -26,8 +26,8 @@ export const KIND_WORDS: Record<EventKind, string> = {
 
 /** "1 hour", "90 minutes", "9 hours". */
 export function lengthWords(minutes: number): string {
-  if (minutes % 60 === 0) return plural(minutes / 60, "hour", "hours");
-  return plural(minutes, "minute", "minutes");
+  if (minutes % 60 === 0) return counted(minutes / 60, "hour", "hours", { compact: true });
+  return counted(minutes, "minute", "minutes", { compact: true });
 }
 
 /** The calendar day of `ms` in `timeZone`, as "YYYY-MM-DD", to compare days. */
@@ -79,9 +79,10 @@ export function soonWords(
   const ms = Date.parse(e.startsAt) - now;
   if (ms <= MINUTE_MS) return "Starting now";
   if (ms < 90 * MINUTE_MS)
-    return `Starts in ${plural(Math.round(ms / MINUTE_MS), "minute", "minutes")}`;
-  if (ms < 2 * DAY_MS) return `Starts in ${plural(Math.round(ms / HOUR_MS), "hour", "hours")}`;
-  return `Starts in ${plural(Math.round(ms / DAY_MS), "day", "days")}`;
+    return `Starts in ${counted(Math.round(ms / MINUTE_MS), "minute", "minutes", { compact: true })}`;
+  if (ms < 2 * DAY_MS)
+    return `Starts in ${counted(Math.round(ms / HOUR_MS), "hour", "hours", { compact: true })}`;
+  return `Starts in ${counted(Math.round(ms / DAY_MS), "day", "days", { compact: true })}`;
 }
 
 /**
@@ -230,13 +231,13 @@ export function eventLanterns(
 
 /** A host's record on their profile: "Hosted 6 events, 41 guests (30 people, 11 AIs)". */
 export function hostingWords(h: HostingView): string {
-  const held = `Hosted ${plural(h.events, "event", "events")}`;
+  const held = `Hosted ${counted(h.events, "event", "events", { compact: true })}`;
   if (h.guests === 0) return held;
   const split = [
-    h.people > 0 ? plural(h.people, "person", "people") : null,
-    h.agents > 0 ? plural(h.agents, "AI", "AIs") : null,
+    h.people > 0 ? counted(h.people, "person", "people", { compact: true }) : null,
+    h.agents > 0 ? counted(h.agents, "AI", "AIs", { compact: true }) : null,
   ].filter(Boolean);
-  return `${held}, ${plural(h.guests, "guest", "guests")} (${split.join(", ")})`;
+  return `${held}, ${counted(h.guests, "guest", "guests", { compact: true })} (${split.join(", ")})`;
 }
 
 /**
@@ -284,7 +285,7 @@ export function teaLines(tea: TeaView): string[] {
     : `Everyone here takes home a cup: ${nameList(cups)}.`;
   const hosting =
     counted.length > 0
-      ? `${nameList(counted)} ${pluralWord(counted.length, "counts", "count")} for your Hosting once they've been here ${stay}.`
+      ? `${nameList(counted)} ${plural(counted.length, "counts", "count")} for your Hosting once they've been here ${stay}.`
       : "Nobody here counts for your Hosting yet.";
   const not = tea.guests.flatMap((g) => (g.why ? [`${g.resident.name} ${g.why}.`] : []));
   return [lead, hosting, ...not];
@@ -305,7 +306,7 @@ export function dishesLine(dishes: NonNullable<EventView["dishes"]>): string {
       return `${(info?.name ?? d.kind).toLowerCase()} from ${d.by.name}`;
     });
   const more = dishes.length - named.length;
-  const parts = more > 0 ? [...named, plural(more, "more", "more")] : named;
+  const parts = more > 0 ? [...named, counted(more, "more", "more", { compact: true })] : named;
   const list =
     parts.length < 3
       ? parts.join(" and ")

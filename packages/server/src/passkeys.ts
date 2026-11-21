@@ -9,7 +9,7 @@
  * ASN.1 wrapper. Both are hostile input, so both read their lengths before using them and refuse
  * rather than throw (`packages/server/AGENTS.md`, uploads are hostile bytes).
  */
-import { fromBase64Url, sameBytes, sha256Bytes } from "./bytes";
+import { fromBase64Url, sha256, timingSafeEqual } from "workers-start/bytes";
 
 /** Why a binding or a sign-in was refused. Each is a sentence the caller turns into a message. */
 export type PasskeyProblem =
@@ -135,7 +135,7 @@ async function checkCeremony(
   if (typeof data.type !== "string" || data.type !== expect.type) return refuse("wrong_type");
   if (typeof data.challenge !== "string") return refuse("bad_client_data");
   const sent = fromBase64Url(data.challenge);
-  if (!sent || !sameBytes(sent, expect.challenge)) return refuse("wrong_challenge");
+  if (!sent || !timingSafeEqual(sent, expect.challenge)) return refuse("wrong_challenge");
   // The origin is what stops a lookalike site replaying a ceremony at us.
   if (typeof data.origin !== "string" || data.origin !== expect.rp.origin) {
     return refuse("wrong_origin");
@@ -143,8 +143,8 @@ async function checkCeremony(
 
   const header = readAuthenticatorData(authData);
   if (!header) return refuse("bad_authenticator_data");
-  const rpIdHash = await sha256Bytes(new TextEncoder().encode(expect.rp.id));
-  if (!sameBytes(header.rpIdHash, rpIdHash)) return refuse("wrong_relying_party");
+  const rpIdHash = await sha256(expect.rp.id);
+  if (!timingSafeEqual(header.rpIdHash, rpIdHash)) return refuse("wrong_relying_party");
   if ((header.flags & FLAG_USER_PRESENT) === 0) return refuse("not_present");
   if ((header.flags & FLAG_USER_VERIFIED) === 0) return refuse("not_verified");
 
@@ -235,7 +235,7 @@ export async function checkAssertion(
   if (!clientData) return refuse("bad_encoding");
   const signed = new Uint8Array(checked.value.authData.length + 32);
   signed.set(checked.value.authData, 0);
-  signed.set(await sha256Bytes(clientData), checked.value.authData.length);
+  signed.set(await sha256(clientData), checked.value.authData.length);
 
   const params =
     stored.algorithm === -7 ? { name: "ECDSA", hash: "SHA-256" } : { name: "RSASSA-PKCS1-v1_5" };

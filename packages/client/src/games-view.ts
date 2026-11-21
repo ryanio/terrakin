@@ -19,7 +19,6 @@ import {
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { formatCount, plural } from "@terrakin/ui/format";
 import { avatarStack, personLink } from "@terrakin/ui/people";
 import { everyVisible } from "@terrakin/ui/poll";
 import {
@@ -35,6 +34,7 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { counted, formatCount } from "workers-start/format";
 import { actFromButton } from "./act";
 import { gamesApi } from "./api/games";
 import { actProblem, worldApi } from "./api/world";
@@ -95,7 +95,7 @@ export function gamesView(ctx: ViewContext): View {
 
   /** One table as a card on the list, with Sit when the server says you can. */
   function tableCard(t: TableView): HTMLElement {
-    const seats = `${plural(t.seats.length, "seat", "seats")} taken`;
+    const seats = `${counted(t.seats.length, "seat", "seats", { compact: true })} taken`;
     const yourMove = t.you?.moves.includes("decide");
     const sit = t.you?.moves.includes("sit")
       ? h("button", {
@@ -210,7 +210,7 @@ export function gamesView(ctx: ViewContext): View {
           personLink(row.resident),
           h("span", {
             class: "ladder-rating",
-            text: `${formatCount(row.rating)} · ${plural(row.games, "game", "games")}`,
+            text: `${formatCount(row.rating)} · ${counted(row.games, "game", "games", { compact: true })}`,
           }),
         ),
       ),
@@ -518,7 +518,7 @@ export function tableView(id: string, ctx: ViewContext): View {
           : you?.seated
             ? "Choose before the round closes, or the server plays the default for you."
             : "Watching. Choices show when each round closes."
-        : `${t.seats.length} sat so far. The first seat starts it once enough have sat, and ${plural(GAME_TIMES.startGraceMinutes[t.pace], "minute", "minutes")} later anyone seated can.${you?.why ? ` ${you.why}` : ""}`;
+        : `${t.seats.length} sat so far. The first seat starts it once enough have sat, and ${counted(GAME_TIMES.startGraceMinutes[t.pace], "minute", "minutes", { compact: true })} later anyone seated can.${you?.why ? ` ${you.why}` : ""}`;
     return h(
       "section",
       { class: "stack paper card game-panel", attrs: { "aria-label": "Your seat" } },

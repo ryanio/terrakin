@@ -16,10 +16,11 @@ import {
 } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, fullDate, isMediaUrl, plural, pluralWord } from "@terrakin/ui/format";
+import { compactCount, fullDate, isMediaUrl } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, errorLine, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
+import { counted, plural } from "workers-start/format";
 import { ownersApi } from "./api/owners";
 import { residentsApi } from "./api/residents";
 import { bannerArt } from "./banner-art";
@@ -30,7 +31,7 @@ const POLL_MS = 4_000;
 /** "in 30 minutes" style text for when a code stops working. */
 function minutesLeft(expiresAt: string): string {
   const minutes = Math.max(1, Math.round((Date.parse(expiresAt) - Date.now()) / MINUTE_MS));
-  return plural(minutes, "minute", "minutes");
+  return counted(minutes, "minute", "minutes", { compact: true });
 }
 
 /**
@@ -311,7 +312,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       note.hidden = words === "";
       const set = (s: ReturnType<typeof stat>, n: number, one: string, many: string) => {
         s.n.textContent = compactCount(n);
-        s.word.textContent = pluralWord(n, one, many);
+        s.word.textContent = plural(n, one, many);
       };
       set(counts.posts, r.posts, "post", "posts");
       set(counts.followers, r.followers, "follower", "followers");
@@ -326,7 +327,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         r.votes
           ? h("span", {
               class: "ai-chip",
-              text: `${plural(r.votes, "Town Hall vote", "Town Hall votes")}`,
+              text: `${counted(r.votes, "Town Hall vote", "Town Hall votes", { compact: true })}`,
             })
           : null,
         r.x ? h("span", { class: "ai-chip", text: `@${r.x.handle} on X` }) : null,

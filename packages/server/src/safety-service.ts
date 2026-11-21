@@ -28,7 +28,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { DAY_MS } from "@terrakin/sim";
-import { randomId } from "./bytes";
+import { randomId } from "workers-start/bytes";
 import { aimedAtReader, readerMessage } from "./injection";
 import type { Moderation } from "./moderation";
 import type { SocialResult } from "./social-service";

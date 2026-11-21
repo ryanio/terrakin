@@ -16,7 +16,6 @@ import {
   utcDay,
 } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import { replay } from "@terrakin/ui/motion";
 import { profilePath } from "@terrakin/ui/paths";
@@ -30,6 +29,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { counted } from "workers-start/format";
 import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { residentsApi } from "./api/residents";
@@ -43,7 +43,9 @@ type ProfilePet = NonNullable<ProfileView["pet"]>;
 
 /** "Patted by 12 residents", "No pats yet". */
 function patsLine(pats: number): string {
-  return pats === 0 ? "No pats yet" : `Patted by ${plural(pats, "resident", "residents")}`;
+  return pats === 0
+    ? "No pats yet"
+    : `Patted by ${counted(pats, "resident", "residents", { compact: true })}`;
 }
 
 /** "Your calico cat", "Tam's golden dog": whose it is and what it is. */

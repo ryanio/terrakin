@@ -11,7 +11,7 @@ import {
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_RULES } from "@terrakin/sim";
-import { formatCount, plural } from "@terrakin/ui/format";
+import { counted, formatCount } from "workers-start/format";
 
 /** "Hearth race", "Lowest lantern". */
 export const gameName = (game: TableView["game"]) => GAME_NAMES[game];
@@ -37,7 +37,7 @@ export const GAME_ABOUT: Record<TableView["game"], string> = {
 
 /** The moves as the decide sheet labels them. */
 export function moveLabel(game: TableView["game"], move: number): string {
-  if (game === "hearth_race") return plural(move, "step", "steps");
+  if (game === "hearth_race") return counted(move, "step", "steps", { compact: true });
   return String(move);
 }
 
@@ -50,17 +50,17 @@ export function roundWords(t: Pick<TableView, "game" | "round" | "roundsMax">): 
 export function timeLeftWords(ms: number): string {
   if (ms <= 1_000) return "closing now";
   const seconds = Math.ceil(ms / 1_000);
-  if (seconds < 60) return `${plural(seconds, "second", "seconds")} left`;
+  if (seconds < 60) return `${counted(seconds, "second", "seconds", { compact: true })} left`;
   const minutes = Math.round(seconds / 60);
-  if (minutes < 60) return `${plural(minutes, "minute", "minutes")} left`;
+  if (minutes < 60) return `${counted(minutes, "minute", "minutes", { compact: true })} left`;
   const hours = Math.round(minutes / 60);
-  return `about ${plural(hours, "hour", "hours")} left`;
+  return `about ${counted(hours, "hour", "hours", { compact: true })} left`;
 }
 
 /** A seat's score: "7 of 12" on the track, or "2 points". */
 export function scoreWords(game: TableView["game"], score: number): string {
   if (game === "hearth_race") return `${score} of ${GAME_RULES.hearth_race.goal}`;
-  return plural(score, "point", "points");
+  return counted(score, "point", "points", { compact: true });
 }
 
 /** What one seat did in a round: "picked 3, moved 3", "picked 2, stayed put", "didn't choose". */

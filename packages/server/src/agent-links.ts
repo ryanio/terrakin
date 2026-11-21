@@ -10,8 +10,8 @@ import {
   parseAgentRef,
 } from "@terrakin/protocol";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
+import { sha256Hex } from "workers-start/bytes";
 import { type CardReader, cardNames, httpCardReader, residentEndpoint } from "./agent-card";
-import { sha256Hex } from "./bytes";
 import {
   CHAINS,
   type ChainCall,

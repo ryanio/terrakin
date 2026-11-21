@@ -7,7 +7,7 @@
 import type { PlotView, PostView, TownResponse, WorldSnapshot } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, plural } from "@terrakin/ui/format";
+import { compactCount } from "@terrakin/ui/format";
 import { countTo, replay } from "@terrakin/ui/motion";
 import { profilePath } from "@terrakin/ui/paths";
 import {
@@ -22,6 +22,7 @@ import {
 import { everyVisible } from "@terrakin/ui/poll";
 import { tip } from "@terrakin/ui/tooltip";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted } from "workers-start/format";
 import { lazyPlotThumb } from "./plot-thumb-slot";
 import { type PulseStats, phaseName, statTiles, type WallItem, weatherReport } from "./pulse";
 import { type ClockAnchor, dayPhase, nightAmount, serverTime } from "./time";
@@ -297,7 +298,7 @@ export function skyCard() {
     line.textContent =
       online === 0
         ? `A whole day here takes ${length}.`
-        : `A whole day here takes ${length}. ${plural(online, "resident is", "residents are")} out right now.`;
+        : `A whole day here takes ${length}. ${counted(online, "resident is", "residents are", { compact: true })} out right now.`;
   };
   const stop = everyVisible(2_000, paint);
   return {

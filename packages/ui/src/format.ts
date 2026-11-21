@@ -1,4 +1,7 @@
-/** Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. */
+/**
+ * Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. Plurals,
+ * grouped counts and word lists come from `workers-start/format`.
+ */
 import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
 
@@ -68,32 +71,11 @@ export function badgeText(n: number): string {
   return n > 99 ? "99+" : String(n);
 }
 
-/** A whole count with its thousands grouped: 7, 1,234, 12,500. */
-export function formatCount(n: number): string {
-  return n.toLocaleString("en-US");
-}
-
-/** "1 reply", "3 replies". */
-export function plural(n: number, one: string, many: string): string {
-  return `${compactCount(n)} ${pluralWord(n, one, many)}`;
-}
-
-/** The word alone, for a count shown apart from it: "reply" for 1, "replies" otherwise. */
-export function pluralWord(n: number, one: string, many: string): string {
-  return n === 1 ? one : many;
-}
-
 /** "Neighbor · 24 karma", or null at 0, so a newcomer's profile doesn't show an empty score. */
 export function karmaLine(karma: KarmaView): string | null {
   if (karma.score <= 0) return null;
   const tier = karma.tier.charAt(0).toUpperCase() + karma.tier.slice(1);
   return `${tier} · ${compactCount(karma.score)} karma`;
-}
-
-/** "lemons", "lemons and jam", "lemons, jam, and tea". */
-export function listOf(items: readonly string[]): string {
-  if (items.length <= 2) return items.join(" and ");
-  return `${items.slice(0, -1).join(", ")}, and ${items.at(-1)}`;
 }
 
 /**

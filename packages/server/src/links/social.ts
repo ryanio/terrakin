@@ -1,7 +1,7 @@
 import { HANDLE_RENAME_DAYS, heartCount, residentLinks } from "@terrakin/protocol";
 import { earshotOf } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Handlers } from "../handlers/shared";
-import { plural } from "../markdown";
 import { GESTURE_WORDS } from "../together-service";
 import {
   type LinkCtx,
@@ -73,7 +73,7 @@ export function socialLinks(
           viewer,
           l,
           "# Liked",
-          `You like post \`${post.id}\`. It has ${plural(heartCount(post), "like")} now.`,
+          `You like post \`${post.id}\`. It has ${counted(heartCount(post), "like")} now.`,
           untrusted([postBlock(post, l)]),
         ),
       );
@@ -204,7 +204,7 @@ export function socialLinks(
           viewer,
           l,
           "# Marked read",
-          `\`${query.upTo}\` and everything older are read. ${plural(unread, "notification")} still unread.`,
+          `\`${query.upTo}\` and everything older are read. ${counted(unread, "notification")} still unread.`,
         ),
       );
     },

@@ -14,12 +14,12 @@ import {
 } from "@terrakin/protocol";
 import { blockNeeds, potName, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { h, type IconName, icon } from "@terrakin/ui/dom";
-import { plural, pluralWord } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { RULE_WORDS } from "@terrakin/ui/safety";
 import { emptyNote, moreButton } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted, plural } from "workers-start/format";
 import { notificationsApi } from "./api/notifications";
 import { setUnread } from "./bell";
 import { soonWords, whenWords } from "./event-format";
@@ -87,7 +87,9 @@ export function notificationLine(
 ): { who: string; what: string } {
   const others = n.count - 1;
   const who =
-    others > 0 ? `${n.actor.name} and ${plural(others, "other", "others")}` : n.actor.name;
+    others > 0
+      ? `${n.actor.name} and ${counted(others, "other", "others", { compact: true })}`
+      : n.actor.name;
   const emoji = n.reaction ? ` ${REACTIONS[n.reaction].emoji}` : "";
   const sent = n.gesture
     ? `${gestureInfo(n.gesture).noun} ${gestureInfo(n.gesture).emoji}`
@@ -119,7 +121,7 @@ export function notificationLine(
     present_opened: `opened ${others > 0 ? "the presents" : "the present"} you wrapped`,
     // From Terrakin itself, so this reads "Terrakin awarded you 200 coins for your work." No deed
     // of theirs earned it, and the notice carries no words (RFC 0036).
-    award: `awarded you ${plural(n.award?.coins ?? 0, "coin", "coins")} for your work`,
+    award: `awarded you ${counted(n.award?.coins ?? 0, "coin", "coins", { compact: true })} for your work`,
     // Both arrive with `system: true`, so `systemWords` writes what a person reads and these two
     // are here for the type alone, as the words a client would fall back to (RFC 0037).
     passkey_bound: "says a passkey was added",
@@ -444,7 +446,7 @@ export function wayLine(w: {
   blocks: readonly { side?: Side | undefined; block: string }[];
   rebuilt: boolean;
 }): { line: string; next: string } {
-  const tiles = plural(w.tiles, "tile", "tiles");
+  const tiles = counted(w.tiles, "tile", "tiles", { compact: true });
   const parts = [
     `The town laid a public way across your plot at ${w.px}, ${w.py}, so everyone has a walk to town that nobody can wall off. ${tiles} along it hold no block now, and you can still lay a path there or build upstairs over it.`,
   ];
@@ -478,7 +480,7 @@ export function wayClosedLine(w: { px: number; py: number; tiles: number }): {
   line: string;
   next: string;
 } {
-  const tiles = plural(w.tiles, "tile", "tiles");
+  const tiles = counted(w.tiles, "tile", "tiles", { compact: true });
   return {
     line: `The town closed the public way on your plot at ${w.px}, ${w.py}: ${tiles} that held no block are yours to build on again.`,
     next: "Nothing on your plot was moved.",
@@ -495,10 +497,10 @@ export function homeSlimmedLine(s: { px: number; py: number; walls: number; back
   next: string;
 } {
   return {
-    line: `The town moved your home's walls at ${s.px}, ${s.py} onto the lines between tiles, so its rooms keep every tile the walls stood on. ${plural(s.walls, "wall stands", "walls stand")} on lines now, with your windows and doors where they were.`,
+    line: `The town moved your home's walls at ${s.px}, ${s.py} onto the lines between tiles, so its rooms keep every tile the walls stood on. ${counted(s.walls, "wall stands", "walls stand", { compact: true })} on lines now, with your windows and doors where they were.`,
     next:
       s.back > 0
-        ? `${plural(s.back, "thing", "things")} came back to your things.`
+        ? `${counted(s.back, "thing", "things", { compact: true })} came back to your things.`
         : "Nothing else on your plot was moved.",
   };
 }
@@ -512,8 +514,8 @@ export function soldLine(s: { px: number; py: number; price: number; coins: numb
   next: string;
 } {
   return {
-    line: `Plot ${s.px}, ${s.py} sold for ${plural(s.price, "coin", "coins")}.`,
-    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee. Any hearth you had there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins.`,
+    line: `Plot ${s.px}, ${s.py} sold for ${counted(s.price, "coin", "coins", { compact: true })}.`,
+    next: `${counted(s.coins, "coin", "coins", { compact: true })} reached you after the market's fee. Any hearth you had there was cleared. Set a hearth on a plot of yours, or claim one, to keep your daily pantry and coins.`,
   };
 }
 
@@ -526,7 +528,7 @@ export function shareListedLine(s: { px: number; py: number; price: number }): {
   next: string;
 } {
   return {
-    line: `Plot ${s.px}, ${s.py}, which is shared with you, is for sale for ${plural(s.price, "coin", "coins")}.`,
+    line: `Plot ${s.px}, ${s.py}, which is shared with you, is for sale for ${counted(s.price, "coin", "coins", { compact: true })}.`,
     next: "Nothing on it changes while it's for sale. If it sells, your share ends, and a hearth of yours there is cleared.",
   };
 }
@@ -557,8 +559,8 @@ export function potSoldLine(s: {
   coins: number;
 }): { line: string; next: string } {
   return {
-    line: `Your ${potName(s, true)} sold for ${plural(s.price, "coin", "coins")}.`,
-    next: `${plural(s.coins, "coin", "coins")} reached you after the market's fee.`,
+    line: `Your ${potName(s, true)} sold for ${counted(s.price, "coin", "coins", { compact: true })}.`,
+    next: `${counted(s.coins, "coin", "coins", { compact: true })} reached you after the market's fee.`,
   };
 }
 
@@ -571,8 +573,8 @@ export function teaServedLine(cups: number): { line: string; next: string } {
     };
   }
   return {
-    line: `Your tea poured ${plural(cups, "cup", "cups")} at your event.`,
-    next: `${pluralWord(cups, "Your guest took it", "Your guests took them")} home to keep.`,
+    line: `Your tea poured ${counted(cups, "cup", "cups", { compact: true })} at your event.`,
+    next: `${plural(cups, "Your guest took it", "Your guests took them")} home to keep.`,
   };
 }
 

@@ -10,12 +10,13 @@
  */
 
 import { Heart, type IconNode, MessageCircle } from "lucide";
+import { plural } from "workers-start/format";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { div, type El, img, type Style, svg, text } from "./h";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { nightWash } from "./sky";
-import { clip, count, day, drawable, fit, plural } from "./text";
+import { clip, count, day, drawable, fit } from "./text";
 
 export const W = 1200;
 export const H = 630;
@@ -422,8 +423,8 @@ function profile(c: ProfileCard, art: Art): El {
   const handle = c.person.xHandle ? drawable(`@${c.person.xHandle} on X`, 40) : undefined;
   const eyebrow = c.person.kind === "agent" ? "AI resident of Terrakin" : "Resident of Terrakin";
   const stats = [
-    plural(c.posts, "post"),
-    plural(c.followers, "follower"),
+    `${count(c.posts)} ${plural(c.posts, "post")}`,
+    `${count(c.followers)} ${plural(c.followers, "follower")}`,
     `${count(c.following)} following`,
   ];
   return stage(

@@ -20,7 +20,7 @@ import {
   type OpeningFacts,
   settleProblem,
 } from "@terrakin/sim";
-import { listOf } from "@terrakin/ui/format";
+import { listOf } from "workers-start/format";
 import { landNameAt, onLandPlot, onStreet } from "./lands";
 
 /** One plot the picker offers. */
@@ -163,8 +163,8 @@ export function pickWhere(
  */
 export function pickNeighbors(names: readonly string[]): string {
   if (names.length === 0) return "No neighbors yet";
-  if (names.length <= 3) return `Next to ${listOf(names)}`;
-  return `Next to ${listOf([...names.slice(0, 2), `${names.length - 2} more`])}`;
+  if (names.length <= 3) return `Next to ${listOf(names, { oxfordComma: true })}`;
+  return `Next to ${listOf([...names.slice(0, 2), `${names.length - 2} more`], { oxfordComma: true })}`;
 }
 
 /**
@@ -173,6 +173,6 @@ export function pickNeighbors(names: readonly string[]): string {
  * residents' words: the line only ever reaches the page as text.
  */
 export function pickExits(names: readonly string[], landlocked: boolean): string | undefined {
-  if (names.length > 0) return `Takes ${listOf(names)}'s only way out`;
+  if (names.length > 0) return `Takes ${listOf(names, { oxfordComma: true })}'s only way out`;
   return landlocked ? "No way out of its own" : undefined;
 }

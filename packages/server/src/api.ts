@@ -41,6 +41,7 @@ import {
   plotKey,
   utcDay,
 } from "@terrakin/sim";
+import { randomBytes, sha256Hex, toHex } from "workers-start/bytes";
 import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE, SERVICE_ACTOR } from "./access";
 import { AiSpend } from "./ai-spend";
 import {
@@ -56,7 +57,6 @@ import {
 } from "./api-response";
 import { wireSocial } from "./api-wiring";
 import { bountyView } from "./bounties";
-import { randomBytes, sha256Hex, toHex } from "./bytes";
 import type { ChatterRun, ChatterService, MentionRun } from "./chatter";
 import { ClaimsService } from "./claims";
 import {

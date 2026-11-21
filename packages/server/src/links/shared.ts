@@ -21,10 +21,10 @@ import {
   trickOrTreatDay,
   type WorldState,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Api } from "../api";
 import { plotNamed } from "../checkin-steps";
 import type { Failure } from "../handlers/shared";
-import { plural } from "../markdown";
 import type { SocialResult } from "../social-service";
 import type { ActResult } from "../world-service";
 
@@ -292,7 +292,7 @@ export function nextSteps(
     climbs.includes("up") && `- Go up the stairs you're standing on: ${l.climb("up")}`,
     climbs.includes("down") && `- Go down the stairs you're at the top of: ${l.climb("down")}`,
     lying > 0 &&
-      `- Pick up what lies within reach (${plural(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
+      `- Pick up what lies within reach (${counted(lying, "thing")}: branches, stones, or finds): ${l.gather}`,
     r.hearth && !r.pet && `- Adopt a pet, once your owner says which: ${l.pet()}`,
     `- Visit a neighbor's plot: ${l.visitAny}`,
     r.hearth &&

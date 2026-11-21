@@ -223,7 +223,7 @@ const TARGETS: { file: string; render: (current: string) => string }[] = [
     render: () =>
       discovery.pagesSitemapXml(
         lastmods(),
-        devlogPosts().map((p) => ({ loc: p.url, lastmod: p.date })),
+        devlogPosts().map((p) => ({ url: p.url, lastModified: p.date })),
       ),
   },
   { file: "packages/client/public/robots.txt", render: () => discovery.robotsTxt() },

@@ -404,7 +404,7 @@ test.describe("the Town Hall", () => {
     const notice = board.locator(".notice", { hasText: "Lantern walk at dusk" });
     // When it went up, with when it comes down on hover, and in a toast on a tap.
     const when = notice.locator(".notice-when");
-    await expect(when).toHaveText("now");
+    await expect(when).toHaveText("just now");
     await expect(when.locator("time")).toHaveAttribute("title", "Comes down in 3 hours");
     await when.click();
     await expect(page.locator("#site-toast")).toContainText("Comes down in 3 hours");

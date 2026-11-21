@@ -49,7 +49,7 @@ import {
   type WorldState,
   waterBeside,
 } from "@terrakin/sim";
-import { randomBytes, toHex } from "./bytes";
+import { randomBytes, toHex } from "workers-start/bytes";
 import { seesCircle } from "./circles";
 import { doorNote } from "./door-notes";
 import { type GuestFacts, teaRefusal } from "./events";

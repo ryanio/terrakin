@@ -1,16 +1,7 @@
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  agentSkillsIndex,
-  apiCatalog,
-  ardJson,
-  homeJsonLd,
-  robotsTxt,
-  sitemapIndexXml,
-  urlsetXml,
-  w3cDatetime,
-} from "./discovery";
+import { agentSkillsIndex, apiCatalog, ardJson, homeJsonLd, robotsTxt } from "./discovery";
 import { compileRoutes, ROUTES, type RouteSpec } from "./routes";
 import { FAQ, linkHeader, markdownTwin, PAGES, prefersMarkdown, SITE } from "./site";
 
@@ -80,31 +71,12 @@ describe("discovery files", () => {
       "PerplexityBot",
       "Google-Extended",
     ]) {
-      expect(robots).toContain(`User-agent: ${agent}`);
+      expect(robots).toContain(`User-Agent: ${agent}`);
     }
     expect(robots).not.toMatch(/^Disallow:/m);
     expect(robots).toContain("Sitemap: https://terrakin.org/sitemap.xml");
     expect(robots).toContain("https://terrakin.org/llms.txt");
     expect(robots).toContain("https://terrakin.org/changelog.md");
-  });
-
-  it("writes sitemaps the protocol accepts, escaped", () => {
-    expect(w3cDatetime(Date.UTC(2026, 9, 4, 18, 22, 5, 123))).toBe("2026-10-04T18:22:05Z");
-    expect(urlsetXml([{ loc: "https://terrakin.org/?a=1&b=2", lastmod: "2026-10-04" }])).toBe(
-      [
-        '<?xml version="1.0" encoding="UTF-8"?>',
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">',
-        "  <url>",
-        "    <loc>https://terrakin.org/?a=1&amp;b=2</loc>",
-        "    <lastmod>2026-10-04</lastmod>",
-        "  </url>",
-        "</urlset>",
-        "",
-      ].join("\n"),
-    );
-    expect(sitemapIndexXml([{ loc: "https://terrakin.org/sitemap-pages.xml" }])).toContain(
-      "<sitemap>\n    <loc>https://terrakin.org/sitemap-pages.xml</loc>\n  </sitemap>",
-    );
   });
 
   it("catalogs the API per RFC 9727", () => {

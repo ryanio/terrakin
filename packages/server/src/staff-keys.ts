@@ -1,6 +1,7 @@
 import type { RouteSpec, StaffKeyScope, StaffKeyView } from "@terrakin/protocol";
 import { DAY_MS, MINUTE_MS } from "@terrakin/sim";
-import { randomBytes, sha256HexSync, toBase64Url, toHex } from "./bytes";
+import { randomBytes, toBase64Url, toHex } from "workers-start/bytes";
+import { sha256HexSync } from "./bytes";
 import type { SqlExec } from "./sql-store";
 
 /**

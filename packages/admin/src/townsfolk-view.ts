@@ -6,7 +6,6 @@
  */
 import type { TownsfolkActivityResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { postPath } from "@terrakin/ui/paths";
 import {
   itemRow,
@@ -18,6 +17,7 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted } from "workers-start/format";
 import { api } from "./api";
 import {
   ACTION_ICONS,
@@ -133,7 +133,7 @@ function paint(
       { class: "stack tight" },
       h("p", {
         class: "field-hint townsfolk-calls",
-        text: `${chatter.callsToday} of ${plural(chatter.callsPerDay, "call", "calls")} today`,
+        text: `${chatter.callsToday} of ${counted(chatter.callsPerDay, "call", "calls", { compact: true })} today`,
       }),
       progressBar(chatter.callsToday, chatter.callsPerDay, "Model calls today"),
     ),

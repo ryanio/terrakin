@@ -99,10 +99,6 @@ export function count(n: number): string {
 
 const trim = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(1).replace(/\.0$/, ""));
 
-/** "1 post", "2 posts". */
-export const plural = (n: number, one: string, many = `${one}s`) =>
-  `${count(n)} ${n === 1 ? one : many}`;
-
 /** "Oct 4, 2026", in UTC so a card is the same wherever it renders. Empty for a bad date. */
 export function day(iso: string): string {
   const date = new Date(iso);

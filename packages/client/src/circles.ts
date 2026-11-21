@@ -10,19 +10,19 @@ import type {
   CirclesResponse,
 } from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 
 /** "Forming" or "Formed". */
 export const statusWords = (status: CircleSummary["status"]) =>
   status === "formed" ? "Formed" : "Forming";
 
 /** "1 member", "4 members". */
-export const membersWords = (n: number) => plural(n, "member", "members");
+export const membersWords = (n: number) => counted(n, "member", "members", { compact: true });
 
 /** "Gathered 3 weeks, 2 in a row", "Hasn't gathered yet". */
 export function gatheredLine(weeks: number, run: number): string {
   if (weeks === 0) return "Hasn't gathered yet";
-  const total = `Gathered ${plural(weeks, "week", "weeks")}`;
+  const total = `Gathered ${counted(weeks, "week", "weeks", { compact: true })}`;
   return run > 1 ? `${total}, ${run} in a row` : total;
 }
 
@@ -92,7 +92,7 @@ export function foundingLine(
   const days = Math.ceil(short / rules.allowance);
   const path =
     short > 0
-      ? ` Your allowance at your hearth, ${rules.allowance} a day, gets you there in about ${plural(days, "day", "days")}.`
+      ? ` Your allowance at your hearth, ${rules.allowance} a day, gets you there in about ${counted(days, "day", "days", { compact: true })}.`
       : "";
   return `Founding takes ${rules.fee} coins, and you have ${balance}.${path} If it doesn't form within ${rules.formDays} days, all but ${rules.trialBurn} come back, and members can chip in toward it while it forms.`;
 }

@@ -19,7 +19,7 @@ import {
   type Routine,
   type WorldState,
 } from "@terrakin/sim";
-import { plural } from "../markdown";
+import { counted } from "workers-start/format";
 import { ROUTINE_WORDS } from "../routines";
 import { type Links, list, type Tile } from "./shared";
 
@@ -101,7 +101,7 @@ export function postBlock(
   follow?: (authorId: string) => boolean,
 ): string {
   const media = post.media.map((m) => `${m.kind} ${m.url}`).join(", ");
-  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${plural(heartCount(post), "like")}, ${plural(post.replyCount, "reply", "replies")}${hearted(post) ? ", liked by you" : ""}:`;
+  const head = `${post.author.name} (\`${post.author.id}\`, ${post.author.kind}) wrote post \`${post.id}\`${post.replyTo ? ` in reply to \`${post.replyTo}\`` : ""} at ${post.createdAt}, ${counted(heartCount(post), "like")}, ${counted(post.replyCount, "reply", "replies")}${hearted(post) ? ", liked by you" : ""}:`;
   return list([
     quote(head),
     quote(post.text),
@@ -119,7 +119,7 @@ export function profileBlock(p: ProfileView): string {
     p.note ? quote(`Note: ${p.note}`) : undefined,
     p.bio ? quote(`Bio: ${p.bio}`) : undefined,
     quote(
-      `${plural(p.posts, "post")}, ${plural(p.followers, "follower")}, following ${p.following}`,
+      `${counted(p.posts, "post")}, ${counted(p.followers, "follower")}, following ${p.following}`,
     ),
   ]);
 }
@@ -127,7 +127,7 @@ export function profileBlock(p: ProfileView): string {
 /** A routine as a line on a page: what it does and when, on the UTC clock. */
 export function routineWords(r: Routine): string {
   if (r.kind === "greet")
-    return `- Wave at up to ${plural(r.max, "resident")} a day who come near your hearth`;
+    return `- Wave at up to ${counted(r.max, "resident")} a day who come near your hearth`;
   const hour = `${String(r.hour).padStart(2, "0")}:00 UTC`;
   return r.kind === "walk_home" ? `- Walk home at ${hour}` : `- Stroll around your plot at ${hour}`;
 }
@@ -140,7 +140,7 @@ export function awayWords(line: AwayLine): string {
   const when = line.at.slice(0, 16).replace("T", " ");
   if (line.result === "paused") return `- ${when} UTC: ${line.reason ?? ""}`;
   if (line.result === "refused") {
-    const days = line.days ? ` (${plural(line.days, "day")} in a row)` : "";
+    const days = line.days ? ` (${counted(line.days, "day")} in a row)` : "";
     return `- ${when} UTC: your ${ROUTINE_WORDS[line.routine ?? ""] ?? "routine"} couldn't run${days}. ${line.reason ?? ""}`;
   }
   if (line.routine === "walk_home") return `- ${when} UTC: walked home.`;

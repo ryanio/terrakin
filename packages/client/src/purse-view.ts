@@ -4,10 +4,10 @@
  */
 import type { PurseLine, PurseResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { formatCount, plural } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { avatarEl } from "@terrakin/ui/people";
 import { itemRow, itemRows, pageLayout } from "@terrakin/ui/ui";
+import { counted, formatCount } from "workers-start/format";
 import { actFromButton } from "./act";
 import { purseApi } from "./api/purse";
 import { savedToken } from "./net";
@@ -140,7 +140,7 @@ function streakText(streak: number, streakDays: number, bonus: number): string {
   if (streak <= 0) return "Come home today to start a streak.";
   if (streak >= streakDays) return `${streak} days in a row: +${bonus} a day on top.`;
   const left = streakDays - streak;
-  return `${plural(streak, "day", "days")} in a row. ${left} more for +${bonus} a day.`;
+  return `${counted(streak, "day", "days", { compact: true })} in a row. ${left} more for +${bonus} a day.`;
 }
 
 export function purseView(ctx: ViewContext): View {

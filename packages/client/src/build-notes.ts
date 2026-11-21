@@ -4,7 +4,7 @@
  * and suggestions, never a reason to hold a tap back.
  */
 import { type DesignNote, type PlotTiles, plotKey, plotNotes, tileKey } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 import type { Mirror } from "./mirror";
 
 /** Plot (`px`, `py`) as the mirror has it, in tiles from its north-west corner. */
@@ -47,7 +47,7 @@ export function mirrorNotes(m: Mirror, px: number, py: number): DesignNote[] {
  */
 export function notesLabel(notes: readonly DesignNote[]): { text: string; name: string } {
   if (notes.length === 0) return { text: "", name: "" };
-  const text = plural(notes.length, "note", "notes");
+  const text = counted(notes.length, "note", "notes", { compact: true });
   return { text, name: `${text} about this home` };
 }
 

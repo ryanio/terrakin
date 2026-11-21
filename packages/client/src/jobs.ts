@@ -30,7 +30,7 @@ import {
   skillName,
   type TimeOfDay,
 } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 import { unlockWords } from "./levels";
 import { aThing, needsLine, thingCount } from "./things";
 
@@ -141,7 +141,7 @@ export function howLine(job: Pick<JobAsked, "deed" | "bring">): string {
     case "guest":
       return "Go to an event on the Town Hall's calendar while it's on, and stay a while.";
     case "host":
-      return `Host an event from Coming up at the Town Hall. ${plural(deed.guests, "guest has", "guests have")} to come and stay a while.`;
+      return `Host an event from Coming up at the Town Hall. ${counted(deed.guests, "guest has", "guests have", { compact: true })} to come and stay a while.`;
     case "bounty":
       return "Take a bounty from the bounties page and do it. It counts once you're paid.";
     case "game":
@@ -400,9 +400,11 @@ export function jobsRow(finished: number): {
     bar: {
       count,
       total,
-      label: `${count} of ${plural(total, "job", "jobs")} to ${unlockWords(next)}`,
+      label: `${count} of ${counted(total, "job", "jobs", { compact: true })} to ${unlockWords(next)}`,
     },
-    lines: [`${plural(next.jobs, "job", "jobs")} finished bring ${unlockWords(next)}.`],
+    lines: [
+      `${counted(next.jobs, "job", "jobs", { compact: true })} finished bring ${unlockWords(next)}.`,
+    ],
     wear,
   };
 }
@@ -418,5 +420,5 @@ export const jobWear = (unlocked: JobStanding["unlocked"]): JobWear[] =>
 /** What the look editor says on the job garment before it's reached: "25 jobs". */
 export function jobWearAt(item: JobWear): string {
   const at = jobUnlocks().find((u) => u.wear === item)?.jobs;
-  return at === undefined ? "Jobs" : plural(at, "job", "jobs");
+  return at === undefined ? "Jobs" : counted(at, "job", "jobs", { compact: true });
 }

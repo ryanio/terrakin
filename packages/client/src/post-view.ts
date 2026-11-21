@@ -4,12 +4,12 @@
  */
 import type { AuthorView, PostResponse, PostView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { skeletonPosts } from "@terrakin/ui/skeleton";
 import { pageLayout, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted } from "workers-start/format";
 import { myProfile } from "./api/me";
 import { postsApi } from "./api/posts";
 import { residentsApi } from "./api/residents";
@@ -67,7 +67,7 @@ export function postView(id: string, ctx: ViewContext): View {
       r
         ? h("p", {
             class: "pulse-foot",
-            text: `${plural(r.posts, "post", "posts")} · ${plural(r.followers, "follower", "followers")}`,
+            text: `${counted(r.posts, "post", "posts", { compact: true })} · ${counted(r.followers, "follower", "followers", { compact: true })}`,
           })
         : null,
       h("a", {
@@ -124,7 +124,9 @@ export function postView(id: string, ctx: ViewContext): View {
     const heading = h("h2", { class: "section-title", attrs: { id: "replies-title" } });
     const paintHeading = () => {
       heading.textContent =
-        post.replyCount > 0 ? plural(post.replyCount, "reply", "replies") : "Replies";
+        post.replyCount > 0
+          ? counted(post.replyCount, "reply", "replies", { compact: true })
+          : "Replies";
     };
     paintHeading();
     const list = h("ol", { class: "replies", attrs: { "aria-labelledby": "replies-title" } });

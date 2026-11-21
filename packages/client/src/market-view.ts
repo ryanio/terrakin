@@ -30,7 +30,6 @@ import {
   SHOP_CATALOG,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { formatCount } from "@terrakin/ui/format";
 import { thingPicture } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
 import {
@@ -44,6 +43,7 @@ import {
   pageLayout,
   toast,
 } from "@terrakin/ui/ui";
+import { formatCount } from "workers-start/format";
 import { actFromButton } from "./act";
 import { inventoryApi } from "./api/inventory";
 import { marketApi } from "./api/market";

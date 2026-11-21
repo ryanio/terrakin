@@ -4,8 +4,8 @@
  */
 import type { NewcomerCohort, NewcomersResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { formatCount, plural } from "@terrakin/ui/format";
 import { disclosure, stateCard, whileBusy, wideLayout } from "@terrakin/ui/ui";
+import { counted, formatCount } from "workers-start/format";
 import { api } from "./api";
 import { cohortTitle, hearthThingLine, NEWCOMER_ROWS, sameNameLine, stepShare } from "./logic";
 import { button, pageHead, type View } from "./view";
@@ -99,7 +99,7 @@ function paint(data: NewcomersResponse, reload: () => Promise<void>): HTMLElemen
     out.push(
       h("p", {
         class: "field-hint",
-        text: `${plural(data.undated, "resident", "residents")} joined before the world counted days, so they're in all time and in no week.`,
+        text: `${counted(data.undated, "resident", "residents", { compact: true })} joined before the world counted days, so they're in all time and in no week.`,
       }),
     );
   }

@@ -25,10 +25,10 @@ import {
   type ItemKind,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { isArtKind, itemArt, type ThingLook, thingPicture } from "@terrakin/ui/item-art";
 import { profilePath } from "@terrakin/ui/paths";
 import { kindPill, pageLayout, progressBar } from "@terrakin/ui/ui";
+import { counted } from "workers-start/format";
 import { collectionApi } from "./api/collection";
 import { residentsApi } from "./api/residents";
 import { glazeCostLine, potteryHint } from "./glaze-words";
@@ -112,7 +112,7 @@ function potterLine(potter: NonNullable<CollectionView["potter"]>, mine: boolean
     h(
       "p",
       { class: "hint" },
-      `${plural(potter.fired, "pot", "pots")} fired. ${mine ? "Your" : "Their"} best so far: ${best.name}.`,
+      `${counted(potter.fired, "pot", "pots", { compact: true })} fired. ${mine ? "Your" : "Their"} best so far: ${best.name}.`,
     ),
   );
 }

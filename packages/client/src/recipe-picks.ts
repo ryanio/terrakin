@@ -9,7 +9,6 @@
 import type { RecipeCardView } from "@terrakin/protocol";
 import { BASE_RECIPES, cardOf, RECIPES_RULES, type Station } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
-import { listOf, plural } from "@terrakin/ui/format";
 import { itemArt } from "@terrakin/ui/item-art";
 import {
   errorLine,
@@ -20,6 +19,7 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { counted, listOf } from "workers-start/format";
 import { shopApi } from "./api/shop";
 import { actProblem, worldApi } from "./api/world";
 import { needsListLine, recipeWords } from "./things";
@@ -44,7 +44,10 @@ export function pickGroups(
  * Pure, so tests pin it.
  */
 export function picksLede(): string {
-  const known = listOf(BASE_RECIPES.map((r) => recipeWords(r).toLowerCase()));
+  const known = listOf(
+    BASE_RECIPES.map((r) => recipeWords(r).toLowerCase()),
+    { oxfordComma: true },
+  );
   return `A recipe lets you make one thing at a kitchen or workbench. These are free and yours for good. Everyone already knows ${known}; the town shop sells more.`;
 }
 
@@ -67,7 +70,7 @@ export async function openRecipePicks(o: RecipePicksOptions): Promise<boolean> {
   let left = o.picks;
   const count = h("p", { class: "picks-left", attrs: { "aria-live": "polite" } });
   const say = () => {
-    count.textContent = `${plural(left, "free pick", "free picks")} left`;
+    count.textContent = `${counted(left, "free pick", "free picks", { compact: true })} left`;
   };
   say();
   const problem = errorLine("picks-error");

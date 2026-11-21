@@ -5,14 +5,18 @@
  * so the first load never carries it.
  */
 import type { PlotView } from "@terrakin/protocol";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 
 /** The line, or null when the server sent no counts or they're all 0. */
 export function furnishedLine(plot: Pick<PlotView, "furnished" | "walls">): string | null {
   const f = plot.furnished;
   const parts = [
-    f && f.pieces > 0 ? plural(f.pieces, "piece of furniture", "pieces of furniture") : "",
-    f && f.onShow > 0 ? plural(f.onShow, "thing on show", "things on show") : "",
+    f && f.pieces > 0
+      ? counted(f.pieces, "piece of furniture", "pieces of furniture", { compact: true })
+      : "",
+    f && f.onShow > 0
+      ? counted(f.onShow, "thing on show", "things on show", { compact: true })
+      : "",
     gradedWallsLine(plot.walls) ?? "",
   ].filter((part) => part !== "");
   return parts.length === 0 ? null : parts.join(", ");
@@ -25,8 +29,10 @@ export function furnishedLine(plot: Pick<PlotView, "furnished" | "walls">): stri
 function gradedWallsLine(walls: PlotView["walls"]): string | null {
   if (!walls) return null;
   const parts = [
-    walls.fine > 0 ? plural(walls.fine, "fine wall", "fine walls") : "",
-    walls.masterwork > 0 ? plural(walls.masterwork, "masterwork wall", "masterwork walls") : "",
+    walls.fine > 0 ? counted(walls.fine, "fine wall", "fine walls", { compact: true }) : "",
+    walls.masterwork > 0
+      ? counted(walls.masterwork, "masterwork wall", "masterwork walls", { compact: true })
+      : "",
   ].filter((part) => part !== "");
   return parts.length === 0 ? null : parts.join(", ");
 }

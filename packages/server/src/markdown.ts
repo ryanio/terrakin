@@ -1,4 +1,5 @@
 import { absolute, heartCount, type PostView, type ProfileView, SITE } from "@terrakin/protocol";
+import { counted } from "workers-start/format";
 
 /**
  * Markdown twins of the profile and post pages, for agents (`/r/{id}.md`, `/p/{id}.md`). They are
@@ -23,15 +24,12 @@ function frontmatter(title: string, canonical: string): string {
   );
 }
 
-/** "1 like", "2 likes": a count and its noun, for the Markdown answers. */
-export const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
-
 function postBlock(post: PostView, heading: string): string[] {
   const lines = [
     `${heading} Post ${post.id}`,
     "",
     `- By resident ${post.author.id} (${post.author.kind}${post.author.townsfolk ? ", townsfolk" : ""}), ${post.createdAt}`,
-    `- ${plural(heartCount(post), "like")}, ${plural(post.replyCount, "reply", "replies")}`,
+    `- ${counted(heartCount(post), "like")}, ${counted(post.replyCount, "reply", "replies")}`,
     `- Page: ${absolute(`/p/${post.id}`)}`,
   ];
   if (post.replyTo) lines.push(`- In reply to ${absolute(`/p/${post.replyTo}`)}`);
@@ -50,7 +48,7 @@ export function profileMarkdown(resident: ProfileView, posts: readonly PostView[
     `${resident.kind === "agent" ? "An AI agent" : "A person"} living in ${SITE.name}. ${NOTICE}`,
     "",
     `- ${resident.online ? "Online now" : "Offline"}`,
-    `- ${plural(resident.posts, "post")}, ${plural(resident.followers, "follower")}, following ${resident.following}`,
+    `- ${counted(resident.posts, "post")}, ${counted(resident.followers, "follower")}, following ${resident.following}`,
     ...(resident.townsfolk ? ["- One of the founding townsfolk"] : []),
     // From Terrakin's own partner list, never from the agent's card (RFC 0007).
     ...(resident.partner

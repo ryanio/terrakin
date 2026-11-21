@@ -6,7 +6,6 @@
  */
 import { type AdminOverviewResponse, AWARD_RULES, type BountyView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import {
   confirmTwice,
   pageLayout,
@@ -15,6 +14,7 @@ import {
   whileBusy,
   whileBusyAll,
 } from "@terrakin/ui/ui";
+import { counted } from "workers-start/format";
 import { api, type Result } from "./api";
 import { awardedWords, awardProblem, bountyActions, mainSite, reasonProblem } from "./logic";
 import { button, pageHead, profileLink, quoted, type View } from "./view";
@@ -157,7 +157,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
     };
     const actions = bountyActions(b, me.role);
     for (const action of actions) {
-      const coinsText = plural(b.reward, "coin", "coins");
+      const coinsText = counted(b.reward, "coin", "coins", { compact: true });
       const label =
         action === "confirm"
           ? b.grant
@@ -206,7 +206,7 @@ export function bountiesView(overview: AdminOverviewResponse): View {
       { class: "stack paper card item bounty", attrs: { "data-bounty": b.id } },
       h("h2", {
         class: "eyebrow",
-        text: `${b.grant ? "Grant" : b.town ? "Town bounty" : "Bounty"} ${b.id} · ${plural(b.reward, "coin", "coins")} · ${b.status}`,
+        text: `${b.grant ? "Grant" : b.town ? "Town bounty" : "Bounty"} ${b.id} · ${counted(b.reward, "coin", "coins", { compact: true })} · ${b.status}`,
       }),
       h("p", { class: "item-author" }, b.town ? "Proposed by " : "Posted by ", person(b.poster)),
       b.claimant

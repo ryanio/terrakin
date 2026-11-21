@@ -16,6 +16,7 @@
   },
   "dependencies": {
     "@terrakin/sim": "workspace:*",
+    "workers-start": "^0.18.0",
     "zod": "4.6.7"
   }
 }

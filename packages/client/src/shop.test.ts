@@ -1,6 +1,5 @@
 import { SHOP_ITEMS } from "@terrakin/protocol";
 import { dayOfDate } from "@terrakin/sim";
-import { listOf } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 import {
   buyLabel,
@@ -143,15 +142,6 @@ describe("the shop page", () => {
     );
     // A holiday this client doesn't know yet still says when.
     expect(holidayHint("spring_fair", dayOfDate(2027, 4, 2))).toBe("Sold until April 2 (UTC).");
-  });
-});
-
-describe("listOf", () => {
-  it("joins names in plain English", () => {
-    expect(listOf([])).toBe("");
-    expect(listOf(["lemons"])).toBe("lemons");
-    expect(listOf(["lemons", "jam"])).toBe("lemons and jam");
-    expect(listOf(["lemons", "jam", "tea"])).toBe("lemons, jam, and tea");
   });
 });
 

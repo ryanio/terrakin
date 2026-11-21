@@ -17,7 +17,6 @@ import type {
 import { LINKS, PAGES } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { formatCount } from "@terrakin/ui/format";
 import { REDUCED_MOTION, reducedMotion } from "@terrakin/ui/motion";
 import { postPath, profilePath } from "@terrakin/ui/paths";
 import { residentPerson } from "@terrakin/ui/people";
@@ -25,6 +24,7 @@ import { everyVisible } from "@terrakin/ui/poll";
 import { skeletonCard, skeletonPosts } from "@terrakin/ui/skeleton";
 import { copyButton, emptyNote, linkTabs, moreButton, pageLayout, pickTab } from "@terrakin/ui/ui";
 import { refreshTimes } from "@terrakin/ui/when";
+import { formatCount } from "workers-start/format";
 import { devlogApi } from "./api/devlog";
 import { myProfile } from "./api/me";
 import { plotsApi } from "./api/plots";

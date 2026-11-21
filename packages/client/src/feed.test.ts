@@ -3,14 +3,11 @@ import {
   clampAspect,
   countNew,
   firstParagraphs,
-  formatCount,
   initial,
   isMediaUrl,
   isModelResource,
   karmaLine,
   mediaLayout,
-  plural,
-  pluralWord,
   relativeTime,
   shortDate,
 } from "@terrakin/ui/format";
@@ -53,14 +50,6 @@ describe("short date", () => {
     const late = Date.parse("2026-12-31T23:30:00Z");
     expect(shortDate(late, now, TZ)).toBe("Dec 31");
     expect(shortDate(late, now, "Asia/Tokyo")).toBe("Jan 1, 2027");
-  });
-});
-
-describe("counts in words", () => {
-  it("groups thousands for ratings, coins, and staff numbers", () => {
-    expect(formatCount(7)).toBe("7");
-    expect(formatCount(1200)).toBe("1,200");
-    expect(formatCount(1234567)).toBe("1,234,567");
   });
 });
 
@@ -166,13 +155,7 @@ describe("words", () => {
     expect(firstParagraphs("One.\nTwo, really.\nThree", 2)).toBe("One.\nTwo, really…");
   });
 
-  it("pluralizes, picks the word alone for a count shown apart from it, and makes avatar initials", () => {
-    expect(plural(1, "reply", "replies")).toBe("1 reply");
-    expect(plural(3, "reply", "replies")).toBe("3 replies");
-    expect(plural(1500, "like", "likes")).toBe("1.5K likes");
-    expect(pluralWord(1, "follower", "followers")).toBe("follower");
-    expect(pluralWord(0, "follower", "followers")).toBe("followers");
-    expect(pluralWord(2, "plot name", "plot names")).toBe("plot names");
+  it("makes avatar initials", () => {
     expect(initial("  wren")).toBe("W");
     expect(initial("élan")).toBe("É");
     expect(initial("🌱 sprout")).toBe("🌱");

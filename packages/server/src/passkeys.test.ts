@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fromBase64Url, sha256Bytes, toBase64Url } from "./bytes";
+import { fromBase64Url, sha256, toBase64Url } from "workers-start/bytes";
 import {
   checkAssertion,
   checkBinding,
@@ -25,7 +25,7 @@ const CONFIRMED = FLAG_UP | FLAG_UV;
 async function authenticatorData(
   options: { rpId?: string; flags?: number; signCount?: number; extra?: number } = {},
 ) {
-  const hash = await sha256Bytes(new TextEncoder().encode(options.rpId ?? RP.id));
+  const hash = await sha256(new TextEncoder().encode(options.rpId ?? RP.id));
   const extra = options.extra ?? 0;
   const bytes = new Uint8Array(37 + extra);
   bytes.set(hash, 0);
@@ -65,7 +65,7 @@ async function authenticator() {
     const bytes = fromBase64Url(clientData) as Uint8Array<ArrayBuffer>;
     const signed = new Uint8Array(authData.length + 32);
     signed.set(authData, 0);
-    signed.set(await sha256Bytes(bytes), authData.length);
+    signed.set(await sha256(bytes), authData.length);
     const raw = new Uint8Array(
       await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, pair.privateKey, signed),
     );
@@ -297,10 +297,7 @@ describe("an RS256 passkey", () => {
     const client = clientDataOf("webauthn.get", next);
     const signed = new Uint8Array(signData.length + 32);
     signed.set(signData, 0);
-    signed.set(
-      await sha256Bytes(fromBase64Url(client) as Uint8Array<ArrayBuffer>),
-      signData.length,
-    );
+    signed.set(await sha256(fromBase64Url(client) as Uint8Array<ArrayBuffer>), signData.length);
     const signature = new Uint8Array(
       await crypto.subtle.sign({ name: "RSASSA-PKCS1-v1_5" }, pair.privateKey, signed),
     );

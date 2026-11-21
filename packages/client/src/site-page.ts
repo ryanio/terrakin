@@ -21,9 +21,10 @@ import {
 import type { DocsPage, TocEntry } from "@terrakin/protocol/reference";
 import { CATALOG, type Glaze, type ItemKind } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
-import { longDate, plural, shortDate } from "@terrakin/ui/format";
+import { longDate, shortDate } from "@terrakin/ui/format";
 import { type IconName, iconSvg } from "@terrakin/ui/icons";
 import { thingArtMarkup } from "@terrakin/ui/item-art";
+import { counted } from "workers-start/format";
 import { inline, markdownToHtml, slug } from "./markdown";
 import { promptLine } from "./prompts";
 
@@ -613,7 +614,7 @@ function changelogView(
       const day = /^<h2 id="(\d{4}-\d{2}-\d{2})">[^<]*<\/h2>/.exec(part);
       if (!day?.[1]) return part;
       const changes = part.match(/<h3 /g)?.length ?? 0;
-      const count = plural(changes, "change", "changes");
+      const count = counted(changes, "change", "changes", { compact: true });
       const t = Date.parse(day[1]);
       places.push({
         href: `#${day[1]}`,

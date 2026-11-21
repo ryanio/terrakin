@@ -30,7 +30,7 @@ import {
 } from "@terrakin/protocol";
 import { DAY_MS, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { blockBackWords, blockName, clearCost } from "@terrakin/ui/blocks";
-import { formatCount, plural, pluralWord, relativeTime, shortDate } from "@terrakin/ui/format";
+import { relativeTime, shortDate } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
@@ -40,6 +40,7 @@ import {
   SEVERITY_LABELS,
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
+import { counted, formatCount, plural } from "workers-start/format";
 
 export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties" | "agents" | "keys";
 
@@ -135,11 +136,9 @@ export function signinMessage(name: string, url: string): string {
  * 0239): its coins and things, with its posts and follows, and the plots that go back to the world.
  */
 export function mergeSummary(r: StaffMergeResponse): string {
-  const count = (n: number, one: string, many: string) =>
-    `${formatCount(n)} ${pluralWord(n, one, many)}`;
-  const moved = `${count(r.coins, "coin", "coins")} and ${count(r.things, "thing", "things")}`;
+  const moved = `${counted(r.coins, "coin", "coins")} and ${counted(r.things, "thing", "things")}`;
   const where = r.plots.map((p) => `${p.px}, ${p.py}`).join(" and ");
-  const plots = `${pluralWord(r.plots.length, "plot", "plots")} ${where}`;
+  const plots = `${plural(r.plots.length, "plot", "plots")} ${where}`;
   return r.merged
     ? `Merged ${r.from.name} into ${r.into.name}: ${moved} moved, with its posts and follows${where ? `, and ${plots} went back to the world` : ""}.`
     : `Merging ${r.from.name} into ${r.into.name} moves ${moved}, with its posts and follows${where ? `, and gives ${plots} back to the world` : ""}.`;
@@ -389,7 +388,7 @@ export function itemActions(item: ReportQueueItem, role: StaffRole = "maintainer
     if (target.plotNames) {
       out.push({
         kind: "clear_plot_names",
-        label: `Take down ${pluralWord(target.plotNames, "plot name", "plot names")}`,
+        label: `Take down ${plural(target.plotNames, "plot name", "plot names")}`,
         target: item.id,
         primary: false,
         confirm: "Tap again to take it down",
@@ -504,7 +503,7 @@ export function awardProblem(
  */
 export function awardedWords(coins: number, left: number, household: boolean): string {
   const own = household ? " It went to your own household, so the town can see that it did." : "";
-  return `Awarded ${plural(coins, "coin", "coins")}.${own} ${plural(left, "coin", "coins")} left to award today.`;
+  return `Awarded ${counted(coins, "coin", "coins", { compact: true })}.${own} ${counted(left, "coin", "coins", { compact: true })} left to award today.`;
 }
 
 /** A suspension length the role may give, or why not. */
@@ -536,7 +535,7 @@ const KIND_WORDS: Record<ReportKind, string> = {
 
 /** The eyebrow over an item: "Post · 3 reports". */
 export function itemHeading(item: ReportQueueItem): string {
-  return `${KIND_WORDS[item.kind]} · ${plural(item.reports.length, "report", "reports")}`;
+  return `${KIND_WORDS[item.kind]} · ${counted(item.reports.length, "report", "reports", { compact: true })}`;
 }
 
 /** Short state labels for an item. */
@@ -557,14 +556,18 @@ export function recordLine(context: ReportQueueItem["context"]): string | undefi
   const a = context.author;
   if (!a) return undefined;
   const joined =
-    a.joinedDaysAgo === 0 ? "Joined today" : `Joined ${plural(a.joinedDaysAgo, "day", "days")} ago`;
+    a.joinedDaysAgo === 0
+      ? "Joined today"
+      : `Joined ${counted(a.joinedDaysAgo, "day", "days", { compact: true })} ago`;
   return [
     joined,
-    plural(a.postsHidden, "post hidden", "posts hidden"),
-    plural(a.suspensions, "suspension", "suspensions"),
-    plural(a.reportsAgainst, "report against them", "reports against them"),
+    counted(a.postsHidden, "post hidden", "posts hidden", { compact: true }),
+    counted(a.suspensions, "suspension", "suspensions", { compact: true }),
+    counted(a.reportsAgainst, "report against them", "reports against them", { compact: true }),
     a.strikes > 0
-      ? plural(a.strikes, "filter refusal this hour", "filter refusals this hour")
+      ? counted(a.strikes, "filter refusal this hour", "filter refusals this hour", {
+          compact: true,
+        })
       : null,
   ]
     .filter((p): p is string => p !== null)
@@ -579,7 +582,7 @@ export function triageSummary(verdict: TriageVerdictView): {
 } {
   const suggestion =
     verdict.action === "suspend" && verdict.days
-      ? `${SUGGESTION_LABELS.suspend} for ${plural(verdict.days, "day", "days")}`
+      ? `${SUGGESTION_LABELS.suspend} for ${counted(verdict.days, "day", "days", { compact: true })}`
       : SUGGESTION_LABELS[verdict.action];
   const detail = [
     CATEGORY_LABELS[verdict.category],
@@ -637,7 +640,7 @@ export const ruleLine = (rule: ReportReason) => `Rule told to them: ${reasonLabe
 /** How many residents check in, and how often, in one line. */
 export function checkinLine(c: AdminOverviewResponse["checkins"]): string {
   if (c.residentsThisWeek === 0) return "Check-ins: nobody has checked in this week.";
-  const week = plural(c.residentsThisWeek, "resident", "residents");
+  const week = counted(c.residentsThisWeek, "resident", "residents", { compact: true });
   if (c.residentsToday === null) {
     return `Check-ins: ${week} this week. More numbers once 5 or more check in.`;
   }
@@ -655,7 +658,7 @@ export function triageLine(t: AdminOverviewResponse["triage"], nowMs: number): s
   const n = formatCount;
   const used = `AI triage today: ${n(t.callsToday)} of ${n(t.callsPerDay)} calls, ${n(t.tokensToday)} of ${n(t.tokensPerDay)} tokens.`;
   const agreed = t.agreement.decided
-    ? ` Staff agreed with it on ${t.agreement.agreed} of ${plural(t.agreement.decided, "decision", "decisions")}.`
+    ? ` Staff agreed with it on ${t.agreement.agreed} of ${counted(t.agreement.decided, "decision", "decisions", { compact: true })}.`
     : "";
   return used + agreed;
 }
@@ -672,15 +675,17 @@ export function spendLine(s: AdminOverviewResponse["spend"]): string {
   const { chatter } = s;
   if (chatter.calls === 0) return total;
   const made = [
-    chatter.notes || !chatter.drafts ? plural(chatter.notes, "note", "notes") : "",
-    chatter.drafts ? plural(chatter.drafts, "draft", "drafts") : "",
+    chatter.notes || !chatter.drafts
+      ? counted(chatter.notes, "note", "notes", { compact: true })
+      : "",
+    chatter.drafts ? counted(chatter.drafts, "draft", "drafts", { compact: true }) : "",
   ]
     .filter(Boolean)
     .join(" and ");
   const count = chatter.notes + chatter.drafts;
   const each = count > 0 ? ` (${dollars(chatter.microUsd / count)} each)` : "";
   const refused = chatter.refused
-    ? `, ${plural(chatter.refused, "answer", "answers")} turned away`
+    ? `, ${counted(chatter.refused, "answer", "answers", { compact: true })} turned away`
     : "";
   return `${total} Townsfolk chatter: ${made} for ${dollars(chatter.microUsd)}${each}${refused}.`;
 }
@@ -694,7 +699,7 @@ export function participationLine(
   days: number,
 ): string | undefined {
   if (p.notes === 0) return undefined;
-  return `Townsfolk notes in the last ${days} days: ${p.answered} of ${p.notes} drew a reply or reaction from real residents (${plural(p.replies, "reply", "replies")}, ${plural(p.reactions, "reaction", "reactions")}).`;
+  return `Townsfolk notes in the last ${days} days: ${p.answered} of ${p.notes} drew a reply or reaction from real residents (${counted(p.replies, "reply", "replies", { compact: true })}, ${counted(p.reactions, "reaction", "reactions", { compact: true })}).`;
 }
 
 /** What each skip reason means, for the chatter line. */
@@ -723,7 +728,7 @@ export function chatterLine(c: AdminOverviewResponse["chatter"], nowMs: number):
   }[c.mode];
   const used = ` Today: ${formatCount(c.callsToday)} of ${formatCount(c.callsPerDay)} calls.`;
   const last = c.lastRun
-    ? ` Last run: ${CHATTER_SKIPS[c.lastRun.result] ?? plural(c.lastRun.result.split(",").length, "call", "calls")}.`
+    ? ` Last run: ${CHATTER_SKIPS[c.lastRun.result] ?? counted(c.lastRun.result.split(",").length, "call", "calls", { compact: true })}.`
     : "";
   return `Townsfolk chatter ${what}.${used}${last}`;
 }
@@ -861,11 +866,11 @@ export function tipsLine(t: AdminOverviewResponse["tips"]): string {
   if (last.skipped) return `${what} Day ${last.day}: nothing to do (${last.skipped}).`;
   const would = last.mode === "dry" ? "would welcome" : "welcomed";
   const parts = [
-    `${would} ${plural(last.welcomed, "newcomer", "newcomers")} (${plural(last.welcomeCoins, "coin", "coins")})`,
+    `${would} ${counted(last.welcomed, "newcomer", "newcomers", { compact: true })} (${counted(last.welcomeCoins, "coin", "coins", { compact: true })})`,
     ...(last.refused ? [`${last.refused} refused by the world`] : []),
     ...(last.waiting ? [`${last.waiting} waiting for budget`] : []),
     last.post === "tipped"
-      ? `${last.mode === "dry" ? "would tip" : "tipped"} the best post ${plural(last.postCoins, "coin", "coins")}`
+      ? `${last.mode === "dry" ? "would tip" : "tipped"} the best post ${counted(last.postCoins, "coin", "coins", { compact: true })}`
       : last.post === "refused"
         ? "the best post's tip was refused"
         : "no post to tip",
@@ -907,7 +912,7 @@ const ACTION_COUNTS: Record<TownsfolkAction, [string, string]> = {
 export function todayWords(today: Record<TownsfolkAction, number>): string {
   const parts = TOWNSFOLK_ACTIONS.filter((a) => today[a] > 0).map((a) => {
     const [one, many] = ACTION_COUNTS[a];
-    return plural(today[a], one, many);
+    return counted(today[a], one, many, { compact: true });
   });
   return parts.length > 0 ? parts.join(", ") : "Nothing yet today";
 }
@@ -952,7 +957,7 @@ export function chatterState(c: TownsfolkActivityResponse["chatter"], nowMs: num
 
 /** When chatter acts: every run, or only while real residents post little. */
 export const gateWords = (c: Pick<TownsfolkActivityResponse["chatter"], "gate" | "perRun">) =>
-  `${c.gate === "off" ? "Every run" : "Quiet hours only"}, ${plural(c.perRun, "townsfolk", "townsfolk")} a run`;
+  `${c.gate === "off" ? "Every run" : "Quiet hours only"}, ${counted(c.perRun, "townsfolk", "townsfolk", { compact: true })} a run`;
 
 /** Today's chatter spend against its daily cap: "$0.03 of $0.28 today". */
 export const spendTodayWords = (

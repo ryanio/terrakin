@@ -23,7 +23,6 @@ import {
   isHeldBlock,
 } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { listOf, plural } from "@terrakin/ui/format";
 import { groundArt } from "@terrakin/ui/ground-art";
 import { itemArt } from "@terrakin/ui/item-art";
 import { personLink } from "@terrakin/ui/people";
@@ -47,6 +46,7 @@ import {
   whileBusy,
 } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted, listOf } from "workers-start/format";
 import { residentsApi } from "./api/residents";
 import { townApi } from "./api/town";
 import { actProblem, worldApi } from "./api/world";
@@ -322,7 +322,7 @@ export function townView(ctx: ViewContext): View {
     } else if (you?.eligible) {
       status.textContent =
         you.votes > 0
-          ? `You can propose and vote. You've voted ${plural(you.votes, "time", "times")}.`
+          ? `You can propose and vote. You've voted ${counted(you.votes, "time", "times", { compact: true })}.`
           : "You can propose and vote.";
       const away = you.away ?? null;
       const button = h(
@@ -867,7 +867,10 @@ export function townView(ctx: ViewContext): View {
       h("h2", { class: "card-title", text: "The town shop" }),
       h("p", {
         class: "town-lede",
-        text: `Across the Commons. Today the town buys ${listOf(shop.buying.map((b) => b.name.toLowerCase()))}.`,
+        text: `Across the Commons. Today the town buys ${listOf(
+          shop.buying.map((b) => b.name.toLowerCase()),
+          { oxfordComma: true },
+        )}.`,
       }),
       h(
         "a",

@@ -7,9 +7,10 @@
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, formatCount, pluralWord } from "@terrakin/ui/format";
+import { compactCount } from "@terrakin/ui/format";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
 import { visiblePoll } from "@terrakin/ui/poll";
+import { formatCount, plural } from "workers-start/format";
 import { purseApi } from "./api/purse";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";
@@ -21,7 +22,7 @@ const GLOW_MS = 1_600;
 const NOTICES_MAX = 3;
 
 /** "1 coin", "12 coins". Players see coins, never tokens. */
-export const coins = (n: number) => `${formatCount(n)} ${pluralWord(n, "coin", "coins")}`;
+export const coins = (n: number) => `${formatCount(n)} ${plural(n, "coin", "coins")}`;
 
 /** A balance, large, with the coin mark: the purse page and the shop. */
 export function balanceLine(balance: number, id: string): HTMLElement {
@@ -30,7 +31,7 @@ export function balanceLine(balance: number, id: string): HTMLElement {
     { class: "purse-balance", attrs: { id } },
     icon("coin", "icon purse-balance-coin"),
     h("span", { class: "purse-balance-amount", text: compactCount(balance) }),
-    h("span", { class: "purse-balance-unit", text: pluralWord(balance, "coin", "coins") }),
+    h("span", { class: "purse-balance-unit", text: plural(balance, "coin", "coins") }),
   );
 }
 

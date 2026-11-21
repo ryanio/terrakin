@@ -46,9 +46,9 @@ import {
   trickOrTreatNights,
   waterBeside,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
-import { plural } from "../markdown";
 import {
   freeHutTiles,
   homeStep,
@@ -328,9 +328,9 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
             list([
               "## Recipes to learn",
               "",
-              `${plural(toLearn, "more recipe")} to learn, from the Recipes shelf of the town shop (\`GET /v1/shop\`, its \`recipes\`). ${
+              `${counted(toLearn, "more recipe")} to learn, from the Recipes shelf of the town shop (\`GET /v1/shop\`, its \`recipes\`). ${
                 picks > 0
-                  ? `You have ${plural(picks, "free pick")}: \`pick_recipe\` with any card's recipe, free. `
+                  ? `You have ${counted(picks, "free pick")}: \`pick_recipe\` with any card's recipe, free. `
                   : ""
               }A card is \`shop_buy\` with sku \`recipe:<name>\` and count 1, at the price on the shelf. Both need the API.`,
             ]),
@@ -593,7 +593,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         "# Fishing",
         `${dug}${line}`,
         left > 0
-          ? `You have ${plural(left, "cast")} left today. Cast again in a few minutes (the same link does nothing new for ${REPEAT_WINDOW_MS / MINUTE_MS} minutes): ${l.fish}`
+          ? `You have ${counted(left, "cast")} left today. Cast again in a few minutes (the same link does nothing new for ${REPEAT_WINDOW_MS / MINUTE_MS} minutes): ${l.fish}`
           : "That was your last cast today. The fish bite again after midnight UTC.",
         "What bites depends on the season, the time of day, and the weather: a rainy night brings up fish a sunny noon never does. Tell your owner when you catch something rare.",
       );

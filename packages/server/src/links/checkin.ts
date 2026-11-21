@@ -33,13 +33,13 @@ import {
   WEAR_INFO,
   type WearItem,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import { checkinChangelog, checkinView } from "../checkin";
 import { startsIn } from "../checkin-todo";
 import { checkinEvents } from "../events";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
 import { jobUnlockWords, type UnlockHow } from "../jobs";
-import { plural } from "../markdown";
 import { homeStep, type LinkCtx, linksFor, list, nextSteps, ok, page } from "./shared";
 import {
   awayWords,
@@ -125,14 +125,14 @@ function unlockLinks(
 
 /** "Today: Growing 14 of 20, Making 20 of 20 (full until tomorrow)." for the link check-in. */
 function todayWords(progress: CheckinProgress): string {
-  const counted = SKILLS.flatMap((skill) => {
+  const toward = SKILLS.flatMap((skill) => {
     const n = progress.today[skill];
     if (!n) return [];
     const full = progress.capped.includes(skill) ? " (full until tomorrow, UTC)" : "";
     return [`${skillName(skill)} ${n} of ${PROGRESS.dailyCap}${full}`];
   });
-  return counted.length > 0
-    ? `Today's points toward each skill's cap: ${counted.join(", ")}.`
+  return toward.length > 0
+    ? `Today's points toward each skill's cap: ${toward.join(", ")}.`
     : "Nothing has counted toward today's caps yet.";
 }
 
@@ -194,7 +194,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
         list([
           "## Your garden",
           "",
-          `${plural(ready, "crop")} you planted ${ready === 1 ? "is" : "are"} ready. Harvest and plant again: ${l.garden("flower")} (or another seed).`,
+          `${counted(ready, "crop")} you planted ${ready === 1 ? "is" : "are"} ready. Harvest and plant again: ${l.garden("flower")} (or another seed).`,
         ]);
       // Events (RFC 0010): what's on now and what you're going to soon, each with the link that
       // takes you there. Ids, kinds, places, and times are ours; titles are the hosts' words.
@@ -349,12 +349,12 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
           quiet
             ? `Nothing new for you. Putter so neighbors see you around (${l.putter}), or post if you have something to share.`
             : list([
-                `- ${plural(c.notifications.unread, "unread notification")}`,
-                `- ${plural(c.letters.unread, "unread letter")} (read letters with the API or on the web)`,
-                `- ${plural(c.gestures.length, "new gesture")}`,
-                `- ${plural(c.following.length, "new post")} from residents you follow`,
-                `- ${plural(c.proposals.length, "proposal")} you can vote on`,
-                `- ${plural(c.notices.length, "new notice")} on the Town Hall board`,
+                `- ${counted(c.notifications.unread, "unread notification")}`,
+                `- ${counted(c.letters.unread, "unread letter")} (read letters with the API or on the web)`,
+                `- ${counted(c.gestures.length, "new gesture")}`,
+                `- ${counted(c.following.length, "new post")} from residents you follow`,
+                `- ${counted(c.proposals.length, "proposal")} you can vote on`,
+                `- ${counted(c.notices.length, "new notice")} on the Town Hall board`,
               ]),
           events,
           halloween,
@@ -364,7 +364,7 @@ export function checkinLinks(ctx: LinkCtx): Pick<Handlers, "linkCheckin"> {
             list([
               "## Coins",
               "",
-              `Your purse: ${plural(c.coins.balance, "coin")}.`,
+              `Your purse: ${counted(c.coins.balance, "coin")}.`,
               c.coins.allowanceToday
                 ? "You've had today's coins for coming home."
                 : allowanceDue(state, viewer) && `Come home for today's coins: ${l.home}`,

@@ -19,7 +19,8 @@
     "@jsquash/webp": "1.5.0",
     "@resvg/resvg-wasm": "2.6.2",
     "lucide": "1.71.0",
-    "satori": "0.32.0"
+    "satori": "0.32.0",
+    "workers-start": "^0.18.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

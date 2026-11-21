@@ -13,7 +13,8 @@ import {
   type SigninResponse,
 } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
-import { fromBase64Url, randomBytes, sha256HexSync, toBase64Url } from "./bytes";
+import { fromBase64Url, randomBytes, toBase64Url } from "workers-start/bytes";
+import { sha256HexSync } from "./bytes";
 import type { Credentials } from "./owner-service";
 import {
   checkAssertion,

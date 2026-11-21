@@ -55,7 +55,8 @@ import {
   type SweetKind,
   WEEKDAY_NAMES,
 } from "@terrakin/sim";
-import { formatCount, listOf, shortDate } from "@terrakin/ui/format";
+import { shortDate } from "@terrakin/ui/format";
+import { formatCount, listOf } from "workers-start/format";
 import { coins } from "./purse";
 
 /**
@@ -100,6 +101,7 @@ function potCostsLine(): string {
       const clay = i === 0 || extras.length > 0 ? thingCount("clay", potClay(pot)) : potClay(pot);
       return [`${aThing(pot)} ${i === 0 ? "takes " : ""}${clay}`, ...extras].join(" and ");
     }),
+    { oxfordComma: true },
   );
 }
 
@@ -122,7 +124,7 @@ function clayHeldLine(count: number): string {
   const fits = POTS.filter((pot) => potClay(pot) <= count).at(-1);
   if (!fits) return `${held}, and a bowl takes ${potClay("bowl")}. ${kiln}`;
   const extras = potExtras(fits);
-  return `${held}, enough for ${aThing(fits)}${extras.length > 0 ? ` with ${listOf(extras)}` : ""}. ${kiln}`;
+  return `${held}, enough for ${aThing(fits)}${extras.length > 0 ? ` with ${listOf(extras, { oxfordComma: true })}` : ""}. ${kiln}`;
 }
 
 /**
@@ -263,7 +265,8 @@ function whereFrom(kind: ItemKind): string | null {
   }
   if (entry.shop?.holiday)
     return `The town shop sells them at ${HOLIDAY_INFO[entry.shop.holiday].name}.`;
-  if (entry.shop?.seasons) return `The town shop sells them in ${listOf([...entry.shop.seasons])}.`;
+  if (entry.shop?.seasons)
+    return `The town shop sells them in ${listOf([...entry.shop.seasons], { oxfordComma: true })}.`;
   if (entry.shop) return "The town shop sells them.";
   return null;
 }
@@ -437,7 +440,7 @@ export function pantryWords(changes: readonly { kind: ItemKind; amount: number }
         : null,
     ...gained.filter((c) => !isSeed(c.kind)).map((c) => thingCount(c.kind, c.amount)),
   ].filter((p): p is string => p !== null);
-  return parts.length > 0 ? listOf(parts) : null;
+  return parts.length > 0 ? listOf(parts, { oxfordComma: true }) : null;
 }
 
 /** What a recipe uses, as one line: "3 lemons, 1 bag of sugar, 1 jar", or "3 wood" for a table. */
@@ -647,7 +650,11 @@ export function inventoryLine(e: InventoryEvent): string | null {
     case "gather": {
       // A find (RFC 0021) is something to tell: it goes in your collection book. Gathering all
       // within reach (decision 0125) can bring several kinds at once.
-      const words = (cs: typeof gained) => listOf(cs.map((c) => thingCount(c.kind, c.amount)));
+      const words = (cs: typeof gained) =>
+        listOf(
+          cs.map((c) => thingCount(c.kind, c.amount)),
+          { oxfordComma: true },
+        );
       const finds = gained.filter((c) => isFindKind(c.kind));
       const rest = gained.filter((c) => !isFindKind(c.kind));
       // Clay (RFC 0047) says how much you hold now and what it makes, since a toast is where
@@ -691,13 +698,25 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return null;
     case "gift_in": {
       const goods = e.gained ?? [];
-      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
+      const what =
+        goods.length > 0
+          ? listOf(
+              goods.map((g) => aMadeThing(g.kind)),
+              { oxfordComma: true },
+            )
+          : list(gained);
       return `A gift arrived: ${what}.`;
     }
     case "present": {
       // A present opened (RFC 0034), by hand or at the new year: only now is what's in it named.
       const goods = e.gained ?? [];
-      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
+      const what =
+        goods.length > 0
+          ? listOf(
+              goods.map((g) => aMadeThing(g.kind)),
+              { oxfordComma: true },
+            )
+          : list(gained);
       return `You opened a present: ${what}.`;
     }
     case "gift_out":
@@ -712,7 +731,13 @@ export function inventoryLine(e: InventoryEvent): string | null {
       return "Taken down. It's back in your things.";
     case "returned": {
       const goods = e.gained ?? [];
-      const what = goods.length > 0 ? listOf(goods.map((g) => aMadeThing(g.kind))) : list(gained);
+      const what =
+        goods.length > 0
+          ? listOf(
+              goods.map((g) => aMadeThing(g.kind)),
+              { oxfordComma: true },
+            )
+          : list(gained);
       return `A gift came back to you: ${what}.`;
     }
     case "bought":
@@ -862,7 +887,10 @@ export function learnedLine(
  */
 export function canTeachLine(name: string, recipes: readonly RecipeName[]): string | null {
   if (recipes.length === 0) return null;
-  return `${name} can teach you ${listOf(recipes.map((r) => recipeWords(r).toLowerCase()))}.`;
+  return `${name} can teach you ${listOf(
+    recipes.map((r) => recipeWords(r).toLowerCase()),
+    { oxfordComma: true },
+  )}.`;
 }
 
 /** A lesson you gave (RFC 0024): "You taught Wren lemonade." */

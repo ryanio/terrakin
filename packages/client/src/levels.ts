@@ -25,7 +25,7 @@ import {
   WEAR_INFO,
   type WearItem,
 } from "@terrakin/sim";
-import { plural } from "@terrakin/ui/format";
+import { counted } from "workers-start/format";
 
 /** "a", "a and b", "a, b, and c". */
 const listed = (words: readonly string[]): string =>
@@ -149,7 +149,7 @@ export function ownSkillRow(
     bar: { count, total, label: `${count} of ${total} points to ${after}` },
     lines: [
       SKILL_HOW[s.skill],
-      `${plural(left, "point", "points")} to ${after}`,
+      `${counted(left, "point", "points", { compact: true })} to ${after}`,
       today,
       ...(next ? [`${levelName(next)} brings ${unlockWords(next.unlocks)}.`] : []),
     ],
@@ -185,7 +185,11 @@ export function publicSkillRow(skill: Skill, level: number): SkillRow {
   return {
     skill,
     name,
-    bar: { count, total, label: `${count} of ${plural(total, "level", "levels")} to ${goal}` },
+    bar: {
+      count,
+      total,
+      label: `${count} of ${counted(total, "level", "levels", { compact: true })} to ${goal}`,
+    },
     lines: [SKILL_HOW[skill], `${goal} brings ${what}.`],
   };
 }

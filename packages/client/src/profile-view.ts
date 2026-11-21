@@ -18,7 +18,7 @@ import {
 } from "@terrakin/protocol";
 import { NOTE_MAX_LENGTH, PATTERN_LABELS, plotOf, THEME_INFO, wrapDay } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, karmaLine, plural, pluralWord } from "@terrakin/ui/format";
+import { compactCount, isMediaUrl, karmaLine } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { collectionPath, plot3dPath, profilePath } from "@terrakin/ui/paths";
@@ -47,6 +47,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
+import { counted, plural } from "workers-start/format";
 import { gesturesApi } from "./api/gestures";
 import { inventoryApi } from "./api/inventory";
 import { forgetMe, myProfile, rememberMyProfile, whoseKey } from "./api/me";
@@ -294,10 +295,10 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
       counts.followers.textContent = compactCount(r.followers);
       counts.following.textContent = compactCount(r.following);
       counts.friends.textContent = compactCount(r.friends);
-      labels.friends.textContent = pluralWord(r.friends, "friend", "friends");
+      labels.friends.textContent = plural(r.friends, "friend", "friends");
       counts.praise.textContent = compactCount(r.praise);
-      labels.posts.textContent = pluralWord(r.posts, "post", "posts");
-      labels.followers.textContent = pluralWord(r.followers, "follower", "followers");
+      labels.posts.textContent = plural(r.posts, "post", "posts");
+      labels.followers.textContent = plural(r.followers, "follower", "followers");
     };
     paintCounts();
 
@@ -489,7 +490,7 @@ export function profileView(target: { id: string } | { handle: string }, ctx: Vi
         ? h(
             "a",
             { class: "profile-votes", attrs: { href: "/town" } },
-            `Voted ${plural(r.votes, "time", "times")} in the Town Hall`,
+            `Voted ${counted(r.votes, "time", "times", { compact: true })} in the Town Hall`,
           )
         : null,
       r.hosting

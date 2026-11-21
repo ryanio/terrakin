@@ -130,9 +130,9 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /copyText\(/, use: "copyButton or copyBlock (ui.ts)" },
   {
     pattern: /[\w.]+ === 1 \? (?:"[\w ]+" : "[\w ]+"|"1 \w+"|one : many)/,
-    use: "plural or pluralWord (format.ts), or coins (purse.ts) for money",
+    use: "counted or plural (workers-start/format), or coins (purse.ts) for money",
   },
-  { pattern: /toLocaleString\("en-US"\)/, use: "formatCount (format.ts)" },
+  { pattern: /toLocaleString\("en-US"\)/, use: "formatCount (workers-start/format)" },
   {
     pattern: /Intl\.DateTimeFormat\("en-US"/,
     use: "shortDate, relativeTime, or fullDate (format.ts)",

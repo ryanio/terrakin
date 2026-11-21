@@ -1,4 +1,4 @@
-import { formatCount, pluralWord } from "@terrakin/ui/format";
+import { formatCount, plural } from "workers-start/format";
 import { CLAY, CLAY_DEEP, INK, PAPER_EDGE } from "./palette";
 
 /** A for-sale sign's soft clay fill, under clay ink. */
@@ -6,7 +6,7 @@ const SALE_FILL = "rgba(250, 226, 208, 0.92)";
 
 /** What a plot for sale's sign says (RFC 0039): "For sale, 400 coins". */
 export const saleSign = (price: number) =>
-  `For sale, ${formatCount(price)} ${pluralWord(price, "coin", "coins")}`;
+  `For sale, ${formatCount(price)} ${plural(price, "coin", "coins")}`;
 
 // Stable hue per owner so neighbors' plots are easy to tell apart.
 export function ownerHue(id: string): number {

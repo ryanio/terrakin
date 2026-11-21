@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { sha256Hex, sha256HexSync } from "./bytes";
+import { sha256Hex } from "workers-start/bytes";
+import { sha256HexSync } from "./bytes";
 
 describe("SHA-256 as hex", () => {
   // Tokens, link keys, codes, and staff keys are stored as these hashes, and every other test

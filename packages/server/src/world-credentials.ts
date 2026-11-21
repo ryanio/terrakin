@@ -1,4 +1,5 @@
-import { randomBytes, sha256HexSync, toBase64Url } from "./bytes";
+import { randomBytes, toBase64Url } from "workers-start/bytes";
+import { sha256HexSync } from "./bytes";
 import type { Store } from "./store";
 
 /**

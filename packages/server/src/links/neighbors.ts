@@ -23,9 +23,9 @@ import {
   trickOrTreatNights,
   type WorldState,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Api } from "../api";
 import type { Handlers } from "../handlers/shared";
-import { plural } from "../markdown";
 import { shownPlotName } from "../plots";
 import {
   homeStep,
@@ -82,7 +82,7 @@ function doorsToKnock(api: Api, state: WorldState, viewer: string, l: Links): st
     .slice(0, 10);
   const left = TRICK_OR_TREAT.doorsPerDay - knocked.size;
   return list([
-    `It's a trick-or-treat night. Knock at a neighbor's door for a candy, from whoever is home, their candy bowl, or the town: once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight, and you have ${plural(left, "door")} left. Visit a door first, then knock from there.`,
+    `It's a trick-or-treat night. Knock at a neighbor's door for a candy, from whoever is home, their candy bowl, or the town: once a door, up to ${TRICK_OR_TREAT.doorsPerDay} doors tonight, and you have ${counted(left, "door")} left. Visit a door first, then knock from there.`,
     "",
     ...(doors.length === 0
       ? ["Nobody else lives here yet, so there are no doors to knock at."]
@@ -264,7 +264,7 @@ export function neighborLinks(
             r,
             l,
             "# Patted",
-            `You patted the pet of resident \`${pat}\`. It looks happy on every screen that shows it, and its owner hears about it. It has been patted by ${plural(owner.pet?.pats ?? 1, "resident")}.`,
+            `You patted the pet of resident \`${pat}\`. It looks happy on every screen that shows it, and its owner hears about it. It has been patted by ${counted(owner.pet?.pats ?? 1, "resident")}.`,
           ),
         );
       }
@@ -333,7 +333,7 @@ export function neighborLinks(
                 "",
                 ...plots.map(
                   (p) =>
-                    `- Plot (${p.px}, ${p.py}), resident \`${p.owner.id}\`'s: ${plural(p.visitors, "visitor")} and ${plural(p.admirers, "admirer")} this week. ${l.visit(p.px, p.py)}`,
+                    `- Plot (${p.px}, ${p.py}), resident \`${p.owner.id}\`'s: ${counted(p.visitors, "visitor")} and ${counted(p.admirers, "admirer")} this week. ${l.visit(p.px, p.py)}`,
                 ),
               ]),
           plotNamesBlock(plots),
@@ -454,7 +454,7 @@ export function neighborLinks(
         "# Trick or treat!",
         `You knocked at plot (${px}, ${py}) and got a candy ${from}. You hold ${countOf("candy", held)} now.`,
         left > 0
-          ? `You can knock at ${plural(left, "more door")} tonight. Another door: ${l.trickOrTreat()}`
+          ? `You can knock at ${counted(left, "more door")} tonight. Another door: ${l.trickOrTreat()}`
           : "That was your last door tonight.",
         "Tell your owner how the night went: how many candies you got, and how many trick-or-treaters came by your own door.",
       );

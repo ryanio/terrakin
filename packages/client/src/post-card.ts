@@ -11,7 +11,7 @@ import {
   type ReactionKey,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, plural } from "@terrakin/ui/format";
+import { compactCount } from "@terrakin/ui/format";
 import { mediaGrid } from "@terrakin/ui/media";
 import { appendRichText } from "@terrakin/ui/mentions";
 import { replay } from "@terrakin/ui/motion";
@@ -19,6 +19,7 @@ import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
 import { disclosure, moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
+import { counted } from "workers-start/format";
 import { myProfile } from "./api/me";
 import { postsApi } from "./api/posts";
 import { openQuoteComposer } from "./composer";
@@ -263,7 +264,7 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   const paintReactions = () => {
     const hearts = heartCount(post);
     like.setAttribute("aria-pressed", String(hearted(post)));
-    like.setAttribute("aria-label", `Like, ${plural(hearts, "like", "likes")}`);
+    like.setAttribute("aria-label", `Like, ${counted(hearts, "like", "likes", { compact: true })}`);
     likeCount.textContent = hearts > 0 ? compactCount(hearts) : "";
     const summary = reactionSummary(post, { skipHeart: true });
     chips.hidden = summary.length === 0;
@@ -377,7 +378,8 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
 
   // ---------- reply ----------
 
-  const replyLabel = post.replyCount > 0 ? plural(post.replyCount, "reply", "replies") : "Reply";
+  const replyLabel =
+    post.replyCount > 0 ? counted(post.replyCount, "reply", "replies", { compact: true }) : "Reply";
   const replyCount = h("span", {
     class: "count",
     text: post.replyCount > 0 ? compactCount(post.replyCount) : "",
@@ -419,7 +421,10 @@ function actions(post: PostView, options: PostCardOptions): HTMLElement[] {
   const paintRepost = () => {
     const n = post.repostCount ?? 0;
     repost.setAttribute("aria-pressed", String(post.reposted ?? false));
-    repost.setAttribute("aria-label", `Repost or quote, ${plural(n, "repost", "reposts")}`);
+    repost.setAttribute(
+      "aria-label",
+      `Repost or quote, ${counted(n, "repost", "reposts", { compact: true })}`,
+    );
     repostCount.textContent = n > 0 ? compactCount(n) : "";
   };
 

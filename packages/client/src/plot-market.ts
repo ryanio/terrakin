@@ -5,7 +5,7 @@
  */
 import type { PlotListingView, PlotMarketResponse, PlotSaleView } from "@terrakin/protocol";
 import { relativeDayWords } from "@terrakin/sim";
-import { listOf, plural } from "@terrakin/ui/format";
+import { counted, listOf } from "workers-start/format";
 import { furnishedLine } from "./furnished-line";
 import { listingAction } from "./market-words";
 import { coins } from "./purse";
@@ -87,11 +87,12 @@ export function listingFacts(
   const floors = l.floors ?? 0;
   const up = floors === 0 ? "" : floors === 1 ? "an upstairs" : `${floors} floors up`;
   const parts = [
-    l.edges > 0 ? plural(l.edges, "wall", "walls") : "",
-    l.blocks > 0 ? plural(l.blocks, "block", "blocks") : "",
+    l.edges > 0 ? counted(l.edges, "wall", "walls", { compact: true }) : "",
+    l.blocks > 0 ? counted(l.blocks, "block", "blocks", { compact: true }) : "",
     up,
   ].filter((part) => part !== "");
-  const built = parts.length === 0 ? "Nothing built on it yet." : `${listOf(parts)}.`;
+  const built =
+    parts.length === 0 ? "Nothing built on it yet." : `${listOf(parts, { oxfordComma: true })}.`;
   const furnished = furnishedLine(l);
   const made = furnished === null ? built : `${built} ${furnished}.`;
   if (today === undefined) return made;
@@ -157,7 +158,7 @@ export function goingPriceLine(
   const sales = sold.map((s) =>
     today === undefined ? coins(s.price) : `${coins(s.price)} ${relativeDayWords(s.day, today)}`,
   );
-  return `Recent sales: ${listOf(sales)}.`;
+  return `Recent sales: ${listOf(sales, { oxfordComma: true })}.`;
 }
 
 /** The numbers a dry run gives back, as label and value rows for a sheet. */

@@ -24,7 +24,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { DAY_MS, MINUTE_MS, utcDay } from "@terrakin/sim";
-import { randomId } from "./bytes";
+import { randomId } from "workers-start/bytes";
 import { sizeFields } from "./image-size";
 import { type MediaStore, placeFields, privateMediaKey } from "./media";
 import { type Moderation, refusal } from "./moderation";

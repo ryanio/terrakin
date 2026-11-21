@@ -118,7 +118,7 @@ import {
   type WorldState,
   withinEarshot,
 } from "@terrakin/sim";
-import { randomId } from "./bytes";
+import { randomId } from "workers-start/bytes";
 import { doorNote, withNote } from "./door-notes";
 import { type GuestFacts, SOON_NOTICE_MS } from "./events";
 import { closeDue, startBy, townsfolkMove } from "./games";

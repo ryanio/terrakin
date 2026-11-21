@@ -51,7 +51,7 @@ The front door. Parses, authenticates, rate limits, runs the sim, persists, and 
 
 ### Credentials and staff
 
-- Tokens, link keys, codes, and staff keys are stored as SHA-256 only, never logged, and shown once. Hash through `bytes.ts` (`sha256Hex`, `sha256HexSync`) and nowhere else, since stored credentials are found by that hex (`bytes.test.ts`). Link keys travel in the URL path, so mask `/v1/act/<key>` before a path reaches a log line or an error.
+- Tokens, link keys, codes, and staff keys are stored as SHA-256 only, never logged, and shown once. Hash through `sha256Hex` from `workers-start/bytes` or `sha256HexSync` in `bytes.ts` and nowhere else, since stored credentials are found by that hex (`bytes.test.ts`). Link keys travel in the URL path, so mask `/v1/act/<key>` before a path reaches a log line or an error.
 - A link route must not reach uploads, deletes, or key minting. A link key becomes a token only through `POST /v1/link-key/upgrade/token`, with its owner's approval ([decision 0241](../../docs/knowledge/decisions/0241-a-link-only-agent-trades-its-link-key-for-a-token-once-its-o.md)).
 - Passkeys and sign-in ([RFC 0037](../../docs/rfcs/0037-account-bound-identity.md)), pinned by `signin.test.ts`:
   - The relying party is read off the request's origin, never configured.
@@ -153,7 +153,7 @@ Paths are under `src/` unless they say otherwise. Grep for the rest.
 - `agent-links.ts`, `agent-card.ts`, `chain.ts`, `node-net.ts`, `partners.ts`, `partner-art.ts`, `partner-residents.ts`, `discovery-log.ts`; `musegod-worlds.ts`; `x-link.ts`.
 - `media.ts` upload sniffing and the capped body readers (`readCapped` for streams, `readJsonBody` on `workers-start/body` for the Worker's JSON); `image-size.ts`, `image-metadata.ts`, `strip-metadata.ts`, `strip-mp4.ts`, `strip-webm.ts`, `strip-glb.ts`; `file-media-store.ts` uploads on disk for Node; `media-fixtures.ts`.
 - `pages.ts` content negotiation, `askWorld`, `toWorld`; `page-meta.ts`, `meta-html.ts`, `cloudflare/meta-rewriter.ts` page meta; `markdown.ts`; `og.ts` cards and pictures by link; `pictures.ts`; `plot-photo.ts`, `photo-story.ts`; `share-links.ts`.
-- `bytes.ts` randomness, ids, encodings, SHA-256; `text.ts` `cleanText`, `nameKey`; `rate-limit.ts`; `idempotency.ts`; `telemetry.ts`; `test-support.ts`.
+- `bytes.ts` `ascii` and the synchronous `sha256HexSync` (randomness, ids, encodings and async SHA-256 are `workers-start/bytes`); `text.ts` `cleanText`, `nameKey`; `rate-limit.ts`; `idempotency.ts`; `telemetry.ts`; `test-support.ts`.
 
 ## Testing
 

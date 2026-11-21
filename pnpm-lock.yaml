@@ -60,6 +60,9 @@ importers:
       '@terrakin/ui':
         specifier: workspace:*
         version: link:../ui
+      workers-start:
+        specifier: ^0.18.0
+        version: 0.18.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -88,6 +91,9 @@ importers:
       satori:
         specifier: 0.32.0
         version: 0.32.0
+      workers-start:
+        specifier: ^0.18.0
+        version: 0.18.0
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
@@ -122,6 +128,9 @@ importers:
       three:
         specifier: 0.187.0
         version: 0.187.0
+      workers-start:
+        specifier: ^0.18.0
+        version: 0.18.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -150,6 +159,9 @@ importers:
       '@terrakin/sim':
         specifier: workspace:*
         version: link:../sim
+      workers-start:
+        specifier: ^0.18.0
+        version: 0.18.0
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -190,8 +202,8 @@ importers:
         specifier: 8.12.4
         version: 8.12.4
       workers-start:
-        specifier: ^0.14.0
-        version: 0.14.0
+        specifier: ^0.18.0
+        version: 0.18.0
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -222,6 +234,9 @@ importers:
       lucide:
         specifier: 1.71.0
         version: 1.71.0
+      workers-start:
+        specifier: ^0.18.0
+        version: 0.18.0
 
 packages:
 
@@ -1818,8 +1833,8 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  workers-start@0.14.0:
-    resolution: {integrity: sha512-Chh3S9tim9sVDex6ZzL1QHA6JdeqEuIMnxkIuIXQtRyqiQemJrQhrNyR/zXFPD3pKy1h3XPJNfRJHJ/fGxTykw==}
+  workers-start@0.18.0:
+    resolution: {integrity: sha512-/UwgF8eVuWYWDsiAAcbPiB1PvkYD08w0XWoJjPcJK5dfy+9PMRiAtchLv6E8Dz15sV2pPDFhOABb6y4HCtLP4g==}
     engines: {node: '>=22'}
     hasBin: true
 
@@ -3117,7 +3132,7 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261116.1
       '@cloudflare/workerd-windows-64': 1.20261116.1
 
-  workers-start@0.14.0: {}
+  workers-start@0.18.0: {}
 
   wrangler@4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6):
     dependencies:

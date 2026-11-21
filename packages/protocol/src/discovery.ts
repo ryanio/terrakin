@@ -1,3 +1,4 @@
+import { type SitemapEntry, robotsTxt as seoRobotsTxt, sitemapXml } from "workers-start/seo";
 import { absolute, FAQ, LINKS, PAGES, SITE, type SitePage } from "./site";
 
 /**
@@ -36,67 +37,32 @@ export const WELCOMED_AGENTS = [
 ] as const;
 
 export function robotsTxt(): string {
-  return [
+  const preface = [
     `# ${SITE.name} welcomes people, search engines, and AI agents. Nothing public is off limits.`,
     `# AI agents: start with ${absolute(LINKS.llms)} and ${absolute(LINKS.skill)}.`,
     `# The API is described at ${absolute(LINKS.openapi)} and ${absolute(LINKS.apiCatalog)}.`,
     `# What's new: ${absolute(LINKS.changelogMarkdown)} (Atom: ${absolute(LINKS.changelogFeed)}).`,
-    "",
-    "User-agent: *",
-    "Allow: /",
-    "",
-    ...WELCOMED_AGENTS.map((agent) => `User-agent: ${agent}`),
-    "Allow: /",
-    "",
-    `Sitemap: ${absolute(LINKS.sitemap)}`,
-    "",
-  ].join("\n");
+  ];
+  const robots = seoRobotsTxt({
+    rules: [
+      { userAgent: "*", allow: "/" },
+      { userAgent: WELCOMED_AGENTS, allow: "/" },
+    ],
+    sitemap: absolute(LINKS.sitemap),
+  });
+  return `${preface.join("\n")}\n\n${robots}`;
 }
-
-/** Text or an attribute value made safe inside XML (sitemaps, the Atom feed). */
-export const escapeXml = (text: string) =>
-  text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
-
-/** A sitemap entry: an absolute URL and, if known, when it last changed (W3C date or datetime). */
-export interface SitemapEntry {
-  loc: string;
-  lastmod?: string | undefined;
-}
-
-/** Milliseconds as a W3C datetime to the second, like `2026-10-04T18:22:05Z`. */
-export const w3cDatetime = (ms: number) => new Date(ms).toISOString().replace(/\.\d{3}Z$/, "Z");
-
-function sitemapDocument(root: "urlset" | "sitemapindex", entries: readonly SitemapEntry[]) {
-  const tag = root === "urlset" ? "url" : "sitemap";
-  return [
-    '<?xml version="1.0" encoding="UTF-8"?>',
-    `<${root} xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">`,
-    ...entries.map(
-      ({ loc, lastmod }) =>
-        `  <${tag}>\n    <loc>${escapeXml(loc)}</loc>\n${lastmod ? `    <lastmod>${lastmod}</lastmod>\n` : ""}  </${tag}>`,
-    ),
-    `</${root}>`,
-    "",
-  ].join("\n");
-}
-
-/** A `<urlset>` sitemap. */
-export const urlsetXml = (entries: readonly SitemapEntry[]) => sitemapDocument("urlset", entries);
-
-/** A `<sitemapindex>` listing other sitemaps. */
-export const sitemapIndexXml = (entries: readonly SitemapEntry[]) =>
-  sitemapDocument("sitemapindex", entries);
 
 /**
  * /sitemap-pages.xml: the fixed pages, dated by when their sources last changed, then `more` (the
  * devlog's posts, each dated by its day).
  */
 export function pagesSitemapXml(lastmod: LastModified, more: readonly SitemapEntry[] = []): string {
-  return urlsetXml([
+  return sitemapXml([
     ...pages.map((page) => {
       const date = lastmod[page.path];
       if (!date) throw new Error(`No lastmod for ${page.path}`);
-      return { loc: absolute(page.path), lastmod: date };
+      return { url: absolute(page.path), lastModified: date };
     }),
     ...more,
   ]);

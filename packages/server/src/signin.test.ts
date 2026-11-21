@@ -1,8 +1,9 @@
 import type { PasskeyCreationOptions, PasskeyRequestOptions } from "@terrakin/protocol";
 import type { WorldConfig } from "@terrakin/sim";
 import { afterEach, describe, expect, it } from "vitest";
+import { fromBase64Url, sha256, toBase64Url } from "workers-start/bytes";
 import { createApp } from "./app";
-import { fromBase64Url, sha256Bytes, sha256HexSync, toBase64Url } from "./bytes";
+import { sha256HexSync } from "./bytes";
 import { MemoryMediaStore } from "./media";
 import { nodeSql } from "./node-sql";
 import { SocialService } from "./social-service";
@@ -106,7 +107,7 @@ async function authenticator(origin: string, credentialId = "dGVzdC1rZXk") {
 
   const authData = async (flags: number, signCount: number) => {
     const bytes = new Uint8Array(37);
-    bytes.set(await sha256Bytes(new TextEncoder().encode(rpId)), 0);
+    bytes.set(await sha256(new TextEncoder().encode(rpId)), 0);
     bytes[32] = flags;
     new DataView(bytes.buffer).setUint32(33, signCount, false);
     return bytes;
@@ -133,7 +134,7 @@ async function authenticator(origin: string, credentialId = "dGVzdC1rZXk") {
       const client = clientData("webauthn.get", options.challenge, from);
       const signed = new Uint8Array(data.length + 32);
       signed.set(data, 0);
-      signed.set(await sha256Bytes(fromBase64Url(client) as Uint8Array<ArrayBuffer>), data.length);
+      signed.set(await sha256(fromBase64Url(client) as Uint8Array<ArrayBuffer>), data.length);
       const raw = new Uint8Array(
         await crypto.subtle.sign({ name: "ECDSA", hash: "SHA-256" }, pair.privateKey, signed),
       );

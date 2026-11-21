@@ -51,9 +51,9 @@ import {
   walkLegsTo,
   worldDayWords,
 } from "@terrakin/sim";
+import { counted } from "workers-start/format";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
-import { plural } from "../markdown";
 import { shownPlotName } from "../plots";
 import { awayLine } from "../routines";
 import { planWalkTo, walkLegs } from "../walk-to";
@@ -281,7 +281,7 @@ function collected(events: readonly WorldEvent[], viewer: string): string | unde
   }
   const coins =
     allowance > 0 &&
-    `today's ${plural(allowance, "coin")} for coming home${streak > 0 ? `, and ${streak} more for coming home days in a row` : ""}${balance === undefined ? "" : ` (your purse has ${plural(balance, "coin")} now)`}`;
+    `today's ${counted(allowance, "coin")} for coming home${streak > 0 ? `, and ${streak} more for coming home days in a row` : ""}${balance === undefined ? "" : ` (your purse has ${counted(balance, "coin")} now)`}`;
   const parts = [coins, ...pantry].filter((p): p is string => typeof p === "string");
   if (parts.length === 0) return undefined;
   return `You collected ${parts.join(", and ")}.`;
@@ -328,7 +328,7 @@ export function worldLinks(
           `- Note: ${r.note || "(none)"}`,
           profile && `- Bio: ${profile.bio || "(none yet)"}`,
           profile &&
-            `- ${plural(profile.posts, "post")}, ${plural(profile.followers, "follower")}, following ${profile.following}`,
+            `- ${counted(profile.posts, "post")}, ${counted(profile.followers, "follower")}, following ${profile.following}`,
           `- Standing at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}`,
           `- Your plot: ${owned ? `(${owned.px}, ${owned.py})` : "none yet"}`,
           shared.length > 0 &&
@@ -370,7 +370,7 @@ export function worldLinks(
         owned
           ? `Your plot is (${owned.px}, ${owned.py}).${lotWords(state, owned.px, owned.py)}`
           : "You don't have a plot yet. Settling one takes one link, from anywhere.",
-        `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${plural(onlineCount, "resident")} online, ${plural(plotCount, "plot")} claimed, not counting townsfolk.`,
+        `The world is ${config.width} by ${config.height} tiles, in plots of ${config.plotSize} by ${config.plotSize}. Plot (px, py) covers tiles px*${config.plotSize} to px*${config.plotSize}+${config.plotSize - 1} across, and the same down. The Commons is plot (${commons.px}, ${commons.py}). ${counted(onlineCount, "resident")} online, ${counted(plotCount, "plot")} claimed, not counting townsfolk.`,
         free.length > 0 &&
           list([
             "## Free plots near you",
@@ -542,7 +542,7 @@ export function worldLinks(
         r,
         l,
         walk.arrived ? "# Walked there" : "# Walked",
-        `You walked ${plural(walk.walked, "step")} and you're at ${at(r)}${floor}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+        `You walked ${counted(walk.walked, "step")} and you're at ${at(r)}${floor}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         walk.stopped && `Stopped early: ${walk.stopped.message} (code \`${walk.stopped.code}\`)`,
         !walk.arrived && `Keep going: ${l.walkTo(to.x, to.y, near, to.floor)}`,
       );
@@ -565,7 +565,7 @@ export function worldLinks(
         r,
         l,
         "# Puttered",
-        `You walked ${plural(steps, "step")} from ${at(from)} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
+        `You walked ${counted(steps, "step")} from ${at(from)} and you're at ${at(r)}, on ${plotLabel(state, viewer, r.x, r.y)}.`,
         // Only the id: a name is another resident's text.
         result.greeted
           ? `You waved at resident \`${result.greeted}\`, who was nearby.`
@@ -605,19 +605,19 @@ export function worldLinks(
       const left = gatherable(state, viewer, r).filter((t) => t.kind !== RECIPE_PAGE).length;
       const picked = [
         ...(changes.length > 0 ? [stackWords(changes)] : []),
-        ...(pages.length > 0 ? [plural(pages.length, "recipe page")] : []),
+        ...(pages.length > 0 ? [counted(pages.length, "recipe page")] : []),
       ].join(" and ");
       return answer(
         r,
         l,
         "# Gathered",
-        `You picked up ${picked} from ${plural(took, "tile")} within reach of ${at(r)}.`,
+        `You picked up ${picked} from ${counted(took, "tile")} within reach of ${at(r)}.`,
         pages.length > 0 &&
           `The ${pages.length === 1 ? "page taught you a recipe" : "pages taught you recipes"}: ${pages.join(", ")}. GET /v1/inventory lists the recipes you know.`,
         finds.length > 0 &&
           `${finds.length === 1 ? "That find is" : "Those finds are"} in your collection book now: ${origin}/r/${viewer}/collection. Tell your owner, more so if one is rare.`,
         left > 0 &&
-          `Your things are full, so ${plural(left, "more thing")} still ${left === 1 ? "lies" : "lie"} within reach. What you hold: ${l.things}`,
+          `Your things are full, so ${counted(left, "more thing")} still ${left === 1 ? "lies" : "lie"} within reach. What you hold: ${l.things}`,
         r.hearth && `Wood and stone make furniture at a workbench. What you can make: ${l.craft()}`,
       );
     },
@@ -645,7 +645,7 @@ export function worldLinks(
         r,
         l,
         "# Your things",
-        `Only you see this page. You hold ${things.size} of the ${inventoryMaxOf(state)} things you have room for.${purse ? ` Your purse has ${plural(purse.balance, "coin")}.` : ""}`,
+        `Only you see this page. You hold ${things.size} of the ${inventoryMaxOf(state)} things you have room for.${purse ? ` Your purse has ${counted(purse.balance, "coin")}.` : ""}`,
         things.stacks.length > 0
           ? list([
               "## What you hold",
@@ -723,7 +723,7 @@ export function worldLinks(
           "# Your plot's name",
           name === undefined
             ? `Plot (${px}, ${py}) has no name yet. Choose one with your owner, like "Juniper's Lemon Grove": everyone sees it on the map and wherever the plot is shown.`
-            : `Plot (${px}, ${py}) has a name. A plot's name changes once a UTC day, and this one has ${plural(freeRenamesLeft(plot), "free rename")} left for changing it again the same day.`,
+            : `Plot (${px}, ${py}) has a name. A plot's name changes once a UTC day, and this one has ${counted(freeRenamesLeft(plot), "free rename")} left for changing it again the same day.`,
           plotNamesBlock([{ px, py, name }]),
           `Name it: ${l.namePlot}`,
         );

@@ -10,8 +10,8 @@
 import { SIGNIN } from "@terrakin/protocol";
 import { MINUTE_MS, nameProblem } from "@terrakin/sim";
 import { h } from "@terrakin/ui/dom";
-import { plural } from "@terrakin/ui/format";
 import { reducedMotion } from "@terrakin/ui/motion";
+import { counted } from "workers-start/format";
 import { initBrandMarks, initBringAi } from "./chrome";
 import {
   characterPicker,
@@ -87,7 +87,7 @@ export interface LandingOptions {
 /** "12 residents, 3 online now". Pure, so tests can pin the wording. */
 export function populationLine(total: number, online: number): string {
   if (total === 0) return "Nobody here yet. Be the first";
-  const residents = plural(total, "resident", "residents");
+  const residents = counted(total, "resident", "residents", { compact: true });
   return online > 0 ? `${residents}, ${online} online now` : `${residents}, quiet right now`;
 }
 

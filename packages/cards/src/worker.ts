@@ -15,11 +15,15 @@ import fraunces600 from "@fontsource/fraunces/files/fraunces-latin-600-normal.wo
 import frauncesExt400 from "@fontsource/fraunces/files/fraunces-latin-ext-400-normal.woff";
 import frauncesExt600 from "@fontsource/fraunces/files/fraunces-latin-ext-600-normal.woff";
 import webp from "@jsquash/webp/codec/dec/webp_dec.wasm";
+import { initWasm, Resvg } from "@resvg/resvg-wasm";
 import resvg from "@resvg/resvg-wasm/index_bg.wasm";
+import satori, { init } from "satori/standalone";
 import yoga from "satori/yoga.wasm";
-import { type Cards, createCards, type FontFile } from "./render";
+import { type CardFont, createRenderer, type ResvgLike } from "workers-cards";
+import { type Cards, cardsFrom } from "./render";
+import { webpToPng } from "./webp";
 
-const fonts: FontFile[] = [
+const fonts: CardFont[] = [
   { name: "Fraunces", weight: 400, data: fraunces400 },
   { name: "Fraunces", weight: 400, data: frauncesExt400 },
   { name: "Fraunces", weight: 600, data: fraunces600 },
@@ -31,6 +35,17 @@ const fonts: FontFile[] = [
   { name: "Figtree", weight: 800, data: figtree800 },
 ];
 
-export const cards: Cards = createCards(async () => ({ yoga, resvg, webp, fonts }));
+export const cards: Cards = cardsFrom(
+  createRenderer(async () => ({
+    satori,
+    // workers-cards 0.1.0 types the options as `unknown`, which resvg's own class refuses.
+    Resvg: Resvg as ResvgLike,
+    fonts,
+    init: async () => {
+      await Promise.all([init(yoga), initWasm(resvg)]);
+    },
+    decodeWebp: webpToPng(webp),
+  })),
+);
 
 export * from "./index";

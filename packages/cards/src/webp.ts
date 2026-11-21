@@ -9,7 +9,8 @@
  */
 
 import factory from "@jsquash/webp/codec/dec/webp_dec.js";
-import { base64, MAX_WEBP_PIXELS, probeImage } from "./images";
+import { dataUri } from "workers-cards";
+import { MAX_WEBP_PIXELS, probeImage } from "./images";
 
 /**
  * Longest side of the PNG made from a WebP. The biggest box a card draws a picture in is a home
@@ -77,7 +78,7 @@ export function webpToPng(wasm: object | ArrayBuffer): WebpToPng {
       if (!pixels || pixels.width !== probe.width || pixels.height !== probe.height) return;
       if (pixels.data.length !== pixels.width * pixels.height * 4) return;
       const small = shrink(pixels);
-      return `data:image/png;base64,${base64(await encodePng(small))}`;
+      return dataUri("image/png", await encodePng(small));
     } catch {
       return undefined;
     }

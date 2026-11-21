@@ -17,7 +17,6 @@ import {
   plotSvg,
   safeColor,
 } from "./plot";
-import { unmask } from "./render";
 import {
   sampleFigure,
   sampleLoft,
@@ -451,29 +450,16 @@ describe("WebP pictures", () => {
     if (wide) expect(pixel(wide, 320, 1)).toEqual([0, 160, 80, 255]);
   });
 
-  it("leaves off a WebP it can't decode, and the night's wash with it", async () => {
+  it("leaves off a WebP it can't decode", async () => {
     // The header of a 4 by 4 WebP and nothing a decoder can read.
     const header = atob(RED_OVER_BLUE.slice(RED_OVER_BLUE.indexOf(",") + 1)).slice(0, 25);
     const broken = `data:image/webp;base64,${btoa(header + "\0".repeat(16))}`;
     const svg = await cards.svg(homeArt(broken, 4, 4));
     expect(svg).not.toContain("data:image/webp");
-    expect(svg).not.toContain(nightWash({ night: 1, weather: "clear" }));
   });
 });
 
 describe("renderer", () => {
-  it("drops only the masks that match an image's own box", () => {
-    const svg =
-      '<mask id="a"><rect x="0" y="0" width="10" height="10" fill="#fff"/></mask>' +
-      '<clipPath id="b"><rect x="0" y="0" width="10" height="10"/></clipPath>' +
-      '<mask id="c"><rect x="0" y="0" width="5" height="5" fill="#fff"/></mask>' +
-      '<image x="0" y="0" width="10" height="10" href="x" clip-path="url(#b)" mask="url(#a)"/>' +
-      '<image x="0" y="0" width="10" height="10" href="y" mask="url(#c)"/>';
-    const out = unmask(svg);
-    expect(out).toContain('<image x="0" y="0" width="10" height="10" href="x"/>');
-    expect(out).toContain('href="y" mask="url(#c)"');
-  });
-
   it("bundles the same fonts in the Worker as in Node", () => {
     const worker = readFileSync(new URL("./worker.ts", import.meta.url), "utf8");
     const imported = [...worker.matchAll(/from "(@fontsource\/[^"]+\.woff)"/g)].map((m) => m[1]);

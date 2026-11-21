@@ -9,6 +9,8 @@
  * JPEG's segments once.
  */
 
+import { dataUri } from "workers-cards";
+
 /** Largest file embedded in a card. Bigger pictures leave the card without one. */
 export const MAX_IMAGE_BYTES = 6_000_000;
 /** Largest picture, in pixels, embedded in a card. */
@@ -117,14 +119,6 @@ function jpeg(b: Uint8Array, exif?: (tiff: Uint8Array) => void): Probe | undefin
   return frame;
 }
 
-export function base64(bytes: Uint8Array): string {
-  let s = "";
-  for (let i = 0; i < bytes.length; i += 0x8000) {
-    s += String.fromCharCode(...bytes.subarray(i, i + 0x8000));
-  }
-  return btoa(s);
-}
-
 /**
  * A picture as a data URI a card can draw, or undefined when it isn't a format the renderer
  * draws, is too big to decode safely, or its header lies about its size.
@@ -135,5 +129,5 @@ export function imageDataUri(bytes: Uint8Array): string | undefined {
   if (!probe || probe.width < 1 || probe.height < 1) return undefined;
   if (probe.type === "image/webp" && probe.width * probe.height > MAX_WEBP_PIXELS) return undefined;
   if (probe.width * probe.height > MAX_IMAGE_PIXELS) return undefined;
-  return `data:${probe.type};base64,${base64(bytes)}`;
+  return dataUri(probe.type, bytes);
 }

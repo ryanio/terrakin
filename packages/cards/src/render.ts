@@ -1,38 +1,15 @@
 /**
- * The renderer, independent of where it runs. `node.ts` and `worker.ts` hand it the wasm and fonts
- * their runtime can load; everything else is shared.
+ * Cards on a `workers-cards` renderer. `node.ts` and `worker.ts` each make the renderer from the
+ * wasm and fonts their runtime can load; this turns a `Card` into its element tree and size, and
+ * draws the paper once.
  */
 
-import { initWasm, Resvg } from "@resvg/resvg-wasm";
-import satori, { init as initSatori } from "satori/standalone";
-import { base64 } from "./images";
+import { Resvg } from "@resvg/resvg-wasm";
+import { type CardRenderer, dataUri, type RenderedCard } from "workers-cards";
 import { type Art, type Card, cardSize, element, PAPER_SVG, W } from "./templates";
-import { type WebpToPng, webpToPng } from "./webp";
 
-/** Whatever each runtime can hand the wasm loaders: bytes in Node, a compiled module in a Worker. */
-type Wasm = Parameters<typeof initWasm>[0] & Parameters<typeof initSatori>[0];
-
-/** One font file (WOFF from @fontsource) and how satori should name it. */
-export interface FontFile {
-  name: "Fraunces" | "Figtree";
-  weight: 400 | 600 | 700 | 800;
-  data: ArrayBuffer;
-}
-
-export interface Engine {
-  yoga: Wasm;
-  resvg: Wasm;
-  /** libwebp's decoder (`webp.ts`), compiled or as bytes: resvg draws nothing for a WebP. */
-  webp: Parameters<typeof webpToPng>[0];
-  fonts: FontFile[];
-}
-
-export interface Rendered {
-  bytes: Uint8Array;
-  type: "image/png";
-  width: number;
-  height: number;
-}
+/** A drawn card: plain data, so it crosses RPC as it is. */
+export type Rendered = RenderedCard;
 
 export interface Cards {
   /** The card as SVG, before rasterizing. Tests read it; nothing serves it. */
@@ -74,96 +51,26 @@ export interface SceneDrawer {
   scene(url: string, origin: string, o: SceneOptions): Promise<SceneShot>;
 }
 
-export function createCards(load: () => Promise<Engine>): Cards {
-  let ready: Promise<{ fonts: FontFile[]; art: Art; toPng: WebpToPng }> | undefined;
-  // Once per process or isolate: resvg refuses a second initWasm.
-  const boot = () => {
-    ready ??= load().then(async (e) => {
-      await Promise.all([initSatori(e.yoga), initWasm(e.resvg)]);
-      // The grain filter is the slowest thing on a card, so draw the paper once and reuse it.
-      const paper = `data:image/png;base64,${base64(rasterize(PAPER_SVG))}`;
-      return { fonts: e.fonts, art: { paper }, toPng: webpToPng(e.webp) };
+/** The cards drawn by `renderer`, whose engine has booted resvg by the time `ready()` settles. */
+export function cardsFrom(renderer: CardRenderer): Cards {
+  let paper: Promise<Art> | undefined;
+  // The grain filter is the slowest thing on a card, so draw the paper once and reuse it.
+  const art = () => {
+    paper ??= renderer.ready().then(() => ({ paper: dataUri("image/png", rasterize(PAPER_SVG)) }));
+    paper.catch(() => {
+      paper = undefined;
     });
-    ready.catch(() => {
-      ready = undefined;
-    });
-    return ready;
+    return paper;
   };
-
-  async function svg(given: Card): Promise<string> {
-    const { fonts, art, toPng } = await boot();
-    const card = await withoutWebp(given, toPng);
-    // satori's types want a ReactNode; our plain element objects are what it reads.
-    const { width, height } = cardSize(card);
-    return satori(element(card, art) as unknown as Parameters<typeof satori>[0], {
-      width,
-      height,
-      fonts: fonts.map((f) => ({ name: f.name, data: f.data, weight: f.weight, style: "normal" })),
-    });
-  }
-
-  async function render(card: Card): Promise<Rendered> {
-    const { width, height, scale } = cardSize(card);
-    const bytes = rasterize(unmask(await svg(card)), width * scale);
-    return { bytes, type: "image/png", width: width * scale, height: height * scale };
-  }
-
-  return { svg, render };
+  return {
+    svg: async (card) => renderer.svg(element(card, await art()), cardSize(card)),
+    render: async (card) => renderer.png(element(card, await art()), cardSize(card)),
+  };
 }
 
-/**
- * The card with each WebP picture as a PNG, since resvg draws nothing for a WebP. One that can't
- * be decoded is left off, as `imageDataUri` leaves off any picture a card can't draw.
- */
-async function withoutWebp(card: Card, toPng: WebpToPng): Promise<Card> {
-  const png = async (uri: string | undefined) =>
-    uri?.startsWith("data:image/webp;") ? await toPng(uri) : uri;
-  switch (card.kind) {
-    case "profile":
-      return { ...card, person: { ...card.person, avatar: await png(card.person.avatar) } };
-    case "post":
-      return {
-        ...card,
-        author: { ...card.author, avatar: await png(card.author.avatar) },
-        image: await png(card.image),
-      };
-    case "plot": {
-      if (!card.homeArt) return card;
-      const src = await png(card.homeArt.src);
-      return { ...card, homeArt: src ? { ...card.homeArt, src } : undefined };
-    }
-    default:
-      return card;
-  }
-}
-
-/**
- * satori gives every <image> a clip path and a mask of its own box. When that box is a plain
- * rectangle the same size as the image they change nothing, but resvg still draws each mask to an
- * offscreen buffer, which roughly doubles a card's time. Drop just those; rounded ones stay.
- */
-export function unmask(svg: string): string {
-  const boxes = new Map<string, string>();
-  for (const m of svg.matchAll(
-    /<(?:mask|clipPath) id="([^"]+)"><rect x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"(?: fill="#fff")?\/><\/(?:mask|clipPath)>/g,
-  )) {
-    boxes.set(m[1] ?? "", `${m[2]} ${m[3]} ${m[4]} ${m[5]}`);
-  }
-  return svg.replace(
-    /<image x="([^"]+)" y="([^"]+)" width="([^"]+)" height="([^"]+)"([^>]*)\/>/g,
-    (_tag, x: string, y: string, w: string, h: string, rest: string) => {
-      const box = `${x} ${y} ${w} ${h}`;
-      const attrs = rest.replace(/ (?:clip-path|mask)="url\(#([^)]+)\)"/g, (attr, id: string) =>
-        boxes.get(id) === box ? "" : attr,
-      );
-      return `<image x="${x}" y="${y}" width="${w}" height="${h}"${attrs}/>`;
-    },
-  );
-}
-
-function rasterize(markup: string, width = W): Uint8Array {
+function rasterize(markup: string): Uint8Array {
   const resvg = new Resvg(markup, {
-    fitTo: { mode: "width", value: width },
+    fitTo: { mode: "width", value: W },
     font: { loadSystemFonts: false },
   });
   try {

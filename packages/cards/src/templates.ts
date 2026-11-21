@@ -10,9 +10,9 @@
  */
 
 import { Heart, type IconNode, MessageCircle } from "lucide";
+import { div, type El, img, type Style, svgImage, text } from "workers-cards";
 import { plural } from "workers-start/format";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
-import { div, type El, img, type Style, svg, text } from "./h";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { nightWash } from "./sky";
@@ -140,7 +140,7 @@ function sheet(art: Art, ...content: Content): El {
       fontFamily: SANS,
       color: C.ink,
     },
-    art.paper ? img(art.paper, W, H, full) : svg(PAPER_SVG, W, H, full),
+    art.paper ? img(art.paper, W, H, full) : svgImage(PAPER_SVG, W, H, full),
     ...content,
   );
 }
@@ -183,17 +183,17 @@ function stage(art: Art, ...content: Content): El {
 /** The brand mark standing on a soft oval shadow, `width` wide. */
 function mark(width: number, style: Style = {}, shadow = true): El {
   const height = Math.round((width * MARK_SIZE.height) / MARK_SIZE.width);
-  if (!shadow) return svg(MARK_SVG, width, height, style);
+  if (!shadow) return svgImage(MARK_SVG, width, height, style);
   const oval = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 10"><ellipse cx="50" cy="5" rx="50" ry="5" fill="${C.paperEdge}"/></svg>`;
   return div(
     { position: "relative", width, height: height + Math.round(width * 0.06), ...style },
-    svg(
+    svgImage(
       oval,
       Math.round(width * 0.72),
       Math.round(width * 0.072),
       abs({ left: width * 0.14, bottom: 0 }),
     ),
-    svg(MARK_SVG, width, height, abs({ left: 0, top: 0 })),
+    svgImage(MARK_SVG, width, height, abs({ left: 0, top: 0 })),
   );
 }
 
@@ -608,12 +608,12 @@ function post(c: PostCard, art: Art): El {
       abs({ right: bare ? 40 + bare + 16 : 80, bottom: 58, alignItems: "center", gap: 28 }),
       div(
         { alignItems: "center", gap: 10 },
-        svg(HEART, 34, 34),
+        svgImage(HEART, 34, 34),
         text({ fontSize: 28, fontWeight: 700, color: C.clayDeep }, count(c.likes)),
       ),
       div(
         { alignItems: "center", gap: 10 },
-        svg(BUBBLE, 34, 34),
+        svgImage(BUBBLE, 34, 34),
         text({ fontSize: 28, fontWeight: 700, color: INK_SOFT }, count(c.replies)),
       ),
     ),
@@ -669,7 +669,7 @@ function photoFrame(
       }),
       div(
         { position: "relative", width: photo, height: photo, marginTop: pad, overflow: "hidden" },
-        svg(plotSvg(c, photo), photo, photo, abs({ left: 0, top: 0 })),
+        svgImage(plotSvg(c, photo), photo, photo, abs({ left: 0, top: 0 })),
         homeArt && c.homeArt
           ? img(c.homeArt.src, homeArt.width, homeArt.height, abs({ ...homeArt }))
           : null,
@@ -890,7 +890,7 @@ function near(c: NearCard, art: Art): El {
             marginTop: pad,
             overflow: "hidden",
           },
-          svg(nearSvg(c, photoW, photoH), photoW, photoH, abs({ left: 0, top: 0 })),
+          svgImage(nearSvg(c, photoW, photoH), photoW, photoH, abs({ left: 0, top: 0 })),
         ),
         div(
           { width: photoW, alignItems: "baseline", justifyContent: "space-between", marginTop: 14 },
@@ -981,7 +981,7 @@ function look(c: LookCard, art: Art): El {
         alignItems: "center",
         justifyContent: "center",
       }),
-      svg(lookSvg(c, pictureW - 40, pictureH - 40), pictureW - 40, pictureH - 40),
+      svgImage(lookSvg(c, pictureW - 40, pictureH - 40), pictureW - 40, pictureH - 40),
     ),
     signature(),
   );

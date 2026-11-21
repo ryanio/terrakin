@@ -12,6 +12,7 @@ import {
   residentById,
   votesCast,
 } from "@terrakin/sim";
+import { cors } from "workers-start/cors";
 import { accessIsOn, parseEmails, parseStaffResidents, staffAccessConfig } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
 import { nextRecheckAt, parseDailyReads } from "../src/agent-links";
@@ -249,6 +250,13 @@ function withHeaders(response: Response, headers: Record<string, string>): Respo
   return copy;
 }
 
+/**
+ * The place file is a public read: any site's script may fetch it, with no credentials. Only reads
+ * are allowed and no request headers, so a preflight for anything else gets no CORS headers. The
+ * API itself sends none: it is same-origin only.
+ */
+const placeFileCors = cors({ origins: "*", methods: ["GET", "HEAD"], headers: [] });
+
 /** Card renders one IP (or IPv6 /64) may cause per minute, counted per isolate. */
 const allowRender = windowLimiter(RENDERS_PER_MINUTE, MINUTE_MS);
 /** Pictures by link (decision 0160): asks per IP a minute, and draws per isolate a minute. */
@@ -376,15 +384,17 @@ const handler = {
     }
     // What Terrakin says about itself as a place muses live (Agent Places), signed here with the key
     // that reports them, which lives only in this Worker's secrets.
+    if (url.pathname === PLACE_FILE_PATH) {
+      const preflight = placeFileCors.preflight(request);
+      if (preflight) return preflight;
+    }
     if (reading && url.pathname === PLACE_FILE_PATH) {
       const file = placeFile(env.MUSEGOD_WORLDS_KEY, `https://${CANONICAL_HOST}`);
       return file
-        ? Response.json(file, {
-            headers: {
-              "access-control-allow-origin": "*",
-              "cache-control": "public, max-age=3600",
-            },
-          })
+        ? placeFileCors.apply(
+            request,
+            Response.json(file, { headers: { "cache-control": "public, max-age=3600" } }),
+          )
         : jsonError(404, "not_found", "Not found.");
     }
     const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];

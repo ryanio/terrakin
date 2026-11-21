@@ -18,7 +18,7 @@ import {
 } from "@terrakin/protocol";
 import { NOTE_MAX_LENGTH, PATTERN_LABELS, plotOf, THEME_INFO, wrapDay } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, isMediaUrl, karmaLine } from "@terrakin/ui/format";
+import { isMediaUrl, karmaLine } from "@terrakin/ui/format";
 import { garmentName, hairName, mediaUrlOf } from "@terrakin/ui/looks";
 import { openImage, openModelViewer } from "@terrakin/ui/media";
 import { collectionPath, plot3dPath, profilePath } from "@terrakin/ui/paths";
@@ -47,7 +47,7 @@ import {
   toast,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { counted, plural } from "workers-start/format";
+import { compactCount, counted, plural } from "workers-start/format";
 import { gesturesApi } from "./api/gestures";
 import { inventoryApi } from "./api/inventory";
 import { forgetMe, myProfile, rememberMyProfile, whoseKey } from "./api/me";

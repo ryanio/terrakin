@@ -7,10 +7,9 @@
 import type { PurseLine, PurseResponse, PurseView } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount } from "@terrakin/ui/format";
 import { countTo, reducedMotion, replay, showNumber } from "@terrakin/ui/motion";
 import { visiblePoll } from "@terrakin/ui/poll";
-import { formatCount, plural } from "workers-start/format";
+import { compactCount, formatCount, plural } from "workers-start/format";
 import { purseApi } from "./api/purse";
 import { liveToast, snippet } from "./live-toast";
 import { savedResidentId, savedToken } from "./net";

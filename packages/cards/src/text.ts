@@ -88,13 +88,3 @@ export function fit(s: string, width: number, max: number, advance: number, min 
   const n = Math.max(1, [...s].length);
   return Math.max(min, Math.min(max, Math.floor(width / (n * advance))));
 }
-
-/** 1234 -> "1,234", 12345 -> "12.3k", 1234567 -> "1.2M". */
-export function count(n: number): string {
-  const v = Math.max(0, Math.trunc(Number.isFinite(n) ? n : 0));
-  if (v < 10_000) return v.toLocaleString("en-US");
-  if (v < 1_000_000) return `${trim(v / 1000)}k`;
-  return `${trim(v / 1_000_000)}M`;
-}
-
-const trim = (n: number) => (n >= 100 ? String(Math.floor(n)) : n.toFixed(1).replace(/\.0$/, ""));

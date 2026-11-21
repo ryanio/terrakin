@@ -1,5 +1,5 @@
 /** Motion on the page: counting numbers, replaying a little animation, and respecting reduced motion. */
-import { compactCount } from "./format";
+import { compactCount } from "workers-start/format";
 
 export const REDUCED_MOTION = "(prefers-reduced-motion: reduce)";
 

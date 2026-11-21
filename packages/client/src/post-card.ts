@@ -11,7 +11,6 @@ import {
   type ReactionKey,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount } from "@terrakin/ui/format";
 import { mediaGrid } from "@terrakin/ui/media";
 import { appendRichText } from "@terrakin/ui/mentions";
 import { replay } from "@terrakin/ui/motion";
@@ -19,7 +18,7 @@ import { postPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, quoteEmbed, who } from "@terrakin/ui/people";
 import { disclosure, moreMenu, openPopover, shareLink, toast } from "@terrakin/ui/ui";
 import { timeAgo } from "@terrakin/ui/when";
-import { counted } from "workers-start/format";
+import { compactCount, counted } from "workers-start/format";
 import { myProfile } from "./api/me";
 import { postsApi } from "./api/posts";
 import { openQuoteComposer } from "./composer";

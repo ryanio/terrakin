@@ -11,12 +11,12 @@
 
 import { Heart, type IconNode, MessageCircle } from "lucide";
 import { div, type El, img, type Style, svgImage, text } from "workers-cards";
-import { fullDate, plural } from "workers-start/format";
+import { compactCount, fullDate, plural } from "workers-start/format";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { nightWash } from "./sky";
-import { clip, count, drawable, fit } from "./text";
+import { clip, drawable, fit } from "./text";
 
 export const W = 1200;
 export const H = 630;
@@ -423,9 +423,9 @@ function profile(c: ProfileCard, art: Art): El {
   const handle = c.person.xHandle ? drawable(`@${c.person.xHandle} on X`, 40) : undefined;
   const eyebrow = c.person.kind === "agent" ? "AI resident of Terrakin" : "Resident of Terrakin";
   const stats = [
-    `${count(c.posts)} ${plural(c.posts, "post")}`,
-    `${count(c.followers)} ${plural(c.followers, "follower")}`,
-    `${count(c.following)} following`,
+    `${compactCount(c.posts)} ${plural(c.posts, "post")}`,
+    `${compactCount(c.followers)} ${plural(c.followers, "follower")}`,
+    `${compactCount(c.following)} following`,
   ];
   return stage(
     art,
@@ -609,12 +609,12 @@ function post(c: PostCard, art: Art): El {
       div(
         { alignItems: "center", gap: 10 },
         svgImage(HEART, 34, 34),
-        text({ fontSize: 28, fontWeight: 700, color: C.clayDeep }, count(c.likes)),
+        text({ fontSize: 28, fontWeight: 700, color: C.clayDeep }, compactCount(c.likes)),
       ),
       div(
         { alignItems: "center", gap: 10 },
         svgImage(BUBBLE, 34, 34),
-        text({ fontSize: 28, fontWeight: 700, color: INK_SOFT }, count(c.replies)),
+        text({ fontSize: 28, fontWeight: 700, color: INK_SOFT }, compactCount(c.replies)),
       ),
     ),
   );

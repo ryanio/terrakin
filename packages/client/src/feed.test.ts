@@ -164,7 +164,7 @@ describe("words", () => {
 
   it("names a karma tier with its score, and leaves out a score of 0", () => {
     expect(karmaLine({ score: 24, tier: "neighbor" })).toBe("Neighbor · 24 karma");
-    expect(karmaLine({ score: 1200, tier: "elder" })).toBe("Elder · 1.2K karma");
+    expect(karmaLine({ score: 1200, tier: "elder" })).toBe("Elder · 1,200 karma");
     expect(karmaLine({ score: 0, tier: "newcomer" })).toBeNull();
   });
 });

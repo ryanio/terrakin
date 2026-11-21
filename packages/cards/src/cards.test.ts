@@ -27,7 +27,7 @@ import {
 } from "./samples";
 import { nightWash } from "./sky";
 import { type Card, cardSize, element, H, POSTED, W } from "./templates";
-import { cardText, clip, count, drawable } from "./text";
+import { cardText, clip, drawable } from "./text";
 
 const require = createRequire(import.meta.url);
 
@@ -258,15 +258,7 @@ describe("cards", () => {
     for (const n of card) expect(n.left > W / 2, n.text).toBe(true);
   });
 
-  it("formats counts and clips on word boundaries", () => {
-    expect([0, 1, 9_999, 12_345, 999_999, 1_250_000].map(count)).toEqual([
-      "0",
-      "1",
-      "9,999",
-      "12.3k",
-      "999k",
-      "1.3M",
-    ]);
+  it("clips on word boundaries", () => {
     expect(clip("one two three four five", 15)).toBe("one two three…");
     expect(clip("short", 15)).toBe("short");
   });

@@ -6,10 +6,10 @@
 
 import type { AuthorView, ProfileView, ResidentListResponse } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount } from "@terrakin/ui/format";
 import { profilePath } from "@terrakin/ui/paths";
 import { personLink } from "@terrakin/ui/people";
 import { emptyNote, linkTabs } from "@terrakin/ui/ui";
+import { compactCount } from "workers-start/format";
 import { residentsApi } from "./api/residents";
 import { savedResidentId } from "./net";
 import { both, pageData } from "./page-data";

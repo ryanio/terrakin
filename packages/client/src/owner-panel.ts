@@ -16,11 +16,11 @@ import {
 } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { compactCount, fullDate, isMediaUrl } from "@terrakin/ui/format";
+import { fullDate, isMediaUrl } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, errorLine, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
-import { counted, plural } from "workers-start/format";
+import { compactCount, counted, plural } from "workers-start/format";
 import { ownersApi } from "./api/owners";
 import { residentsApi } from "./api/residents";
 import { bannerArt } from "./banner-art";

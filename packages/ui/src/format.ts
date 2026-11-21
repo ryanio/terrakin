@@ -4,6 +4,7 @@
  */
 import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
+import { compactCount } from "workers-start/format";
 
 /**
  * Short relative time for a post: "now", "3m", "2h", then a date like "Oct 4" (with the year when
@@ -45,14 +46,6 @@ export function fullDate(iso: string, timeZone?: string): string {
     timeStyle: "short",
     ...(timeZone ? { timeZone } : {}),
   }).format(t);
-}
-
-/** 7, 1.2K, 34K. */
-export function compactCount(n: number): string {
-  if (n < 1000) return String(n);
-  return new Intl.NumberFormat("en-US", { notation: "compact", maximumFractionDigits: 1 }).format(
-    n,
-  );
 }
 
 /** A count on a badge: "3", or "99+" past 99. Empty for none. */

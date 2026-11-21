@@ -11,12 +11,12 @@
 
 import { Heart, type IconNode, MessageCircle } from "lucide";
 import { div, type El, img, type Style, svgImage, text } from "workers-cards";
-import { plural } from "workers-start/format";
+import { fullDate, plural } from "workers-start/format";
 import { GRAIN_FILTER, MARK_SIZE, MARK_SVG, PALETTE } from "./brand";
 import { type LookCard, lookSvg, type NearCard, nearSvg } from "./pictures";
 import { homeArtBox, type PlotCard, plotSvg } from "./plot";
 import { nightWash } from "./sky";
-import { clip, count, day, drawable, fit } from "./text";
+import { clip, count, drawable, fit } from "./text";
 
 export const W = 1200;
 export const H = 630;
@@ -34,7 +34,7 @@ export function cardSize(card: Card): { width: number; height: number; scale: nu
 }
 
 /** Bump when a template's look changes, so cached cards are drawn again. Part of every cache key. */
-export const CARDS_VERSION = 20;
+export const CARDS_VERSION = 21;
 
 /** Same values as the `--resident-*` colors in packages/client/src/style.css. */
 export const RESIDENT_HEX: Record<string, string> = {
@@ -514,7 +514,7 @@ function post(c: PostCard, art: Art): El {
   const bareHeight = H - 72;
   const bare = c.image && c.imageFramed && tall < 1 ? Math.round(bareHeight * tall) : 0;
   const body = drawable(c.text, narrow ? 150 : 230);
-  const date = day(c.date);
+  const date = fullDate(c.date, { month: "short" });
   const words = body
     ? text(
         {

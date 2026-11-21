@@ -297,15 +297,15 @@ describe("static pages", () => {
     expect(html).toContain('<h1 id="whats-new-in-terrakin">');
     // A card a day, under its date in words, each change's kind a pill; the ids links use stay.
     expect(html).toMatch(
-      /<h2 id="2026-10-04" class="changelog-day">October 4, 2026<\/h2><p class="changelog-count">\d+ changes?<\/p>/,
+      /<h2 id="2026-10-04" class="changelog-day">4 October 2026<\/h2><p class="changelog-count">\d+ changes?<\/p>/,
     );
-    expect(html).toContain('<h2 id="2026-10-02" class="changelog-day">October 2, 2026');
+    expect(html).toContain('<h2 id="2026-10-02" class="changelog-day">2 October 2026');
     expect(html).toContain(
       '<h3 id="added-a-changelog-for-agents"><span class="kind-pill moss">Added</span> A changelog for agents</h3>',
     );
     const days = source("changelog").match(/^## /gm)?.length ?? 0;
     expect(html.match(/data-section="\d{4}-\d{2}-\d{2}"/g)).toHaveLength(days);
-    expect(html).toContain('<a href="#2026-10-04" data-name="October 4, 2026">');
+    expect(html).toContain('<a href="#2026-10-04" data-name="4 October 2026">');
     expect(html).not.toMatch(/<h3 id="[^"]+">(Added|Changed|Fixed|Removed|Security|Deprecated):/);
   });
 

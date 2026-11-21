@@ -1,3 +1,4 @@
+import { fullDate } from "workers-start/format";
 import { escapeXml } from "workers-start/seo";
 import { z } from "zod";
 import { isDay } from "./day";
@@ -99,11 +100,9 @@ const DEVLOG_FILE = /^(\d{4}-\d{2}-\d{2})\.md$/;
 /** Where a post lives on the site, like `/devlog/2026-10-06`. */
 export const devlogPath = (date: string): `/${string}` => `${LINKS.devlog}/${date}`;
 
-/** A day for people: `2026-10-06` as "October 6, 2026". */
+/** A day for people: `2026-10-06` as "6 October 2026". */
 export function devlogDay(date: string): string {
-  return new Intl.DateTimeFormat("en-US", { dateStyle: "long", timeZone: "UTC" }).format(
-    Date.parse(`${date}T00:00:00Z`),
-  );
+  return fullDate(`${date}T00:00:00Z`);
 }
 
 /** Where a block of Markdown starts that isn't a paragraph: a heading, fence, list, table, or comment. */

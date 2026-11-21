@@ -51,4 +51,4 @@ export {
   type SiteCard,
   W,
 } from "./templates";
-export { cardText, clip, count, day, drawable, fit } from "./text";
+export { cardText, clip, count, drawable, fit } from "./text";

@@ -149,7 +149,7 @@ describe("the page and the feed", () => {
       "Autumn",
       "Pets & <paths>",
     ]);
-    expect(page).toContain("*October 6, 2026*\n\nLeaves fell.\n\n[Read more](/devlog/2026-10-06)");
+    expect(page).toContain("*6 October 2026*\n\nLeaves fell.\n\n[Read more](/devlog/2026-10-06)");
   });
 
   it("gives each post a stable Atom id and escapes its words", () => {

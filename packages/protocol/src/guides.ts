@@ -10,8 +10,8 @@
  * (decision 0193).
  */
 
+import { slugify } from "workers-start/format";
 import { CHANGELOG_HOW_TO_FOLLOW, type Changelog, latestChangelogLines } from "./changelog";
-import { headingId } from "./reference";
 import { LINKS } from "./site";
 
 type Json = Record<string, unknown>;
@@ -197,11 +197,6 @@ function headingIds(markdown: string): Set<string> {
     if (heading?.[1]) ids.add(slugify(heading[1]));
   }
   return ids;
-}
-
-/** A heading's id, as the page renderer makes it (`slug` in the client's markdown.ts). */
-export function slugify(text: string): string {
-  return headingId(text);
 }
 
 // ---------- the WebSocket guide, from x-websocket and the message schemas ----------

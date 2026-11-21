@@ -5,21 +5,13 @@
  * document, so nothing here is written by hand and a new route shows up with no extra step.
  */
 
+import { slugify } from "workers-start/format";
 import { cell, conventions, limits, routes } from "./docs";
 import type { RouteSpec, TagName } from "./routes";
 import { TAGS } from "./routes";
 import { API_AREAS, apiAreaPath, LINKS, SITE } from "./site";
 
 type Json = Record<string, unknown>;
-
-/** The id the page renderer gives a heading (`slug` in the client's markdown.ts). */
-export const headingId = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/<[^>]+>/g, "")
-    .replace(/[^a-z0-9 -]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
 
 /** Moves every heading outside fenced code down `by` levels. */
 function shiftHeadings(markdown: string, by: number): string {
@@ -113,7 +105,7 @@ export function docsPage(guides: string): DocsPage {
       title: "On this page",
       entries: [
         ...titles.map((title) => ({
-          href: `#${headingId(title)}`,
+          href: `#${slugify(title)}`,
           label: title,
           ...(GUIDE_NOTES[title] ? { note: GUIDE_NOTES[title] } : {}),
         })),
@@ -151,7 +143,7 @@ export const docsPageMarkdown = (guides: string) => pageMarkdown(docsPage(guides
 // ---------- types and fields ----------
 
 const refName = (ref: string) => ref.replace("#/components/schemas/", "");
-const modelLink = (name: string) => `[\`${name}\`](${LINKS.apiModels}#${headingId(name)})`;
+const modelLink = (name: string) => `[\`${name}\`](${LINKS.apiModels}#${slugify(name)})`;
 /** zod's integer bounds, which say nothing a reader needs. */
 const SAFE = 9007199254740991;
 /** An enum this short reads better spelled out than linked. */
@@ -397,7 +389,7 @@ export function apiAreaPage(area: TagName, openapi: Json): DocsPage {
     toc: {
       title: `${listed.length} routes`,
       entries: listed.map((r) => ({
-        href: `#${headingId(showRoute(r))}`,
+        href: `#${slugify(showRoute(r))}`,
         label: r.path,
         method: r.method,
         note: r.summary,
@@ -460,7 +452,7 @@ export function apiModelsPage(openapi: Json): DocsPage {
     toc: {
       title: `${names.length} shapes`,
       entries: [...letters].map(([letter, name]) => ({
-        href: `#${headingId(name)}`,
+        href: `#${slugify(name)}`,
         label: letter,
       })),
     },

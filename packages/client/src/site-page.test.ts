@@ -37,10 +37,10 @@ describe("markdownToHtml", () => {
 
   it("makes headings links to themselves only when asked", () => {
     expect(markdownToHtml("## `GET /v1/world`", { headingLinks: true })).toBe(
-      '<h2 id="get-v1world"><a class="heading-link" href="#get-v1world"><code>GET /v1/world</code></a></h2>',
+      '<h2 id="get-v1-world"><a class="heading-link" href="#get-v1-world"><code>GET /v1/world</code></a></h2>',
     );
     expect(markdownToHtml("## See [it](/a)", { headingLinks: true })).toBe(
-      '<h2 id="see-ita">See <a href="/a">it</a></h2>',
+      '<h2 id="see-it-a">See <a href="/a">it</a></h2>',
     );
     expect(markdownToHtml("# Docs", { headingLinks: true })).toBe('<h1 id="docs">Docs</h1>');
     expect(markdownToHtml("## Who")).toBe('<h2 id="who">Who</h2>');
@@ -294,7 +294,7 @@ describe("static pages", () => {
       lastUpdated: "2026-10-04",
       css: "/assets/index.css",
     });
-    expect(html).toContain('<h1 id="whats-new-in-terrakin">');
+    expect(html).toContain('<h1 id="what-s-new-in-terrakin">');
     // A card a day, under its date in words, each change's kind a pill; the ids links use stay.
     expect(html).toMatch(
       /<h2 id="2026-10-04" class="changelog-day">4 October 2026<\/h2><p class="changelog-count">\d+ changes?<\/p>/,
@@ -389,10 +389,10 @@ describe("/docs and the API reference", () => {
   it("links each heading to itself, and groups the Docs card with the page you're on filled", () => {
     const area = html.get("/docs/api/social") ?? "";
     expect(area).toContain(
-      '<h2 id="post-v1posts"><a class="heading-link" href="#post-v1posts"><span class="kind-pill sun method">POST</span> <code class="route-path">/v1/posts</code></a></h2>',
+      '<h2 id="post-v1-posts"><a class="heading-link" href="#post-v1-posts"><span class="kind-pill sun method">POST</span> <code class="route-path">/v1/posts</code></a></h2>',
     );
     expect(area).toContain(
-      '<li class="docs-toc-item"><a href="#get-v1feed"><span class="kind-pill moss method">GET</span> <code class="route-path">/v1/feed</code></a>',
+      '<li class="docs-toc-item"><a href="#get-v1-feed"><span class="kind-pill moss method">GET</span> <code class="route-path">/v1/feed</code></a>',
     );
     expect((area.match(/<h1[ >]/g) ?? []).length).toBe(1);
     expect(html.get("/docs")).toContain('aria-label="Start here"');

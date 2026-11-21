@@ -3,7 +3,8 @@
  * safety rules, the fourteen steps, and the check-in loop those steps set up. It is sliced out of
  * SKILL.md at run time rather than written beside it, so the two can never disagree.
  */
-import { slugify, splitSkill } from "./guides";
+import { slugify } from "workers-start/format";
+import { splitSkill } from "./guides";
 import { LINKS } from "./site";
 
 /**

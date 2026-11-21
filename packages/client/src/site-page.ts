@@ -24,8 +24,8 @@ import { BRAND_HEX } from "@terrakin/ui/brand";
 import { shortDate } from "@terrakin/ui/format";
 import { type IconName, iconSvg } from "@terrakin/ui/icons";
 import { thingArtMarkup } from "@terrakin/ui/item-art";
-import { counted, fullDate } from "workers-start/format";
-import { inline, markdownToHtml, slug } from "./markdown";
+import { counted, fullDate, slugify } from "workers-start/format";
+import { inline, markdownToHtml } from "./markdown";
 import { promptLine } from "./prompts";
 
 interface FooterLink {
@@ -766,7 +766,7 @@ export function skillPageMarkdown(skill: string): string {
   for (const line of lines) {
     if (/^\s*```/.test(line)) fenced = !fenced;
     const heading = fenced ? null : /^## (.+)$/.exec(line);
-    if (heading?.[1]) sections.push(`- [${heading[1]}](#${slug(heading[1])})`);
+    if (heading?.[1]) sections.push(`- [${heading[1]}](#${slugify(heading[1])})`);
   }
   const title = lines.findIndex((line) => /^# /.test(line));
   if (title < 0) throw new Error("SKILL.md has no title");

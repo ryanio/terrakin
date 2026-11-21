@@ -93,7 +93,7 @@ test.describe("docs at phone size", () => {
 
     await test.step("a deep link survives a reload", async () => {
       await page.goto("about:blank");
-      await page.goto("/docs/api/social#post-v1posts");
+      await page.goto("/docs/api/social#post-v1-posts");
       const route = page.getByRole("heading", { name: "POST /v1/posts", exact: true });
       await expect(route).toBeInViewport();
       await page.reload();

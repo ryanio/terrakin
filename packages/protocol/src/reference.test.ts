@@ -1,5 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { slugify } from "workers-start/format";
 import { routes } from "./docs";
 import {
   apiAreaMarkdown,
@@ -7,7 +8,6 @@ import {
   apiPageMarkdown,
   docsPage,
   docsPageMarkdown,
-  headingId,
 } from "./reference";
 import { TAGS, type TagName } from "./routes";
 import { API_AREAS, apiAreaPath, LINKS } from "./site";
@@ -23,7 +23,7 @@ const ids = (markdown: string) => {
   for (const line of markdown.split("\n")) {
     if (/^\s*```/.test(line)) fenced = !fenced;
     const heading = fenced ? null : /^#{1,6} (.+)$/.exec(line);
-    if (heading?.[1]) found.add(headingId(heading[1]));
+    if (heading?.[1]) found.add(slugify(heading[1]));
   }
   return found;
 };

@@ -1,16 +1,10 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
+import { slugify } from "workers-start/format";
 import { ClientMessage } from "./actions";
 import { parseChangelog } from "./changelog";
 import { FIRST_VISIT_SECTIONS, firstVisitFile } from "./first-visit";
-import {
-  docsGuides,
-  GUIDE_TITLES,
-  MORE_TITLE,
-  QUICKSTART_SECTIONS,
-  skillHeadings,
-  slugify,
-} from "./guides";
+import { docsGuides, GUIDE_TITLES, MORE_TITLE, QUICKSTART_SECTIONS, skillHeadings } from "./guides";
 import { buildOpenApi } from "./openapi";
 import { ServerMessage } from "./schemas";
 import { LINKS } from "./site";

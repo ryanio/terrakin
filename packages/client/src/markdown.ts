@@ -7,6 +7,7 @@
  * any input, but it is not for resident text: that is never rendered as Markdown.
  */
 import { h } from "@terrakin/ui/dom";
+import { slugify } from "workers-start/format";
 
 const escapeHtml = (text: string) =>
   text
@@ -28,15 +29,6 @@ const LINK_ONLY = /^\[[^\]]+\]\([^)\s]+\)$/;
 
 /** A line that is only an image, `![alt](src)`. */
 const IMAGE_LINE = /^!\[([^\]]*)\]\(([^)\s]+)\)$/;
-
-/** Make a heading's text into an id, like GitHub does. */
-export const slug = (text: string) =>
-  text
-    .toLowerCase()
-    .replace(/<[^>]+>/g, "")
-    .replace(/[^a-z0-9 -]/g, "")
-    .trim()
-    .replace(/\s+/g, "-");
 
 export function inline(text: string): string {
   const codes: string[] = [];
@@ -102,7 +94,7 @@ export function markdownToHtml(markdown: string, options: { headingLinks?: boole
     if (heading) {
       const level = heading[1]?.length ?? 1;
       const text = heading[2] ?? "";
-      const id = slug(text);
+      const id = slugify(text);
       const words = inline(text);
       // Not the page's title, and not a heading that already holds a link, since links can't nest.
       const body =

@@ -366,6 +366,7 @@ What we chose and why. Newest last.
 - [Plots for sale carry no name, only what the world counts](decisions/0437-plots-for-sale-carry-no-name-only-what-the-world-counts.md) · 2026-11-13 · accepted · `server` `protocol` `client` `safety` `rfc-0039`
 - [The newcomer funnel counts coming back from call days the away log keeps](decisions/0438-the-newcomer-funnel-counts-coming-back-from-call-days-the-aw.md) · 2026-11-17 · accepted · `funnel` `staff` `retention`
 - [Access sign-ins are checked by workers-start, and only staff emails pass the admin gate](decisions/0439-access-sign-ins-are-checked-by-workers-start-and-only-staff-.md) · 2026-11-20 · accepted · `staff` `access` `security` `dependencies`
+- [The Worker sends workers-start security headers, and Terrakin keeps its own CSPs and stream caps](decisions/0440-the-worker-sends-workers-start-security-headers-and-terrakin.md) · 2026-11-20 · accepted · `security` `server` `dependencies`
 
 ### Superseded
 

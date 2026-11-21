@@ -58,6 +58,7 @@ import {
   STAFF_SERVICE_HEADER,
   toWorld,
   twinHeaders,
+  withSiteSecurity,
 } from "../src/pages";
 import { findPartner } from "../src/partners";
 import type { PictureRoute, PictureSpec } from "../src/pictures";
@@ -348,91 +349,96 @@ async function page(request: Request, env: Env, asset: Response): Promise<Respon
   );
 }
 
+/** Everything the Worker answers on the internet, before its security headers. */
+async function serve(request: Request, env: Env, ctx: ExecutionContext): Promise<Response> {
+  const url = new URL(request.url);
+  if (url.hostname === `www.${CANONICAL_HOST}`) {
+    url.hostname = CANONICAL_HOST;
+    return Response.redirect(url.toString(), 301);
+  }
+  if (isAdminHost(url.hostname)) return admin(request, env, url);
+  // The staff app lives on its own host; its files aren't served here.
+  const moved = adminRedirect(url);
+  if (moved) return Response.redirect(moved, 302);
+  if (url.pathname.startsWith(ADMIN_ASSET_PREFIX)) {
+    return jsonError(404, "not_found", "Not found.");
+  }
+  const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
+  const reading = request.method === "GET" || request.method === "HEAD";
+  // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
+  const twin = reading
+    ? negotiate(url.pathname, url.searchParams, request.headers.get("accept"))
+    : undefined;
+  if (twin) {
+    const target = new Request(new URL(twin, url), request);
+    const response = await (isApiPath(twin)
+      ? fromWorld(target, () => world().fetch(toWorld(target, new URL(twin, url))))
+      : env.ASSETS.fetch(target));
+    return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
+  }
+  if (isApiPath(url.pathname)) {
+    const response = await fromWorld(request, () => world().fetch(toWorld(request, url)));
+    const build = env.CF_VERSION_METADATA?.id;
+    return url.pathname === LINKS.health && build
+      ? withHeaders(response, { [WORKER_BUILD_HEADER]: build })
+      : response;
+  }
+  // What Terrakin says about itself as a place muses live (Agent Places), signed here with the key
+  // that reports them, which lives only in this Worker's secrets.
+  if (url.pathname === PLACE_FILE_PATH) {
+    const preflight = placeFileCors.preflight(request);
+    if (preflight) return preflight;
+  }
+  if (reading && url.pathname === PLACE_FILE_PATH) {
+    const file = placeFile(env.MUSEGOD_WORLDS_KEY, `https://${CANONICAL_HOST}`);
+    return file
+      ? placeFileCors.apply(
+          request,
+          Response.json(file, { headers: { "cache-control": "public, max-age=3600" } }),
+        )
+      : jsonError(404, "not_found", "Not found.");
+  }
+  const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
+  if (mediaId !== undefined && reading) {
+    return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
+  }
+  const route = reading ? matchCardPath(url.pathname) : undefined;
+  if (route) return card(request, env, ctx, route);
+  // llms.txt is a static file: a read with a partner's `?from=` is counted in the world's
+  // discovery log, without holding up the file. Only a partner's id wakes the world.
+  const arrival =
+    request.method === "GET" ? staticArrival(url.pathname, url.searchParams) : undefined;
+  if (arrival && findPartner(arrival.from)?.status === "active") {
+    ctx.waitUntil(
+      world()
+        .arrival(arrival.file, arrival.from)
+        .catch((err: unknown) => report(err, "discovery.arrival")),
+    );
+  }
+  // Page paths have no extension. Their HTML is rewritten per request, so ask the assets for
+  // the whole file rather than a 304 against an ETag the rewritten page never carries.
+  const pagePath = reading && !/\.[a-z0-9]+$/i.test(url.pathname);
+  const assetRequest = pagePath ? new Request(request) : request;
+  if (pagePath) {
+    assetRequest.headers.delete("if-none-match");
+    assetRequest.headers.delete("if-modified-since");
+  }
+  let response = await env.ASSETS.fetch(assetRequest);
+  const type = response.headers.get("content-type");
+  // A page path answered with HTML is index.html (an app page, or the single-page fallback for
+  // a path that doesn't exist) or a page with its own file, like /docs.
+  if (pagePath && response.status === 200 && type?.startsWith("text/html")) {
+    response = await page(request, env, response);
+  }
+  // A 304 carries the headers too, so a browser holding a hashed file from before learns it
+  // can keep it.
+  const fresh = response.ok || response.status === 304;
+  return withHeaders(response, fresh ? pageHeaders(url.pathname, type) : {});
+}
+
 const handler = {
   async fetch(request, env, ctx) {
-    const url = new URL(request.url);
-    if (url.hostname === `www.${CANONICAL_HOST}`) {
-      url.hostname = CANONICAL_HOST;
-      return Response.redirect(url.toString(), 301);
-    }
-    if (isAdminHost(url.hostname)) return admin(request, env, url);
-    // The staff app lives on its own host; its files aren't served here.
-    const moved = adminRedirect(url);
-    if (moved) return Response.redirect(moved, 302);
-    if (url.pathname.startsWith(ADMIN_ASSET_PREFIX)) {
-      return jsonError(404, "not_found", "Not found.");
-    }
-    const world = () => env.WORLD.get(env.WORLD.idFromName("world"));
-    const reading = request.method === "GET" || request.method === "HEAD";
-    // An agent asking for Markdown gets the page's twin: a static file, or built from live data.
-    const twin = reading
-      ? negotiate(url.pathname, url.searchParams, request.headers.get("accept"))
-      : undefined;
-    if (twin) {
-      const target = new Request(new URL(twin, url), request);
-      const response = await (isApiPath(twin)
-        ? fromWorld(target, () => world().fetch(toWorld(target, new URL(twin, url))))
-        : env.ASSETS.fetch(target));
-      return withHeaders(response, response.ok ? twinHeaders() : { vary: "Accept" });
-    }
-    if (isApiPath(url.pathname)) {
-      const response = await fromWorld(request, () => world().fetch(toWorld(request, url)));
-      const build = env.CF_VERSION_METADATA?.id;
-      return url.pathname === LINKS.health && build
-        ? withHeaders(response, { [WORKER_BUILD_HEADER]: build })
-        : response;
-    }
-    // What Terrakin says about itself as a place muses live (Agent Places), signed here with the key
-    // that reports them, which lives only in this Worker's secrets.
-    if (url.pathname === PLACE_FILE_PATH) {
-      const preflight = placeFileCors.preflight(request);
-      if (preflight) return preflight;
-    }
-    if (reading && url.pathname === PLACE_FILE_PATH) {
-      const file = placeFile(env.MUSEGOD_WORLDS_KEY, `https://${CANONICAL_HOST}`);
-      return file
-        ? placeFileCors.apply(
-            request,
-            Response.json(file, { headers: { "cache-control": "public, max-age=3600" } }),
-          )
-        : jsonError(404, "not_found", "Not found.");
-    }
-    const mediaId = /^\/media\/([^/]+)$/.exec(url.pathname)?.[1];
-    if (mediaId !== undefined && reading) {
-      return serveFromBucket(env.MEDIA as unknown as MediaBucket, mediaId, request);
-    }
-    const route = reading ? matchCardPath(url.pathname) : undefined;
-    if (route) return card(request, env, ctx, route);
-    // llms.txt is a static file: a read with a partner's `?from=` is counted in the world's
-    // discovery log, without holding up the file. Only a partner's id wakes the world.
-    const arrival =
-      request.method === "GET" ? staticArrival(url.pathname, url.searchParams) : undefined;
-    if (arrival && findPartner(arrival.from)?.status === "active") {
-      ctx.waitUntil(
-        world()
-          .arrival(arrival.file, arrival.from)
-          .catch((err: unknown) => report(err, "discovery.arrival")),
-      );
-    }
-    // Page paths have no extension. Their HTML is rewritten per request, so ask the assets for
-    // the whole file rather than a 304 against an ETag the rewritten page never carries.
-    const pagePath = reading && !/\.[a-z0-9]+$/i.test(url.pathname);
-    const assetRequest = pagePath ? new Request(request) : request;
-    if (pagePath) {
-      assetRequest.headers.delete("if-none-match");
-      assetRequest.headers.delete("if-modified-since");
-    }
-    let response = await env.ASSETS.fetch(assetRequest);
-    const type = response.headers.get("content-type");
-    // A page path answered with HTML is index.html (an app page, or the single-page fallback for
-    // a path that doesn't exist) or a page with its own file, like /docs.
-    if (pagePath && response.status === 200 && type?.startsWith("text/html")) {
-      response = await page(request, env, response);
-    }
-    // A 304 carries the headers too, so a browser holding a hashed file from before learns it
-    // can keep it.
-    const fresh = response.ok || response.status === 304;
-    return withHeaders(response, fresh ? pageHeaders(url.pathname, type) : {});
+    return withSiteSecurity(await serve(request, env, ctx));
   },
 
   /**

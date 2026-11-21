@@ -1,5 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { askWorld, IMMUTABLE, pageHeaders, repeatable, worldRestarted } from "./pages";
+import {
+  ADMIN_PAGE_HEADERS,
+  askWorld,
+  IMMUTABLE,
+  pageHeaders,
+  repeatable,
+  withSiteSecurity,
+  worldRestarted,
+} from "./pages";
 
 describe("pageHeaders", () => {
   it("lets browsers keep only the build's hashed files for good", () => {
@@ -121,5 +129,29 @@ describe("askWorld", () => {
     await expect(
       askWorld(() => Promise.reject(boom), { repeat: true, onLost: () => {} }),
     ).rejects.toThrow(boom);
+  });
+});
+
+describe("withSiteSecurity", () => {
+  it("adds the security headers and keeps the ones an answer set itself", () => {
+    const page = withSiteSecurity(new Response("<!doctype html>", { status: 404 }));
+    expect(page.status).toBe(404);
+    expect(page.headers.get("strict-transport-security")).toBe(
+      "max-age=63072000; includeSubDomains",
+    );
+    expect(page.headers.get("x-frame-options")).toBe("DENY");
+    expect(page.headers.get("x-content-type-options")).toBe("nosniff");
+    expect(page.headers.get("permissions-policy")).toContain("camera=()");
+    const admin = withSiteSecurity(new Response("", { headers: ADMIN_PAGE_HEADERS }));
+    for (const [name, value] of Object.entries(ADMIN_PAGE_HEADERS)) {
+      expect(admin.headers.get(name)).toBe(value);
+    }
+    expect(admin.headers.get("strict-transport-security")).not.toBeNull();
+  });
+
+  it("passes a socket upgrade through untouched", () => {
+    // Node can't build a 101; the Worker's carries the socket, which a copy would drop.
+    const upgrade = { status: 101, headers: new Headers() } as Response;
+    expect(withSiteSecurity(upgrade)).toBe(upgrade);
   });
 });

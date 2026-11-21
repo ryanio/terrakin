@@ -8,6 +8,7 @@ import {
   markdownTwin,
   prefersMarkdown,
 } from "@terrakin/protocol";
+import { withSecurityHeaders } from "workers-start/security";
 
 /**
  * Serving pages to agents, for both adapters: content negotiation onto the Markdown twins, and the
@@ -70,6 +71,20 @@ export function pageHeaders(pathname: string, contentType: string | null): Recor
   if (!contentType?.startsWith("text/html")) return {};
   const twin = pageTwin(pathname);
   return { link: `${linkHeader(twin)}, ${FEED_LINK}`, ...(twin ? { vary: "Accept" } : {}) };
+}
+
+/**
+ * Everything the Worker answers carries `workers-start/security`'s headers: two years of HSTS for
+ * terrakin.org and its subdomains (no preload), `nosniff`, `X-Frame-Options: DENY`, a referrer
+ * that stops at the origin cross-site, camera, microphone, location, payment and USB off, and
+ * `Cross-Origin-Opener-Policy: same-origin`. A header the answer already set keeps its value, so
+ * the admin pages keep `ADMIN_PAGE_HEADERS` (their CSP and `no-referrer`) and uploads keep
+ * `mediaHeaders`' sandbox. The public pages' CSP stays the meta tag the client build writes. A
+ * socket upgrade passes as it is: copying it would lose the socket.
+ */
+export function withSiteSecurity(response: Response): Response {
+  if (response.status === 101) return response;
+  return withSecurityHeaders(response);
 }
 
 /** Headers for a Markdown twin served in place of a page. */

@@ -4,6 +4,7 @@
  */
 
 import { HOUR_MS, MINUTE_MS } from "@terrakin/sim";
+import { formatBytes } from "workers-start/format";
 import { z } from "zod";
 import { CircleId, type ErrorCode, ItemId, ListingId } from "../schemas";
 import { WORLD_LOG_PAGE_MAX } from "../snapshots";
@@ -124,8 +125,6 @@ export const BUILD_LIMITS = { secondsBetween: 5 } as const;
 export const GESTURE_COOLDOWN_MINUTES = 10;
 /** A gift that carries a thing: one to the same resident a minute, on top of the daily gift caps. */
 export const GIFT_ITEM_COOLDOWN_SECONDS = 60;
-
-export const mb = (bytes: number) => `${bytes / 1_000_000} MB`;
 
 /** "6 a minute per resident (bursts of 6)" style text for docs. */
 export function describeRateLimit(limit: RateLimit): string {
@@ -404,7 +403,7 @@ export const uploadSizes = [...new Set(Object.values(MEDIA_TYPES).map((t) => t.k
         .filter((t) => t.kind === kind)
         .map((t) => t.maxBytes),
     );
-    return `${kind}s up to ${mb(largest)}`;
+    return `${kind}s up to ${formatBytes(largest, { si: true })}`;
   },
 );
 

@@ -15,6 +15,7 @@
  * can't fetch or navigate anywhere else.
  */
 
+import { withTimeout } from "workers-start/http";
 import type { SceneOptions, SceneShot } from "../src/render";
 
 /** The host the binding's calls are addressed to. The binding routes them; the name is ignored. */
@@ -166,7 +167,9 @@ async function shoot(cdp: Devtools, how: "next" | "load", shot: Shot): Promise<U
       // A page past its life, or from before a deploy, says no: a new browser loads it fresh.
       if (result.value !== true) throw new Error("the photo page is too old");
     } else {
-      await within(cdp.send("Page.navigate", { url: shot.url }, page), shot.readyMs, "load");
+      await withTimeout(cdp.send("Page.navigate", { url: shot.url }, page), shot.readyMs, {
+        label: "load",
+      });
       // Loaded, the page has as long again to draw.
       until = Date.now() + shot.readyMs;
     }
@@ -200,7 +203,10 @@ async function shoot(cdp: Devtools, how: "next" | "load", shot: Shot): Promise<U
     ok = true;
     return Uint8Array.from(atob(data), (c) => c.charCodeAt(0));
   } finally {
-    if (!ok) await within(cdp.send("Browser.close", {}), 2_000, "close").catch(() => undefined);
+    if (!ok)
+      await withTimeout(cdp.send("Browser.close", {}), 2_000, { label: "close" }).catch(
+        () => undefined,
+      );
     cdp.close();
   }
 }
@@ -300,12 +306,4 @@ class Devtools {
       // Already closed.
     }
   }
-}
-
-function within<T>(work: Promise<T>, ms: number, what: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<never>((_, fail) => {
-    timer = setTimeout(() => fail(new Error(`${what} timed out`)), ms);
-  });
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }

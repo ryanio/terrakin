@@ -28,9 +28,11 @@
  * Tokens are written only to the credentials file and never printed. The last line of output is
  * the TERRAKIN_TOWNSFOLK value that turns on the townsfolk badge (see README.md).
  */
+
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { sleep } from "workers-start/http";
 import type {
   Action,
   FeedResponse,
@@ -101,7 +103,6 @@ if (ONLY && (DRY || REFRESH)) {
 const PACE = Math.max(0, Number(args.pace) || 0);
 const CREDS = args.creds !== undefined ? resolve(args.creds) : defaultCredsPath(BASE);
 
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const say = (who: string, message: string) => console.log(`${who.padEnd(8)} ${message}`);
 
 // ---------------------------------------------------------------------------

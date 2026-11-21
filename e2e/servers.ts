@@ -5,7 +5,9 @@
  * /v1/health, so Playwright's webServer can wait on that one port for everything. Stopping this
  * process stops them all.
  */
+
 import { type ChildProcess, spawn } from "node:child_process";
+import { sleep } from "workers-start/http";
 
 const ports = process.argv.slice(2).map(Number);
 const children: ChildProcess[] = [];
@@ -38,7 +40,7 @@ const healthy = async (port: number) => {
     try {
       if ((await fetch(`http://localhost:${port}/v1/health`)).ok) return;
     } catch {}
-    await new Promise((done) => setTimeout(done, 100));
+    await sleep(100);
   }
   throw new Error(`e2e server on :${port} didn't answer in 60s`);
 };

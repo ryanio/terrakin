@@ -9,9 +9,11 @@
  * only inside a tap, and the join's own tap has been spent on two requests by the time a passkey
  * could be asked for.
  */
+
 import type { ProfileView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { closeOverlay, errorLine, openOverlay, sheet, toast, whileBusy } from "@terrakin/ui/ui";
+import { sleep } from "workers-start/http";
 import { signinApi } from "./api/signin";
 import "./passkey-ask.css";
 import { passkeysWork } from "./passkey";
@@ -67,7 +69,7 @@ async function whenClear(): Promise<void> {
         watch.observe(root, { attributes: true, attributeFilter: ["class"] });
       });
     }
-    await new Promise((done) => setTimeout(done, SETTLE_MS));
+    await sleep(SETTLE_MS);
     if (clear()) return;
   }
 }

@@ -4,10 +4,12 @@
  * the bar when the home has a loft (RFC 0028); `/gallery/3d` is the gallery room (and `?item=` one
  * item up close). Lazy: the main bundle reaches this only through import().
  */
+
 import { everyoneIn, WorldSnapshot } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { openOverlay, shareOnX, sheet, stateCard, toast } from "@terrakin/ui/ui";
+import { withTimeout } from "workers-start/http";
 import { queueAttachment } from "../composer";
 import { floorChips } from "../floor-chips";
 import { savedResidentId, savedToken } from "../net";
@@ -284,13 +286,14 @@ function floorPicker(
 /** Wait (briefly) for the two faces the canvases draw with. A slow font never holds the scene up. */
 function fontsReady(): Promise<unknown> {
   if (!document.fonts?.load) return Promise.resolve();
-  return Promise.race([
+  return withTimeout(
     Promise.all([
       document.fonts.load('600 45px "Figtree Variable"'),
       document.fonts.load('italic 600 50px "Fraunces Variable"'),
-    ]).catch(() => undefined),
-    new Promise((done) => setTimeout(done, 1200)),
-  ]);
+    ]),
+    1200,
+    { fallback: undefined, fallbackOnError: true },
+  );
 }
 
 /** No plot to show. On your own id it's you, and the way to a plot is the world. */

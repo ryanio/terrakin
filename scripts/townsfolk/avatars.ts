@@ -17,10 +17,12 @@
  * credentials file records each portrait, so `pnpm townsfolk -- --refresh-art` keeps it.
  * Tokens are never printed.
  */
+
 import { createHash } from "node:crypto";
 import { existsSync, readFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { sleep } from "workers-start/http";
 import type { MediaView, ProfileView } from "../../packages/protocol/src/index";
 import {
   type AvatarStep,
@@ -67,8 +69,6 @@ if (!picked.ok) {
   console.error(`--pick: ${picked.error}`);
   process.exit(2);
 }
-
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 
 /** One request. A `rate_limited` answer waits and tries again; anything else that fails throws. */
 async function call<T>(

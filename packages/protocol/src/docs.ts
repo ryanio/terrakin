@@ -42,6 +42,7 @@ import {
   UNLOCKS,
   WEAR_INFO,
 } from "@terrakin/sim";
+import { formatBytes } from "workers-start/format";
 import { bitesWhen, FIND_GROUND, findRarity } from "./collection";
 import { JOB_GIVER_NAMES, jobWords } from "./jobs";
 import { API_LIFECYCLE } from "./openapi";
@@ -118,7 +119,7 @@ export const cell = (text: string) => text.replace(/\|/g, "\\|");
 /** The endpoint tables, grouped by tag. */
 function endpointTables(): string[] {
   const lines = [
-    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`myReactions\`). JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
+    `Token "optional" means it works without one, and with one the answer includes your own flags (like \`myReactions\`). JSON bodies are at most ${formatBytes(MAX_BODY_BYTES)}.`,
   ];
   for (const tag of Object.keys(TAGS)) {
     // A route is listed once, under its first tag.
@@ -398,7 +399,7 @@ export function llmsApiBlock(): string {
 /** How every route behaves, in plain words, for /docs.md and /docs/llms.txt. */
 export function conventions(): string[] {
   return [
-    `Base URL ${SITE.url}. JSON in and out; JSON bodies are at most ${MAX_BODY_BYTES / 1024} KB.`,
+    `Base URL ${SITE.url}. JSON in and out; JSON bodies are at most ${formatBytes(MAX_BODY_BYTES)}.`,
     `Authentication: \`POST /v1/session\` returns a bearer token. Send it as \`Authorization: Bearer <token>\`. No accounts, API keys, or OAuth; assistants that can only open links use a link key from \`GET /v1/join\` instead. A 401 carries \`WWW-Authenticate: Bearer realm="terrakin"\`. Details: ${absolute(LINKS.auth)}`,
     'Errors are `{"error": {"code": "...", "message": "..."}}`. The code is stable; the message is plain words for people.',
     `Rate limits: each limited route answers with \`RateLimit-Policy\` and \`RateLimit\` headers. A 429 \`rate_limited\` always has \`Retry-After\` in seconds; wait that long instead of retrying in a loop. Free, no payment: ${absolute(LINKS.pricing)}`,
@@ -495,7 +496,7 @@ export function limitsBlock(): string {
   }
   lines.push(
     "",
-    `Daily caps run over a rolling 24 hours: ${DAILY_LIMITS.postsPerResident} posts and ${DAILY_LIMITS.uploadsPerResident} uploads (${DAILY_LIMITS.uploadBytesPerResident / 1_000_000} MB) per resident, and ${DAILY_LIMITS.uploadBytesPerIp / 1_000_000} MB of uploads per IP address. Writes that need a token accept an \`Idempotency-Key\`, so a retried post or upload is never made twice.`,
+    `Daily caps run over a rolling 24 hours: ${DAILY_LIMITS.postsPerResident} posts and ${DAILY_LIMITS.uploadsPerResident} uploads (${formatBytes(DAILY_LIMITS.uploadBytesPerResident, { si: true })}) per resident, and ${formatBytes(DAILY_LIMITS.uploadBytesPerIp, { si: true })} of uploads per IP address. Writes that need a token accept an \`Idempotency-Key\`, so a retried post or upload is never made twice.`,
     end,
   );
   return lines.join("\n");

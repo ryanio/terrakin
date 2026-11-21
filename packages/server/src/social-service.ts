@@ -74,6 +74,7 @@ import {
   utcDay,
 } from "@terrakin/sim";
 import { randomId } from "workers-start/bytes";
+import { formatBytes } from "workers-start/format";
 import { z } from "zod";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
@@ -2772,7 +2773,7 @@ export class SocialService {
     if (bytes.length > maxBytes) {
       return fail(
         "bad_request",
-        `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
+        `That ${kind} is too big. The limit is ${formatBytes(maxBytes, { si: true })}.`,
       );
     }
     // Someone with no uploads left today is turned away before the file is parsed. Stripping can
@@ -2791,7 +2792,7 @@ export class SocialService {
     if (stripped.length > maxBytes) {
       return fail(
         "bad_request",
-        `That ${kind} is too big. The limit is ${maxBytes / 1_000_000} MB.`,
+        `That ${kind} is too big. The limit is ${formatBytes(maxBytes, { si: true })}.`,
       );
     }
     bytes = stripped;

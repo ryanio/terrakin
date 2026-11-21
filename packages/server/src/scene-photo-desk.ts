@@ -8,6 +8,7 @@ import {
   type ScenePhotoRequest,
 } from "@terrakin/protocol";
 import { type Crop, type Input, MINUTE_MS, type WorldEvent, type WorldState } from "@terrakin/sim";
+import { sleep, withTimeout } from "workers-start/http";
 import { type Failure, fail, ipKey, RATE_LIMITED } from "./handlers/shared";
 import type { RateLimiters } from "./rate-limit";
 import { momentsOf, type SceneDeps, type ScenePhotoBook, sceneFor } from "./scene-photos";
@@ -85,7 +86,7 @@ export class ScenePhotoDesk {
   private readonly sleep: (ms: number) => Promise<void>;
 
   constructor(private readonly d: DeskDeps) {
-    this.sleep = d.options.sleep ?? ((ms) => new Promise((done) => setTimeout(done, ms)));
+    this.sleep = d.options.sleep ?? sleep;
   }
 
   /** The scene a ticket names, while it lasts. */
@@ -202,7 +203,7 @@ export class ScenePhotoDesk {
     let png: Uint8Array;
     try {
       png = await span("photo", "photo.scene", () =>
-        withTimeout(rendering, d.options.timeoutMs ?? RENDER_TIMEOUT_MS),
+        withTimeout(rendering, d.options.timeoutMs ?? RENDER_TIMEOUT_MS, { label: "scene photo" }),
       );
     } catch (err) {
       // The ticket would ride in a browser's error message, so only the error's kind is reported.
@@ -251,12 +252,4 @@ function errorKind(err: unknown): string {
 function newTicket(): string {
   const bytes = crypto.getRandomValues(new Uint8Array(16));
   return `pt_${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
-}
-
-function withTimeout<T>(work: Promise<T>, ms: number): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error("scene photo timed out")), ms);
-  });
-  return Promise.race([work, late]).finally(() => clearTimeout(timer));
 }

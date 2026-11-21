@@ -42,6 +42,7 @@ import {
   utcDay,
 } from "@terrakin/sim";
 import { randomBytes, sha256Hex, toHex } from "workers-start/bytes";
+import { formatBytes } from "workers-start/format";
 import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE, SERVICE_ACTOR } from "./access";
 import { AiSpend } from "./ai-spend";
 import {
@@ -360,8 +361,6 @@ function firstValues(query: URLSearchParams): Record<string, string> {
   for (const [key, value] of query) if (!(key in values)) values[key] = value;
   return values;
 }
-
-const mb = (bytes: number) => `${bytes / 1_000_000} MB`;
 
 export class Api {
   readonly service: WorldService;
@@ -695,7 +694,7 @@ export class Api {
       if (size > route.body.maxBytes) {
         return reject(
           "bad_request",
-          `That file is too big. The largest allowed is ${mb(route.body.maxBytes)}.`,
+          `That file is too big. The largest allowed is ${formatBytes(route.body.maxBytes, { si: true })}.`,
         );
       }
       body = { length: size, read: () => req.readBytes(size) } satisfies Upload;

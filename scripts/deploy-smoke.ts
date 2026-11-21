@@ -32,9 +32,11 @@
  *
  * Exit codes: 0 every check passed, 1 one didn't, 2 it couldn't start.
  */
+
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { parseArgs } from "node:util";
+import { sleep } from "workers-start/http";
 import { WORLD_SWITCHES } from "../packages/server/src/world-switches.ts";
 
 /** What one GET gave back, redirects not followed. */
@@ -727,7 +729,7 @@ if (process.argv[1] === fileURLToPath(import.meta.url)) {
     job.steps,
     {
       ask: (path) => ask(base, path),
-      sleep: (ms) => new Promise((resolve) => setTimeout(resolve, ms)),
+      sleep,
       now: () => Date.now(),
       say: (line) => console.log(line),
     },

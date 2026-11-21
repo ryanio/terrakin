@@ -1,5 +1,6 @@
 import { Severity, TriageAction, TriageCategory } from "@terrakin/protocol";
 import { DAY_MS, MINUTE_MS } from "@terrakin/sim";
+import { withTimeout } from "workers-start/http";
 import { z } from "zod";
 import { AiSpend, NO_TOKENS, type TokenCounts, tokensOf, whole } from "./ai-spend";
 import { capabilitiesOf, MODELS } from "./models";
@@ -275,15 +276,10 @@ export class TriageClient {
     this.spend(day, 1, estimate);
 
     let body: unknown;
-    // A call that takes longer than `timeoutMs`, answer and all, is a failed one. The race stops
-    // waiting even on a fetcher that never looks at the signal.
-    const signal = AbortSignal.timeout(this.config.timeoutMs);
-    const timedOut = new Promise<never>((_, reject) => {
-      signal.addEventListener("abort", () => reject(signal.reason), { once: true });
-    });
-    timedOut.catch(() => {});
+    // A call that takes longer than `timeoutMs`, answer and all, is a failed one. `withTimeout`
+    // stops waiting even on a fetcher that never looks at the signal.
     try {
-      const call = async () => {
+      const call = async (signal: AbortSignal) => {
         const res = await this.fetcher(API_URL, {
           method: "POST",
           signal,
@@ -307,7 +303,7 @@ export class TriageClient {
         });
         return res.ok ? { body: (await res.json()) as unknown } : { status: res.status };
       };
-      const answer = await Promise.race([call(), timedOut]);
+      const answer = await withTimeout(call, this.config.timeoutMs, { label: "triage call" });
       if (!("body" in answer)) {
         // Status only: the body can echo the request.
         console.error(`Triage call failed with HTTP ${answer.status}`);

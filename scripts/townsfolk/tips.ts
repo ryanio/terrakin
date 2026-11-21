@@ -22,9 +22,11 @@
  * maintainer, a block) is normal: it's printed and the run moves on, never retried. A rate limit or
  * a server error stops the run; run it again later and it picks up where it stopped.
  */
+
 import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { parseArgs } from "node:util";
+import { sleep } from "workers-start/http";
 import type {
   FeedResponse,
   PurseResponse,
@@ -65,7 +67,6 @@ const PACE = Math.max(0, Number(args.pace) || 0);
 const CREDS = args.creds !== undefined ? resolve(args.creds) : defaultCredsPath(BASE);
 const STATE = tipsStatePath(CREDS);
 
-const sleep = (ms: number) => new Promise((done) => setTimeout(done, ms));
 const say = (who: string, message: string) => console.log(`${who.padEnd(8)} ${message}`);
 
 // ---------------------------------------------------------------------------

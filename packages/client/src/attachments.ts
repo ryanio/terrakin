@@ -3,8 +3,10 @@
  * progress in a list row with a thumbnail and a remove button. The server judges every file;
  * the size check here only spares an upload the server would refuse.
  */
+
 import { MEDIA_TYPES, type MediaView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
+import { formatBytes } from "workers-start/format";
 import { uploadMedia } from "./api/media";
 
 /** The largest file any of `types` may be, in bytes. */
@@ -15,9 +17,6 @@ export function largestOf(types: readonly string[]): number {
   });
   return Math.max(...sizes);
 }
-
-/** `bytes` as whole megabytes, the way the size refusal says it ("25 MB"). */
-const megabytes = (bytes: number) => `${Math.round(bytes / 1_000_000)} MB`;
 
 export interface PickPlan<F> {
   /** The picked files that go on the list, in the order they were picked. */
@@ -49,7 +48,7 @@ export function planPick<F>(
 /** The refusal for a file over `largest` bytes, or undefined when it may upload. */
 export function sizeProblem(size: number, largest: number): string | undefined {
   return size > largest
-    ? `That file is too big. The largest allowed is ${megabytes(largest)}.`
+    ? `That file is too big. The largest allowed is ${formatBytes(largest, { decimals: 0, si: true })}.`
     : undefined;
 }
 

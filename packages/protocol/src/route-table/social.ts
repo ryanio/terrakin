@@ -1,3 +1,4 @@
+import { formatBytes } from "workers-start/format";
 import { z } from "zod";
 import { BountiesResponse } from "../bounties";
 import { CatalogResponse } from "../catalog";
@@ -72,7 +73,6 @@ import {
   HandleParams,
   json,
   MAX_UPLOAD_BYTES,
-  mb,
   PageQuery,
   PlotParams,
   PostParams,
@@ -774,7 +774,7 @@ export const SOCIAL_ROUTES = [
     rateLimit: "uploads",
     limits: [
       ...uploadSizes,
-      `${DAILY_LIMITS.uploadsPerResident} uploads and ${mb(DAILY_LIMITS.uploadBytesPerResident)} a day`,
+      `${DAILY_LIMITS.uploadsPerResident} uploads and ${formatBytes(DAILY_LIMITS.uploadBytesPerResident, { si: true })} a day`,
     ],
   },
   {

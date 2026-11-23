@@ -30,6 +30,9 @@ importers:
       '@types/node':
         specifier: ^26.6.6
         version: 26.6.6
+      doc-refs:
+        specifier: ^0.1.0
+        version: 0.1.0
       knip:
         specifier: 6.44.2
         version: 6.44.2
@@ -1413,6 +1416,11 @@ packages:
     resolution: {integrity: sha512-Btj2BOOO83o3WyH59e8MgXsxEQVcarkUOpEYrubB0urwnN10yQ364rsiByU11nZlqWYZm05i/of7io4mzihBtQ==}
     engines: {node: '>=8'}
 
+  doc-refs@0.1.0:
+    resolution: {integrity: sha512-efkq6SKT5EKGrvhPL9ndXsHyGJqTE91KcbQf3O9GFYFs8rWeNQWFXtRREuzZQnbbc+CBasYNaVCj5kA7MfuOpg==}
+    engines: {node: '>=22'}
+    hasBin: true
+
   emoji-regex-xs@2.0.1:
     resolution: {integrity: sha512-1QFuh8l7LqUcKe24LsPUNzjrzJQ7pgRwp1QMcZ5MX6mFplk2zQ08NVCM84++1cveaUUYtcCYHmeFEuNg16sU4g==}
     engines: {node: '>=10.0.0'}
@@ -2701,6 +2709,8 @@ snapshots:
       postcss-value-parser: 4.2.0
 
   detect-libc@2.1.2: {}
+
+  doc-refs@0.1.0: {}
 
   emoji-regex-xs@2.0.1: {}
 

@@ -1,0 +1,11 @@
+{
+  "exclude": ["docs/knowledge/**", "docs/rfcs/**"],
+  "ignore": ["src/handlers/", "src/route-table/"],
+  "text": [
+    {
+      "docs": ["**/*.md"],
+      "forbid": ["(?<![A-Za-z]:)/Users/[A-Za-z][\\w.-]*/", "~/Desktop/\\w"],
+      "why": "the repo is public: write the content in, or say it is kept privately (AGENTS.md rule 10)"
+    }
+  ]
+}

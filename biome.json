@@ -15,8 +15,7 @@
       "!packages/client/public/.well-known",
       "!docs/site/lastmod.json",
       "!.agents/skills/secrets",
-      "!pnpm-lock.yaml",
-      "!scripts/doc-refs"
+      "!pnpm-lock.yaml"
     ]
   },
   "formatter": {

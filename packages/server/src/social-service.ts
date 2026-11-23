@@ -74,7 +74,7 @@ import {
   utcDay,
 } from "@terrakin/sim";
 import { randomId } from "workers-start/bytes";
-import { formatBytes } from "workers-start/format";
+import { formatBytes, utcStamp } from "workers-start/format";
 import { z } from "zod";
 import { type AgentLinkOptions, AgentLinkService } from "./agent-links";
 import { AwayLog } from "./away-log";
@@ -2066,10 +2066,10 @@ export class SocialService {
       );
     }
     if (current && this.now() - Number(current.claimed_at) < HANDLE_RENAME_DAYS * DAY_MS) {
-      const when = new Date(Number(current.claimed_at) + HANDLE_RENAME_DAYS * DAY_MS);
+      const when = Number(current.claimed_at) + HANDLE_RENAME_DAYS * DAY_MS;
       return fail(
         "rate_limited",
-        `You can change your handle once every ${HANDLE_RENAME_DAYS} days. Try again after ${when.toISOString().slice(0, 16).replace("T", " ")} UTC.`,
+        `You can change your handle once every ${HANDLE_RENAME_DAYS} days. Try again after ${utcStamp(when)}.`,
       );
     }
     return { ok: true, value: handle };

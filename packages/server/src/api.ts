@@ -42,7 +42,7 @@ import {
   utcDay,
 } from "@terrakin/sim";
 import { randomBytes, sha256Hex, toHex } from "workers-start/bytes";
-import { formatBytes } from "workers-start/format";
+import { dateTime, formatBytes } from "workers-start/format";
 import { DEPLOY_ACTOR, DEPLOY_READS_LOG_ONLY, DEPLOY_SERVICE, SERVICE_ACTOR } from "./access";
 import { AiSpend } from "./ai-spend";
 import {
@@ -1441,7 +1441,7 @@ export class Api {
     if (until !== undefined) {
       return fail(
         "suspended",
-        `A maintainer suspended this account until ${new Date(until).toUTCString()}. You can still read, and delete your own things.`,
+        `A maintainer suspended this account until ${dateTime(until)}. You can still read, and delete your own things.`,
       );
     }
     if (this.social?.isMaintainer(residentId)) return undefined;

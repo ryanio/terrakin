@@ -18,6 +18,7 @@ import {
 } from "@terrakin/protocol";
 import type { Resident } from "@terrakin/sim";
 import { DAY_MS } from "@terrakin/sim";
+import { dateTime } from "workers-start/format";
 import { sha256HexSync } from "./bytes";
 import type { SocialResult, SocialService } from "./social-service";
 
@@ -99,17 +100,12 @@ const RETIRED_KEEP_MS = 90 * DAY_MS;
 /** How long an agent's check-in names a new owner (decision 0241). */
 const NEW_OWNER_DAYS = 7;
 
-/** "Friday, October 9, 6:00 PM UTC": when a re-key is ready or can be asked for again. */
+/**
+ * "Friday, October 9, 6:00 PM UTC": when a re-key is ready or can be asked for again. In UTC, said
+ * so, since the reader's zone doesn't reach the World object.
+ */
 const when = (ms: number) =>
-  new Date(ms).toLocaleString("en-US", {
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-    hour: "numeric",
-    minute: "2-digit",
-    timeZone: "UTC",
-    timeZoneName: "short",
-  });
+  dateTime(ms, { weekday: "long", month: "long", order: "mdy", clock: "12h", year: false });
 
 const STILL_CONNECTED =
   "Your AI is connected to Terrakin with its old key right now, so it hasn't lost it, and the re-key was cancelled.";

@@ -40,8 +40,8 @@ importers:
         specifier: 5.1.0
         version: 5.1.0(@opentelemetry/api@1.10.0)(@types/node@26.6.6)(vite@8.3.7(@types/node@26.6.6)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1))
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
       wrangler:
         specifier: 4.163.0
         version: 4.163.0(@cloudflare/workers-types@5.20261110.1)(@types/node@26.6.6)
@@ -64,8 +64,8 @@ importers:
         specifier: workspace:*
         version: link:../ui
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -95,11 +95,11 @@ importers:
         specifier: 0.32.0
         version: 0.32.0
       workers-cards:
-        specifier: ^0.2.0
-        version: 0.2.0
+        specifier: ^0.3.1
+        version: 0.3.1
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
     devDependencies:
       '@types/node':
         specifier: ^26.6.6
@@ -135,8 +135,8 @@ importers:
         specifier: 0.187.0
         version: 0.187.0
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -166,8 +166,8 @@ importers:
         specifier: workspace:*
         version: link:../sim
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
       zod:
         specifier: 4.6.7
         version: 4.6.7
@@ -208,8 +208,8 @@ importers:
         specifier: 8.12.4
         version: 8.12.4
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
       ws:
         specifier: 8.22.2
         version: 8.22.2
@@ -241,8 +241,8 @@ importers:
         specifier: 1.71.0
         version: 1.71.0
       workers-start:
-        specifier: ^0.32.0
-        version: 0.32.0(@sentry/core@11.16.0)
+        specifier: ^0.34.2
+        version: 0.34.2(@sentry/core@11.16.0)
 
 packages:
 
@@ -1839,17 +1839,17 @@ packages:
     engines: {node: '>=16'}
     hasBin: true
 
-  workers-cards@0.2.0:
-    resolution: {integrity: sha512-YGbRB3pSIFnelh6Gp3Icr4QglJ7KQZ45dQSaz9JfkAYUOt6HN6sf2UcibUDIjtbXWiTXS328HjBC5BA/Wf9+8Q==}
+  workers-cards@0.3.1:
+    resolution: {integrity: sha512-UZLcOPM91DIBvwTEswgChe09vDXT8GNgwzjVO8dtTMv48eC33gqNBHo3dpjgEyTWeeT5MYpoBedfBzV+Ewup5w==}
     engines: {node: '>=22'}
 
-  workers-start@0.32.0:
-    resolution: {integrity: sha512-CVtnAblB5PXPfjMVuzQaH5dMXgZ62kmLUYOd4TfgLqfaM8yvU5Hi0r4YtSyPXzrn3QBIAR9Npme22QShCm8EmA==}
+  workers-start@0.34.2:
+    resolution: {integrity: sha512-ePaXqgPO0M5NgFddgiduGstbQNHDOolzjuqVD75KaWahvftdgxaNzG935nx3D9nwkWBwcWCjK2ZIX6aDrZw9iQ==}
     engines: {node: '>=22'}
     hasBin: true
     peerDependencies:
       '@sentry/core': ^11.0.0
-      react: '>=18'
+      react: ^19.0.0
     peerDependenciesMeta:
       '@sentry/core':
         optional: true
@@ -3150,9 +3150,9 @@ snapshots:
       '@cloudflare/workerd-linux-arm64': 1.20261116.1
       '@cloudflare/workerd-windows-64': 1.20261116.1
 
-  workers-cards@0.2.0: {}
+  workers-cards@0.3.1: {}
 
-  workers-start@0.32.0(@sentry/core@11.16.0):
+  workers-start@0.34.2(@sentry/core@11.16.0):
     optionalDependencies:
       '@sentry/core': 11.16.0
 

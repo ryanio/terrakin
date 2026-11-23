@@ -5,7 +5,6 @@ import {
   type CheckinResponse,
   type GardenView,
   LINKS,
-  ordinal,
   ROUTINE_LIMITS,
 } from "@terrakin/protocol";
 import {
@@ -30,7 +29,7 @@ import {
   type Side,
   type WorldState,
 } from "@terrakin/sim";
-import { counted } from "workers-start/format";
+import { counted, ordinal } from "workers-start/format";
 import type { StepLeft } from "./checkin-steps";
 import type { Suggestion } from "./checkin-suggest";
 import { circleTodo } from "./circles";

@@ -34,6 +34,7 @@ import {
   WEAR_ITEMS,
   type WearItem,
 } from "@terrakin/sim";
+import { escapeHtml } from "workers-start/mail";
 import {
   BRAND_HEX,
   CANOPY,
@@ -4308,13 +4309,9 @@ export function thingShapes(thing: ThingLook): ArtShape[] {
   return itemShapes(thing.kind);
 }
 
-/** Escaped for an attribute's value in markup. */
-const escapeAttr = (text: string) =>
-  text.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 const shapeMarkup = (shape: ArtShape): string =>
   `<${shape.tag}${Object.entries(shape.attrs)
-    .map(([k, v]) => ` ${k}="${escapeAttr(String(v))}"`)
+    .map(([k, v]) => ` ${k}="${escapeHtml(String(v))}"`)
     .join("")}>${(shape.children ?? []).map(shapeMarkup).join("")}</${shape.tag}>`;
 
 /**

@@ -8,14 +8,7 @@
  */
 import { h } from "@terrakin/ui/dom";
 import { slugify } from "workers-start/format";
-
-const escapeHtml = (text: string) =>
-  text
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/"/g, "&quot;")
-    .replace(/'/g, "&#39;");
+import { escapeHtml } from "workers-start/mail";
 
 /** Only http(s), mailto, site-relative, and in-page links become hrefs. */
 const safeHref = (href: string) => (/^(https?:\/\/|mailto:|\/|#)/.test(href) ? href : "#");

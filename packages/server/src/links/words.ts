@@ -19,7 +19,7 @@ import {
   type Routine,
   type WorldState,
 } from "@terrakin/sim";
-import { counted } from "workers-start/format";
+import { counted, listOf } from "workers-start/format";
 import { ROUTINE_WORDS } from "../routines";
 import { type Links, list, type Tile } from "./shared";
 
@@ -148,18 +148,15 @@ export function awayWords(line: AwayLine): string {
   return `- ${when} UTC: waved at resident \`${line.to?.id ?? "?"}\`.`;
 }
 
-/** "a", "a and b", "a, b, and c". */
-export function andList(words: readonly string[]): string {
-  if (words.length <= 2) return words.join(" and ");
-  return `${words.slice(0, -1).join(", ")}, and ${words.at(-1)}`;
-}
-
 /** "(1, 2)", "(1, 2) and (3, 4)", "(1, 2), (3, 4), and (5, 6)". */
-export const tilesWords = (tiles: readonly Tile[]) => andList(tiles.map(at));
+export const tilesWords = (tiles: readonly Tile[]) => listOf(tiles.map(at), { oxfordComma: true });
 
 /** "2 bags of sugar and 2 jars": stacks that came in, by kind and count. */
 export const stackWords = (changes: readonly { kind: ItemKind; amount: number }[]) =>
-  andList(changes.filter((c) => c.amount > 0).map((c) => countOf(c.kind, c.amount)));
+  listOf(
+    changes.filter((c) => c.amount > 0).map((c) => countOf(c.kind, c.amount)),
+    { oxfordComma: true },
+  );
 
 /** "18:00": the time of day on the UTC clock. */
 export const clock = (ms: number) => new Date(ms).toISOString().slice(11, 16);

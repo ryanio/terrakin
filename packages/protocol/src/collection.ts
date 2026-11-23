@@ -5,6 +5,7 @@ import {
   type Family,
   type TimeOfDay,
 } from "@terrakin/sim";
+import { listOf } from "workers-start/format";
 import { z } from "zod";
 import { FinishName, GlazeName, GoodKind, HolidayName, SeasonName } from "./schemas";
 
@@ -87,12 +88,6 @@ const TIME_WORDS: Readonly<Record<TimeOfDay, string>> = {
   night: "at night",
 };
 
-/** "a, b, and c", or "a and b", or "a". */
-function andList(words: readonly string[], last = "and"): string {
-  if (words.length < 3) return words.join(` ${last} `);
-  return `${words.slice(0, -1).join(", ")}, ${last} ${words.at(-1)}`;
-}
-
 /**
  * When and how a fish bites (RFC 0023), in words, from its place in the sim's `CATCHES`: the times
  * of day, the weather, the seasons, and how often, for SKILL.md's fish table.
@@ -104,8 +99,13 @@ export function bitesWhen(c: CatchChance): {
   often: "common" | "uncommon" | "rare";
 } {
   return {
-    times: c.times ? andList(c.times.map((t) => TIME_WORDS[t])) : "any time",
-    weather: c.weathers ? andList(c.weathers, "or") : "any",
+    times: c.times
+      ? listOf(
+          c.times.map((t) => TIME_WORDS[t]),
+          { oxfordComma: true },
+        )
+      : "any time",
+    weather: c.weathers ? listOf(c.weathers, { oxfordComma: true, conjunction: "or" }) : "any",
     seasons: c.seasons ? `${c.seasons.join(" and ")} only` : "all year",
     often: c.chance >= 1000 ? "common" : c.chance >= 200 ? "uncommon" : "rare",
   };

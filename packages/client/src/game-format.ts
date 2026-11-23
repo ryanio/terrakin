@@ -6,12 +6,11 @@ import {
   GAME_NAMES,
   GAME_TIMES,
   type Ladder,
-  ordinal,
   type RoundView,
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_RULES } from "@terrakin/sim";
-import { counted, formatCount } from "workers-start/format";
+import { counted, formatCount, ordinal } from "workers-start/format";
 
 /** "Hearth race", "Lowest lantern". */
 export const gameName = (game: TableView["game"]) => GAME_NAMES[game];

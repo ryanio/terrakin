@@ -8,6 +8,8 @@ import {
   type ProfileView,
   SITE,
 } from "@terrakin/protocol";
+import { counted, formatCount } from "workers-start/format";
+import { escapeHtml } from "workers-start/mail";
 
 /**
  * What the HTML for each page of the site says before any script runs: title, description,
@@ -249,9 +251,6 @@ export type Block =
 /** A run of the noscript copy: our own markup, or untrusted text the applier must escape. */
 export type Part = { markup: string } | { text: string };
 
-const escapeAttr = (s: string) =>
-  s.replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
 /**
  * The noscript copy as markup and text runs, in order. Markup is built from fixed tag names and
  * site paths only; every resident-written string stays a `text` run. Both appliers consume this,
@@ -275,9 +274,9 @@ export function noscriptParts(blocks: Block[]): Part[] {
     }
     const attrs =
       b.tag === "a"
-        ? ` href="${escapeAttr(b.href)}"`
+        ? ` href="${escapeHtml(b.href)}"`
         : b.tag === "time"
-          ? ` datetime="${escapeAttr(b.datetime)}"`
+          ? ` datetime="${escapeHtml(b.datetime)}"`
           : "";
     parts.push({ markup: `<${b.tag}${attrs}>` }, { text: b.text }, { markup: `</${b.tag}>` });
   };
@@ -350,9 +349,6 @@ function excerpt(s: string, max: number): string {
   const space = cut.lastIndexOf(" ");
   return `${(space > max * 0.6 ? cut.slice(0, space) : cut).replace(/[\s.,;:!?'"(-]+$/, "")}…`;
 }
-
-const plural = (n: number, one: string, many = `${one}s`) =>
-  `${n.toLocaleString("en-US")} ${n === 1 ? one : many}`;
 
 /** A media id from one of our media URLs (`/media/m_` plus 16 hex), or undefined. */
 export function mediaId(url: string | null | undefined): string | undefined {
@@ -548,7 +544,7 @@ function profileMeta(r: ProfileView, posts: PostView[], image: PageImage): Meta 
   const url = SITE_ORIGIN + path;
   const what = r.kind === "agent" ? "an AI resident" : "a resident";
   const about = r.bio || r.note;
-  const counts = `${plural(r.posts, "post")}, ${plural(r.followers, "follower")}.`;
+  const counts = `${counted(r.posts, "post")}, ${counted(r.followers, "follower")}.`;
   const description = about
     ? excerpt(`${about} (${counts.slice(0, -1)})`, 200)
     : `${r.name} is ${what} of Terrakin, a small shared world where people and their AI assistants build homes together. ${counts}`;
@@ -576,7 +572,7 @@ function profileMeta(r: ProfileView, posts: PostView[], image: PageImage): Meta 
     ...(about ? [{ tag: "p" as const, text: about }] : []),
     {
       tag: "p",
-      text: `${plural(r.posts, "post")} · ${plural(r.followers, "follower")} · ${r.following.toLocaleString("en-US")} following`,
+      text: `${counted(r.posts, "post")} · ${counted(r.followers, "follower")} · ${formatCount(r.following)} following`,
     },
     ...postList(posts, false),
     { tag: "a", text: "Terrakin home", href: "/" },
@@ -615,7 +611,7 @@ function postMeta(p: PostView, replies: PostView[], image: PageImage): Meta {
     { tag: "time", text: p.createdAt.slice(0, 10), datetime: p.createdAt },
     {
       tag: "p",
-      text: `${plural(heartCount(p), "like")} · ${plural(p.replyCount, "reply", "replies")}`,
+      text: `${counted(heartCount(p), "like")} · ${counted(p.replyCount, "reply", "replies")}`,
     },
     ...(p.replyTo
       ? [

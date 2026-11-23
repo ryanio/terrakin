@@ -34,6 +34,7 @@ import {
   type WorldEvent,
   type WorldState,
 } from "@terrakin/sim";
+import { randomId } from "workers-start/bytes";
 import { stampOf } from "./plot-photo";
 import { shownPlotName } from "./plots";
 import type { SqlExec } from "./sql-store";
@@ -499,8 +500,7 @@ export class ScenePhotoBook {
 
   /** Keep a moment for an hour, as of now. Moments older than that go as new ones come. */
   keepMoment(draft: MomentDraft) {
-    const bytes = crypto.getRandomValues(new Uint8Array(8));
-    const id = `mo_${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+    const id = randomId("mo");
     const m = { ...draft, id, at: this.now() };
     this.sql.exec(
       "DELETE FROM photo_moments WHERE at < ?",

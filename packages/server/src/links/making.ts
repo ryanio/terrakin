@@ -46,7 +46,7 @@ import {
   trickOrTreatNights,
   waterBeside,
 } from "@terrakin/sim";
-import { counted } from "workers-start/format";
+import { counted, listOf } from "workers-start/format";
 import type { Handlers } from "../handlers/shared";
 import { gardenOf } from "../items";
 import {
@@ -62,7 +62,7 @@ import {
   type Tile,
   turnedDown,
 } from "./shared";
-import { andList, at, tilesWords } from "./words";
+import { at, tilesWords } from "./words";
 
 /**
  * The links that work from the hearth like a short routine: the garden, making things, and
@@ -282,7 +282,11 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
       // Every recipe takes things that stack (the catalog's tests hold it to that).
       const needs = (kind: CraftKind) =>
         Object.entries(recipeOf(kind).needs) as [StackKind, number][];
-      const needWords = (kind: CraftKind) => andList(needs(kind).map(([k, n]) => countOf(k, n)));
+      const needWords = (kind: CraftKind) =>
+        listOf(
+          needs(kind).map(([k, n]) => countOf(k, n)),
+          { oxfordComma: true },
+        );
       const short = (kind: CraftKind) =>
         needs(kind).flatMap(([k, n]) => {
           const have = inv?.stacks[k] ?? 0;
@@ -359,7 +363,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
       if (missing.length > 0) {
         return refuse(
           "not_enough_items",
-          `${ITEM_INFO[recipe].name} takes ${needWords(recipe)}, and you need ${andList(missing)} more.`,
+          `${ITEM_INFO[recipe].name} takes ${needWords(recipe)}, and you need ${listOf(missing, { oxfordComma: true })} more.`,
           `Grow what it takes: ${l.garden("flower")}. What you can make now: ${l.craft()}`,
         );
       }
@@ -447,7 +451,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
             l,
             "# Out of the kiln",
             `${fired}It's in your things: ${l.things}`,
-            `Another ${ITEM_INFO[recipe].name.toLowerCase()} takes ${needWords(recipe)}, and you need ${andList(left)} more. Clay lies beside water, a pond or the sea: ${l.gather}`,
+            `Another ${ITEM_INFO[recipe].name.toLowerCase()} takes ${needWords(recipe)}, and you need ${listOf(left, { oxfordComma: true })} more. Clay lies beside water, a pond or the sea: ${l.gather}`,
           );
         }
       } else if (pot) {
@@ -455,7 +459,7 @@ export function makingLinks(ctx: LinkCtx): Pick<Handlers, "linkGarden" | "linkCr
         if (left.length > 0) {
           return refuse(
             "not_enough_items",
-            `${ITEM_INFO[recipe].name} takes ${needWords(recipe)}, and you need ${andList(left)} more.`,
+            `${ITEM_INFO[recipe].name} takes ${needWords(recipe)}, and you need ${listOf(left, { oxfordComma: true })} more.`,
             `Clay lies beside water, a pond or the sea: ${l.gather}. What you can make now: ${l.craft()}`,
           );
         }

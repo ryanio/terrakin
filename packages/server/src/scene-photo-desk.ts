@@ -8,6 +8,7 @@ import {
   type ScenePhotoRequest,
 } from "@terrakin/protocol";
 import { type Crop, type Input, MINUTE_MS, type WorldEvent, type WorldState } from "@terrakin/sim";
+import { randomId } from "workers-start/bytes";
 import { sleep, withTimeout } from "workers-start/http";
 import { type Failure, fail, ipKey, RATE_LIMITED } from "./handlers/shared";
 import type { RateLimiters } from "./rate-limit";
@@ -250,6 +251,5 @@ function errorKind(err: unknown): string {
 
 /** A ticket: `pt_` and 128 random bits. Unguessable, and only good for a minute. */
 function newTicket(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(16));
-  return `pt_${[...bytes].map((b) => b.toString(16).padStart(2, "0")).join("")}`;
+  return randomId("pt", 16);
 }

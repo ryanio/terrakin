@@ -14,7 +14,6 @@ import {
   type GamesResponse,
   type Ladder,
   type LadderResponse,
-  ordinal,
   type TableView,
 } from "@terrakin/protocol";
 import { GAME_KINDS, GAME_PACES, LADDERS } from "@terrakin/sim";
@@ -34,7 +33,7 @@ import {
   sheet,
   whileBusy,
 } from "@terrakin/ui/ui";
-import { counted, formatCount } from "workers-start/format";
+import { counted, formatCount, ordinal } from "workers-start/format";
 import { actFromButton } from "./act";
 import { gamesApi } from "./api/games";
 import { actProblem, worldApi } from "./api/world";

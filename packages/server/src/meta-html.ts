@@ -1,13 +1,11 @@
-import { escapeText } from "workers-start/mail";
+import { escapeHtml, escapeText } from "workers-start/mail";
 import { type DocumentEdits, noscriptParts } from "./page-meta";
 
 /**
  * Applies `DocumentEdits` to index.html as a string, for the Node server. The Worker does the same
  * with HTMLRewriter (cloudflare/meta-rewriter.ts). Every value is escaped here: attribute values
- * with `escapeAttr`, text with `escapeText` from workers-start, and JSON-LD arrives already script-safe.
+ * with `escapeHtml`, text with `escapeText` from workers-start, and JSON-LD arrives already script-safe.
  */
-
-const escapeAttr = (s: string) => escapeText(s).replace(/"/g, "&quot;");
 
 /** `meta[name="description"]` and friends: the only selector shape the edits use. */
 const SELECTOR = /^(meta|link)\[(name|property|rel)="([^"]+)"\]$/;
@@ -25,7 +23,7 @@ function findTag(html: string, selector: string): RegExpExecArray | undefined {
 }
 
 function setAttribute(tag: string, name: string, value: string): string {
-  const escaped = `${name}="${escapeAttr(value)}"`;
+  const escaped = `${name}="${escapeHtml(value)}"`;
   const re = new RegExp(`\\b${name}="[^"]*"`);
   if (re.test(tag)) return tag.replace(re, () => escaped);
   return tag.replace(/\s*\/?>$/, (end) => ` ${escaped}${end}`);

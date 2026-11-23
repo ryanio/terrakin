@@ -80,7 +80,7 @@ import {
   replaceGenerated,
   skillApiBlock,
 } from "./docs";
-import { GAME_TIMES, ordinal } from "./games";
+import { GAME_TIMES } from "./games";
 import { JobDoneView, jobDoneLine } from "./job-done";
 import { JOB_GIVER_NAMES, JOB_WORDS, JobView, jobCount, jobView, jobWords } from "./jobs";
 import { LevelView, levelName } from "./levels";
@@ -984,24 +984,6 @@ describe("looks", () => {
     expect(skill).toContain(`up to ${PUTTER.steps} tiles`);
     expect(skill).toContain(`within ${PUTTER.seek} tiles`);
     expect(skill).toContain(`${PUTTER_LIMITS.perDay} times a UTC day`);
-  });
-
-  it("says a place in words", () => {
-    expect([1, 2, 3, 4, 11, 12, 13, 21, 22, 23, 101, 111, 112].map(ordinal)).toEqual([
-      "1st",
-      "2nd",
-      "3rd",
-      "4th",
-      "11th",
-      "12th",
-      "13th",
-      "21st",
-      "22nd",
-      "23rd",
-      "101st",
-      "111th",
-      "112th",
-    ]);
   });
 
   it("gives Halloween's and Midwinter's dates and stock, and trick-or-treating's numbers, as the sim has them", () => {

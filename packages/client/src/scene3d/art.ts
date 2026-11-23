@@ -45,6 +45,7 @@ import {
   WebGLRenderer,
 } from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
+import { truncate } from "workers-start/format";
 import type { SkyAmounts } from "../weather";
 import { flicker, lampLevel, lightAt, type StageLight } from "./daylight";
 
@@ -957,7 +958,7 @@ export function nameTag(text: string, mine: boolean): { texture: CanvasTexture; 
   const font = `600 ${15 * scale}px "Figtree Variable", system-ui, sans-serif`;
   const [probe, pg] = canvas(4, 4);
   pg.font = font;
-  const clipped = text.length > 28 ? `${text.slice(0, 27)}…` : text;
+  const clipped = truncate(text, 28, { onWord: false });
   const w = Math.ceil(pg.measureText(clipped).width + 22 * scale);
   const h = 26 * scale;
   probe.remove();

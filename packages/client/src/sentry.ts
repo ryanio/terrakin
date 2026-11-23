@@ -10,15 +10,25 @@ import {
   captureMessage,
   init,
 } from "@sentry/browser";
+import { browserSentryOptions } from "workers-start/sentry";
 import { templateIds } from "./telemetry";
+
+/** What `browserSentryOptions` takes: the DSN, sampling, data collection, and our `beforeSend`. */
+type SentryBase = Parameters<typeof browserSentryOptions>[0];
 
 export interface SentryHandle {
   crumb(crumb: Breadcrumb): void;
   message(text: string): void;
 }
 
-export function startSentry(options: BrowserOptions): SentryHandle {
+/**
+ * `base` goes through `browserSentryOptions` (no DSN means off, local and browser noise dropped,
+ * strict data collection); `options` adds what is ours. Both are applied here so the package
+ * stays in this lazy chunk.
+ */
+export function startSentry(base: SentryBase, options: BrowserOptions): SentryHandle {
   init({
+    ...browserSentryOptions(base),
     ...options,
     integrations: (defaults) => [
       ...defaults,

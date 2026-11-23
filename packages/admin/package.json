@@ -15,7 +15,7 @@
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
     "@terrakin/ui": "workspace:*",
-    "workers-start": "^0.29.0",
+    "workers-start": "^0.32.0",
     "zod": "4.6.7"
   },
   "devDependencies": {

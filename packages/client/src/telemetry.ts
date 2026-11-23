@@ -11,7 +11,7 @@
  *   clicks reduced to tag, id, and classes, and any token scrubbed. It traces a sample of page
  *   loads and API calls, named by route template, so an error links to the server's trace.
  */
-import type { Breadcrumb, BreadcrumbHint, ErrorEvent } from "@sentry/browser";
+import type { Breadcrumb, BreadcrumbHint } from "@sentry/browser";
 import { savedToken } from "./net";
 
 type GtagEvent = "join" | "bring_ai_copy";
@@ -332,31 +332,26 @@ export async function initErrorReporting() {
   if (typeof Array.prototype.findLast !== "function") return;
   try {
     const { startSentry } = await import("./sentry");
-    sentry = startSentry({
-      dsn: SENTRY_DSN,
-      environment: import.meta.env.MODE,
-      // Sentry 11 replaced `sendDefaultPii` with per-category switches. All of them off: no user
-      // info, IPs, cookies, headers, bodies, query strings, or local variables.
-      dataCollection: {
-        userInfo: false,
-        cookies: false,
-        httpHeaders: false,
-        httpBodies: [],
-        urlQueryParams: false,
-        stackFrameVariables: false,
-        genAI: { inputs: false, outputs: false },
+    sentry = startSentry(
+      {
+        dsn: SENTRY_DSN,
+        environment: import.meta.env.MODE,
+        tracesSampleRate: TRACES_SAMPLE_RATE,
+        // Stricter than the package's default: no headers, query strings, or local variables at all.
+        dataCollection: { httpHeaders: false, urlQueryParams: false, stackFrameVariables: false },
+        beforeSend: (event) =>
+          fromBrowserExtension(event) ? null : scrubEvent(event, savedToken()),
       },
-      tracesSampleRate: TRACES_SAMPLE_RATE,
-      // Our own API only, so the server's trace continues the page's. Never third parties.
-      tracePropagationTargets: [
-        /^\/v1\//,
-        new RegExp(`^${window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/v1/`),
-      ],
-      beforeBreadcrumb: (crumb, hint) => filterBreadcrumb(crumb, hint),
-      beforeSend: (event: ErrorEvent) =>
-        fromBrowserExtension(event) ? null : scrubEvent(event, savedToken()),
-      beforeSendSpan: (span) => scrubSpan(span, savedToken()),
-    });
+      {
+        // Our own API only, so the server's trace continues the page's. Never third parties.
+        tracePropagationTargets: [
+          /^\/v1\//,
+          new RegExp(`^${window.location.origin.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}/v1/`),
+        ],
+        beforeBreadcrumb: (crumb, hint) => filterBreadcrumb(crumb, hint),
+        beforeSendSpan: (span) => scrubSpan(span, savedToken()),
+      },
+    );
   } catch {
     // A blocked or failed load just means no error reports.
   }

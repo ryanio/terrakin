@@ -27,6 +27,7 @@ import {
 } from "@sentry/core";
 import { compileRoutes, ROUTES, type RouteSpec } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
+import { workerSentryOptions } from "workers-start/sentry";
 
 export type CrumbCategory = "api" | "world" | "live" | "sweep" | "card" | "page";
 type Attributes = Record<string, string | number | boolean>;
@@ -259,10 +260,10 @@ export class ForcedTraceBudget {
 const forcedTraces = new ForcedTraceBudget();
 
 /**
- * The Sentry options for the Worker and the World object. `dsn` undefined means no client and no
- * reports. Every outgoing kind of data has a scrubber here. Reports go straight to Sentry, never
- * through a tunnel, so the type leaves `tunnel` out: the Cloudflare SDK types it more narrowly
- * than the core does.
+ * The Sentry options for the Worker and the World object, on `workerSentryOptions`: no DSN means no
+ * client and no reports, and events and traces from a local request are dropped. Every outgoing
+ * kind of data has a scrubber here. Reports go straight to Sentry, never through a tunnel, so the
+ * type leaves `tunnel` out: the Cloudflare SDK types it more narrowly than the core does.
  */
 export function sentryOptions(
   dsn: string | undefined,
@@ -270,20 +271,16 @@ export function sentryOptions(
   budget: ForcedTraceBudget = forcedTraces,
 ): Omit<Partial<Options>, "tunnel"> {
   return {
-    ...(dsn ? { dsn } : {}),
-    ...(release ? { release } : {}),
-    environment: "production",
-    // All off: no user info, IPs, cookies, headers, bodies, query strings, or local variables.
-    dataCollection: {
-      userInfo: false,
-      cookies: false,
-      httpHeaders: false,
-      httpBodies: [],
-      urlQueryParams: false,
-      databaseQueryData: false,
-      stackFrameVariables: false,
-      genAI: { inputs: false, outputs: false },
-    },
+    ...workerSentryOptions(
+      { SENTRY_DSN: dsn },
+      {
+        ...(release ? { release } : {}),
+        environment: "production",
+        beforeSend: (event) => scrubEvent(event),
+        // Stricter than the package's default: no headers, query strings, or local variables at all.
+        dataCollection: { httpHeaders: false, urlQueryParams: false, stackFrameVariables: false },
+      },
+    ),
     tracesSampler: ({ name, parentSampled }) => {
       // A parent that said no is followed. One that said yes is followed within the budget.
       if (parentSampled === false) return false;
@@ -292,7 +289,6 @@ export function sentryOptions(
         ? BACKGROUND_SAMPLE_RATE
         : TRACES_SAMPLE_RATE;
     },
-    beforeSend: (event) => scrubEvent(event),
     beforeSendSpan: (s) => scrubSpan(s),
     beforeBreadcrumb: (b) => scrubBreadcrumb(b),
     beforeSendLog: (log: Log) => scrub(log),

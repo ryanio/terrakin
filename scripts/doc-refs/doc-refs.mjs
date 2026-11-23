@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/doc-refs lib/doc-refs.mjs (a9e2958, body 023fff6ddf6f). Edit it there and run `npm run sync`; changes made here are refused.
+// Generated from ryanio/workers-kit tools/doc-refs/lib/doc-refs.mjs (5f05442, body a31549350735). Edit it there and run `npm run sync`; changes made here are refused.
 import { execFileSync } from 'node:child_process'
 /**
  * Checks that the docs agents read still point at things that exist.
@@ -121,8 +121,8 @@ const COMMAND_DIRS = ['.claude/commands', '.claude/skills', '.agents/skills', '.
 
 // ── banner self-check ─────────────────────────────────────────────────────
 
-const BANNER_RE =
-	/^\/\/ Generated from ryanio\/doc-refs lib\/\S+ \(\w+, body ([0-9a-f]{12})\)\..*\n/m
+export const BANNER_RE =
+	/^\/\/ Generated from ryanio\/workers-kit tools\/doc-refs\/lib\/\S+ \(\w+, body ([0-9a-f]{12})\)\..*\n/m
 
 export function bodyHash(text) {
 	return createHash('sha256').update(text).digest('hex').slice(0, 12)
@@ -227,7 +227,7 @@ const MD_EXT_RE = /\.md$/
 const PLACEHOLDER_RE = /\.\.\.|YYYY|XXX|NNNN|\bMM\b|\bDD\b/
 const SLASH_RE = /^\/[a-z][a-z0-9]*(?:-[a-z0-9]+)*$/
 
-export function stripFences(text) {
+function stripFences(text) {
 	return text.replace(FENCE_RE, (m) => m.replace(/[^\n]/g, ''))
 }
 
@@ -298,6 +298,13 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 	const broken = []
 	let checked = 0
 
+	// Each broken path keeps the places it was looked for, so the gitignore
+	// check asks about the same paths the existence check did.
+	const candidates = new Map()
+	const miss = (entry, paths) => {
+		broken.push(entry)
+		candidates.set(entry, paths)
+	}
 	for (const doc of docs) {
 		const dir = posix.dirname(doc)
 		const seen = new Set()
@@ -317,8 +324,9 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 					continue
 				}
 				checked++
-				if (!has(posix.join(dir, decodeURI(target)))) {
-					broken.push({ doc, ...ref })
+				const path = posix.join(dir, decodeURI(target))
+				if (!has(path)) {
+					miss({ doc, ...ref }, [path])
 				}
 			} else if (ref.kind === 'tick') {
 				const token = ref.token.replace(LINE_SUFFIX_RE, '').replace(LEADING_DOT_RE, '')
@@ -335,8 +343,9 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 						continue
 					}
 					checked++
-					if (!(has(posix.join(dir, token)) || seen.has(key))) {
-						broken.push({ doc, ...ref })
+					const path = posix.join(dir, token)
+					if (!(has(path) || seen.has(key))) {
+						miss({ doc, ...ref }, [path])
 					}
 					seen.add(key)
 					continue
@@ -350,7 +359,11 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 				checked++
 				const ok = (fromRoot && has(token)) || (dir !== '.' && has(posix.join(dir, token)))
 				if (!(ok || seen.has(key))) {
-					broken.push({ doc, ...ref })
+					const paths = fromRoot ? [token] : []
+					if (dir !== '.') {
+						paths.push(posix.join(dir, token))
+					}
+					miss({ doc, ...ref }, paths)
 				}
 				seen.add(key)
 			} else if (ref.kind === 'slash' && slashIn(doc)) {
@@ -366,15 +379,12 @@ export function check({ files, read, has: hasPath, config = {}, gitIgnored = () 
 	const textBroken = checkText(files, read, config.text ?? [])
 	checked += textBroken.checked
 	// One git call for every unresolved path: a gitignored one is a runtime file.
-	const target = (b) =>
-		b.kind === 'link'
-			? posix.join(posix.dirname(b.doc), decodeURI(b.token.split('#')[0]))
-			: b.token.replace(LINE_SUFFIX_RE, '').replace(LEADING_DOT_RE, '')
-	const paths = broken.filter((b) => b.kind !== 'slash').map(target)
+	const paths = [...candidates.values()].flat()
 	const ignored = paths.length ? gitIgnored(paths) : new Set()
+	const covered = (b) => (candidates.get(b) ?? []).some((p) => ignored.has(p))
 	return {
 		broken: [
-			...broken.filter((b) => b.kind === 'slash' || !ignored.has(target(b))),
+			...broken.filter((b) => !covered(b)),
 			...textBroken.broken,
 		],
 		checked,
@@ -422,8 +432,8 @@ function main() {
 	const self = readFileSync(fileURLToPath(import.meta.url), 'utf8')
 	if (editedInPlace(self)) {
 		console.error(
-			'doc-refs.mjs was edited in place, but it is generated from ryanio/doc-refs.\n' +
-				'Make the change in ~/dev/doc-refs/lib and run `npm run sync` there, or restore this file.'
+			'doc-refs.mjs was edited in place, but it is generated from ryanio/workers-kit tools/doc-refs.\n' +
+				'Make the change in ~/dev/workers-kit/tools/doc-refs/lib and run `npm run sync` there, or restore this file.'
 		)
 		process.exit(1)
 	}

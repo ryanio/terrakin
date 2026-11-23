@@ -15,8 +15,7 @@
  *
  * Runs on Node and in the Worker: plain `fetch`, no Node APIs.
  */
-
-import { readCapped } from "./media";
+import { readBytes } from "workers-start/body";
 
 /** What we keep from a card. */
 export interface AgentCard {
@@ -136,9 +135,9 @@ export async function fetchOutside(uri: string, o: OutsideFetch): Promise<Outsid
         await res.body?.cancel();
         return { ok: false, why: "html" };
       }
-      const bytes = await readCapped(res.body, o.maxBytes);
-      if (!bytes) return { ok: false, why: "too_big" };
-      return { ok: true, bytes, type };
+      const read = await readBytes(res, { maxBytes: o.maxBytes });
+      if (!read.ok) return { ok: false, why: "too_big" };
+      return { ok: true, bytes: read.value, type };
     }
   } catch {
     return { ok: false, why: "down" };

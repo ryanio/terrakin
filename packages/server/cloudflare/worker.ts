@@ -12,6 +12,7 @@ import {
   residentById,
   votesCast,
 } from "@terrakin/sim";
+import { readBytes } from "workers-start/body";
 import { cors } from "workers-start/cors";
 import { accessIsOn, parseEmails, parseStaffResidents, staffAccessConfig } from "../src/access";
 import { adminAssetPath, adminGate, isMissingAdminFile } from "../src/admin-host";
@@ -24,13 +25,7 @@ import { circleWords } from "../src/circles";
 import { type StartFile, staticArrival } from "../src/discovery-log";
 import { eventWords } from "../src/events";
 import { ipKey } from "../src/handlers/shared";
-import {
-  type MediaBucket,
-  type MediaStore,
-  readCapped,
-  readJsonBody,
-  serveFromBucket,
-} from "../src/media";
+import { type MediaBucket, type MediaStore, readJsonBody, serveFromBucket } from "../src/media";
 import { Moderation } from "../src/moderation";
 import { PLACE_FILE_PATH, placeFile } from "../src/musegod-worlds";
 import {
@@ -755,7 +750,10 @@ class WorldObject extends DurableObject<Env> {
       authorization: request.headers.get("authorization") ?? undefined,
       query: url.searchParams,
       readJson: () => readJsonBody(request, MAX_BODY_BYTES),
-      readBytes: (max) => readCapped(request.body, max),
+      readBytes: async (max) => {
+        const read = await readBytes(request, { maxBytes: max });
+        return read.ok ? read.value : undefined;
+      },
       contentLength: length === null ? undefined : Number(length),
       // Links in Markdown answers always point at https on the real domain, even for a plain
       // http request; anywhere else (local dev), at whatever the request used.

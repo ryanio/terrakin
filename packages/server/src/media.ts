@@ -69,37 +69,6 @@ export function mediaHeaders(type: MediaType): Record<string, string> {
 }
 
 /**
- * Read a body stream, giving up as soon as it passes `maxBytes`. Never trusts Content-Length, so a
- * chunked or lying request can't make the server buffer more than the cap.
- */
-export async function readCapped(
-  body: ReadableStream<Uint8Array> | null,
-  maxBytes: number,
-): Promise<Uint8Array | undefined> {
-  if (!body) return new Uint8Array(0);
-  const reader = body.getReader();
-  const chunks: Uint8Array[] = [];
-  let size = 0;
-  for (;;) {
-    const { done, value } = await reader.read();
-    if (done) break;
-    size += value.byteLength;
-    if (size > maxBytes) {
-      await reader.cancel();
-      return undefined;
-    }
-    chunks.push(value);
-  }
-  const out = new Uint8Array(size);
-  let at = 0;
-  for (const chunk of chunks) {
-    out.set(chunk, at);
-    at += chunk.byteLength;
-  }
-  return out;
-}
-
-/**
  * A JSON request body on the Worker, read under `maxBytes` by `workers-start/body`: streamed through
  * a byte counter and cancelled past the cap, a `Content-Length` over it refused before reading.
  * Undefined for a body that is too large, not UTF-8, or not JSON, which the route's schema then

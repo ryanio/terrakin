@@ -7,7 +7,6 @@ import { ipKey } from "./handlers/shared";
 import {
   type MediaBucket,
   MemoryMediaStore,
-  readCapped,
   readJsonBody,
   serveFromBucket,
   sniffMediaType,
@@ -516,26 +515,6 @@ describe("hardening", () => {
       console.error = logError;
     }
     expect(errors).toEqual([]);
-  });
-
-  it("stops reading a stream as soon as it passes the cap", async () => {
-    let pulled = 0;
-    const endless = new ReadableStream<Uint8Array>({
-      pull(controller) {
-        pulled++;
-        controller.enqueue(new Uint8Array(1_000));
-      },
-    });
-    expect(await readCapped(endless, 5_000)).toBeUndefined();
-    expect(pulled).toBeLessThan(10);
-    const small = new ReadableStream<Uint8Array>({
-      start(controller) {
-        controller.enqueue(new Uint8Array([1, 2]));
-        controller.enqueue(new Uint8Array([3]));
-        controller.close();
-      },
-    });
-    expect(await readCapped(small, 5_000)).toEqual(new Uint8Array([1, 2, 3]));
   });
 
   it("reads a Worker's JSON body under the cap, whatever its content type", async () => {

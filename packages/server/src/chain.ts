@@ -11,8 +11,7 @@
  *
  * Runs on Node and in the Worker: plain `fetch`, no Node APIs.
  */
-
-import { readCapped } from "./media";
+import { readBytes } from "workers-start/body";
 
 /** A network we read agents from, and its one registry. */
 export interface ChainConfig {
@@ -114,9 +113,9 @@ export function rpcReader(options: RpcReaderOptions = {}): ChainCall {
         signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) return { ok: false, missing: false, why: "http", status: res.status };
-      const bytes = await readCapped(res.body, MAX_RPC_ANSWER_BYTES);
-      if (!bytes) return { ok: false, missing: false, bad: true };
-      return parseRpcAnswer(safeJson(new TextDecoder().decode(bytes)));
+      const read = await readBytes(res, { maxBytes: MAX_RPC_ANSWER_BYTES });
+      if (!read.ok) return { ok: false, missing: false, bad: true };
+      return parseRpcAnswer(safeJson(new TextDecoder().decode(read.value)));
     } catch (err) {
       const name = err instanceof Error ? err.name : "";
       const timeout = name === "TimeoutError" || name === "AbortError";

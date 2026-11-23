@@ -21,7 +21,7 @@
     "lucide": "1.71.0",
     "satori": "0.32.0",
     "workers-cards": "^0.3.1",
-    "workers-start": "^0.34.2"
+    "workers-start": "^0.36.0"
   },
   "devDependencies": {
     "@types/node": "^26.6.6",

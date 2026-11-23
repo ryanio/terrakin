@@ -135,7 +135,7 @@ const HAND_BUILT: { pattern: RegExp; use: string; home?: string }[] = [
   { pattern: /toLocaleString\("en-US"\)/, use: "formatCount (workers-start/format)" },
   {
     pattern: /Intl\.DateTimeFormat\("en-US"/,
-    use: "shortDate, relativeTime, or fullDate (format.ts)",
+    use: "fullDate or dateTime (workers-start/format) with SHORT_DATE or READER_TIME, or relativeTime (format.ts)",
   },
   { pattern: /for \(const \w+ of \w+\) \w+\.disabled = true/, use: "whileBusyAll (ui.ts)" },
   { pattern: /\bpurse-hint\b/, use: "the hint class (base.css)" },

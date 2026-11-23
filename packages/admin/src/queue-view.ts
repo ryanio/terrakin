@@ -11,7 +11,7 @@ import type {
   ReportReason,
 } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { fullDate, isMediaUrl, relativeTime } from "@terrakin/ui/format";
+import { isMediaUrl, READER_TIME, relativeTime } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { postPath } from "@terrakin/ui/paths";
 import { reasonLabel } from "@terrakin/ui/safety";
@@ -26,7 +26,7 @@ import {
   whileBusy,
   whileBusyAll,
 } from "@terrakin/ui/ui";
-import { counted } from "workers-start/format";
+import { counted, dateTime } from "workers-start/format";
 import { api, type Result } from "./api";
 import {
   type ActionKind,
@@ -297,7 +297,7 @@ export function queueView(overview: AdminOverviewResponse): View {
         h("span", {
           class: "item-age",
           text: `since ${relativeTime(oldest.createdAt, Date.now())}`,
-          attrs: { title: fullDate(oldest.createdAt) },
+          attrs: { title: dateTime(oldest.createdAt, READER_TIME) },
         }),
       ),
       tags.length
@@ -457,7 +457,7 @@ function reportRow(rep: ReportQueueItem["reports"][number]): HTMLElement {
     { class: "report" },
     h(
       "p",
-      { class: "report-line", attrs: { title: fullDate(rep.createdAt) } },
+      { class: "report-line", attrs: { title: dateTime(rep.createdAt, READER_TIME) } },
       h("span", { class: "report-reason", text: reasonLabel(rep.reason) }),
       ` · ${
         rep.source === "triage"
@@ -531,7 +531,7 @@ function chatterDrafts(drafts: AdminOverviewResponse["chatter"]["drafts"]): HTML
           { class: "report" },
           h(
             "p",
-            { class: "report-line", attrs: { title: fullDate(d.at) } },
+            { class: "report-line", attrs: { title: dateTime(d.at, READER_TIME) } },
             h("span", { class: "report-reason", text: `@${d.persona}` }),
             ` · ${draftLabel(d)} · ${relativeTime(d.at, now)}`,
           ),

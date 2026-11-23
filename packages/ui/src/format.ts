@@ -1,40 +1,44 @@
 /**
  * Small pure helpers for the feed pages: times, counts, and the media grid. Tests pin them. Plurals,
- * grouped counts and word lists come from `workers-start/format`.
+ * grouped counts, word lists and dates come from `workers-start/format`; the option sets here say
+ * how this site writes a date.
  */
 import { type KarmaView, type MediaView, type PostView, xIntentUrl } from "@terrakin/protocol";
 import { DAY_MS, HOUR_MS, MINUTE_MS } from "@terrakin/sim";
-import { compactCount, timeAgo as kitTimeAgo } from "workers-start/format";
+import {
+  compactCount,
+  type DateOptions,
+  type DateTimeOptions,
+  fullDate,
+  timeAgo as kitTimeAgo,
+} from "workers-start/format";
+
+/**
+ * A short date with `fullDate`: "Oct 6". Add `year: "other"` and `now` for the year when it isn't
+ * this year's ("Oct 6, 2025"), and a `timeZone` ("local", the reader's own, in the browser).
+ */
+export const SHORT_DATE = { order: "mdy", month: "short" } as const satisfies DateOptions;
+
+/** A date and time with `dateTime`, in the reader's zone: "Oct 4, 2026, 6:22 PM". */
+export const READER_TIME = {
+  order: "mdy",
+  clock: "12h",
+  zoneName: false,
+  timeZone: "local",
+} as const satisfies DateTimeOptions;
 
 /**
  * Short relative time for a post: "now", "3m", "2h", then a date like "Oct 4" (with the year when
  * it isn't this year). Future times (clock skew) read as "now".
  */
-export function relativeTime(iso: string, nowMs: number, timeZone?: string): string {
+export function relativeTime(iso: string, nowMs: number, timeZone = "local"): string {
   const t = Date.parse(iso);
   if (!Number.isFinite(t)) return "";
   const ago = nowMs - t;
   if (ago < MINUTE_MS) return "now";
   if (ago < HOUR_MS) return `${Math.floor(ago / MINUTE_MS)}m`;
   if (ago < DAY_MS) return `${Math.floor(ago / HOUR_MS)}h`;
-  return shortDate(t, nowMs, timeZone);
-}
-
-/**
- * A short date: "Oct 6". Given `nowMs`, it adds the year when `t` falls in another year than
- * `nowMs` ("Oct 6, 2025"). Without `timeZone` it uses the reader's own.
- */
-export function shortDate(t: number, nowMs?: number, timeZone?: string): string {
-  const zone = timeZone ? { timeZone } : {};
-  const year = (ms: number) =>
-    new Intl.DateTimeFormat("en-US", { year: "numeric", ...zone }).format(ms);
-  const withYear = nowMs !== undefined && year(t) !== year(nowMs);
-  return new Intl.DateTimeFormat("en-US", {
-    month: "short",
-    day: "numeric",
-    ...(withYear ? { year: "numeric" } : {}),
-    ...zone,
-  }).format(t);
+  return fullDate(t, { ...SHORT_DATE, year: "other", now: nowMs, timeZone });
 }
 
 /**
@@ -43,17 +47,6 @@ export function shortDate(t: number, nowMs?: number, timeZone?: string): string 
  */
 export function agoWords(iso: string, nowMs?: number, timeZone = "local"): string {
   return kitTimeAgo(iso, { now: nowMs, timeZone });
-}
-
-/** Full date and time for a title attribute, for example "Oct 4, 2026, 6:22 PM". */
-export function fullDate(iso: string, timeZone?: string): string {
-  const t = Date.parse(iso);
-  if (!Number.isFinite(t)) return "";
-  return new Intl.DateTimeFormat("en-US", {
-    dateStyle: "medium",
-    timeStyle: "short",
-    ...(timeZone ? { timeZone } : {}),
-  }).format(t);
 }
 
 /** A count on a badge: "3", or "99+" past 99. Empty for none. */

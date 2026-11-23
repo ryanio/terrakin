@@ -6,8 +6,9 @@
  */
 import { type DevlogEntry, type DevlogPost, devlogLead } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { shortDate } from "@terrakin/ui/format";
+import { SHORT_DATE } from "@terrakin/ui/format";
 import { announce, cardBar, closeButton, disclosure } from "@terrakin/ui/ui";
+import { fullDate } from "workers-start/format";
 import { devlogApi } from "./api/devlog";
 import { markdownNodes } from "./markdown";
 import { readStored, writeStored } from "./stored";
@@ -19,7 +20,7 @@ const SEEN_KEY = "terrakin.devlogSeen";
 const showDevlog = (date: string, seen: string | null): boolean => seen === null || date > seen;
 
 /** A post's day, short enough for the card's eyebrow on a phone: "Oct 6", with a year if not this one. */
-const shortDay = (date: string) => shortDate(Date.parse(`${date}T00:00:00Z`), Date.now(), "UTC");
+const shortDay = (date: string) => fullDate(`${date}T00:00:00Z`, { ...SHORT_DATE, year: "other" });
 
 /** A post's page on this site, from the full address the API gives. */
 export const devlogPage = (post: DevlogEntry): string => post.url.replace(/^https?:\/\/[^/]+/, "");

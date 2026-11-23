@@ -11,7 +11,7 @@ import {
   type StaffKeyView,
 } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { fullDate } from "@terrakin/ui/format";
+import { READER_TIME } from "@terrakin/ui/format";
 import {
   confirmTwice,
   copyBlock,
@@ -22,6 +22,7 @@ import {
   whileBusy,
   whileBusyAll,
 } from "@terrakin/ui/ui";
+import { dateTime } from "workers-start/format";
 import { api } from "./api";
 import { keyMessage, keyScopes, mainSite } from "./logic";
 import { actorName, button, pageHead, type View } from "./view";
@@ -77,7 +78,7 @@ export function keysView(overview: AdminOverviewResponse): View {
         h("h2", { class: "card-title", text: `New key: ${key.name}` }),
         h("p", {
           class: "field-hint",
-          text: `Shown only now. It works until ${fullDate(key.expiresAt)}, or until you revoke it below.`,
+          text: `Shown only now. It works until ${dateTime(key.expiresAt, READER_TIME)}, or until you revoke it below.`,
         }),
         copyBlock("The key", secret),
         copyBlock("Message to give your AI with it", keyMessage(site, secret, key.scope)),
@@ -111,10 +112,10 @@ export function keysView(overview: AdminOverviewResponse): View {
     const over = k.revokedAt !== null || Date.parse(k.expiresAt) <= Date.now();
     const state =
       k.revokedAt !== null
-        ? `Revoked ${fullDate(k.revokedAt)}`
+        ? `Revoked ${dateTime(k.revokedAt, READER_TIME)}`
         : over
-          ? `Expired ${fullDate(k.expiresAt)}`
-          : `Works until ${fullDate(k.expiresAt)}`;
+          ? `Expired ${dateTime(k.expiresAt, READER_TIME)}`
+          : `Works until ${dateTime(k.expiresAt, READER_TIME)}`;
     const keyStatus = h("p", { class: "field-hint item-status", attrs: { role: "status" } });
     const revoke = button("Revoke", () => {});
     confirmTwice(revoke, "Tap again to revoke it", async () => {
@@ -132,7 +133,7 @@ export function keysView(overview: AdminOverviewResponse): View {
         k.mine
           ? null
           : h("span", {}, "Made by ", actorName({ actor: k.owner, actorView: k.ownerView })),
-        `${state}. ${k.lastUsedAt ? `Last used ${fullDate(k.lastUsedAt)}.` : "Not used yet."}`,
+        `${state}. ${k.lastUsedAt ? `Last used ${dateTime(k.lastUsedAt, READER_TIME)}.` : "Not used yet."}`,
       ],
       trail: over ? null : revoke,
     });

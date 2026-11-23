@@ -30,7 +30,7 @@ import {
 } from "@terrakin/protocol";
 import { DAY_MS, SIDE_WORDS, type Side } from "@terrakin/sim";
 import { blockBackWords, blockName, clearCost } from "@terrakin/ui/blocks";
-import { relativeTime, shortDate } from "@terrakin/ui/format";
+import { relativeTime, SHORT_DATE } from "@terrakin/ui/format";
 import type { IconName } from "@terrakin/ui/icons";
 import { REACTIONS } from "@terrakin/ui/reactions";
 import {
@@ -40,7 +40,7 @@ import {
   SEVERITY_LABELS,
   SUGGESTION_LABELS,
 } from "@terrakin/ui/safety";
-import { counted, formatCount, plural } from "workers-start/format";
+import { counted, formatCount, fullDate, plural } from "workers-start/format";
 
 export type Screen = "queue" | "log" | "townsfolk" | "newcomers" | "bounties" | "agents" | "keys";
 
@@ -622,11 +622,7 @@ export function dayLabel(iso: string, nowMs: number): string {
   const at = Date.parse(iso);
   if (day(at) === day(nowMs)) return "Today";
   if (day(at) === day(nowMs - DAY_MS)) return "Yesterday";
-  return new Date(at).toLocaleDateString("en-US", {
-    weekday: "short",
-    month: "short",
-    day: "numeric",
-  });
+  return fullDate(at, { ...SHORT_DATE, weekday: "short", year: false, timeZone: "local" });
 }
 
 /** What a log entry acted on, like "post p_1". */
@@ -1025,7 +1021,7 @@ export function cohortTitle(week: string | null, today: string): string {
   const start = Date.parse(`${week}T00:00:00Z`);
   const now = Date.parse(`${today}T00:00:00Z`);
   if (now - start < 7 * DAY_MS) return "This week";
-  return `Week of ${shortDate(start, now, "UTC")}`;
+  return `Week of ${fullDate(start, { ...SHORT_DATE, year: "other", now })}`;
 }
 
 /**

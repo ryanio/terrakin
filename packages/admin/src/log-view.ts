@@ -1,9 +1,10 @@
 /** The moderation log, newest first: every staff, triage, and automatic action, with its reason. */
 import type { ModerationLogView } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { fullDate, relativeTime } from "@terrakin/ui/format";
+import { READER_TIME, relativeTime } from "@terrakin/ui/format";
 import { ACTION_LABELS } from "@terrakin/ui/safety";
 import { kindPill, moreButton, stateCard, whileBusy } from "@terrakin/ui/ui";
+import { dateTime } from "workers-start/format";
 import { api } from "./api";
 import { dayLabel, logTarget, ruleLine } from "./logic";
 import { actorName, button, pageHead, type View } from "./view";
@@ -97,7 +98,7 @@ export function logView(): View {
 
 function entryRow(entry: ModerationLogView): HTMLElement {
   const notes = [
-    entry.until ? `Until ${fullDate(entry.until)}` : null,
+    entry.until ? `Until ${dateTime(entry.until, READER_TIME)}` : null,
     entry.rule ? ruleLine(entry.rule) : null,
   ].filter((n): n is string => n !== null);
   return h(
@@ -110,7 +111,7 @@ function entryRow(entry: ModerationLogView): HTMLElement {
       h("span", {
         class: "log-time",
         text: relativeTime(entry.at, Date.now()),
-        attrs: { title: fullDate(entry.at) },
+        attrs: { title: dateTime(entry.at, READER_TIME) },
       }),
     ),
     h(

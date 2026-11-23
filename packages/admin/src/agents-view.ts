@@ -13,8 +13,9 @@
  */
 import type { StaffRekeyResponse, StaffSigninLinkResponse } from "@terrakin/protocol";
 import { h } from "@terrakin/ui/dom";
-import { fullDate } from "@terrakin/ui/format";
+import { READER_TIME } from "@terrakin/ui/format";
 import { confirmTwice, copyBlock, whileBusyAll } from "@terrakin/ui/ui";
+import { dateTime } from "workers-start/format";
 import { api } from "./api";
 import { mainSite, mergeSummary, reasonProblem, rekeyMessage, signinMessage } from "./logic";
 import { button, pageHead, profileLink, type View } from "./view";
@@ -82,7 +83,7 @@ export function agentsView(): View {
       h("p", { class: "rekey-code", attrs: { "aria-label": "Re-key code" }, text: r.code }),
       h("p", {
         class: "field-hint",
-        text: `Works once, until ${fullDate(r.expiresAt)}. Shown only now, and never logged.${r.unlinked ? " Its owner link ended; its owner can claim it again." : ""}`,
+        text: `Works once, until ${dateTime(r.expiresAt, READER_TIME)}. Shown only now, and never logged.${r.unlinked ? " Its owner link ended; its owner can claim it again." : ""}`,
       }),
       copyBlock("Message to send whoever runs it", rekeyMessage(site, r.agent.name, r.code)),
     );
@@ -143,7 +144,7 @@ export function agentsView(): View {
       h("p", { class: "item-author" }, "Sign-in link for ", profileLink(site, r.resident)),
       h("p", {
         class: "field-hint",
-        text: `Works once, until ${fullDate(r.expiresAt)}. Shown only now, and never logged. Opening it adds a passkey to their character, and they get a notice that one was added.`,
+        text: `Works once, until ${dateTime(r.expiresAt, READER_TIME)}. Shown only now, and never logged. Opening it adds a passkey to their character, and they get a notice that one was added.`,
       }),
       copyBlock("Message to send them", signinMessage(r.resident.name, r.url)),
     );

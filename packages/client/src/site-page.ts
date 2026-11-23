@@ -21,7 +21,7 @@ import {
 import type { DocsPage, TocEntry } from "@terrakin/protocol/reference";
 import { CATALOG, type Glaze, type ItemKind } from "@terrakin/sim";
 import { BRAND_HEX } from "@terrakin/ui/brand";
-import { shortDate } from "@terrakin/ui/format";
+import { SHORT_DATE } from "@terrakin/ui/format";
 import { type IconName, iconSvg } from "@terrakin/ui/icons";
 import { thingArtMarkup } from "@terrakin/ui/item-art";
 import { counted, fullDate, slugify } from "workers-start/format";
@@ -618,7 +618,7 @@ function changelogView(
       const t = Date.parse(day[1]);
       places.push({
         href: `#${day[1]}`,
-        label: `${shortDate(t, undefined, "UTC")}<span class="changelog-nav-count" aria-label="${count}">${changes}</span>`,
+        label: `${fullDate(t, { ...SHORT_DATE, year: false })}<span class="changelog-nav-count" aria-label="${count}">${changes}</span>`,
         name: fullDate(t),
       });
       return part

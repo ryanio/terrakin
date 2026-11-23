@@ -8,7 +8,8 @@
  */
 import type { ClaimView, ProfileView, WorldEvent } from "@terrakin/protocol";
 import { DAY_MS } from "@terrakin/sim";
-import { shortDate } from "@terrakin/ui/format";
+import { SHORT_DATE } from "@terrakin/ui/format";
+import { fullDate, isoDay } from "workers-start/format";
 
 /** Where both halves of the undo live, named the same way everywhere a notice points at them. */
 const SIGNIN_ROW = "Signing in";
@@ -34,8 +35,8 @@ export function passkeyNoticeLine(type: "passkey_bound" | "passkey_signin"): {
 }
 
 /** Whether `at` falls on the reader's own day. */
-function today(at: number, nowMs: number, timeZone?: string): boolean {
-  return shortDate(at, nowMs, timeZone) === shortDate(nowMs, nowMs, timeZone);
+function today(at: number, nowMs: number, timeZone: string): boolean {
+  return isoDay(at, { timeZone }) === isoDay(nowMs, { timeZone });
 }
 
 /**
@@ -45,15 +46,17 @@ function today(at: number, nowMs: number, timeZone?: string): boolean {
 export function passkeyLines(
   claim: Pick<ClaimView, "boundAt" | "usedAt" | "thisSession">,
   nowMs: number,
-  timeZone?: string,
+  timeZone = "local",
 ): string[] {
-  const added = `Added ${shortDate(Date.parse(claim.boundAt), nowMs, timeZone)}`;
+  const day = (iso: string) =>
+    fullDate(iso, { ...SHORT_DATE, year: "other", now: nowMs, timeZone });
+  const added = `Added ${day(claim.boundAt)}`;
   const used =
     claim.usedAt === undefined
       ? "Never used to sign in"
       : today(Date.parse(claim.usedAt), nowMs, timeZone)
         ? "Signed in today"
-        : `Last signed in ${shortDate(Date.parse(claim.usedAt), nowMs, timeZone)}`;
+        : `Last signed in ${day(claim.usedAt)}`;
   // The one thing that tells a passkey apart on sight, and the one a person has to be warned
   // about: removing it signs them out of the page they are standing on.
   return claim.thisSession

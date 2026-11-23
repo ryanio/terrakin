@@ -6,7 +6,7 @@
  */
 import type { Action, BountiesResponse, BountyView } from "@terrakin/protocol";
 import { h, icon } from "@terrakin/ui/dom";
-import { shortDate } from "@terrakin/ui/format";
+import { SHORT_DATE } from "@terrakin/ui/format";
 import { personLink } from "@terrakin/ui/people";
 import {
   coinField,
@@ -18,6 +18,7 @@ import {
   pageLayout,
   toast,
 } from "@terrakin/ui/ui";
+import { fullDate } from "workers-start/format";
 import { actFromButton } from "./act";
 import { bountiesApi } from "./api/bounties";
 import { savedResidentId, savedToken } from "./net";
@@ -88,8 +89,8 @@ export function bountyStatus(
 }
 
 /** "Open until Nov 4", on the reader's calendar (a bounty ends at a moment, not on a UTC day). */
-export const untilWords = (iso: string, timeZone?: string) =>
-  `Open until ${shortDate(Date.parse(iso), undefined, timeZone)}`;
+export const untilWords = (iso: string, timeZone = "local") =>
+  `Open until ${fullDate(iso, { ...SHORT_DATE, year: false, timeZone })}`;
 
 export function bountiesView(ctx: ViewContext): View {
   ctx.setTitle("Bounties · Terrakin");

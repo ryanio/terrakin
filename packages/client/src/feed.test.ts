@@ -10,7 +10,6 @@ import {
   karmaLine,
   mediaLayout,
   relativeTime,
-  shortDate,
 } from "@terrakin/ui/format";
 import { describe, expect, it } from "vitest";
 
@@ -41,27 +40,6 @@ describe("how long ago, past a month", () => {
     expect(agoWords(late, later, "America/New_York")).toBe("20 November 2026");
     expect(agoWords(late, later, "UTC")).toBe("21 November 2026");
     expect(agoWords("2026-11-21T03:00:00Z", Date.parse(late), "America/New_York")).toBe("30m ago");
-  });
-});
-
-describe("short date", () => {
-  it("adds the year only when it isn't now's year", () => {
-    // The devlog card's eyebrow and a collection book's first-found day.
-    const oct6 = Date.parse("2026-10-06T00:00:00Z");
-    expect(shortDate(oct6, now, TZ)).toBe("Oct 6");
-    expect(shortDate(oct6, Date.parse("2027-01-01T00:30:00Z"), TZ)).toBe("Oct 6, 2026");
-    expect(shortDate(Date.parse("2025-10-06T00:00:00Z"), now, TZ)).toBe("Oct 6, 2025");
-  });
-
-  it("never adds the year without now, as a bounty's closing day", () => {
-    expect(shortDate(Date.parse("2026-11-04T12:00:00Z"), undefined, TZ)).toBe("Nov 4");
-    expect(shortDate(Date.parse("2027-01-04T12:00:00Z"), undefined, TZ)).toBe("Jan 4");
-  });
-
-  it("reads the day in the time zone it's given", () => {
-    const late = Date.parse("2026-12-31T23:30:00Z");
-    expect(shortDate(late, now, TZ)).toBe("Dec 31");
-    expect(shortDate(late, now, "Asia/Tokyo")).toBe("Jan 1, 2027");
   });
 });
 

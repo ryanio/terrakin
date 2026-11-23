@@ -1,6 +1,7 @@
 /** Times on the page: "3m ago", "2d ago", with the full date on hover. */
+import { dateTime } from "workers-start/format";
 import { h } from "./dom";
-import { agoWords, fullDate } from "./format";
+import { agoWords, READER_TIME } from "./format";
 
 /**
  * A `<time>` that says how long ago `iso` was (`agoWords`, in the reader's zone) and shows the
@@ -13,8 +14,12 @@ export function timeAgo(
 ) {
   return h("time", {
     class: options.className,
-    attrs: { datetime: iso, title: fullDate(iso), "data-rel": options.full ? null : iso },
-    text: options.full ? fullDate(iso) : agoWords(iso),
+    attrs: {
+      datetime: iso,
+      title: dateTime(iso, READER_TIME),
+      "data-rel": options.full ? null : iso,
+    },
+    text: options.full ? dateTime(iso, READER_TIME) : agoWords(iso),
   });
 }
 

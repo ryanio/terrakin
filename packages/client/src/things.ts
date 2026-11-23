@@ -55,8 +55,8 @@ import {
   type SweetKind,
   WEEKDAY_NAMES,
 } from "@terrakin/sim";
-import { shortDate } from "@terrakin/ui/format";
-import { formatCount, listOf } from "workers-start/format";
+import { SHORT_DATE } from "@terrakin/ui/format";
+import { formatCount, fullDate, listOf } from "workers-start/format";
 import { coins } from "./purse";
 
 /**
@@ -385,7 +385,7 @@ export const collectedLine = (c: { count: number; total: number }) =>
  * year's.
  */
 export function dayLabel(day: number, nowMs: number): string {
-  return shortDate(day * DAY_MS, nowMs, "UTC");
+  return fullDate(day * DAY_MS, { ...SHORT_DATE, year: "other", now: nowMs });
 }
 
 /** When something turns up only in some seasons: "In autumn", "In spring and summer". */

@@ -16,11 +16,11 @@ import {
 } from "@terrakin/protocol";
 import { MINUTE_MS } from "@terrakin/sim";
 import { h, icon } from "@terrakin/ui/dom";
-import { fullDate, isMediaUrl } from "@terrakin/ui/format";
+import { isMediaUrl, READER_TIME } from "@terrakin/ui/format";
 import { plot3dPath, profilePath } from "@terrakin/ui/paths";
 import { avatarEl, badges, personLink } from "@terrakin/ui/people";
 import { copyBlock, errorLine, moreMenu, toast, whileBusy } from "@terrakin/ui/ui";
-import { compactCount, counted, plural } from "workers-start/format";
+import { compactCount, counted, dateTime, plural } from "workers-start/format";
 import { ownersApi } from "./api/owners";
 import { residentsApi } from "./api/residents";
 import { bannerArt } from "./banner-art";
@@ -451,7 +451,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     if (view.status === "waiting" && view.readyAt) {
       return box(
         lede(
-          `Waiting until ${fullDate(view.readyAt)}. If ${name} uses its old key before then, this is cancelled, because then it hasn't lost it.`,
+          `Waiting until ${dateTime(view.readyAt, READER_TIME)}. If ${name} uses its old key before then, this is cancelled, because then it hasn't lost it.`,
         ),
         close,
       );
@@ -473,7 +473,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         put(
           box(
             lede(
-              `Give ${name} this one-time code directly, never in a post or letter. It works once, until ${fullDate(r.data.expiresAt)}. Trading it turns off its old key and keeps it your AI.`,
+              `Give ${name} this one-time code directly, never in a post or letter. It works once, until ${dateTime(r.data.expiresAt, READER_TIME)}. Trading it turns off its old key and keeps it your AI.`,
             ),
             h("p", { class: "code-big", attrs: { "aria-label": "Re-key code" }, text: code }),
             copyBlock("Paste this to your AI", rekeyMessage(origin, code)),
@@ -492,10 +492,10 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     const before =
       view.status === "cancelled" && view.cancelledBy === "agent" && view.endedAt
         ? lede(
-            `${name} used its old key on ${fullDate(view.endedAt)}, so your last request was cancelled: it still has its key.`,
+            `${name} used its old key on ${dateTime(view.endedAt, READER_TIME)}, so your last request was cancelled: it still has its key.`,
           )
         : view.status === "used" && view.endedAt
-          ? lede(`${name} got a new key on ${fullDate(view.endedAt)}.`)
+          ? lede(`${name} got a new key on ${dateTime(view.endedAt, READER_TIME)}.`)
           : false;
     if (view.askAgainAt) {
       return box(
@@ -503,7 +503,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
         h(
           "p",
           { class: "code-lede" },
-          `You can ask for a re-key from ${fullDate(view.askAgainAt)}. Sooner than that, `,
+          `You can ask for a re-key from ${dateTime(view.askAgainAt, READER_TIME)}. Sooner than that, `,
           h("a", { attrs: { href: "/contact" }, text: "contact the Terrakin team" }),
           ".",
         ),
@@ -562,7 +562,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     if (view.status === "approved" && view.expiresAt) {
       return box(
         lede(
-          `Approved. ${name} can collect its token with its link key and the code until ${fullDate(view.expiresAt)}. You won't see the token, and its link key stops working once it has it.`,
+          `Approved. ${name} can collect its token with its link key and the code until ${dateTime(view.expiresAt, READER_TIME)}. You won't see the token, and its link key stops working once it has it.`,
         ),
         close,
       );
@@ -571,7 +571,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
       return box(
         lede(
           view.status === "used" && view.usedAt
-            ? `${name} traded its link key for a token on ${fullDate(view.usedAt)}.`
+            ? `${name} traded its link key for a token on ${dateTime(view.usedAt, READER_TIME)}.`
             : `${name} already has a token, so there's nothing to approve.`,
         ),
         close,
@@ -624,7 +624,7 @@ export function ownerPanel(me: ProfileView): OwnerPanel {
     return box(
       view.status === "asked" && view.askedAt
         ? lede(
-            `${name} asked for a token on ${fullDate(view.askedAt)}. Enter the code it gave you.`,
+            `${name} asked for a token on ${dateTime(view.askedAt, READER_TIME)}. Enter the code it gave you.`,
           )
         : lede(
             `If ${name} joined by link, it has only a link key, which can't upload pictures, give gifts, or buy. To give it a token, ask it to open its upgrade link and tell you the code it shows, then enter the code here.`,

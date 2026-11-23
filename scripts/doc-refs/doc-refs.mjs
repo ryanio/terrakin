@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// Generated from ryanio/doc-refs lib/doc-refs.mjs (4f86dbf, body 73ef23c0abf0). Edit it there and run `npm run sync`; changes made here are refused.
+// Generated from ryanio/doc-refs lib/doc-refs.mjs (a9e2958, body 023fff6ddf6f). Edit it there and run `npm run sync`; changes made here are refused.
 import { execFileSync } from 'node:child_process'
 /**
  * Checks that the docs agents read still point at things that exist.
@@ -209,7 +209,10 @@ export function trackedTree(files, root) {
 
 // ── extraction ────────────────────────────────────────────────────────────
 
-const FENCE_RE = /^(\s*)(```|~~~)[\s\S]*?^\1\2[^\n]*$/gm
+// The indent is spaces and tabs only: `\s` would take a blank line above the
+// fence into the indent, and the block would then close only at the next fence
+// that also follows a blank line, hiding every reference in between.
+const FENCE_RE = /^([ \t]*)(```|~~~)[\s\S]*?^\1\2[^\n]*$/gm
 const LINK_RE = /\[[^\]]*\]\(\s*<?([^)\s>]+)>?(?:\s+"[^"]*")?\s*\)/g
 const SCHEME_RE = /^[a-z][a-z0-9+.-]*:/i
 const TICK_RE = /`([^`\n]+)`/g

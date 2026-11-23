@@ -17,7 +17,16 @@ import {
   type WorldConfig,
   type WorldEvent,
 } from "./types";
-import { DIRECTIONS, directionOf, route, stepFrom, walkTree, walkWords, worldGround } from "./walk";
+import {
+  DIRECTIONS,
+  directionOf,
+  route,
+  stepFrom,
+  walksTo,
+  walkTree,
+  walkWords,
+  worldGround,
+} from "./walk";
 import {
   chebyshev,
   createWorld,
@@ -419,6 +428,44 @@ describe("walks over the rule", () => {
     const nodes = walkTree(ground, { x: 1, y: 1 }, 3);
     expect(nodes).toHaveLength(5 * 5);
     for (const n of nodes) expect(n.x >= 0 && n.y >= 0 && n.x <= 4 && n.y <= 4).toBe(true);
+  });
+
+  it("walksTo answers as walkTree does, and walks joined ground once for many starts", () => {
+    const w = world();
+    // A ring of stone around (20, 20), and a start that is itself a block, at (3, 3).
+    for (let y = 19; y <= 21; y++)
+      for (let x = 19; x <= 21; x++)
+        if (x !== 20 || y !== 20) w.state.blocks[tileKey(x, y)] = "stone";
+    w.state.blocks[tileKey(3, 3)] = "stone";
+    const real = worldGround(w.state);
+    let asked = 0;
+    const ground = {
+      ...real,
+      obstacle: (x: number, y: number) => {
+        asked += 1;
+        return real.obstacle(x, y);
+      },
+    };
+    const onCommons = (t: Tile) => Math.floor(t.x / 8) === 1 && Math.floor(t.y / 8) === 1;
+    const walks = walksTo(ground, onCommons);
+    const starts = [
+      { x: 3, y: 3 },
+      { x: 20, y: 20 },
+      { x: 12, y: 12 },
+      { x: 2, y: 20 },
+      { x: 22, y: 2 },
+    ];
+    expect(starts.map(walks)).toEqual([true, false, true, true, true]);
+    expect(starts.map(walks)).toEqual(
+      starts.map((from) => walkTree(real, from, 24).some(onCommons)),
+    );
+    // Five starts, twice each, cost less than two whole walks of the 24 by 24 world would.
+    const one = (() => {
+      const before = asked;
+      walkTree(ground, { x: 2, y: 2 }, 24);
+      return asked - before;
+    })();
+    expect(asked - one).toBeLessThan(2 * one);
   });
 
   it("putters plan around the buildings once they're solid", () => {

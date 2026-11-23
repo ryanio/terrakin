@@ -19,7 +19,7 @@ import {
   TOWN_ACTOR,
   tileKey,
   type WorldState,
-  walkTree,
+  walksTo,
   worldGround,
 } from "@terrakin/sim";
 import { type WayFacts, type WayPlan, wayLanding } from "./way-plan";
@@ -239,14 +239,12 @@ export function wayConflicts(state: WorldState, inputs: readonly WayCommand[]): 
     });
   }
   const walking = (world: WorldState) => {
-    const ground = worldGround(world);
     const { px, py } = commonsPlot(world);
     const S = world.config.plotSize;
-    const radius = Math.max(world.config.width, world.config.height);
-    return (from: Tile) =>
-      walkTree(ground, from, radius).some(
-        (n) => Math.floor(n.x / S) === px && Math.floor(n.y / S) === py,
-      );
+    return walksTo(
+      worldGround(world),
+      (n) => Math.floor(n.x / S) === px && Math.floor(n.y / S) === py,
+    );
   };
   const walkedBefore = walking(state);
   const walksAfter = walking(copy);

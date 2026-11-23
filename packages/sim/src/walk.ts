@@ -286,6 +286,33 @@ export function walkTree(ground: Ground, from: Tile, radius: number): WalkNode[]
   return nodes;
 }
 
+/**
+ * Whether a walk from a tile reaches a tile `goal` accepts, anywhere in the world, as `walkTree`
+ * from it would find. Asked for many starts on one ground, it walks each stretch of joined ground
+ * once: a step between two tiles a walker can stand on goes both ways, so every tile of a stretch
+ * has the same answer, and only the first step off the start (which may be a block, like a hearth)
+ * is taken afresh.
+ */
+export function walksTo(ground: Ground, goal: (tile: Tile) => boolean): (from: Tile) => boolean {
+  const radius = Math.max(ground.config.width, ground.config.height);
+  const known = new Map<string, boolean>();
+  const stretch = (tile: Tile) => {
+    const key = tileKey(tile.x, tile.y);
+    const had = known.get(key);
+    if (had !== undefined) return had;
+    const nodes = walkTree(ground, tile, radius);
+    const hit = nodes.some(goal);
+    for (const n of nodes) known.set(tileKey(n.x, n.y), hit);
+    return hit;
+  };
+  return (from) =>
+    goal(from) ||
+    DIRECTIONS.some((dir) => {
+      const step = stepFrom(ground, from, dir);
+      return step.ok && stretch(step.to);
+    });
+}
+
 /** The indexes of the nodes a walk passes through to reach `nodes[i]`, the start left out. */
 export function walkPath(nodes: readonly WalkNode[], i: number): number[] {
   const path: number[] = [];

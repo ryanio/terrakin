@@ -775,6 +775,7 @@ export {
   type WalkNode,
   walkLegsTo,
   walkPath,
+  walksTo,
   walkTree,
   walkWords,
   worldGround,

@@ -32,7 +32,7 @@ import {
   plotKey,
   type Tile,
   tileKey,
-  walkTree,
+  walksTo,
 } from "../packages/sim/src/index.ts";
 import { landlockedIn, type WorldRead } from "./landlocked.ts";
 
@@ -127,15 +127,14 @@ export function afterPlan(world: WaysRead, plan: WayPlan): WaysRead {
 export function hearthsWalking(world: WaysRead): number {
   const { ground } = openingFactsFrom(world);
   const S = world.config.plotSize;
-  const radius = Math.max(world.config.width, world.config.height);
   const hearths = [...world.residents, ...(world.townsfolkResidents ?? [])].flatMap((r) =>
     r.hearth ? [r.hearth] : [],
   );
-  return hearths.filter((h) =>
-    walkTree(ground, h, radius).some(
-      (n) => Math.floor(n.x / S) === world.commons.px && Math.floor(n.y / S) === world.commons.py,
-    ),
-  ).length;
+  const walks = walksTo(
+    ground,
+    (n) => Math.floor(n.x / S) === world.commons.px && Math.floor(n.y / S) === world.commons.py,
+  );
+  return hearths.filter(walks).length;
 }
 
 /** The plan in lines: totals, then each plot's tiles, the blocks, the homes, and who hears. */

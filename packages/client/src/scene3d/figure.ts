@@ -1,4 +1,5 @@
-import { tileHash } from "@terrakin/sim";
+import { tileHash, WEAR_INFO } from "@terrakin/sim";
+import { WOOD_DARK } from "@terrakin/ui/brand";
 import type { Feeling } from "@terrakin/ui/feelings";
 import {
   drawFeelingIcon,
@@ -9,28 +10,31 @@ import {
 } from "@terrakin/ui/figure";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
+  BackSide,
   type Box3,
-  type BufferGeometry,
+  BufferAttribute,
+  BufferGeometry,
   type CanvasTexture,
+  CapsuleGeometry,
   CircleGeometry,
+  Color,
   CylinderGeometry,
   Group,
-  IcosahedronGeometry,
+  LatheGeometry,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
-  type Object3D,
-  OctahedronGeometry,
+  Object3D,
   RingGeometry,
   SphereGeometry,
   Sprite,
   SpriteMaterial,
   type Texture,
+  Vector2,
 } from "three";
-import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
-import { bakeShade, blobShadow, canvasTexture, lin, nameTag, type Stage } from "./art";
+import { blobShadow, canvasTexture, lin, nameTag, type Stage } from "./art";
 import { hairMesh } from "./hair";
 import { FIGURE_SCALE, type LayoutFigure, SIGN_SIZE, tagHeight } from "./layout";
 import { BRAND, residentHex, SKY } from "./palette";
@@ -41,13 +45,51 @@ import { wearGroup } from "./wear";
 const HEAD_Y = 0.66;
 const HEAD_R = 0.17;
 
-/** Put a flat face part on the head's surface at (x, y) from its middle, facing out. */
-function onHeadSurface(m: Mesh, x: number, y: number) {
+/** Turn `o` so it lies on the head's surface at (x, y) from its middle, `lift` out, facing out. */
+function onHeadSurface(o: Object3D, x: number, y: number, lift = 0.004) {
   const z = Math.sqrt(HEAD_R * HEAD_R - x * x - y * y);
-  const k = (HEAD_R + 0.004) / HEAD_R;
-  m.position.set(x * k, y * k, z * k);
-  m.rotation.set(-Math.asin(y / HEAD_R), Math.atan2(x, z), 0, "YXZ");
+  const k = (HEAD_R + lift) / HEAD_R;
+  o.position.set(x * k, y * k, z * k);
+  o.rotation.set(-Math.asin(y / HEAD_R), Math.atan2(x, z), 0, "YXZ");
 }
+
+/** `geo` moved onto the head's surface at (x, y), as `onHeadSurface` would place a mesh. */
+function laid(geo: BufferGeometry, x: number, y: number, lift?: number): BufferGeometry {
+  const o = new Object3D();
+  onHeadSurface(o, x, y, lift);
+  o.updateMatrix();
+  return geo.applyMatrix4(o.matrix);
+}
+
+/** Only position, and a normal when `normals` is set, with no index, so any two can merge. */
+function bare(geo: BufferGeometry, normals = true): BufferGeometry {
+  const g = geo.index ? geo.toNonIndexed() : geo;
+  const out = new BufferGeometry();
+  out.setAttribute("position", g.getAttribute("position"));
+  if (normals) out.setAttribute("normal", g.getAttribute("normal"));
+  return out;
+}
+
+/** Every vertex of `geo` one color. */
+function painted(geo: BufferGeometry, color: Color): BufferGeometry {
+  const count = geo.getAttribute("position").count;
+  const colors = new Float32Array(count * 3);
+  for (let i = 0; i < count; i++) colors.set([color.r, color.g, color.b], i * 3);
+  geo.setAttribute("color", new BufferAttribute(colors, 3));
+  return geo;
+}
+
+/** Flat face parts merged into one mesh, its origin at `oy` on the head so it squashes about there. */
+function facePiece(geos: BufferGeometry[], material: MeshBasicMaterial, oy: number): Mesh {
+  const merged = mergeGeometries(geos) as BufferGeometry;
+  for (const g of geos) g.dispose();
+  const m = new Mesh(merged.translate(0, -oy, 0), material);
+  m.position.y = oy;
+  return m;
+}
+
+/** The eyes: tall ovals a little apart, each with a catch light up and out. */
+const EYE = { x: 0.062, y: 0.015, r: 0.028, tall: 1.25 };
 
 /** The parts of a peg's face that change with a feeling (RFC 0013). */
 interface FaceParts {
@@ -55,38 +97,47 @@ interface FaceParts {
   head: Group;
   /** The eyes, turned together to look up or down. */
   eyes: Group;
-  dots: Mesh[];
-  arcs: Mesh[];
+  /** Both open eyes and their catch lights, one mesh, squashed to blink. */
+  dots: Mesh;
+  /** Both closed, curved eyes for happy, laugh and love. */
+  arcs: Mesh;
   smile: Mesh;
   mouth: Mesh;
-  cheeks: Mesh[];
+  /** Both cheeks, one mesh. */
+  cheeks: Mesh;
   cheekMat: MeshBasicMaterial;
 }
 
 /**
- * The face, drawn flat on the head: dot eyes (squashed to blink), arc eyes for happy, laugh and
- * love, a smile or an open mouth, and cheeks that blush. No textures. Built once per figure; only
- * the parts a feeling uses are visible, so a neutral face draws the same four parts it always did.
+ * The face, drawn flat on the head: oval eyes with a catch light (squashed to blink), arc eyes for
+ * happy, laugh and love, a smile or an open mouth, and cheeks that blush. No textures. Built once
+ * per figure; only the parts a feeling uses are visible, and a neutral face is two draws: the eyes
+ * and the cheeks.
  */
 export function faceParts(color: number = BRAND.ink): FaceParts {
   const head = new Group();
   head.position.y = HEAD_Y;
   const ink = new MeshBasicMaterial({ color });
   const eyes = new Group();
-  const dotGeo = new CircleGeometry(0.024, 8);
-  const arcGeo = new RingGeometry(0.015, 0.026, 6, 1, 0, Math.PI);
-  const dots: Mesh[] = [];
-  const arcs: Mesh[] = [];
-  for (const x of [-0.06, 0.06]) {
-    const dot = new Mesh(dotGeo, ink);
-    onHeadSurface(dot, x, 0.02);
-    const arc = new Mesh(arcGeo, ink);
-    onHeadSurface(arc, x, 0.012);
-    arc.visible = false;
-    dots.push(dot);
-    arcs.push(arc);
-    eyes.add(dot, arc);
+  const inkColor = new Color(color);
+  const shine = new Color(BRAND.paper);
+  const open: BufferGeometry[] = [];
+  const shut: BufferGeometry[] = [];
+  for (const s of [-1, 1]) {
+    const x = s * EYE.x;
+    open.push(
+      painted(laid(new CircleGeometry(EYE.r, 14).scale(1, EYE.tall, 1), x, EYE.y), inkColor),
+    );
+    const glint = new CircleGeometry(EYE.r * 0.38, 8);
+    open.push(painted(laid(glint, x + EYE.r * 0.35, EYE.y + EYE.r * 0.55, 0.006), shine));
+    shut.push(
+      laid(new RingGeometry(EYE.r * 0.55, EYE.r * 1.05, 8, 1, 0, Math.PI), x, EYE.y - 0.01),
+    );
   }
+  const dots = facePiece(open, new MeshBasicMaterial({ vertexColors: true }), EYE.y);
+  const arcs = facePiece(shut, ink, EYE.y);
+  arcs.visible = false;
+  eyes.add(dots, arcs);
   const smile = new Mesh(new RingGeometry(0.016, 0.026, 6, 1, Math.PI, Math.PI), ink);
   onHeadSurface(smile, 0, -0.078);
   const mouth = new Mesh(new CircleGeometry(0.024, 8), ink);
@@ -94,14 +145,13 @@ export function faceParts(color: number = BRAND.ink): FaceParts {
   smile.visible = false;
   mouth.visible = false;
   const cheekMat = new MeshBasicMaterial({ color: 0xf2a08f, transparent: true, opacity: 0.7 });
-  const cheekGeo = new CircleGeometry(0.03, 8);
-  const cheeks = [-0.1, 0.1].map((x) => {
-    const c = new Mesh(cheekGeo, cheekMat);
-    onHeadSurface(c, x, -0.03);
-    c.scale.set(1, 0.6, 1);
-    return c;
-  });
-  head.add(eyes, smile, mouth, ...cheeks);
+  const cheekAt = -0.035;
+  const cheeks = facePiece(
+    [-0.105, 0.105].map((x) => laid(new CircleGeometry(0.034, 10).scale(1, 0.6, 1), x, cheekAt)),
+    cheekMat,
+    cheekAt,
+  );
+  head.add(eyes, smile, mouth, cheeks);
   return { head, eyes, dots, arcs, smile, mouth, cheeks, cheekMat };
 }
 
@@ -143,7 +193,8 @@ export function iconTexture(icon: FeelingIcon): CanvasTexture {
 
 interface Rig extends FaceParts {
   body: Group;
-  hand: Mesh;
+  /** The right arm, hung from the shoulder, raised to wave. */
+  arm: Object3D;
   icon: Sprite;
   iconMat: SpriteMaterial;
   /** The name tag, and who it floats over (a hat or an umbrella held up lifts it). */
@@ -172,10 +223,10 @@ const rigs = new WeakMap<Object3D, Rig>();
 function setFace(rig: Rig, feeling: Feeling) {
   rig.drawn = feeling;
   const curved = feeling === "happy" || feeling === "laugh" || feeling === "love";
-  for (const a of rig.arcs) a.visible = curved;
-  for (const d of rig.dots) d.visible = !curved;
+  rig.arcs.visible = curved;
+  rig.dots.visible = !curved;
   const wide = feeling === "surprised" ? 1.35 : 1;
-  for (const d of rig.dots) d.scale.set(wide, feeling === "sleepy" ? 0.18 : wide, 1);
+  rig.dots.scale.y = feeling === "sleepy" ? 0.18 : wide;
   rig.eyes.rotation.set(
     feeling === "shy" ? 0.14 : feeling === "thinking" ? -0.12 : 0,
     feeling === "thinking" ? 0.16 : 0,
@@ -196,7 +247,7 @@ function setFace(rig: Rig, feeling: Feeling) {
   else if (feeling === "sleepy") mouth.scale.set(0.35, 0.4, 1);
   else mouth.scale.set(0.6, 0.18, 1);
   const blush = feeling === "love" || feeling === "shy";
-  for (const c of rig.cheeks) c.scale.set(blush ? 1.5 : 1, blush ? 0.9 : 0.6, 1);
+  rig.cheeks.scale.set(blush ? 1.12 : 1, blush ? 1.5 : 1, 1);
   rig.cheekMat.opacity = blush ? 0.95 : 0.7;
   // A job's note gives way to a sign of the moment, but not to a doze's z.
   const felt = FEELING_ICON[feeling];
@@ -212,17 +263,14 @@ function setFace(rig: Rig, feeling: Feeling) {
   }
 }
 
-/** The parts that move: blinking eyes, the head's tilt, the waving hand, and the drifting sign. */
+/** The parts that move: blinking eyes, the head's tilt, the waving arm, and the drifting sign. */
 function movePose(rig: Rig, p: Pose) {
   if (p.feeling !== rig.drawn) setFace(rig, p.feeling);
   const open = p.feeling === "surprised" ? 1.35 : 1;
-  if (p.feeling !== "sleepy") for (const d of rig.dots) d.scale.y = p.blink ? 0.15 : open;
+  if (p.feeling !== "sleepy") rig.dots.scale.y = p.blink ? 0.15 : open;
   rig.head.rotation.z = p.tilt;
-  rig.hand.visible = p.wave > 0;
-  if (p.wave) {
-    const lean = p.wave === 1 ? 0.35 : 0.75;
-    rig.hand.position.set(0.2 + Math.sin(lean) * 0.2, 0.42 + Math.cos(lean) * 0.2, 0.02);
-  }
+  // Up and out at one end of the wave or the other, else hanging at the side.
+  rig.arm.rotation.z = p.wave === 0 ? ARM_REST : Math.PI - (p.wave === 1 ? 0.35 : 0.75);
   rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + (rig.noted ? 0 : p.rise);
   rig.iconMat.opacity = rig.noted ? 1 : p.fade * rig.shows;
 }
@@ -339,48 +387,170 @@ const AWAY_FADE = 0.38;
 const CUT_FADE = 0.3;
 const AWAY_SHOWS = 0.72;
 
+// ---------- the bean ----------
+
 /**
- * A soft peg figure: a body in their color and shape, a round head with a nose and a face that
- * shows feelings, and their wear. It faces +z. `f.feeling` is one to hold (sleepy at the hearth);
- * reactions come and go through `showFeeling`.
+ * The bean's side, bottom to top, as [radius, y]: wide at the hips, narrowing up into the head so
+ * body and head read as one soft shape. Wear is sized to it (`wear.ts`): about 0.255 across from y
+ * 0.15 to 0.35, under the head's sphere of 0.17 at y 0.66.
+ */
+const BEAN: readonly (readonly [number, number])[] = [
+  [0, 0.03],
+  [0.15, 0.04],
+  [0.225, 0.09],
+  [0.255, 0.18],
+  [0.25, 0.3],
+  [0.232, 0.4],
+  [0.2, 0.47],
+  [0.176, 0.53],
+  [0.166, 0.58],
+  [0.16, 0.64],
+  [0, 0.67],
+];
+/** Where the outfit stops and their own color starts, up the shoulders into the head. */
+const COLLAR = 0.45;
+/** How far out the outline sits, and its color: a warm dark brown, softer than ink. */
+const OUTLINE = 0.018;
+const OUTLINE_HEX = "#3d2c20";
+/** The shoulder each arm hangs from, and how far out it hangs at rest. */
+const SHOULDER = { x: 0.205, y: 0.4, z: 0.02 };
+const ARM_REST = 0.42;
+
+/** The radius of the bean's side at height `y`. */
+function beanAt(y: number): number {
+  for (let i = 1; i < BEAN.length; i++) {
+    const [r0, y0] = BEAN[i - 1] as readonly [number, number];
+    const [r1, y1] = BEAN[i] as readonly [number, number];
+    if (y <= y1) return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
+  }
+  return 0;
+}
+
+/**
+ * The bean's side from `from` to `to`, in their shape: round, a soft square, or a four-sided
+ * diamond. The seam is at the back. Normals are smooth, so the outline can push out along them.
+ */
+function beanSide(shape: LayoutFigure["shape"], from: number, to: number): BufferGeometry {
+  const points = [[beanAt(from), from] as const, ...BEAN.filter(([, y]) => y > from && y < to)];
+  points.push([beanAt(to), to]);
+  if (to >= (BEAN.at(-1)?.[1] ?? 1)) points[points.length - 1] = [0, to];
+  const profile = points.map(([r, y]) => new Vector2(r, y));
+  if (shape === "diamond") return new LatheGeometry(profile, 4, Math.PI);
+  const geo = new LatheGeometry(profile, 20, Math.PI);
+  if (shape === "square") {
+    // Pushed out toward a rounded square with flat faces front, back and to the sides.
+    const pos = geo.getAttribute("position");
+    for (let i = 0; i < pos.count; i++) {
+      const x = pos.getX(i);
+      const z = pos.getZ(i);
+      const a = Math.atan2(z, x);
+      const k = 0.9 / (Math.abs(Math.cos(a)) ** 4 + Math.abs(Math.sin(a)) ** 4) ** 0.25;
+      pos.setXYZ(i, x * k, pos.getY(i), z * k);
+    }
+    geo.computeVertexNormals();
+  }
+  return geo;
+}
+
+/** A copy of `geo` pushed out along its normals by `by`, for the outline drawn behind it. */
+function pushed(geo: BufferGeometry, by: number): BufferGeometry {
+  const g = bare(geo).clone();
+  const pos = g.getAttribute("position");
+  const normal = g.getAttribute("normal");
+  for (let i = 0; i < pos.count; i++) {
+    pos.setXYZ(
+      i,
+      pos.getX(i) + normal.getX(i) * by,
+      pos.getY(i) + normal.getY(i) * by,
+      pos.getZ(i) + normal.getZ(i) * by,
+    );
+  }
+  g.deleteAttribute("normal");
+  return g;
+}
+
+/** Shade baked by height over the whole bean, so the two colors darken together toward the feet. */
+function shaded(geo: BufferGeometry, color: Color, flat = false): BufferGeometry {
+  const g = bare(geo);
+  if (flat) g.computeVertexNormals();
+  const pos = g.getAttribute("position");
+  const colors = new Float32Array(pos.count * 3);
+  for (let i = 0; i < pos.count; i++) {
+    const k = 0.7 + 0.35 * Math.sqrt(Math.min(1, Math.max(0, pos.getY(i) / 0.67)));
+    colors.set([color.r * k, color.g * k, color.b * k], i * 3);
+  }
+  g.setAttribute("color", new BufferAttribute(colors, 3));
+  return g;
+}
+
+/** A stubby arm hanging down from its shoulder at the origin. */
+const armGeo = () => new CapsuleGeometry(0.046, 0.1, 3, 8).translate(0, -0.095, 0);
+
+/** A foot under the bean, toes out in front, `s` 1 for the right and -1 for the left. */
+const footGeo = (s: number) =>
+  new SphereGeometry(0.068, 10, 6).scale(1, 0.55, 1.3).translate(s * 0.1, 0.035, 0.12);
+
+/**
+ * A bean figure (decision 0442): one soft shape in their outfit up to the collar and their own
+ * color above it, a round head on top with big eyes and a face that shows feelings, stubby arms
+ * and feet, a warm outline, and their wear. It faces +z. `f.feeling` is one to hold (sleepy at the
+ * hearth); reactions come and go through `showFeeling`.
+ *
+ * A neutral figure is six draws, as the peg it replaced was: the body (side, feet and left arm in
+ * one mesh), the outline, the head, the right arm, the eyes, and the cheeks. The head is a sphere
+ * that turns and tilts about its middle, so its outline can sit in the body's outline unmoved.
  */
 export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
   const group = new Group();
   group.name = "figure";
   const body = new Group();
-  // Like the map's figure: clothes in the outfit's main color, the head in their own.
-  const bodyMat = new MeshLambertMaterial({
-    color: lookPalette(f.look.theme, f.color).main,
-    vertexColors: true,
-  });
-  let bodyGeo: BufferGeometry;
-  if (f.shape === "square") bodyGeo = new RoundedBoxGeometry(0.42, 0.46, 0.36, 3, 0.1);
-  else if (f.shape === "diamond") {
-    bodyGeo = new OctahedronGeometry(0.28, 0);
-    bodyGeo.scale(0.95, 0.95, 0.8);
-  } else {
-    bodyGeo = new SphereGeometry(0.24, 18, 12);
-    bodyGeo.scale(1, 1.1, 0.92);
-  }
-  bodyGeo.translate(0, 0.28, 0);
-  const torso = new Mesh(bakeShade(bodyGeo, 0.7, 1.05), bodyMat);
-  // Under a ghost sheet (RFC 0022) the sheet is the body, and the head and the waving mitten are
-  // the sheet too, its face showing through as on the map.
+  // Under a ghost sheet (RFC 0022) the sheet is the body, and the head is the sheet too, its face
+  // showing through as on the map.
   const ghost = f.look.wear?.includes("ghost_sheet") ?? false;
-  torso.visible = !ghost;
-  const skin = new MeshLambertMaterial({
-    color: ghost ? garmentColor(f.look, "ghost_sheet") : residentHex(f.color),
-  });
-  // A small nose, part of the head's mesh, so you can tell which way they face from above.
-  const nose = new SphereGeometry(0.036, 10, 8).translate(0, -0.025, 0.16);
-  const skull = new Mesh(mergeGeometries([new SphereGeometry(HEAD_R, 18, 12), nose]), skin);
+  const skinHex = ghost ? garmentColor(f.look, "ghost_sheet") : residentHex(f.color);
+  const skin = new MeshLambertMaterial({ color: skinHex });
+  // Like the map's figure: clothes in the outfit's main color, the head in their own.
+  const outfit = new Color(lookPalette(f.look.theme, f.color).main);
+  const own = new Color(skinHex);
+  const shod = f.look.wear?.some((w) => WEAR_INFO[w].slot === "feet") ?? false;
+  const lower = beanSide(f.shape, 0, COLLAR);
+  const upper = beanSide(f.shape, COLLAR, 0.67);
+  const feet = shod ? [] : [footGeo(-1), footGeo(1)];
+  const leftArm = armGeo().rotateZ(-ARM_REST).translate(-SHOULDER.x, SHOULDER.y, SHOULDER.z);
+  const flat = f.shape === "diamond";
+  const outline = new MeshBasicMaterial({ color: OUTLINE_HEX, side: BackSide });
+  outline.userData.outline = true;
+  const rims = [pushed(new SphereGeometry(HEAD_R, 18, 12), OUTLINE).translate(0, HEAD_Y, 0)];
+  if (!ghost) {
+    const sole = new Color(WOOD_DARK);
+    const parts = [
+      shaded(lower, outfit, flat),
+      shaded(upper, own, flat),
+      ...feet.map((g) => shaded(g, sole)),
+      shaded(leftArm, outfit),
+    ];
+    const torso = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ vertexColors: true }));
+    torso.name = "torso";
+    body.add(torso);
+    rims.push(
+      pushed(lower, OUTLINE),
+      pushed(upper, OUTLINE),
+      ...feet.map((g) => pushed(g, OUTLINE)),
+    );
+  }
+  const rim = new Mesh(mergeGeometries(rims), outline);
+  rim.name = "outline";
+  for (const g of [lower, upper, leftArm, ...feet, ...rims]) g.dispose();
+  const skull = new Mesh(new SphereGeometry(HEAD_R, 18, 12), skin);
   // Light eyes and mouth on a coal head, as on the map.
   const face = faceParts(f.color === "coal" && !ghost ? BRAND.paper : BRAND.ink);
   face.head.add(skull);
-  // A mitten that comes up to wave.
-  const hand = new Mesh(new IcosahedronGeometry(0.05, 0), skin);
-  hand.visible = false;
-  body.add(torso, face.head, hand);
+  // The right arm hangs from its shoulder and swings up to wave; under a sheet it's the sheet.
+  const arm = new Group();
+  arm.position.set(SHOULDER.x, SHOULDER.y, SHOULDER.z);
+  arm.rotation.z = ARM_REST;
+  arm.add(new Mesh(armGeo(), ghost ? skin : new MeshLambertMaterial({ color: outfit })));
+  body.add(rim, face.head, arm);
   if (f.kind === "agent") {
     // Agents wear a little sprout antenna with a sun bulb (the 2D map marks them with a gear).
     const stalk = new Mesh(
@@ -424,7 +594,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     // Away and asleep at home: faded toward the haze, so they read as not quite here.
     const haze = lin(SKY.fog);
     body.traverse((o) => {
-      if (o instanceof Mesh && o.material instanceof MeshLambertMaterial)
+      if (!(o instanceof Mesh)) return;
+      if (o.material instanceof MeshLambertMaterial || o.material.userData.outline)
         o.material.color.lerp(haze, AWAY_FADE);
     });
     label.material.opacity = AWAY_SHOWS;
@@ -447,7 +618,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const rig: Rig = {
     ...face,
     body,
-    hand,
+    arm,
     icon,
     iconMat,
     label,

@@ -368,6 +368,7 @@ What we chose and why. Newest last.
 - [Access sign-ins are checked by workers-start, and only staff emails pass the admin gate](decisions/0439-access-sign-ins-are-checked-by-workers-start-and-only-staff-.md) · 2026-11-20 · accepted · `staff` `access` `security` `dependencies`
 - [The Worker sends workers-start security headers, and Terrakin keeps its own CSPs and stream caps](decisions/0440-the-worker-sends-workers-start-security-headers-and-terrakin.md) · 2026-11-20 · accepted · `security` `server` `dependencies`
 - [The first load's budget is 137 kB, for workers-start's format helpers](decisions/0441-the-first-load-s-budget-is-137-kb-for-workers-start-s-format.md) · 2026-11-21 · accepted · `client` `performance` `tooling`
+- [Residents in 3D are beans with an outline](decisions/0442-residents-in-3d-are-beans-with-an-outline.md) · 2026-11-24 · accepted · `client` `art` `3d`
 
 ### Superseded
 

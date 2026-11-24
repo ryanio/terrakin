@@ -702,8 +702,8 @@ describe("faces on 3D figures", () => {
     const extra = face + triangles(new IcosahedronGeometry(0.05, 0)) + 2;
     const replaced = 4 * triangles(new SphereGeometry(0.022, 8, 6));
     expect(extra - replaced).toBeLessThan(50);
-    // A neutral face draws two eyes and two cheeks, as before.
-    expect(shownNeutral).toBe(4);
+    // A neutral face is two draws: both eyes in one mesh, both cheeks in another.
+    expect(shownNeutral).toBe(2);
   });
 
   it("keeps a feeling's sign readable from the world's camera, at its own size up close", () => {

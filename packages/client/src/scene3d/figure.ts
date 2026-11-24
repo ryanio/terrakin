@@ -31,10 +31,12 @@ import {
   SpriteMaterial,
   type Texture,
   Vector2,
+  Vector3,
 } from "three";
 import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
 import { blobShadow, canvasTexture, lin, nameTag, type Stage } from "./art";
+import { BEAN, beanAt } from "./bean";
 import { hairMesh } from "./hair";
 import { FIGURE_SCALE, type LayoutFigure, SIGN_SIZE, tagHeight } from "./layout";
 import { BRAND, residentHex, SKY } from "./palette";
@@ -195,6 +197,8 @@ interface Rig extends FaceParts {
   body: Group;
   /** The right arm, hung from the shoulder, raised to wave. */
   arm: Object3D;
+  /** Under a ghost sheet (RFC 0022): no arms show until one waves. */
+  ghost: boolean;
   icon: Sprite;
   iconMat: SpriteMaterial;
   /** The name tag, and who it floats over (a hat or an umbrella held up lifts it). */
@@ -271,6 +275,8 @@ function movePose(rig: Rig, p: Pose) {
   rig.head.rotation.z = p.tilt;
   // Up and out at one end of the wave or the other, else hanging at the side.
   rig.arm.rotation.z = p.wave === 0 ? ARM_REST : Math.PI - (p.wave === 1 ? 0.35 : 0.75);
+  // A sheet has no arms at rest, only a corner of it raised to wave.
+  rig.arm.visible = !rig.ghost || p.wave > 0;
   rig.icon.position.y = rig.tagTop + SIGN_GAP + rig.iconSize / 2 + (rig.noted ? 0 : p.rise);
   rig.iconMat.opacity = rig.noted ? 1 : p.fade * rig.shows;
 }
@@ -389,42 +395,14 @@ const AWAY_SHOWS = 0.72;
 
 // ---------- the bean ----------
 
-/**
- * The bean's side, bottom to top, as [radius, y]: wide at the hips, narrowing up into the head so
- * body and head read as one soft shape. Wear is sized to it (`wear.ts`): about 0.255 across from y
- * 0.15 to 0.35, under the head's sphere of 0.17 at y 0.66.
- */
-const BEAN: readonly (readonly [number, number])[] = [
-  [0, 0.03],
-  [0.15, 0.04],
-  [0.225, 0.09],
-  [0.255, 0.18],
-  [0.25, 0.3],
-  [0.232, 0.4],
-  [0.2, 0.47],
-  [0.176, 0.53],
-  [0.166, 0.58],
-  [0.16, 0.64],
-  [0, 0.67],
-];
 /** Where the outfit stops and their own color starts, up the shoulders into the head. */
 const COLLAR = 0.45;
 /** How far out the outline sits, and its color: a warm dark brown, softer than ink. */
 const OUTLINE = 0.018;
 const OUTLINE_HEX = "#3d2c20";
 /** The shoulder each arm hangs from, and how far out it hangs at rest. */
-const SHOULDER = { x: 0.205, y: 0.4, z: 0.02 };
-const ARM_REST = 0.42;
-
-/** The radius of the bean's side at height `y`. */
-function beanAt(y: number): number {
-  for (let i = 1; i < BEAN.length; i++) {
-    const [r0, y0] = BEAN[i - 1] as readonly [number, number];
-    const [r1, y1] = BEAN[i] as readonly [number, number];
-    if (y <= y1) return r0 + ((r1 - r0) * (y - y0)) / (y1 - y0);
-  }
-  return 0;
-}
+const SHOULDER = { x: 0.215, y: 0.4, z: 0.02 };
+const ARM_REST = 0.5;
 
 /**
  * The bean's side from `from` to `to`, in their shape: round, a soft square, or a four-sided
@@ -444,7 +422,7 @@ function beanSide(shape: LayoutFigure["shape"], from: number, to: number): Buffe
       const x = pos.getX(i);
       const z = pos.getZ(i);
       const a = Math.atan2(z, x);
-      const k = 0.9 / (Math.abs(Math.cos(a)) ** 4 + Math.abs(Math.sin(a)) ** 4) ** 0.25;
+      const k = 0.88 / (Math.abs(Math.cos(a)) ** 6 + Math.abs(Math.sin(a)) ** 6) ** (1 / 6);
       pos.setXYZ(i, x * k, pos.getY(i), z * k);
     }
     geo.computeVertexNormals();
@@ -476,11 +454,34 @@ function shaded(geo: BufferGeometry, color: Color, flat = false): BufferGeometry
   const pos = g.getAttribute("position");
   const colors = new Float32Array(pos.count * 3);
   for (let i = 0; i < pos.count; i++) {
-    const k = 0.7 + 0.35 * Math.sqrt(Math.min(1, Math.max(0, pos.getY(i) / 0.67)));
+    // Full color at the shoulders, as the head is, so the two meet with no step in light.
+    const k = 0.7 + 0.3 * Math.sqrt(Math.min(1, Math.max(0, pos.getY(i) / 0.58)));
     colors.set([color.r * k, color.g * k, color.b * k], i * 3);
   }
   g.setAttribute("color", new BufferAttribute(colors, 3));
   return g;
+}
+
+/**
+ * Turn the normals of the bean's shoulders toward the head's, so where the side runs into the head
+ * the light flows across instead of showing a crease under the cheeks.
+ */
+function intoHead(geo: BufferGeometry): BufferGeometry {
+  const pos = geo.getAttribute("position");
+  const normal = geo.getAttribute("normal");
+  const n = new Vector3();
+  const toHead = new Vector3();
+  for (let i = 0; i < pos.count; i++) {
+    const y = pos.getY(i);
+    const t = Math.min(1, Math.max(0, (y - 0.5) / 0.1));
+    if (t === 0) continue;
+    toHead.set(pos.getX(i), y - HEAD_Y, pos.getZ(i)).normalize();
+    n.fromBufferAttribute(normal, i)
+      .lerp(toHead, t * t * (3 - 2 * t))
+      .normalize();
+    normal.setXYZ(i, n.x, n.y, n.z);
+  }
+  return geo;
 }
 
 /** A stubby arm hanging down from its shoulder at the origin. */
@@ -513,8 +514,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const outfit = new Color(lookPalette(f.look.theme, f.color).main);
   const own = new Color(skinHex);
   const shod = f.look.wear?.some((w) => WEAR_INFO[w].slot === "feet") ?? false;
-  const lower = beanSide(f.shape, 0, COLLAR);
-  const upper = beanSide(f.shape, COLLAR, 0.67);
+  const lower = beanSide(f.shape, BEAN[0]?.[1] ?? 0, COLLAR);
+  const upper = intoHead(beanSide(f.shape, COLLAR, 0.67));
   const feet = shod ? [] : [footGeo(-1), footGeo(1)];
   const leftArm = armGeo().rotateZ(-ARM_REST).translate(-SHOULDER.x, SHOULDER.y, SHOULDER.z);
   const flat = f.shape === "diamond";
@@ -550,6 +551,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   arm.position.set(SHOULDER.x, SHOULDER.y, SHOULDER.z);
   arm.rotation.z = ARM_REST;
   arm.add(new Mesh(armGeo(), ghost ? skin : new MeshLambertMaterial({ color: outfit })));
+  arm.visible = !ghost;
   body.add(rim, face.head, arm);
   if (f.kind === "agent") {
     // Agents wear a little sprout antenna with a sun bulb (the 2D map marks them with a gear).
@@ -619,6 +621,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     ...face,
     body,
     arm,
+    ghost,
     icon,
     iconMat,
     label,

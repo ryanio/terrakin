@@ -17,11 +17,12 @@ Two things limited the change. Every hat, pair of glasses, hair style and garmen
 
 A resident in 3D is one soft bean, turned on a lathe: wide at the hips, narrowing up into the head so the two read as one shape, in the outfit's color up to the collar and their own color above it. It has stubby arms (the right one swings up to wave), dark feet that step aside for worn footwear, tall eyes with a catch light, and a warm brown outline drawn as a pushed-out copy of the body behind it. The square and diamond shapes are the same bean, pushed toward a soft square or turned with four sides.
 
-The head stays a sphere of 0.17 at y 0.66 and the body keeps the peg's width, so all wear and hair fit unchanged. A neutral figure is still six draws: the body (side, feet and left arm merged and colored per vertex), the outline (the head's included, since a sphere turning about its middle never moves), the head, the right arm, both eyes in one mesh, and both cheeks in one mesh. Materials stay matte Lambert (decision 0030); there is no toon shading or post-processing.
+The head stays a sphere of 0.17 at y 0.66 and the body keeps the peg's width, so hats, hair and most wear fit as they were. What lies on the front (an apron, the overalls' bib), shoes, and straps round the body follow the bean's curve. A neutral figure is still six draws: the body (side, feet and left arm merged and colored per vertex), the outline (the head's included, since a sphere turning about its middle never moves), the head, the right arm, both eyes in one mesh, and both cheeks in one mesh. Materials stay matte Lambert (decision 0030); there is no toon shading or post-processing.
 
 ## Consequences
 
-- Code: `figure()` and `faceParts()` in [`packages/client/src/scene3d/figure.ts`](../../../packages/client/src/scene3d/figure.ts). The 2D map figure is unchanged.
+- Code: `figure()` and `faceParts()` in [`packages/client/src/scene3d/figure.ts`](../../../packages/client/src/scene3d/figure.ts), and the side's profile, `BEAN` and `beanAt`, in [`bean.ts`](../../../packages/client/src/scene3d/bean.ts), which `wear.ts` also reads so an apron or a bib lies on the curve. The 2D map figure is unchanged.
+- The shoulders' normals turn toward the head's where the side runs into it, so the light shows no crease under the cheeks.
 - The nose is gone. Which way someone faces now shows in their eyes, feet and arms.
 - About 1,500 more triangles a figure, mostly the outline, which keeps the world inside decision 0060's 150,000.
-- A garment that should hug the body follows `BEAN`; one that sits outside it needs no change.
+- A garment that lies on the body follows `beanAt`; one that stands clear of it needs no change. Under a ghost sheet the arms hide until one waves.

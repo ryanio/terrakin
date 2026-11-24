@@ -1,8 +1,8 @@
 /**
  * What a resident wears, on the 3D peg figures: one small low-poly piece per worn item, in the
  * color and pattern the 2D figure gives it (`wornPieces`). Sizes are in the figure's own units:
- * the body fills about y 0 to 0.55 with a radius near 0.25, and the head is a sphere of 0.17 at
- * y 0.66, facing +z.
+ * the body is the bean (`BEAN` in `bean.ts`), about 0.255 across at the hips and narrowing up into
+ * the head, a sphere of 0.17 at y 0.66, facing +z. What lies on the front follows `beanAt`.
  */
 import { WEAR_INFO, type WearItem } from "@terrakin/sim";
 import { BRAND_HEX, LEATHER, WOOD_DARK } from "@terrakin/ui/brand";
@@ -27,6 +27,7 @@ import {
 } from "three";
 import { RoundedBoxGeometry } from "three/addons/geometries/RoundedBoxGeometry.js";
 import { canvasTexture } from "./art";
+import { beanAt } from "./bean";
 import type { LayoutFigure } from "./layout";
 import { type WornPiece, wornPieces } from "./layout";
 
@@ -82,13 +83,29 @@ function band(mat: Material, y0: number, y1: number, top = 0.255, bottom = 0.26)
   return m;
 }
 
-/** A pair of feet, toes peeking out in front of the body. */
+/** A pair of feet where the bean's own would be, toes peeking out in front of the body. */
 function feet(make: () => Mesh, y: number): Mesh[] {
-  return [-0.09, 0.09].map((x) => {
+  return [-0.1, 0.1].map((x) => {
     const m = make();
-    m.position.set(x, y, 0.21);
+    m.position.set(x, y, 0.14);
     return m;
   });
+}
+
+/** A panel lying over the front of the bean from `y0` to `y1`, `half` radians either side of it. */
+function front(mat: Material, y0: number, y1: number, half: number): Mesh {
+  const lift = 0.012;
+  const geo = new CylinderGeometry(
+    beanAt(y1) + lift,
+    beanAt(y0) + lift,
+    y1 - y0,
+    10,
+    1,
+    true,
+    -half,
+    half * 2,
+  );
+  return at(geo, mat, 0, (y0 + y1) / 2);
 }
 
 /** A carved pumpkin's face, lit from inside: the warm candle color, glowing day and night. */
@@ -255,7 +272,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
 
     // ---------- tops ----------
     case "apron":
-      return [at(new BoxGeometry(0.28, 0.32, 0.02), mat, 0, 0.27, 0.235)];
+      return [front(mat, 0.11, 0.43, 0.6)];
     case "scarf": {
       const ring = at(new TorusGeometry(0.14, 0.045, 10, 24), mat, 0, 0.53);
       ring.rotation.x = Math.PI / 2;
@@ -266,7 +283,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
     case "cardigan":
       return [band(mat, 0.14, 0.5, 0.21, 0.27)];
     case "overalls":
-      return [band(mat, 0.04, 0.26), at(new BoxGeometry(0.2, 0.16, 0.02), mat, 0, 0.34, 0.23)];
+      return [band(mat, 0.04, 0.26), front(mat, 0.26, 0.42, 0.42)];
     case "raincoat":
       return [band(mat, 0.02, 0.52, 0.2, 0.3)];
     case "dress":
@@ -312,14 +329,14 @@ function piece(item: WearItem, mat: Material): Mesh[] {
     case "satchel": {
       const strap = at(new TorusGeometry(0.27, 0.012, 6, 32), mat, 0, 0.32);
       strap.rotation.z = 0.6;
-      strap.scale.set(1, 1, 0.75);
+      strap.scale.set(1, 1, 0.98);
       return [at(new RoundedBoxGeometry(0.06, 0.12, 0.14, 2, 0.02), mat, 0.28, 0.18), strap];
     }
     case "town_satchel": {
       // The satchel's shape in the town's canvas, on a leather strap, with a gold clasp.
       const strap = at(new TorusGeometry(0.27, 0.012, 6, 32), solid(LEATHER), 0, 0.32);
       strap.rotation.z = 0.6;
-      strap.scale.set(1, 1, 0.75);
+      strap.scale.set(1, 1, 0.98);
       return [
         at(new RoundedBoxGeometry(0.06, 0.12, 0.14, 2, 0.02), mat, 0.28, 0.18),
         at(
@@ -429,7 +446,7 @@ function piece(item: WearItem, mat: Material): Mesh[] {
       if (mat instanceof MeshLambertMaterial) mat.side = DoubleSide;
       const sash = at(new CylinderGeometry(0.262, 0.262, 0.075, 28, 1, true), mat, 0, 0.31);
       sash.rotation.z = 0.62;
-      sash.scale.set(1.08, 1, 0.84);
+      sash.scale.set(1.06, 1, 1.02);
       const star = at(new OctahedronGeometry(0.038), solid(EARNED_HEX.sashEdge), 0.03, 0.34, 0.235);
       star.scale.set(1, 1, 0.3);
       return [sash, star];

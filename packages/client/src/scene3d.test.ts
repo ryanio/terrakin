@@ -28,6 +28,7 @@ import {
 import { describe, expect, it, vi } from "vitest";
 import { BURST_MS, BURSTS_MAX } from "./render";
 import { addAll, frameDistance, type Stage } from "./scene3d/art";
+import { BEAN, beanAt } from "./scene3d/bean";
 import { blockMeshes } from "./scene3d/blocks";
 import { parseGallery } from "./scene3d/catalog";
 import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
@@ -751,6 +752,18 @@ describe("faces on 3D figures", () => {
     expect(["scarf", "satchel", "umbrella", "boots"].some((w) => onHead(w as WearItem))).toBe(
       false,
     );
+  });
+});
+
+describe("the bean's side", () => {
+  it("has no radius past its ends, so nothing spreads under the feet or over the head", () => {
+    const widest = Math.max(...BEAN.map(([r]) => r));
+    for (let y = -0.2; y <= 1; y += 0.01) {
+      expect(beanAt(y)).toBeGreaterThanOrEqual(0);
+      expect(beanAt(y)).toBeLessThanOrEqual(widest);
+    }
+    expect(beanAt(0)).toBe(0);
+    expect(beanAt(0.9)).toBe(0);
   });
 });
 

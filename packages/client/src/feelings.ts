@@ -2,7 +2,7 @@
  * Feelings on figures (RFC 0013, phase 1): what a figure shows, worked out in the client from
  * events the server already sends. Nothing here reaches the server or the sim. One feeling at a
  * time per figure, the newest wins, and each is held a few seconds. `pose` turns what's shown
- * into the moment's blink, bounce, tilt, wave and floating sign for the 2D map and the 3D peg.
+ * into the moment's blink, bounce, tilt, wave and floating sign for the 2D map and the 3D bean.
  * Pure: the caller passes the time.
  */
 import type { GestureKind } from "@terrakin/protocol";

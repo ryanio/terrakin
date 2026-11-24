@@ -351,7 +351,7 @@ const BEHIND = 2.2;
 const MAX_PETS = 16;
 /** How quickly a pet turns, per second. */
 const PET_TURN = 8;
-/** Pets a little bigger than life beside the pegs, so they read from the camera's height. */
+/** Pets a little bigger than life beside the figures, so they read from the camera's height. */
 const PET_SCALE = 1.4;
 
 interface PetFig {

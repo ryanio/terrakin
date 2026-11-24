@@ -24,6 +24,7 @@ import {
   type Object3D,
   SphereGeometry,
   Texture,
+  Vector3,
 } from "three";
 import { describe, expect, it, vi } from "vitest";
 import { BURST_MS, BURSTS_MAX } from "./render";
@@ -705,6 +706,27 @@ describe("faces on 3D figures", () => {
     expect(extra - replaced).toBeLessThan(50);
     // A neutral face is two draws: both eyes in one mesh, both cheeks in another.
     expect(shownNeutral).toBe(2);
+  });
+
+  it("lays every part of the face over the bean, where the shoulders run up over the head", () => {
+    // The mouths and the cheeks sit low on the head, where the bean's side is widest around it.
+    const { head, smile, mouth } = faceParts();
+    smile.visible = true;
+    mouth.visible = true;
+    head.updateMatrixWorld(true);
+    const at = new Vector3();
+    let parts = 0;
+    head.traverse((o) => {
+      if (!(o instanceof Mesh)) return;
+      parts++;
+      const pos = o.geometry.getAttribute("position");
+      for (let i = 0; i < pos.count; i++) {
+        at.fromBufferAttribute(pos, i).applyMatrix4(o.matrixWorld);
+        expect(Math.hypot(at.x, at.z), `${i} at y ${at.y}`).toBeGreaterThan(beanAt(at.y));
+      }
+    });
+    // Eyes open and shut, the smile, the open mouth, and the cheeks.
+    expect(parts).toBe(5);
   });
 
   it("keeps a feeling's sign readable from the world's camera, at its own size up close", () => {

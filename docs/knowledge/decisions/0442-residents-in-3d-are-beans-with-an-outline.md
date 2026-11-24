@@ -24,5 +24,7 @@ The head stays a sphere of 0.17 at y 0.66 and the body keeps the peg's width, so
 - Code: `figure()` and `faceParts()` in [`packages/client/src/scene3d/figure.ts`](../../../packages/client/src/scene3d/figure.ts), and the side's profile, `BEAN` and `beanAt`, in [`bean.ts`](../../../packages/client/src/scene3d/bean.ts), which `wear.ts` also reads so an apron or a bib lies on the curve. The 2D map figure is unchanged.
 - The shoulders' normals turn toward the head's where the side runs into it, so the light shows no crease under the cheeks.
 - The nose is gone. Which way someone faces now shows in their eyes, feet and arms.
+- The bean's shoulders run up over the lower head, so the mouth sits between the cheeks, laid just over the bean there (`overBean`). A test holds every face part outside the bean's side.
+- On a floor the view cuts away the outline hides, so the see-through body stays faint instead of greying.
 - About 1,500 more triangles a figure, mostly the outline, which keeps the world inside decision 0060's 150,000.
 - A garment that lies on the body follows `beanAt`; one that stands clear of it needs no change. Under a ghost sheet the arms hide until one waves.

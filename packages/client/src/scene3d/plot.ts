@@ -1,7 +1,7 @@
 /**
  * "Visit in 3D": one plot as a warm low-poly diorama. Blocks become rounded voxels (wood and stone
  * with planks and stones, glass as framed panes, leaf as swaying clumps), the hearth a little
- * stone fireplace with a glow and chimney smoke, residents soft peg figures in their color and
+ * stone fireplace with a glow and chimney smoke, residents soft bean figures in their color and
  * shape, and the neighbors' ground melts into the haze. A resident's own home model or picture,
  * when they have one, stands on the plot too. A home with a loft (RFC 0028) shows its floors up to
  * the one picked, the rest cut away, and its neighbors whole.

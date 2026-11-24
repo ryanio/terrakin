@@ -1,5 +1,5 @@
 /**
- * Hair on the 3D peg figures (decision 0074), in the color the 2D figure gives it (`hairOf`).
+ * Hair on the 3D bean figures (decision 0074), in the color the 2D figure gives it (`hairOf`).
  * Built in the head's own space, so it turns with the head: the head is a sphere of 0.17 around
  * the origin, facing +z. Shells sit just outside it and leave the face open. A hat that covers the
  * crown hides what would be above its band, so longer styles still show below it. Every piece of a

@@ -92,8 +92,22 @@ function facePiece(geos: BufferGeometry[], material: MeshBasicMaterial, oy: numb
 
 /** The eyes: tall ovals a little apart, each with a catch light up and out. */
 const EYE = { x: 0.062, y: 0.015, r: 0.028, tall: 1.25 };
+/** Where the mouth sits on the head, between the cheeks, just over where the bean meets it. */
+const MOUTH_Y = -0.05;
 
-/** The parts of a peg's face that change with a feeling (RFC 0013). */
+/**
+ * How far out from the head a flat face part at height `y` (from the head's middle, front and
+ * center) sits so all of it shows, down to `reach` under its middle: the bean's shoulders run up
+ * over the lower head, so there it lies just over the bean instead of on the head.
+ */
+function overBean(y: number, reach: number): number {
+  const across = Math.sqrt(HEAD_R * HEAD_R - y * y);
+  // A flat part leans back with the head's curve, so its low edge is nearer the middle than it.
+  const need = beanAt(HEAD_Y + y - reach) + 0.004 + (reach * Math.abs(y)) / HEAD_R;
+  return Math.max(0.004, HEAD_R * (need / across - 1));
+}
+
+/** The parts of a figure's face that change with a feeling (RFC 0013). */
 interface FaceParts {
   /** The head and everything on it, turned to look at someone and tilted by feelings. */
   head: Group;
@@ -141,9 +155,9 @@ export function faceParts(color: number = BRAND.ink): FaceParts {
   arcs.visible = false;
   eyes.add(dots, arcs);
   const smile = new Mesh(new RingGeometry(0.016, 0.026, 6, 1, Math.PI, Math.PI), ink);
-  onHeadSurface(smile, 0, -0.078);
+  onHeadSurface(smile, 0, MOUTH_Y + 0.015, overBean(MOUTH_Y + 0.015, 0.026));
   const mouth = new Mesh(new CircleGeometry(0.024, 8), ink);
-  onHeadSurface(mouth, 0, -0.09);
+  onHeadSurface(mouth, 0, MOUTH_Y, overBean(MOUTH_Y, 0.024));
   smile.visible = false;
   mouth.visible = false;
   const cheekMat = new MeshBasicMaterial({ color: 0xf2a08f, transparent: true, opacity: 0.7 });
@@ -357,6 +371,11 @@ export function fadeFigure(fig: Object3D, faded: boolean) {
   const body = fig.userData.body as Object3D | undefined;
   body?.traverse((o) => {
     if (!(o instanceof Mesh)) return;
+    // The dark outline would show through a see-through body and grey it, so it goes.
+    if (o.material instanceof MeshBasicMaterial && o.material.userData.outline) {
+      o.visible = !faded;
+      return;
+    }
     for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
       // Its own opacity, kept the first time, so bringing it back restores a see-through cheek.
       if (m.userData.opacity === undefined) m.userData.opacity = m.opacity;
@@ -387,7 +406,7 @@ export function setUmbrella(fig: Object3D, up: boolean): boolean {
   return true;
 }
 
-/** How strongly someone away shows: their peg fades toward the haze, their tag fainter. */
+/** How strongly someone away shows: their figure fades toward the haze, their tag fainter. */
 const AWAY_FADE = 0.38;
 /** How much of a figure shows on a floor the view cuts away (RFC 0028). */
 const CUT_FADE = 0.3;
@@ -497,8 +516,8 @@ const footGeo = (s: number) =>
  * and feet, a warm outline, and their wear. It faces +z. `f.feeling` is one to hold (sleepy at the
  * hearth); reactions come and go through `showFeeling`.
  *
- * A neutral figure is six draws, as the peg it replaced was: the body (side, feet and left arm in
- * one mesh), the outline, the head, the right arm, the eyes, and the cheeks. The head is a sphere
+ * A neutral figure is six draws: the body (side, feet and left arm in one mesh), the outline, the
+ * head, the right arm, the eyes, and the cheeks. The head is a sphere
  * that turns and tilts about its middle, so its outline can sit in the body's outline unmoved.
  */
 export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {

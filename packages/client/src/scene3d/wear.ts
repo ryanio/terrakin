@@ -1,5 +1,5 @@
 /**
- * What a resident wears, on the 3D peg figures: one small low-poly piece per worn item, in the
+ * What a resident wears, on the 3D bean figures: one small low-poly piece per worn item, in the
  * color and pattern the 2D figure gives it (`wornPieces`). Sizes are in the figure's own units:
  * the body is the bean (`BEAN` in `bean.ts`), about 0.255 across at the hips and narrowing up into
  * the head, a sphere of 0.17 at y 0.66, facing +z. What lies on the front follows `beanAt`.

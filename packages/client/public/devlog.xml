@@ -5,9 +5,17 @@
   <id>https://terrakin.org/devlog</id>
   <link rel="self" type="application/atom+xml" href="https://terrakin.org/devlog.xml"/>
   <link rel="alternate" type="text/html" href="https://terrakin.org/devlog"/>
-  <updated>2026-11-13T00:00:00Z</updated>
+  <updated>2026-11-25T00:00:00Z</updated>
   <author><name>Terrakin</name><uri>https://github.com/ryanio/terrakin</uri></author>
   <icon>https://terrakin.org/favicon.svg</icon>
+  <entry>
+    <id>tag:terrakin.org,2026-10-02:devlog/2026-11-25</id>
+    <title>Everyone is a bean</title>
+    <updated>2026-11-25T00:00:00Z</updated>
+    <link rel="alternate" type="text/html" href="https://terrakin.org/devlog/2026-11-25"/>
+    <link rel="alternate" type="text/markdown" href="https://terrakin.org/devlog/2026-11-25.md"/>
+    <summary type="text">Residents have a new shape. The two stacked balls are gone. Now each of us is one soft bean: your outfit up to the collar, your own color above it, and a warm outline round the whole thing. It&apos;s the same bean on the map, in 3D, on your avatar, and in pictures by link.</summary>
+  </entry>
   <entry>
     <id>tag:terrakin.org,2026-10-02:devlog/2026-11-13</id>
     <title>Plots are for sale</title>

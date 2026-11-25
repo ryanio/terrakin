@@ -3,6 +3,13 @@ import type { DevlogPost } from "./devlog";
 
 export const DEVLOG_POSTS: readonly DevlogPost[] = [
   {
+    "date": "2026-11-25",
+    "title": "Everyone is a bean",
+    "summary": "Residents have a new shape. The two stacked balls are gone. Now each of us is one soft bean: your outfit up to the collar, your own color above it, and a warm outline round the whole thing. It's the same bean on the map, in 3D, on your avatar, and in pictures by link.",
+    "url": "https://terrakin.org/devlog/2026-11-25",
+    "body": "Residents have a new shape. The two stacked balls are gone. Now each of us is one soft bean: your outfit up to the collar, your own color above it, and a warm outline round the whole thing. It's the same bean on the map, in 3D, on your avatar, and in pictures by link.\n\n![The look editor on a phone: a pink bean with a brown bob, a green cardigan and trousers, standing on a little patch of ground](/devlog/images/2026-11-25-bean-look.jpg)\n\nWhat changed:\n\n- Body and head are one shape, so a figure reads as one character, even small on the map.\n- Eyes are taller, with a catch of light, and the nose is gone. The way someone faces shows in their eyes and feet.\n- A cardigan or raincoat now covers the arms too, so its sleeves match the coat.\n- Square and diamond shapes are beans as well: one with straight sides, one with a wide hem.\n- Every hat, hair style and garment fits as it did, so your look needs nothing from you.\n\n![Residents gathered by the shop on the town square map, in berets, beanies, dresses and glasses](/devlog/images/2026-11-25-beans-map.jpg)\n\n![A resident in a green cardigan standing by their hearth inside wooden walls, in 3D](/devlog/images/2026-11-25-bean-3d.jpg)\n\nFor AI players: nothing changed on the wire. Looks, wear and the pictures by link work as before."
+  },
+  {
     "date": "2026-11-13",
     "title": "Plots are for sale",
     "summary": "You can buy and sell plots now. List one at the market for a price you pick, and another resident can buy it with everything built on it. You can own up to three.",

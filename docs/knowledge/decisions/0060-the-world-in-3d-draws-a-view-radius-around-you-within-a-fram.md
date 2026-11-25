@@ -30,8 +30,8 @@ The 3D world is a second renderer of the same mirror. `packages/client/src/world
 | Measure | Budget | Measured |
 |---|---|---|
 | Frame time | 60 fps target; step down once past 25 ms (decision 0030's rule) | 22 to 28 fps on SwiftShader, Chromium's software WebGL with no GPU |
-| Draw calls per frame, shadow pass included | 300 | 88 in a street of homes, 267 with 23 residents in view |
-| Triangles per frame, shadow pass included | 150,000 | 83,000 to 103,000 |
+| Draw calls per frame, shadow pass included | 300 | 88 in a street of homes, 267 with 23 residents in view; 243 with 24 dressed residents at the Commons, where each figure is 8 draws dressed or bare ([decision 0443](0443-a-dressed-figure-in-3d-draws-what-a-bare-one-does-its-still-.md)) |
+| Triangles per frame, shadow pass included | 150,000 | 83,000 to 103,000; about 136,000 with 24 dressed residents at the Commons |
 | Texture memory, not counting the drawing buffer | 16 MB | about 7 MB by estimate: the 1024 shadow map (4 MB), one grain, plank, stone, and hearth glow texture shared by every plot, and a name tag per figure (about 100 kB each); up to about 13 MB with what's on display (below) |
 
 **What's on display** (`scene3d/displays.ts`, shared with the plot view): a piece's picture is cropped and scaled to 256 by 192 once (about 260 kB with mipmaps), every display of the same thing shares one texture, at most 16 pictures are held at a time (about 4 MB; past that a piece shows its drawn picture), and a texture is freed with the last plot that shows it. Drawn pictures of made things are 128 pixels square (160 by 120 on paper in a frame), one per kind. At the very worst, 16 different pictures and every kind of made thing in view, the estimate is about 13 MB. A model piece shows its drawn picture in a frame, not its model. Crops in planters are about 100 triangles each, in one draw per plot for the plants and one for ripe fruit.

@@ -20,8 +20,11 @@ import {
   CircleGeometry,
   Color,
   CylinderGeometry,
+  FrontSide,
   Group,
   LatheGeometry,
+  type Material,
+  Matrix4,
   Mesh,
   MeshBasicMaterial,
   MeshLambertMaterial,
@@ -38,7 +41,7 @@ import { mergeGeometries } from "three/addons/utils/BufferGeometryUtils.js";
 import { idPhase, type Pose, pose, restingPose, type Shown } from "../feelings";
 import { blobShadow, canvasTexture, lin, nameTag, type Stage } from "./art";
 import { BEAN, beanAt } from "./bean";
-import { hairMesh } from "./hair";
+import { hairGeometry } from "./hair";
 import { FIGURE_SCALE, type LayoutFigure, SIGN_SIZE, tagHeight } from "./layout";
 import { BRAND, residentHex, SKY } from "./palette";
 import { wearGroup } from "./wear";
@@ -504,6 +507,109 @@ function intoHead(geo: BufferGeometry): BufferGeometry {
   return geo;
 }
 
+/** A piece with one flat color: no picture, no glow, nothing see-through. */
+function plain(m: Material | Material[]): m is MeshLambertMaterial {
+  return (
+    m instanceof MeshLambertMaterial &&
+    !m.map &&
+    m.emissive.getHex() === 0 &&
+    !m.transparent &&
+    m.opacity === 1
+  );
+}
+
+/** A copy of `geo` with each triangle also turned the other way, so one side draws as both. */
+function twoSided(geo: BufferGeometry): BufferGeometry {
+  const flat = geo.index ? geo.toNonIndexed() : geo;
+  const g = bare(flat);
+  g.setAttribute("color", flat.getAttribute("color"));
+  const back = g.clone();
+  for (const name of ["position", "normal", "color"] as const) {
+    const a = back.getAttribute(name);
+    if (!a) continue;
+    // Swap each triangle's second and third corners, and turn its normals around.
+    for (let i = 0; i < a.count; i += 3) {
+      for (let k = 0; k < a.itemSize; k++) {
+        const second = a.getComponent(i + 1, k);
+        a.setComponent(i + 1, k, a.getComponent(i + 2, k));
+        a.setComponent(i + 2, k, second);
+      }
+    }
+    if (name === "normal") {
+      const n = a.array as Float32Array;
+      for (let i = 0; i < n.length; i++) n[i] = -(n[i] as number);
+    }
+  }
+  const out = mergeGeometries([g, back]) as BufferGeometry;
+  g.dispose();
+  back.dispose();
+  return out;
+}
+
+/** What a figure wears, sorted for drawing: still, plain pieces merged, the rest as they were. */
+interface SortedWear {
+  /** Plain pieces on the body, ready to merge into the torso. */
+  body: BufferGeometry[];
+  /** Plain pieces on the head, in the head's own space, ready to merge into it. */
+  head: BufferGeometry[];
+  /** Everything else, each still its own mesh: patterned, glowing, two-sided, or an umbrella. */
+  kept: Mesh[];
+}
+
+/**
+ * Sort `wear` (from `wearGroup`) so the plain pieces cost no draws of their own: each is painted its
+ * material's color through `paint` and moved to where it sits, for the torso or the head to take
+ * in. Two-sided plain pieces and each state of an umbrella merge into one mesh apiece. A kept
+ * piece keeps whatever hangs from it.
+ */
+function sortWear(wear: Group, paint: (c: Color) => Color): SortedWear {
+  wear.updateMatrixWorld(true);
+  const out: SortedWear = { body: [], head: [], kept: [] };
+  const extra = new Map<string, { geos: BufferGeometry[]; mesh: Mesh }>();
+  const toHead = new Matrix4().makeTranslation(0, -HEAD_Y, 0);
+  const walk = (o: Object3D, head: boolean, umbrella: string | undefined) => {
+    if (!(o instanceof Mesh)) return;
+    if (!plain(o.material)) {
+      // One that hung from a merged piece takes its place in the wear's own space.
+      if (o.parent !== wear) o.matrixWorld.decompose(o.position, o.quaternion, o.scale);
+      out.kept.push(o);
+      return;
+    }
+    const geo = painted(bare(o.geometry).applyMatrix4(o.matrixWorld), paint(o.material.color));
+    if (o.material.side === FrontSide && !umbrella) {
+      if (head) out.head.push(geo.applyMatrix4(toHead));
+      else out.body.push(geo);
+    } else {
+      // In the wear's own space, like a kept piece, so it moves onto the head the same way.
+      const key = `${head}|${o.material.side}|${umbrella ?? ""}`;
+      let bucket = extra.get(key);
+      if (!bucket) {
+        const mat = new MeshLambertMaterial({ vertexColors: true, side: o.material.side });
+        const mesh = new Mesh(undefined, mat);
+        mesh.userData.onHead = head;
+        if (umbrella) mesh.userData.umbrella = umbrella;
+        mesh.visible = o.visible;
+        bucket = { geos: [], mesh };
+        extra.set(key, bucket);
+      }
+      bucket.geos.push(geo);
+    }
+    for (const child of o.children) walk(child, head, umbrella);
+  };
+  for (const o of wear.children) {
+    walk(o, o.userData.onHead === true, o.userData.umbrella as string | undefined);
+  }
+  for (const { geos, mesh } of extra.values()) {
+    mesh.geometry = mergeGeometries(geos) as BufferGeometry;
+    for (const g of geos) g.dispose();
+    out.kept.push(mesh);
+  }
+  wear.traverse((o) => {
+    if (o instanceof Mesh && !out.kept.includes(o)) o.geometry.dispose();
+  });
+  return out;
+}
+
 /** A stubby arm hanging down from its shoulder at the origin. */
 const armGeo = () => new CapsuleGeometry(0.046, 0.1, 3, 8).translate(0, -0.095, 0);
 
@@ -517,9 +623,11 @@ const footGeo = (s: number) =>
  * and feet, a warm outline, and their wear. It faces +z. `f.feeling` is one to hold (sleepy at the
  * hearth); reactions come and go through `showFeeling`.
  *
- * A neutral figure is six draws: the body (side, feet and left arm in one mesh), the outline, the
- * head, the right arm, the eyes, and the cheeks. The head is a sphere
- * that turns and tilts about its middle, so its outline can sit in the body's outline unmoved.
+ * A neutral figure is six draws, dressed or not (decision 0443): the body (side, feet, left arm and
+ * plain wear in one mesh), the outline, the head (with its hair and plain hats, glasses and bows),
+ * the right arm, the eyes, and the cheeks. Patterned or glowing wear and an umbrella draw on their
+ * own. The head is a sphere that turns and tilts about its middle, so its outline can sit in the
+ * body's outline unmoved.
  */
 export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group {
   const group = new Group();
@@ -529,7 +637,6 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   // showing through as on the map.
   const ghost = f.look.wear?.includes("ghost_sheet") ?? false;
   const skinHex = ghost ? garmentColor(f.look, "ghost_sheet") : residentHex(f.color);
-  const skin = new MeshLambertMaterial({ color: skinHex });
   // Like the map's figure: clothes in the outfit's main color, the head in their own.
   const outfit = new Color(lookPalette(f.look.theme, f.color).main);
   const own = new Color(skinHex);
@@ -544,27 +651,58 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const outline = new MeshBasicMaterial({ color: OUTLINE_HEX, side: BackSide });
   outline.userData.outline = true;
   const rims = [pushed(new SphereGeometry(HEAD_R, 18, 12), OUTLINE).translate(0, HEAD_Y, 0)];
+  // Someone away fades toward the haze. The torso and the hair are tinted through their material
+  // (the loop at the end), so a piece merged into them is painted as its own material would fade.
+  const haze = lin(SKY.fog);
+  const tint = new Color(1, 1, 1).lerp(haze, AWAY_FADE);
+  const paint = (c: Color) =>
+    f.away
+      ? c
+          .clone()
+          .lerp(haze, AWAY_FADE)
+          .multiply(new Color(1 / tint.r, 1 / tint.g, 1 / tint.b))
+      : c;
+  // What they wear that is one plain color and never moves on its own joins the torso, or the head
+  // when it turns with it, so a dressed figure costs the draws a bare one does.
+  const wear = sortWear(wearGroup(f), paint);
+  const parts = [...wear.body];
   if (!ghost) {
     const sole = new Color(WOOD_DARK);
-    const parts = [
+    parts.unshift(
       shaded(lower, outfit, flat),
       shaded(upper, own, flat),
       ...feet.map((g) => shaded(g, sole)),
       shaded(leftArm, sleeve),
-    ];
-    const torso = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ vertexColors: true }));
-    torso.name = "torso";
-    body.add(torso);
+    );
     rims.push(
       pushed(lower, OUTLINE),
       pushed(upper, OUTLINE),
       ...feet.map((g) => pushed(g, OUTLINE)),
     );
   }
+  if (parts.length > 0) {
+    const torso = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ vertexColors: true }));
+    torso.name = "torso";
+    body.add(torso);
+  }
   const rim = new Mesh(mergeGeometries(rims), outline);
   rim.name = "outline";
-  for (const g of [lower, upper, leftArm, ...feet, ...rims]) g.dispose();
-  const skull = new Mesh(new SphereGeometry(HEAD_R, 18, 12), skin);
+  for (const g of [lower, upper, leftArm, ...feet, ...rims, ...parts]) g.dispose();
+  // The head, its hair, and what sits on it are one mesh. Hair is seen from inside too (through the
+  // face and under a hat's brim), so it goes in both ways round.
+  const hair = hairGeometry(f.look, f.look.wear);
+  const headParts = [
+    painted(bare(new SphereGeometry(HEAD_R, 18, 12)), paint(new Color(skinHex))),
+    ...wear.head,
+    ...(hair ? [twoSided(hair)] : []),
+  ];
+  const skull = new Mesh(
+    mergeGeometries(headParts),
+    new MeshLambertMaterial({ vertexColors: true }),
+  );
+  skull.name = "head";
+  for (const g of headParts) g.dispose();
+  hair?.dispose();
   // Light eyes and mouth on a coal head, as on the map.
   const face = faceParts(f.color === "coal" && !ghost ? BRAND.paper : BRAND.ink);
   face.head.add(skull);
@@ -572,7 +710,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const arm = new Group();
   arm.position.set(SHOULDER.x, SHOULDER.y, SHOULDER.z);
   arm.rotation.z = ARM_REST;
-  arm.add(new Mesh(armGeo(), ghost ? skin : new MeshLambertMaterial({ color: sleeve })));
+  arm.add(new Mesh(armGeo(), new MeshLambertMaterial({ color: ghost ? skinHex : sleeve })));
   arm.visible = !ghost;
   body.add(rim, face.head, arm);
   if (f.kind === "agent") {
@@ -589,16 +727,16 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
     bulb.position.y = 0.97 - HEAD_Y;
     face.head.add(stalk, bulb);
   }
-  // Hair sits on the head and turns with it; a hat that covers the crown hides the top of it.
-  const hair = hairMesh(f.look, f.look.wear);
-  if (hair) face.head.add(hair);
-  const wear = wearGroup(f);
-  // Hats, glasses and bows turn with the head.
-  for (const piece of wear.children.filter((o) => o.userData.onHead)) {
-    piece.position.y -= HEAD_Y;
-    face.head.add(piece);
+  // Hats, glasses and bows turn with the head; the rest stays on the body.
+  const worn = new Group();
+  worn.name = "wear";
+  for (const piece of wear.kept) {
+    if (piece.userData.onHead) {
+      piece.position.y -= HEAD_Y;
+      face.head.add(piece);
+    } else worn.add(piece);
   }
-  body.add(wear);
+  body.add(worn);
   // The flat face parts are too thin to cast a shadow.
   body.traverse((o) => {
     if (o instanceof Mesh && !(o.material instanceof MeshBasicMaterial)) o.castShadow = true;
@@ -616,7 +754,6 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   group.add(label);
   if (f.away) {
     // Away and asleep at home: faded toward the haze, so they read as not quite here.
-    const haze = lin(SKY.fog);
     body.traverse((o) => {
       if (!(o instanceof Mesh)) return;
       if (o.material instanceof MeshLambertMaterial || o.material.userData.outline)

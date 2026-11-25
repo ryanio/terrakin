@@ -23,6 +23,7 @@ import {
   Mesh,
   type Object3D,
   SphereGeometry,
+  Sprite,
   Texture,
   Vector3,
 } from "three";
@@ -32,9 +33,9 @@ import { addAll, frameDistance, type Stage } from "./scene3d/art";
 import { BEAN, beanAt } from "./scene3d/bean";
 import { blockMeshes } from "./scene3d/blocks";
 import { parseGallery } from "./scene3d/catalog";
-import { faceParts, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
+import { faceParts, figure, OVERHEAD_ORDER, overheadMaterial } from "./scene3d/figure";
 import { sparksAt } from "./scene3d/fireworks";
-import { hairMesh, hairPieces } from "./scene3d/hair";
+import { hairGeometry, hairPieces } from "./scene3d/hair";
 import {
   cornerLight,
   cutAway,
@@ -55,6 +56,7 @@ import {
   homeFrame,
   homePlot,
   type LayoutBlock,
+  type LayoutFigure,
   mediaRef,
   modelFootprint,
   overBudget,
@@ -75,6 +77,12 @@ import {
 import { BRAND, blockLook, hex, mix, shade } from "./scene3d/palette";
 import { flooringSlabs, groundTiles } from "./scene3d/paths";
 import { onHead } from "./scene3d/wear";
+
+// A name tag is drawn on a canvas, which tests have none of; any texture stands in for it.
+vi.mock("./scene3d/art", async (original) => ({
+  ...(await original<typeof import("./scene3d/art")>()),
+  nameTag: () => ({ texture: new Texture(), aspect: 3 }),
+}));
 
 type ResidentView = WorldSnapshot["residents"][number];
 
@@ -806,6 +814,56 @@ describe("wear on 3D figures", () => {
     expect(boots?.color).toBe(garmentColor({ color: "sky", theme: "lemon" }, "boots"));
   });
 
+  it("costs a dressed figure no more draws than a bare one", () => {
+    const stage = { animate: () => () => {} } as unknown as Stage;
+    /** Meshes and sprites that draw: shown, with everything they hang from shown. */
+    const draws = (look: Partial<LayoutFigure["look"]>, extra: Partial<LayoutFigure> = {}) => {
+      const fig = figure(
+        stage,
+        {
+          id: "r_1",
+          name: "Ada",
+          kind: "human",
+          color: "sun",
+          shape: "round",
+          x: 0,
+          y: 0,
+          owner: false,
+          look: { color: "sun", shape: "round", ...look },
+          ...extra,
+        },
+        new Texture(),
+      );
+      let n = 0;
+      const walk = (o: Object3D) => {
+        if (!o.visible) return;
+        if (o instanceof Mesh || o instanceof Sprite) n++;
+        for (const c of o.children) walk(c);
+      };
+      walk(fig);
+      return n;
+    };
+    // The shadow under them, the body, its outline, the head, the waving arm, the eyes, the cheeks,
+    // and the name tag: 24 of them stay inside decision 0060's 300 draws a frame with the world.
+    const bare = draws({});
+    expect(bare).toBe(8);
+    const outfits: WearItem[][] = [
+      ["straw_hat", "apron", "skirt", "socks", "basket"],
+      ["beret", "scarf", "trousers", "boots", "satchel"],
+      ["flower_crown", "cardigan", "shorts", "sneakers", "glasses"],
+      ["top_hat", "raincoat", "trousers", "boots", "bow"],
+      ["sun_hat", "dress", "sneakers", "tool_belt"],
+    ];
+    for (const wear of outfits) {
+      expect(draws({ wear, hair: "pigtails", hairColor: "pink" }), wear.join()).toBe(bare);
+    }
+    // Away and asleep, the same.
+    expect(draws({ wear: outfits[0], hair: "bob" }, { away: true })).toBe(bare);
+    // An umbrella is up or rolled up, never both; a glow draws on its own.
+    expect(draws({ wear: ["umbrella"] })).toBe(bare + 1);
+    expect(draws({ wear: ["muse_lantern"] })).toBe(bare + 1);
+  });
+
   it("lifts the name tag over a top hat, a halo, tall hair, or an umbrella held up", () => {
     const look = (wear: WearItem[]) => ({ color: "sky" as const, shape: "round" as const, wear });
     expect(tagHeight({ kind: "human", look: look([]) })).toBe(1.08);
@@ -835,21 +893,21 @@ describe("hair on 3D figures", () => {
     return top;
   };
 
-  it("is one mesh per figure, in the hair's color, and none without a style", () => {
+  it("is one geometry per figure, in the hair's color, and none without a style", () => {
     const bare = { color: "sky" as const, shape: "round" as const };
-    expect(hairMesh(bare)).toBeUndefined();
-    expect(hairMesh({ ...bare, hairColor: "pink" })).toBeUndefined();
-    expect(hairMesh({ ...bare, hair: "mullet" as never })).toBeUndefined();
+    expect(hairGeometry(bare)).toBeUndefined();
+    expect(hairGeometry({ ...bare, hairColor: "pink" })).toBeUndefined();
+    expect(hairGeometry({ ...bare, hair: "mullet" as never })).toBeUndefined();
     const pink = new Color(HAIR_COLOR_INFO.pink.hex);
     for (const hair of HAIR_STYLES) {
-      const mesh = hairMesh({ ...bare, hair, hairColor: "pink" });
-      const colors = mesh?.geometry.getAttribute("color");
+      const geo = hairGeometry({ ...bare, hair, hairColor: "pink" });
+      const colors = geo?.getAttribute("color");
       expect(colors, hair).toBeDefined();
       expect([colors?.getX(0), colors?.getY(0), colors?.getZ(0)], hair).toEqual(
         [pink.r, pink.g, pink.b].map((c) => expect.closeTo(c, 5)),
       );
-      // One draw call each, inside decision 0060's frame budget with 24 figures in view.
-      expect(triangles(mesh?.geometry as BufferGeometry), hair).toBeLessThan(1300);
+      // Drawn both ways round in the head's mesh, inside decision 0060's frame budget.
+      expect(triangles(geo as BufferGeometry), hair).toBeLessThan(1300);
     }
   });
 

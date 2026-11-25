@@ -3,7 +3,7 @@
  * Built in the head's own space, so it turns with the head: the head is a sphere of 0.17 around
  * the origin, facing +z. Shells sit just outside it and leave the face open. A hat that covers the
  * crown hides what would be above its band, so longer styles still show below it. Every piece of a
- * figure's hair is merged into one mesh, colored per vertex, so it costs one draw call.
+ * figure's hair is one geometry, colored per vertex, which `figure()` merges into the head.
  */
 import type { WearItem } from "@terrakin/sim";
 import { type FigureLook, hairTieColor } from "@terrakin/ui/figure";
@@ -14,9 +14,6 @@ import {
   Color,
   ConeGeometry,
   CylinderGeometry,
-  DoubleSide,
-  Mesh,
-  MeshLambertMaterial,
   Quaternion,
   SphereGeometry,
   Vector3,
@@ -225,8 +222,14 @@ function painted(geo: BufferGeometry, color: Color): BufferGeometry {
   return geo;
 }
 
-/** The figure's hair as one mesh, ready to add to its head, or undefined when it has none. */
-export function hairMesh(look: FigureLook, wear: readonly WearItem[] = []): Mesh | undefined {
+/**
+ * The figure's hair as one geometry in the head's own space, colored per vertex, or undefined when
+ * it has none. `figure()` merges it into the head.
+ */
+export function hairGeometry(
+  look: FigureLook,
+  wear: readonly WearItem[] = [],
+): BufferGeometry | undefined {
   const hair = hairOf(look);
   // Nothing shows under a pumpkin head or a ghost sheet (RFC 0022).
   if (!hair || hidesHair(wear)) return undefined;
@@ -236,9 +239,5 @@ export function hairMesh(look: FigureLook, wear: readonly WearItem[] = []): Mesh
   const tie = new Color(hairTieColor(lookPalette(look.theme, look.color)));
   const merged = mergeGeometries(pieces.map((p) => painted(p.geo, p.tie ? tie : strands)));
   for (const p of pieces) p.geo.dispose();
-  if (!merged) return undefined;
-  const mesh = new Mesh(merged, new MeshLambertMaterial({ vertexColors: true, side: DoubleSide }));
-  mesh.name = "hair";
-  mesh.castShadow = true;
-  return mesh;
+  return merged ?? undefined;
 }

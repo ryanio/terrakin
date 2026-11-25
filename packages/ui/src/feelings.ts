@@ -1,5 +1,5 @@
 /**
- * The feelings a figure can show (RFC 0013). One fixed list, shared by the 2D figure, the 3D peg,
+ * The feelings a figure can show (RFC 0013). One fixed list, shared by the 2D figure, the 3D bean,
  * and character bodies. It lives in `@terrakin/figure`, which other projects draw bodies with too
  * (RFC 0031), and is imported from there.
  */

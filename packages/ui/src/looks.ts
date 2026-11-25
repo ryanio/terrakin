@@ -222,7 +222,7 @@ export const BAT_POINTS: readonly (readonly [number, number])[] = [
 /**
  * One bat wing worn as a costume, the left one, in tiles from the figure's feet (y up is negative):
  * from the shoulder out to the tip, then back along its scallops. The right wing is its mirror. The
- * 2D figure and the 3D peg figures both draw it.
+ * 2D figure and the 3D bean both draw it.
  */
 export const BAT_WING: readonly (readonly [number, number])[] = [
   [-0.07, -0.47],

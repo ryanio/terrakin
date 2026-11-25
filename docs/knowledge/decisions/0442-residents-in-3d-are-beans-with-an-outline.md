@@ -21,10 +21,11 @@ The head stays a sphere of 0.17 at y 0.66 and the body keeps the peg's width, so
 
 ## Consequences
 
-- Code: `figure()` and `faceParts()` in [`packages/client/src/scene3d/figure.ts`](../../../packages/client/src/scene3d/figure.ts), and the side's profile, `BEAN` and `beanAt`, in [`bean.ts`](../../../packages/client/src/scene3d/bean.ts), which `wear.ts` also reads so an apron or a bib lies on the curve. The 2D map figure is unchanged.
+- Code: `figure()` and `faceParts()` in [`packages/client/src/scene3d/figure.ts`](../../../packages/client/src/scene3d/figure.ts), and the side's profile, `BEAN` and `beanAt`, in [`bean.ts`](../../../packages/client/src/scene3d/bean.ts), which `wear.ts` also reads so an apron or a bib lies on the curve.
 - The shoulders' normals turn toward the head's where the side runs into it, so the light shows no crease under the cheeks.
 - The nose is gone. Which way someone faces now shows in their eyes, feet and arms.
 - The bean's shoulders run up over the lower head, so the mouth sits between the cheeks, laid just over the bean there (`overBean`). A test holds every face part outside the bean's side.
 - On a floor the view cuts away the outline hides, so the see-through body stays faint instead of greying.
 - About 1,500 more triangles a figure, mostly the outline, which keeps the world inside decision 0060's 150,000.
 - A garment that lies on the body follows `beanAt`; one that stands clear of it needs no change. Under a ghost sheet the arms hide until one waves.
+- The 2D figure (the map, avatars, the look editor, and pictures by link through `figure-svg.ts`) is the same bean drawn flat, in `drawFigure` in [`packages/ui/src/figure.ts`](../../../packages/ui/src/figure.ts): each shape's side (`BODY_SIDE`) runs from where it meets the head (`JOIN`, just under the head's middle) to its base, so body and head read as one shape; the head and every garment keep their sizes. Inside the white rim that keeps a figure readable on any ground, the same warm brown outline goes round the body, the head, the arms and a skirt's flare. Open eyes are tall ovals with a catch light, and the nose is gone here too.

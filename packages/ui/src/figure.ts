@@ -128,6 +128,9 @@ export const FIGURE_BOX = { left: -0.5, right: 0.5, top: -1.06, bottom: 0.12 };
 const INK = BRAND_HEX.ink;
 const PAPER = BRAND_HEX.paper;
 const RIM = "#ffffff";
+/** The warm dark brown round a figure, the 3D figure's own, and how wide it's drawn (half shows). */
+const OUTLINE = "#3d2c20";
+const OUTLINE_WIDTH = 0.03;
 /** Sneakers are white canvas. */
 const CANVAS = "#fdfbf6";
 /** The Muse halo: soft lilac plush, trimmed in plum, with gold studs. */
@@ -311,41 +314,98 @@ function paintCloth(
   ctx.restore();
 }
 
-/** Body outline for each shape: a bean, a soft block, or an A-line smock. Origin at the feet. */
+/**
+ * Where every body meets the head, in tiles from the feet: just under the head's middle, where the
+ * head's side is nearly upright, so body and head read as one shape. The head covers the top.
+ */
+const JOIN = { x: 0.206, y: -0.62 };
+
+type Pt = readonly [number, number];
+/** A curve as its two control points and its end. */
+type Curve = readonly [Pt, Pt, Pt];
+
+/**
+ * The right side of each body, from `JOIN` down to the middle of its base, in tiles from the feet:
+ * a bean out to round hips, a soft block with straight sides, or an A-line smock out to a wide hem.
+ */
+const BODY_SIDE: Record<ResidentShape, readonly Curve[]> = {
+  round: [
+    [
+      [0.206, -0.52],
+      [0.29, -0.37],
+      [0.29, -0.21],
+    ],
+    [
+      [0.29, -0.07],
+      [0.17, -0.025],
+      [0, -0.025],
+    ],
+  ],
+  square: [
+    [
+      [0.206, -0.54],
+      [0.27, -0.52],
+      [0.27, -0.42],
+    ],
+    [
+      [0.27, -0.27],
+      [0.27, -0.12],
+      [0.27, -0.1],
+    ],
+    [
+      [0.27, -0.04],
+      [0.22, -0.03],
+      [0, -0.03],
+    ],
+  ],
+  diamond: [
+    [
+      [0.206, -0.56],
+      [0.22, -0.48],
+      [0.24, -0.4],
+    ],
+    [
+      [0.27, -0.27],
+      [0.29, -0.18],
+      [0.31, -0.1],
+    ],
+    [
+      [0.33, -0.03],
+      [0.25, -0.03],
+      [0, -0.03],
+    ],
+  ],
+};
+
+/** Body outline for a shape, origin at the feet: down the left side from the head, up the right. */
 function bodyPath(ctx: CanvasRenderingContext2D, shape: ResidentShape, u: number) {
+  const side = BODY_SIDE[shape] ?? BODY_SIDE.round;
   ctx.beginPath();
-  if (shape === "square") {
-    ctx.roundRect(-0.27 * u, -0.5 * u, 0.54 * u, 0.47 * u, 0.12 * u);
-  } else if (shape === "diamond") {
-    ctx.moveTo(-0.13 * u, -0.5 * u);
-    ctx.lineTo(0.13 * u, -0.5 * u);
-    ctx.quadraticCurveTo(0.2 * u, -0.48 * u, 0.22 * u, -0.4 * u);
-    ctx.lineTo(0.31 * u, -0.1 * u);
-    ctx.quadraticCurveTo(0.33 * u, -0.03 * u, 0.25 * u, -0.03 * u);
-    ctx.lineTo(-0.25 * u, -0.03 * u);
-    ctx.quadraticCurveTo(-0.33 * u, -0.03 * u, -0.31 * u, -0.1 * u);
-    ctx.lineTo(-0.22 * u, -0.4 * u);
-    ctx.quadraticCurveTo(-0.2 * u, -0.48 * u, -0.13 * u, -0.5 * u);
-    ctx.closePath();
-  } else {
-    ctx.ellipse(0, -0.27 * u, 0.28 * u, 0.25 * u, 0, 0, Math.PI * 2);
+  ctx.moveTo(-JOIN.x * u, JOIN.y * u);
+  // Each curve with where it starts, so the way back up can end each one there.
+  const back: [Curve, Pt][] = [];
+  let from: Pt = [JOIN.x, JOIN.y];
+  for (const curve of side) {
+    const [[ax, ay], [bx, by], [ex, ey]] = curve;
+    ctx.bezierCurveTo(-ax * u, ay * u, -bx * u, by * u, -ex * u, ey * u);
+    back.unshift([curve, from]);
+    from = curve[2];
   }
+  // Back up the right side, each curve reversed.
+  for (const [[[ax, ay], [bx, by]], [tx, ty]] of back) {
+    ctx.bezierCurveTo(bx * u, by * u, ax * u, ay * u, tx * u, ty * u);
+  }
+  ctx.closePath();
 }
 
 const HEAD_Y = -0.66;
 const HEAD_R = 0.21;
-/** In profile, where the eye sits and the nose that pokes past the head, as a multiple of `side`. */
+/** In profile, where the eye sits, as a multiple of `side`. */
 const PROFILE_EYE = 0.1;
-const NOSE = { x: 0.2, y: -0.62, r: 0.045 };
 
-/** The head, plus the nose in profile so the outline points the way they face. */
-function headPath(ctx: CanvasRenderingContext2D, u: number, side: number) {
+function headPath(ctx: CanvasRenderingContext2D, u: number) {
   ctx.beginPath();
   ctx.arc(0, HEAD_Y * u, HEAD_R * u, 0, Math.PI * 2);
-  if (side) {
-    ctx.moveTo((NOSE.x * side + NOSE.r) * u, NOSE.y * u);
-    ctx.arc(NOSE.x * side * u, NOSE.y * u, NOSE.r * u, 0, Math.PI * 2);
-  }
 }
 
 /** Where the two feet sit, in tiles from the middle, for the way the figure faces. */
@@ -399,7 +459,7 @@ const WAVE_LEAN = { front: [0, 0.35, 0.75], side: [0, 0.85, 1.2] } as const;
 /** The raised arm's shoulder, the middle of the arm, and the hand, for `s` (-1 or 1) and the wave. */
 function raisedArm(side: number, s: number, wave: 1 | 2) {
   const lean = (side ? WAVE_LEAN.side : WAVE_LEAN.front)[wave];
-  // In profile the arm reaches forward, clear of the nose.
+  // In profile the arm reaches forward, clear of the face.
   const sx = (side ? 0.15 : 0.22) * s;
   const reach = side ? 0.22 : 0.2;
   const dx = Math.sin(lean) * s;
@@ -424,10 +484,35 @@ function raisedArmPath(
 }
 
 /**
+ * The arms that hang at the sides: both from the front (less the one a wave raises), and from the
+ * side the near one over the body, the far one hidden.
+ */
+function armsPath(
+  ctx: CanvasRenderingContext2D,
+  u: number,
+  side: number,
+  hand: number,
+  waving: boolean,
+) {
+  ctx.beginPath();
+  if (side) {
+    if (!waving)
+      ctx.ellipse(-0.03 * side * u, -0.29 * u, 0.065 * u, 0.11 * u, 0.25 * side, 0, Math.PI * 2);
+  } else {
+    if (!waving || hand > 0)
+      ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
+    if (!waving || hand < 0) {
+      ctx.moveTo(0.33 * u, -0.3 * u);
+      ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
+    }
+  }
+}
+
+/**
  * Draw a figure with its feet at (0, 0) of the current transform. `u` is one tile in pixels.
  * `pattern` fills the clothes over the main color (null for plain). `facing` is the way they look:
- * south (the default) shows the face, north their back, east and west a profile with one eye and
- * a nose pointing that way, and a diagonal the profile it's heading toward (`fourWayFacing`).
+ * south (the default) shows the face, north their back, east and west a profile with one eye
+ * toward that way, and a diagonal the profile it's heading toward (`fourWayFacing`).
  * `patterns` makes the tiles for garments with a pattern of their own. `face` is the feeling on
  * the face, a blink, and a wave; without one the face is neutral with open eyes.
  */
@@ -464,7 +549,32 @@ export function drawFigure(
   const hair = hidesHair(look.wear) ? undefined : hairOf(look);
   const hairView: HairView = { side, back, hat: coveringHat(wear) };
 
-  // White rim behind everything, so the figure reads on any ground.
+  // The figure's own shape: the body (or the sheet), the head (or the pumpkin), a raised arm, and
+  // a skirt's flare.
+  const edge = () => {
+    if (ghost) ghostPath(ctx, u, side);
+    else bodyPath(ctx, look.shape, u);
+    ctx.stroke();
+    if (pumpkin) {
+      pumpkinPath(ctx, u, side);
+      ctx.stroke();
+    } else if (!ghost) {
+      headPath(ctx, u);
+      ctx.stroke();
+    }
+    if (waving) {
+      raisedArmPath(ctx, u, waving);
+      ctx.stroke();
+    }
+    armsPath(ctx, u, side, hand, Boolean(waving));
+    ctx.stroke();
+    if (flared) {
+      flarePath(ctx, u);
+      ctx.stroke();
+    }
+  };
+  // White rim behind everything, so the figure reads on any ground, and inside it a warm outline
+  // round the figure's shape, as the 3D figure has.
   ctx.lineJoin = "round";
   ctx.strokeStyle = RIM;
   ctx.lineWidth = rim * 2;
@@ -472,25 +582,11 @@ export function drawFigure(
     batWingsPath(ctx, u, side, back);
     ctx.stroke();
   }
-  if (ghost) ghostPath(ctx, u, side);
-  else bodyPath(ctx, look.shape, u);
-  ctx.stroke();
-  if (pumpkin) {
-    pumpkinPath(ctx, u, side);
-    ctx.stroke();
-  } else if (!ghost) {
-    headPath(ctx, u, back ? 0 : side);
-    ctx.stroke();
-  }
-  if (waving) {
-    raisedArmPath(ctx, u, waving);
-    ctx.stroke();
-  }
-  if (flared) {
-    flarePath(ctx, u);
-    ctx.stroke();
-  }
+  edge();
   if (hair) rimHair(ctx, u, hair.style, hairView);
+  ctx.strokeStyle = OUTLINE;
+  ctx.lineWidth = Math.max(1, u * OUTLINE_WIDTH);
+  edge();
 
   // Hair that hangs behind the head and body: a bob's back, a ponytail, an afro's puff.
   if (hair) drawHair(ctx, u, hair, "behind", hairView, p);
@@ -543,18 +639,7 @@ export function drawFigure(
     ? mix(garb("ghost_sheet").color(HALLOWEEN_HEX.sheet), HALLOWEEN_HEX.sheetShade, 0.5)
     : mix(p.main, p.deep, 0.18);
   ctx.fillStyle = arm;
-  ctx.beginPath();
-  if (side) {
-    if (!waving)
-      ctx.ellipse(-0.03 * side * u, -0.29 * u, 0.065 * u, 0.11 * u, 0.25 * side, 0, Math.PI * 2);
-  } else {
-    if (!waving || hand > 0)
-      ctx.ellipse(-0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, 0.35, 0, Math.PI * 2);
-    if (!waving || hand < 0) {
-      ctx.moveTo(0.33 * u, -0.3 * u);
-      ctx.ellipse(0.27 * u, -0.3 * u, 0.06 * u, 0.1 * u, -0.35, 0, Math.PI * 2);
-    }
-  }
+  armsPath(ctx, u, side, hand, Boolean(waving));
   ctx.fill();
   if (waving) {
     raisedArmPath(ctx, u, waving);
@@ -578,7 +663,7 @@ export function drawFigure(
   else {
     if (!ghost) {
       ctx.fillStyle = head;
-      headPath(ctx, u, back ? 0 : side);
+      headPath(ctx, u);
       ctx.fill();
     }
     ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
@@ -661,7 +746,7 @@ function drawFace(
   const eyes = side ? [PROFILE_EYE * side] : [-0.075, 0.075];
   const cheeks = side ? [0.03 * side] : [-0.13, 0.13];
   const shape = eyeShape(feeling, blink);
-  // Toward the middle of the face: the nose in profile, the other eye from the front.
+  // Toward the middle of the face: the way they face in profile, the other eye from the front.
   const inward = (x: number) => side || (x < 0 ? 1 : -1);
   ctx.lineCap = "round";
   ctx.lineWidth = Math.max(1, 0.022 * u);
@@ -696,15 +781,7 @@ function drawFace(
         const dy = shape === "up" ? -0.018 : shape === "down" ? 0.016 : 0;
         const r = shape === "down" ? 0.022 : EYE_R;
         ctx.moveTo((x + dx + r) * u, (EYE_Y + dy) * u);
-        ctx.ellipse(
-          (x + dx) * u,
-          (EYE_Y + dy) * u,
-          r * u,
-          (side ? r * 1.25 : r) * u,
-          0,
-          0,
-          Math.PI * 2,
-        );
+        ctx.ellipse((x + dx) * u, (EYE_Y + dy) * u, r * u, r * 1.25 * u, 0, 0, Math.PI * 2);
       }
     }
   }
@@ -720,13 +797,15 @@ function drawFace(
     }
     ctx.stroke();
   }
-  if (shape === "round") {
-    // A catch of light in wide eyes.
+  if (shape === "round" || shape === "dot") {
+    // A catch of light, up and out, in open eyes.
+    const r = shape === "round" ? 0.012 : 0.009;
     ctx.fillStyle = "rgba(255, 255, 255, 0.85)";
     ctx.beginPath();
     for (const x of eyes) {
-      ctx.moveTo((x + 0.022) * u, (EYE_Y - 0.012) * u);
-      ctx.arc((x + 0.01) * u, (EYE_Y - 0.012) * u, 0.012 * u, 0, Math.PI * 2);
+      const cx = x + (shape === "round" ? 0.01 : 0.008);
+      ctx.moveTo((cx + r) * u, (EYE_Y - 0.012) * u);
+      ctx.arc(cx * u, (EYE_Y - 0.012) * u, r * u, 0, Math.PI * 2);
     }
     ctx.fill();
   }
@@ -745,7 +824,7 @@ function drawFace(
   drawMouth(ctx, u, ink, side, feeling);
 }
 
-/** The mouth for a feeling, under the eyes from the front and toward the nose in profile. */
+/** The mouth for a feeling, under the eyes from the front and toward the way they face in profile. */
 function drawMouth(
   ctx: CanvasRenderingContext2D,
   u: number,

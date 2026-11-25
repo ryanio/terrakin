@@ -16,8 +16,10 @@ import {
   FEELING_ICON,
   type FigureFace,
   type FigureLook,
+  garmentColor,
   garmentLook,
   noteShows,
+  sleeveColor,
 } from "@terrakin/ui/figure";
 import {
   HIDES_HAIR,
@@ -139,6 +141,17 @@ describe("garment looks", () => {
   it("ignores a color or pattern this client doesn't know", () => {
     const look = { ...base, wearStyle: { dress: { color: "teal", pattern: "plaid" } } } as never;
     expect(garmentLook(look, "dress")).toMatchObject({ color: undefined, pattern: undefined });
+  });
+
+  it("gives the arms the sleeves of the outermost top that has them", () => {
+    // Bare arms, and tops without sleeves, leave the arms the outfit's own.
+    expect(sleeveColor(base)).toBeUndefined();
+    expect(sleeveColor({ ...base, wear: ["field_vest", "dress", "apron"] })).toBeUndefined();
+    const cardigan = { ...base, wear: ["cardigan"], wearStyle: { cardigan: { color: "sky" } } };
+    expect(sleeveColor(cardigan as FigureLook)).toBe(RESIDENT_COLOR_HEX.sky);
+    // A raincoat goes over a cardigan.
+    const both = { ...cardigan, wear: ["cardigan", "raincoat"] } as FigureLook;
+    expect(sleeveColor(both)).toBe(garmentColor(base, "raincoat"));
   });
 });
 

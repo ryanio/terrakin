@@ -7,6 +7,7 @@ import {
   type FeelingIcon,
   garmentColor,
   noteShows,
+  sleeveColor,
 } from "@terrakin/ui/figure";
 import { lookPalette } from "@terrakin/ui/looks";
 import {
@@ -532,6 +533,8 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   // Like the map's figure: clothes in the outfit's main color, the head in their own.
   const outfit = new Color(lookPalette(f.look.theme, f.color).main);
   const own = new Color(skinHex);
+  // A coat or cardigan's sleeves cover the arms.
+  const sleeve = new Color(sleeveColor(f.look) ?? lookPalette(f.look.theme, f.color).main);
   const shod = f.look.wear?.some((w) => WEAR_INFO[w].slot === "feet") ?? false;
   const lower = beanSide(f.shape, BEAN[0]?.[1] ?? 0, COLLAR);
   const upper = intoHead(beanSide(f.shape, COLLAR, 0.67));
@@ -547,7 +550,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
       shaded(lower, outfit, flat),
       shaded(upper, own, flat),
       ...feet.map((g) => shaded(g, sole)),
-      shaded(leftArm, outfit),
+      shaded(leftArm, sleeve),
     ];
     const torso = new Mesh(mergeGeometries(parts), new MeshLambertMaterial({ vertexColors: true }));
     torso.name = "torso";
@@ -569,7 +572,7 @@ export function figure(stage: Stage, f: LayoutFigure, shadowMap: Texture): Group
   const arm = new Group();
   arm.position.set(SHOULDER.x, SHOULDER.y, SHOULDER.z);
   arm.rotation.z = ARM_REST;
-  arm.add(new Mesh(armGeo(), ghost ? skin : new MeshLambertMaterial({ color: outfit })));
+  arm.add(new Mesh(armGeo(), ghost ? skin : new MeshLambertMaterial({ color: sleeve })));
   arm.visible = !ghost;
   body.add(rim, face.head, arm);
   if (f.kind === "agent") {

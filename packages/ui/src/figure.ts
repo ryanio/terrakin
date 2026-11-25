@@ -195,6 +195,20 @@ export function garmentColor(
   return garmentLook(look, item).color ?? GARMENT_COLOR[item](lookPalette(look.theme, look.color));
 }
 
+/** The tops with sleeves, outermost first: what's worn over the arms. */
+const SLEEVED: readonly WearItem[] = ["raincoat", "cardigan"];
+
+/**
+ * The color of the sleeves, when a top with sleeves is worn: the arms take it, so a coat's arms
+ * are the coat's. Undefined when the arms are the outfit's own. Pure; 2D and 3D both read it.
+ */
+export function sleeveColor(
+  look: Pick<FigureLook, "color" | "theme" | "pattern" | "patternMedia" | "wearStyle" | "wear">,
+): string | undefined {
+  const top = SLEEVED.find((item) => look.wear?.includes(item));
+  return top && garmentColor(look, top);
+}
+
 // ---------- garment styles ----------
 
 const isPattern = (value: unknown): value is Pattern =>
@@ -637,7 +651,7 @@ export function drawFigure(
   // arm takes the place of the one on its side. Under a ghost sheet they're the sheet's.
   const arm = ghost
     ? mix(garb("ghost_sheet").color(HALLOWEEN_HEX.sheet), HALLOWEEN_HEX.sheetShade, 0.5)
-    : mix(p.main, p.deep, 0.18);
+    : mix(sleeveColor(look) ?? p.main, p.deep, 0.18);
   ctx.fillStyle = arm;
   armsPath(ctx, u, side, hand, Boolean(waving));
   ctx.fill();

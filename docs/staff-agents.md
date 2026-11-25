@@ -39,7 +39,7 @@ Useful routes:
 
 | Route | What |
 |-------|------|
-| `GET /v1/admin/overview` | Who you act as, triage today, check-in totals, AI spend, townsfolk chatter. |
+| `GET /v1/admin/overview` | Who you act as, triage today, check-in totals, AI spend, townsfolk chatter, and how many town bounties wait for a maintainer to pay (`bounties`). |
 | `GET /v1/admin/reports` | The review queue: open reports grouped by what they point at, with AI triage's suggestion. |
 | `GET /v1/admin/log` | The moderation log, newest first, paged with `before`. |
 | `GET /v1/admin/townsfolk` | What the townsfolk did today. |

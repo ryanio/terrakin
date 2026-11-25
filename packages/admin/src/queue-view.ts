@@ -481,6 +481,7 @@ const TODAY_ICONS: Record<TodayRow["key"], IconName> = {
   chatter: "chat",
   notes: "heart",
   tips: "gift",
+  bounties: "flag",
 };
 
 /**

@@ -30,7 +30,7 @@ import {
 import { DEPLOY_ACTOR } from "../access";
 import { SUMMARY_DAYS } from "../ai-spend";
 import type { Api } from "../api";
-import { staffBountiesView } from "../bounties";
+import { staffBountiesView, waitingBountiesSummary } from "../bounties";
 import { eventView } from "../events";
 import { madeThingForReport } from "../galleries";
 import { DEFAULT_ORIGIN } from "../links";
@@ -162,6 +162,7 @@ export function safetyHandlers(api: Api): Pick<Handlers, AreaRouteIds["safety"]>
           },
           chatter: api.chatterStatus(),
           tips: api.tipsStatus(),
+          bounties: waitingBountiesSummary(service.state),
         },
       };
     },

@@ -734,7 +734,7 @@ type TodayState = "Live" | "Off" | "Dry run" | "Paused";
 
 /** One row of the queue's Today card: a part of the town, where it stands, and its numbers. */
 export interface TodayRow {
-  key: "triage" | "checkins" | "spend" | "chatter" | "notes" | "tips";
+  key: "triage" | "checkins" | "spend" | "chatter" | "notes" | "tips" | "bounties";
   label: string;
   /** Left out for what's only ever numbers (check-ins, spend). */
   state?: TodayState;
@@ -754,7 +754,8 @@ function sentences(line: string, prefix: string): string[] {
 
 /**
  * The queue's Today card, row by row: AI triage, check-ins, AI spend, townsfolk chatter, whether its
- * notes draw residents in (once it has put one up), and the townsfolk's coin tips.
+ * notes draw residents in (once it has put one up), the townsfolk's coin tips, and town bounties
+ * waiting for a maintainer to pay.
  */
 export function todayRows(o: AdminOverviewResponse, nowMs: number): TodayRow[] {
   const { triage, chatter, tips } = o;
@@ -825,7 +826,15 @@ export function todayRows(o: AdminOverviewResponse, nowMs: number): TodayRow[] {
               "",
             ),
     },
+    { key: "bounties", label: "Town bounties", lines: [bountiesLine(o.bounties)] },
   ];
+}
+
+/** How many town bounties wait for a maintainer's confirm, and since which day. */
+function bountiesLine({ waiting, since }: AdminOverviewResponse["bounties"]): string {
+  if (waiting === 0) return "None waiting to be paid.";
+  const day = since ? `, the oldest since ${since.slice(0, 10)}` : "";
+  return `${waiting} done and waiting for a maintainer to pay${day}.`;
 }
 
 /** What a dry-run draft was: "would post", or why it was turned away. */

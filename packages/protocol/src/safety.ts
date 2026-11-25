@@ -748,6 +748,11 @@ export const AdminOverviewResponse = z.object({
    * the last run came to, in counts. `dry` checks each gift with the sim and gives nothing.
    */
   tips: TipsStatus,
+  /**
+   * Town bounties and grants their claimant finished, waiting for a maintainer to confirm and pay
+   * (`GET /v1/admin/bounties`), and when the oldest was finished.
+   */
+  bounties: z.object({ waiting: z.number().int(), since: z.string().nullable() }),
   /** Townsfolk chatter (docs/plans/townsfolk-chatter.md): its settings, today's use, and drafts. */
   chatter: z.object({
     /** `off` without a key or with no calls a day; `dry` stores drafts and posts nothing. */

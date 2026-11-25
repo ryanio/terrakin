@@ -857,6 +857,7 @@ describe("the queue's Today card", () => {
       drafts: [],
     },
     tips: { mode: "off", lastRun: null },
+    bounties: { waiting: 1, since: "2026-11-08T00:00:00.000Z" },
   } as unknown as AdminOverviewResponse;
 
   it("gives each part of the town a row with where it stands and its numbers a sentence a line", () => {
@@ -884,7 +885,14 @@ describe("the queue's Today card", () => {
         state: "Off",
         lines: ["The townsfolk don't give coins here."],
       },
+      {
+        key: "bounties",
+        label: "Town bounties",
+        lines: ["1 done and waiting for a maintainer to pay, the oldest since 2026-11-08."],
+      },
     ]);
+    const none = todayRows({ ...overview, bounties: { waiting: 0, since: null } }, 0).at(-1);
+    expect(none?.lines).toEqual(["None waiting to be paid."]);
   });
 
   it("says when triage is off or paused, and adds notes once chatter has put one up", () => {

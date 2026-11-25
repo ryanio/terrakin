@@ -97,13 +97,29 @@ export function bountiesView(
   };
 }
 
+/** A town bounty or grant its claimant has finished, which pays only once a maintainer confirms. */
+const waiting = (b: Bounty) => b.proposal !== undefined && b.status === "done";
+
+/**
+ * The overview's bounty line: how many town bounties wait for a maintainer, and since when the
+ * oldest has, so one never sits unpaid without staff seeing it.
+ */
+export function waitingBountiesSummary(state: WorldState): {
+  waiting: number;
+  since: string | null;
+} {
+  const days = (state.bounties?.list ?? [])
+    .filter((b) => bountyRunning(b) && waiting(b))
+    .map((b) => b.doneDay ?? b.postedDay);
+  return { waiting: days.length, since: days.length ? iso(Math.min(...days)) : null };
+}
+
 /**
  * `GET /v1/admin/bounties`: town bounties and grants waiting for a maintainer, then everything else
  * running.
  */
 export function staffBountiesView(state: WorldState, author: Authors): StaffBountiesResponse {
   const list = (state.bounties?.list ?? []).filter(bountyRunning);
-  const waiting = (b: Bounty) => b.proposal !== undefined && b.status === "done";
   const view = (b: Bounty) => bountyView(state, b, author);
   return {
     waiting: list.filter(waiting).map(view),

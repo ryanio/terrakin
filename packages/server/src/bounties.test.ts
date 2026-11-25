@@ -646,6 +646,8 @@ describe("maintainers signed in through Access", () => {
       via: "access",
       resident: expect.objectContaining({ id: t.dee.id }),
     });
+    // A finished town bounty shows on the overview until someone pays it.
+    expect(overview.body.bounties).toEqual({ waiting: 1, since: expect.any(String) });
     const why = { reason: "Checked it" };
     const asDee = await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, ryan);
     expect(asDee.body.error.code).toBe("not_eligible");
@@ -671,6 +673,8 @@ describe("maintainers signed in through Access", () => {
     const paid = await t.call("POST", "/v1/admin/bounties/b_1/confirm", { to: t.cy.id }, other);
     expect(paid.status).toBe(200);
     expect(paid.body.bounty).toMatchObject({ status: "paid" });
+    const after = await t.call("GET", "/v1/admin/overview", undefined, other);
+    expect(after.body.bounties).toEqual({ waiting: 0, since: null });
     const staff = t.store.log.filter((i) =>
       ["confirm_town_bounty", "reopen_bounty", "void_bounty"].includes(i.command.type),
     );

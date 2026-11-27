@@ -20,7 +20,7 @@
     "@terrakin/figure": "workspace:*",
     "@terrakin/protocol": "workspace:*",
     "@terrakin/sim": "workspace:*",
-    "lucide": "1.74.0",
+    "lucide": "1.79.0",
     "workers-start": "^0.36.0"
   }
 }

@@ -44,16 +44,16 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.8",
-    "@cloudflare/workers-types": "5.20261110.1",
+    "@cloudflare/workers-types": "5.20261124.1",
     "@fontsource/fraunces": "5.3.0",
     "@playwright/test": "1.65.1",
     "@resvg/resvg-js": "2.6.2",
     "@types/node": "^26.6.6",
     "doc-refs": "^0.1.0",
-    "knip": "6.44.2",
+    "knip": "6.48.0",
     "typescript": "7.0.2",
-    "vitest": "5.1.0",
+    "vitest": "5.1.1",
     "workers-start": "^0.36.0",
-    "wrangler": "4.163.0"
+    "wrangler": "4.167.0"
   }
 }
